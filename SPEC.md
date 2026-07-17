@@ -1,7 +1,7 @@
-# proactive-loop-agent — Build Specification (v1, authoritative)
+# proactive-loop-agent — Design & Module Contracts
 
-> This file is the single source of truth for module contracts. Every module MUST
-> conform to the signatures here. If code and SPEC disagree, SPEC wins.
+> The implementation was built contract-first against this document. It records
+> each module's public surface and the invariants the layers rely on.
 
 ## 1. Concept
 
@@ -38,43 +38,43 @@ resilient plan→act→check execution loop.
 ```
 proactive-loop-agent/
 ├── pyproject.toml            # uv-managed, src layout, console script `pla`
-├── Makefile                  # setup / test / demo / lint targets
-├── README.md                 # (wave 2)
-├── LICENSE                   # MIT (wave 2)
+├── Makefile                  # setup / test / demo / clean targets
+├── README.md
+├── LICENSE                   # MIT
 ├── SPEC.md                   # this file
 ├── src/proactive_loop/
 │   ├── __init__.py           # __version__ = "0.1.0"
-│   ├── models.py             # [INLINE, DONE] pydantic domain models
-│   ├── config.py             # [INLINE, DONE] Settings / RetryPolicy
+│   ├── models.py             # pydantic domain models
+│   ├── config.py             # Settings / RetryPolicy
 │   ├── llm/
 │   │   ├── __init__.py
-│   │   ├── client.py         # [INLINE, DONE] LLMClient protocol, ScriptedLLMClient, errors
-│   │   └── providers.py      # [T2] create_client(settings) env switch, lazy imports
-│   ├── collectors/           # [T1]
+│   │   ├── client.py         # LLMClient protocol, ScriptedLLMClient, errors
+│   │   └── providers.py      # create_client(settings) provider switch, lazy imports
+│   ├── collectors/
 │   │   ├── __init__.py       # all_collectors() registry
 │   │   ├── base.py           # Collector protocol
 │   │   ├── filesystem.py     # RecentFilesCollector
 │   │   ├── git_activity.py   # GitActivityCollector
 │   │   ├── todos.py          # TodoCollector
 │   │   └── notes.py          # NotesCollector
-│   ├── scout/                # [T3]
+│   ├── scout/
 │   │   ├── __init__.py
 │   │   ├── synthesizer.py    # signals -> LLM -> GoalSlate (re-scored, deduped)
 │   │   └── policy.py         # autonomy contract gate
-│   ├── loop/                 # [T4]
+│   ├── loop/
 │   │   ├── __init__.py
 │   │   ├── tools.py          # sandboxed ToolRegistry
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
-│   ├── scheduler.py          # [T5] periodic scan trigger
-│   └── cli.py                # [T5] argparse CLI: scan / dispatch / run / resume
-├── examples/                 # [T5]
+│   ├── scheduler.py          # periodic scan trigger
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume
+├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
-└── tests/                    # each wave-1 task owns its own test file(s)
+└── tests/                    # one test module per package
 ```
 
-## 3. Contract files (already written inline — READ THEM, do not modify)
+## 3. Foundation contracts
 
 - `src/proactive_loop/models.py` — all domain models & enums.
 - `src/proactive_loop/config.py` — `Settings.from_env()`, `RetryPolicy`.
@@ -82,7 +82,7 @@ proactive-loop-agent/
   `ScriptedLLMClient`, `LLMThrottleError`, `LLMTimeoutError`, `ScriptExhaustedError`,
   `parse_json_block(text)`.
 
-Key facts subagents rely on:
+Key invariants the other layers rely on:
 
 - `CandidateGoal.score` = computed field = `impact * urgency * confidence / effort_weight`.
 - `GoalSlate.ranked()` sorts by `(appropriate_now desc, score desc)`.
@@ -93,7 +93,7 @@ Key facts subagents rely on:
 
 ## 4. Module contracts
 
-### 4.1 collectors (T1)
+### 4.1 collectors
 
 ```python
 # base.py
@@ -120,7 +120,7 @@ class Collector(Protocol):
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
   graceful-degradation asserts.
 
-### 4.2 llm/providers.py (T2)
+### 4.2 llm/providers.py
 
 ```python
 def create_client(settings: Settings) -> LLMClient: ...
@@ -135,7 +135,7 @@ def create_client(settings: Settings) -> LLMClient: ...
   raises; **prove no `anthropic`/`openai`/`boto3` import leak** when provider=scripted
   (assert not in `sys.modules` after create).
 
-### 4.3 scout (T3)
+### 4.3 scout
 
 ```python
 # synthesizer.py
@@ -167,7 +167,7 @@ def gate_slate(slate: GoalSlate, settings: Settings) -> list[DispatchDecision]: 
   entry skipped, dedup, ranking order; policy: sensitive NEVER auto-dispatches even at
   max score; threshold boundary; blocked when not appropriate_now.
 
-### 4.4 loop (T4)
+### 4.4 loop
 
 ```python
 # tools.py
@@ -202,7 +202,7 @@ class GoalLoop:
     def __init__(self, client: LLMClient, settings: Settings, tools: ToolRegistry,
                  checkpoint: Checkpoint | None = None): ...
     def run(self, goal: CandidateGoal, *, resume: RunState | None = None) -> RunState: ...
-PLAN_TAG, CHECK_TAG = "plan", "check"
+GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 ```
 
   Per iteration: PLAN — LLM returns JSON `{"thought": str, "action": {"tool": str,
@@ -217,7 +217,7 @@ PLAN_TAG, CHECK_TAG = "plan", "check"
   sequence via injected sleep; budget exhaustion; checkpoint save→load→resume
   round-trip.
 
-### 4.5 cli + scheduler + examples (T5, wave 2)
+### 4.5 cli + scheduler + examples
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
   - `pla scan --workspace W [--out slate.json]` — collect → synthesize → print ranked
@@ -247,11 +247,10 @@ PLAN_TAG, CHECK_TAG = "plan", "check"
   asserts exit 0, slate file written, artifacts exist, sensitive goal NOT auto-run;
   `tests/test_scheduler.py` — injectable-sleep periodicity.
 
-## 5. Non-negotiables (every task)
+## 5. Non-negotiables
 
 - Python ≥3.12, pydantic v2 only runtime dep. Tests: pytest. NO other deps.
 - Fully offline: NEVER require network/API keys in tests or demo.
 - No references to Amazon, internal tools, employers, or real people anywhere.
 - Type hints everywhere; docstrings explain WHY; small functions.
-- Run your own tests with `uv run pytest tests/<your file> -q` from the project root
-  and make them pass before finishing.
+- Every module ships with tests; `uv run pytest` must pass from a clean checkout.
