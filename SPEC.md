@@ -89,7 +89,8 @@ Key invariants the other layers rely on:
 - `ScriptedLLMClient` matches on `tag` (exact match, else entries with tag `""`
   match anything), consumes entries in order, supports scripted failures via
   `{"raise": "throttle"|"timeout"}`, raises `ScriptExhaustedError` when empty.
-- `parse_json_block` tolerates ```json fences and leading/trailing prose.
+- `parse_json_block` tolerates ```json fences, leading/trailing prose, and
+  trailing junk after a valid value (e.g. a stray brace) via `raw_decode`.
 
 ## 4. Module contracts
 

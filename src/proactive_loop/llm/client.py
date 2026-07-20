@@ -99,26 +99,67 @@ class ScriptedLLMClient:
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 
-def parse_json_block(text: str) -> Any:
-    """Extract and parse JSON from model output, tolerating fences and prose.
+def _first_json_start(text: str) -> int | None:
+    """Index of the earliest ``{`` or ``[`` in *text*, or None if neither.
 
-    Strategy: prefer a fenced ```json block; otherwise scan for the first
-    balanced {...} or [...] region. Raises ValueError if nothing parses --
-    callers decide whether that is fatal (synthesizer skips, loop feeds the
-    error back to the model as an observation).
+    Whichever opener appears FIRST wins, so a top-level array ``[{...}]`` is
+    decoded as the array -- not as the first object nested inside it.
     """
-    match = _FENCE_RE.search(text)
-    candidates = [match.group(1)] if match else []
+    positions = [p for p in (text.find("{"), text.find("[")) if p != -1]
+    return min(positions) if positions else None
+
+
+def parse_json_block(text: str) -> Any:
+    """Extract and parse JSON from model output, tolerating fences and junk.
+
+    Strategy, in order of preference:
+      1. A fenced ```json block, if present.
+      2. ``raw_decode`` from the first ``{`` or ``[``: this parses exactly ONE
+         complete JSON value and IGNORES any trailing junk. That tolerance is
+         the point -- live models occasionally append a stray brace or a
+         sentence after an otherwise-valid object (observed in a live run:
+         ``...}}} }``), which a naive "first-brace to last-brace" slice would
+         turn into unbalanced, unparseable input.
+      3. The whole stripped string, as a last resort.
+
+    Raises ValueError if nothing parses -- callers decide whether that is fatal
+    (synthesizer skips, loop feeds the error back to the model as an observation).
+    """
     stripped = text.strip()
-    candidates.append(stripped)
-    for opener, closer in (("{", "}"), ("[", "]")):
-        start = stripped.find(opener)
-        end = stripped.rfind(closer)
-        if start != -1 and end > start:
-            candidates.append(stripped[start : end + 1])
-    for candidate in candidates:
-        try:
-            return json.loads(candidate)
-        except (json.JSONDecodeError, TypeError):
-            continue
+    decoder = json.JSONDecoder()
+
+    def _raw_decode(s: str) -> Any:
+        start = _first_json_start(s)
+        if start is None:
+            raise ValueError("no JSON opener found")
+        return decoder.raw_decode(s[start:])[0]
+
+    # 1. Primary: junk-tolerant decode from the earliest opener. This also
+    #    handles fenced output, because the JSON inside a ```json fence still
+    #    starts with { or [ and raw_decode simply ignores the trailing ``` .
+    #    Doing this FIRST (before any fence regex) keeps a code fence embedded
+    #    in a string value -- e.g. a write_file whose content is a markdown doc
+    #    containing ```python ... ``` -- from being mistaken for the wrapper.
+    try:
+        return _raw_decode(stripped)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # 2. Fallback: an explicit fenced block, for when the earliest opener is a
+    #    non-JSON brace in prose and the real JSON is only inside the fence.
+    match = _FENCE_RE.search(text)
+    if match:
+        fenced = match.group(1).strip()
+        for attempt in (lambda: json.loads(fenced), lambda: _raw_decode(fenced)):
+            try:
+                return attempt()
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+
+    # 3. Last resort: parse the whole stripped string.
+    try:
+        return json.loads(stripped)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
     raise ValueError(f"no parseable JSON found in model output: {text[:200]!r}")

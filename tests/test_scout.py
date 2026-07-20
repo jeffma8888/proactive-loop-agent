@@ -418,3 +418,16 @@ def test_gate_slate_returns_one_decision_per_goal_in_ranked_order() -> None:
     assert outcomes["Needs approval one"] is AutonomyDecision.NEEDS_APPROVAL
     assert outcomes["Sensitive one"] is AutonomyDecision.NEEDS_APPROVAL
     assert outcomes["Blocked one"] is AutonomyDecision.BLOCKED
+
+
+def test_system_prompt_steers_toward_artifact_shaped_goals() -> None:
+    """Regression guard: the synthesizer must warn the model that the executor
+    is a write/read/list sandbox, so it proposes artifact-shaped goals rather
+    than infeasible ones like "publish" (which stalled a live run)."""
+    synth = GoalSynthesizer(ScriptedLLMClient([]), Settings())
+    prompt = synth._system_prompt()
+    low = prompt.lower()
+    assert "written artifact" in low
+    assert "sandbox" in low
+    # Names the categories of thing it must NOT propose.
+    assert "publish" in low and "running" in low
