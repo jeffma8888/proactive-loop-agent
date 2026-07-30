@@ -2,10 +2,10 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into nine verbs a person actually runs -- scan, dispatch, run, resume, the
+into ten verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
-transcript renderer, the read-only signals perception inspector, and the periodic
-watch loop -- and owns
+transcript renderer, the read-only signals perception inspector, the periodic
+watch loop, and the read-only diff slate-delta inspector -- and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
@@ -79,7 +79,7 @@ _TRACE_OUTPUT_WIDTH = 80
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with nine subcommands and shared globals.
+    """Assemble the ``pla`` parser with ten subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -280,6 +280,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Stop after N scans (default: run until interrupted with Ctrl-C).",
     )
     p_watch.set_defaults(func=_cmd_watch)
+
+    # `diff` compares TWO saved slates and classifies goals as added/removed/
+    # changed/unchanged -- the comparative companion to `watch`, turning a stream
+    # of point-in-time slates into a change feed. Like runs/explain/trace/signals
+    # it inherits the globals so --provider/--scripted-responses/--state-dir are
+    # accepted but INERT: the handler builds no LLMClient, runs no collector, and
+    # writes no file. --old and --new are both required; --json swaps the human
+    # sections for one machine-parseable object. It matches goals by NORMALIZED
+    # TITLE, never the random per-scan id (an id-match reports 100% churn per scan).
+    p_diff = sub.add_parser(
+        "diff",
+        parents=[globals_],
+        help="Compare two saved slates and classify goals as added/removed/changed (read-only, LLM-free).",
+    )
+    p_diff.add_argument("--old", required=True, help="Path to the OLDER slate JSON from `scan`.")
+    p_diff.add_argument("--new", required=True, help="Path to the NEWER slate JSON from `scan`.")
+    p_diff.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the diff as one JSON object instead of the human sections.",
+    )
+    p_diff.set_defaults(func=_cmd_diff)
 
     return parser
 
@@ -796,6 +818,180 @@ def _explain_json_payload(
     }
 
 
+_DIFF_EPSILON = 1e-9
+
+
+def _normalize_title(title: str) -> str:
+    """The synthesizer's own dedup key: ``title.strip().lower()``.
+
+    Matching two slates by this -- NEVER by ``CandidateGoal.id`` (a random
+    per-scan ``default_factory``) -- is the load-bearing correctness contract of
+    ``diff``: an id-based match would report every goal as both added and removed
+    on every scan, since a fresh scan mints fresh ids for identical titles.
+    """
+    return title.strip().lower()
+
+
+def _index_by_title(slate: GoalSlate) -> dict[str, CandidateGoal]:
+    """Map normalized title -> goal, FIRST occurrence wins.
+
+    Mirrors the synthesizer's own first-wins dedup: if two goals in one slate
+    share a normalized title, the earlier one is kept and later duplicates are
+    ignored (``setdefault``), so a single slate contributes at most one goal per
+    normalized title to the comparison.
+    """
+    index: dict[str, CandidateGoal] = {}
+    for goal in slate.goals:
+        index.setdefault(_normalize_title(goal.title), goal)
+    return index
+
+
+def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict:
+    """Classify goals across two slates into added / removed / changed / unchanged.
+
+    A pure function of ``(old, new, settings)`` -- builds no client, runs nothing,
+    touches no disk (like every other ``_render_*``/``_*_json_payload`` helper), so
+    it is unit-testable from two in-memory slates alone. Goals are matched by
+    NORMALIZED TITLE (``_index_by_title``), NEVER by the random per-scan ``id``
+    (behavior 3). Both sides are re-gated LIVE with the SAME ``settings`` via the
+    caller's shared ``_settings(args)`` seam, so a decision flip in the ``changed``
+    bucket reflects the goal's OWN score/appropriateness/category change, never a
+    settings difference -- and proves ``diff`` re-gates rather than comparing stored
+    decisions (a slate persists none). A matched goal lands in ``changed`` iff its
+    score moved by more than ``_DIFF_EPSILON`` OR its live gate decision flipped
+    (behaviors 6, 8); otherwise it only bumps ``unchanged_count`` (behavior 7).
+    Every bucket is built in normalized-title-ascending order (behaviors 10-12) by
+    iterating the ``sorted`` key sets. Each row is an EXPLICIT dict of exactly its
+    contract keys (never ``model_dump`` -- the iter-08 schema-leak discipline), so
+    the same structure feeds both the human render and the ``--json`` payload
+    without leaking a later-added model field onto the wire. ``title`` follows the
+    new-vs-old source rule (behavior 11): the NEW slate's title for added/changed
+    rows, the OLD slate's for removed rows.
+    """
+    old_index = _index_by_title(old)
+    new_index = _index_by_title(new)
+
+    added: list[dict] = []
+    for key in sorted(new_index.keys() - old_index.keys()):
+        goal = new_index[key]
+        added.append(
+            {
+                "title": goal.title,
+                "score": goal.score,
+                "decision": gate(goal, settings).decision.value,
+            }
+        )
+
+    removed: list[dict] = []
+    for key in sorted(old_index.keys() - new_index.keys()):
+        goal = old_index[key]
+        removed.append(
+            {
+                "title": goal.title,
+                "score": goal.score,
+                "decision": gate(goal, settings).decision.value,
+            }
+        )
+
+    changed: list[dict] = []
+    unchanged_count = 0
+    for key in sorted(old_index.keys() & new_index.keys()):
+        old_goal = old_index[key]
+        new_goal = new_index[key]
+        old_decision = gate(old_goal, settings).decision.value
+        new_decision = gate(new_goal, settings).decision.value
+        score_moved = abs(new_goal.score - old_goal.score) > _DIFF_EPSILON
+        if score_moved or old_decision != new_decision:
+            changed.append(
+                {
+                    "title": new_goal.title,  # matched rows use the NEW title
+                    "old_score": old_goal.score,
+                    "new_score": new_goal.score,
+                    "old_decision": old_decision,
+                    "new_decision": new_decision,
+                }
+            )
+        else:
+            unchanged_count += 1
+
+    return {
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+        "unchanged_count": unchanged_count,
+    }
+
+
+def _render_diff(result: dict) -> str:
+    """Render a slate diff as plain text (behaviors 9-11).
+
+    A pure, disk-free function of the ``_compute_diff`` result -- like every other
+    ``_render_*`` helper it opens no files and builds no client. When the three
+    delta buckets are ALL empty (identical slates, or two empty slates) it degrades
+    to the single ``(no differences)`` line regardless of how many goals were
+    unchanged (behavior 9). Otherwise it prints ONLY the non-empty sections in the
+    fixed order added -> removed -> changed, each a header line followed by one
+    title-ascending indented row per goal, then ALWAYS the ``unchanged: <N>``
+    trailer (behavior 10). Scores are ``:.2f`` (matching ``_render_table`` /
+    ``_render_markdown``); decisions are the gate ``.value`` string already stored
+    on each row.
+    """
+    added = result["added"]
+    removed = result["removed"]
+    changed = result["changed"]
+    if not added and not removed and not changed:
+        return "(no differences)"
+    lines: list[str] = []
+    if added:
+        lines.append(f"+ added ({len(added)})")
+        lines.extend(
+            f"    {row['title']}  score={row['score']:.2f}  {row['decision']}"
+            for row in added
+        )
+    if removed:
+        lines.append(f"- removed ({len(removed)})")
+        lines.extend(
+            f"    {row['title']}  score={row['score']:.2f}  {row['decision']}"
+            for row in removed
+        )
+    if changed:
+        lines.append(f"~ changed ({len(changed)})")
+        lines.extend(
+            f"    {row['title']}  score {row['old_score']:.2f} -> {row['new_score']:.2f}"
+            f"  decision {row['old_decision']} -> {row['new_decision']}"
+            for row in changed
+        )
+    lines.append(f"unchanged: {result['unchanged_count']}")
+    return "\n".join(lines)
+
+
+def _diff_json_payload(old_path: str, new_path: str, result: dict) -> dict:
+    """Build the ``diff --json`` document: one object of EXACTLY six top-level keys.
+
+    An explicit allowlist (never ``model_dump`` -- the iter-08 schema-leak
+    discipline ``_scan_json_payload`` / ``_signals_json_payload`` /
+    ``_explain_json_payload`` all follow): ``old``/``new`` echo the ``--old``/``--new``
+    path strings EXACTLY as passed (not a re-``str``'d ``Path``, which would drop a
+    leading ``./``); ``added``/``removed`` are the ``_compute_diff`` rows
+    (``{title, score, decision}``); ``changed`` is its rows
+    (``{title, old_score, new_score, old_decision, new_decision}``);
+    ``unchanged_count`` is a non-negative int. All three arrays are ALWAYS present,
+    ordered by normalized title ascending, and emit ``[]`` (never the human
+    ``(no differences)`` marker) when empty. Scores are the raw numeric
+    ``goal.score`` computed field (JSON numbers, not the ``:.2f`` human strings);
+    decisions are the gate ``.value`` string. Kept pure/disk-free and client-free
+    so it is unit-testable without a slate file or an ``LLMClient``.
+    """
+    return {
+        "old": old_path,
+        "new": new_path,
+        "added": result["added"],
+        "removed": result["removed"],
+        "changed": result["changed"],
+        "unchanged_count": result["unchanged_count"],
+    }
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -1167,6 +1363,49 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         print(_render_table(slate, decisions))
 
     run_periodic(scan_once, args.interval, iterations=args.max_scans)
+    return 0
+
+
+def _cmd_diff(args: argparse.Namespace) -> int:
+    """diff: classify goals across two saved slates (read-only, LLM-free).
+
+    WHY it builds no ``LLMClient`` (like ``runs``/``explain``/``trace``/``signals``):
+    it is a pure comparison of two persisted slates -- the comparative companion to
+    ``watch``, turning a stream of point-in-time slates into a change feed. It
+    re-gates each goal through the SAME ``gate(goal, settings)`` the ``dispatch``
+    verb uses (via the shared ``_settings`` seam), matches by NORMALIZED TITLE (never
+    the random per-scan ``id``), and classifies added/removed/changed + an unchanged
+    count. It synthesizes nothing, runs no collector/subprocess, and writes no file.
+    Exit codes mirror ``dispatch``/``explain``: a missing/non-file ``--old`` (checked
+    FIRST) or ``--new`` returns ``2`` explicitly, before any exception; a corrupt or
+    schema-invalid slate raises ``ValidationError``/``JSONDecodeError`` (a
+    ``ValueError``) that the top-level ``main()`` boundary maps to one legible
+    ``error:`` line at exit ``1`` -- no bespoke catch, no traceback. ``--json`` swaps
+    the human sections for one machine-parseable object AFTER those guards, so the
+    exit contract is ``--json``-independent -- rendering selection only.
+    """
+    old_path = Path(args.old)
+    if not old_path.is_file():
+        print(f"error: slate file not found: {old_path}", file=sys.stderr)
+        return 2
+    new_path = Path(args.new)
+    if not new_path.is_file():
+        print(f"error: slate file not found: {new_path}", file=sys.stderr)
+        return 2
+
+    old_slate = GoalSlate.model_validate_json(old_path.read_text())
+    new_slate = GoalSlate.model_validate_json(new_path.read_text())
+
+    settings = _settings(args)
+    result = _compute_diff(old_slate, new_slate, settings)
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
+        # guards above (exit 2 / exit 1) already ran, so --json selects a rendering
+        # only and leaves the exit-code contract untouched. `old`/`new` echo the
+        # raw arg strings (behavior 12), not the normalized Path.
+        print(json.dumps(_diff_json_payload(args.old, args.new, result), indent=2))
+    else:
+        print(_render_diff(result))
     return 0
 
 

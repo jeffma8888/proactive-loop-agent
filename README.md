@@ -75,11 +75,12 @@ automatically.
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--json` for a full array; read-only).|
 | `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters; read-only, LLM-free).|
 | `watch`   | Repeatedly re-scan a workspace on an interval and re-print the slate (`--interval S`; `--max-scans N`; live monitor, writes no slate file).|
+| `diff`    | Compare two saved slates and classify goals as added/removed/changed/unchanged (`--old A.json --new B.json`; `--json` for a JSON object; matched by normalized title; read-only, LLM-free).|
 
 Together these verbs form a transparency arc across the pipeline —
 `signals` (what the collectors *see*) → `scan` (what the scout *proposes*) →
 `explain` (why the gate *ruled*) → `trace` (what a run *did*). `signals`,
-`explain`, `trace`, and `runs` are read-only and need no LLM call; `scan` is
+`explain`, `trace`, `runs`, and `diff` are read-only and need no LLM call; `scan` is
 the one synthesizing step — it calls the LLM and writes the slate.
 
 `watch` turns that one-shot scan into the product's namesake proactive loop: it
@@ -87,6 +88,8 @@ re-runs the scan pipeline every `--interval` seconds (default 3600) and re-print
 the ranked, gated slate as your context changes, running until interrupted with
 Ctrl-C unless `--max-scans N` bounds it. It is a live monitor — unlike `scan` it
 writes no slate file and prints no `slate written:` trailer.
+
+`diff` is the comparative companion to `watch`: hand it two saved slates (`--old`/`--new`) and it classifies goals as added / removed / changed (the score moved past `1e-9` or the gate decision flipped) / unchanged, matched by normalized title (`title.strip().lower()`) rather than the random per-scan id — turning a stream of point-in-time slates into a change feed. It re-gates each side live, so a goal that crossed the autonomy threshold shows up in `changed`. `--json` emits one `{old, new, added, removed, changed, unchanged_count}` object. Like the other inspectors it builds no `LLMClient`, runs nothing, and writes no file.
 
 Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
 via `PLA_*` environment variables). Run `pla --version` to print the installed

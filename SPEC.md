@@ -409,6 +409,37 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     verbatim iter-10 guard, before any client/collect and before consuming a
     scripted response). Explicitly returns 0 (never `run_periodic`'s scan count).
     No `--out`/`--format`; no slate-file writing (that is `scan`'s job).
+  - `pla diff --old A.json --new B.json [--json]` — read-only, LLM-free
+    slate-delta inspector: the comparative companion to `watch`, turning a stream
+    of point-in-time slates into a change feed (every other saved artifact already
+    has a viewer — `runs`/`trace`/`explain`/`signals` — but the slate itself had no
+    *comparative* one). It matches goals across the two saved slates by NORMALIZED
+    TITLE (`title.strip().lower()` — the synthesizer's own dedup key, NEVER the
+    random per-scan `CandidateGoal.id`, which would report every goal as both added
+    and removed each scan; within one slate first-occurrence-wins on a duplicate
+    title), re-gates each side LIVE with the SAME `gate(goal, settings)` (via the
+    shared `_settings(args)` seam, so a decision flip reflects the goal's OWN
+    score/appropriateness/category change, not a settings change — proving it
+    re-gates rather than comparing stored decisions, which a slate does not persist),
+    and classifies each goal as **added** (title in NEW only), **removed** (in OLD
+    only), **changed** (in BOTH, with `abs(new_score - old_score) > 1e-9` OR a
+    flipped gate decision), or **unchanged** (count only). Human form prints only
+    the non-empty `+ added (N)` / `- removed (N)` / `~ changed (N)` sections (rows
+    title-ascending; `<title>` un-normalized, from NEW for added/changed and OLD for
+    removed; scores `:.2f`; decisions as the gate `.value`) then ALWAYS an
+    `unchanged: <N>` trailer, degrading to the single `(no differences)` line when
+    the three delta buckets are empty. `--json` emits one object of EXACTLY six
+    top-level keys `old, new, added, removed, changed, unchanged_count` — an explicit
+    allowlist (never `model_dump`; the iter-08 schema-leak discipline): `old`/`new`
+    echo the path strings as passed, the three arrays are ALWAYS present (`[]` when
+    empty, not the human marker) and title-ascending, `added`/`removed` items are
+    `{title, score, decision}` and `changed` items are `{title, old_score, new_score,
+    old_decision, new_decision}` with scores as raw numbers and decisions as `.value`.
+    A missing/non-file `--old` (checked FIRST) or `--new` → `error: slate file not
+    found: <path>` on stderr + exit 2; a corrupt/schema-invalid slate → exit 1 via
+    the `main()` boundary (both before any rendering, so the exit contract is
+    `--json`-independent). Builds no `LLMClient`, runs no collector/subprocess, and
+    writes no file.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
   - `_collect(workspace) -> WorkspaceSnapshot` — the shared collector-orchestration
     seam behind `scan`/`run`/`signals`/`watch`. It ENFORCES the §4.1 "collectors
