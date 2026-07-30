@@ -72,12 +72,19 @@ automatically.
 | `explain` | Show one goal's score math, gate decision + reason, and provenance (read-only).|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--json` for a full array; read-only).|
 | `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters; read-only, LLM-free).|
+| `watch`   | Repeatedly re-scan a workspace on an interval and re-print the slate (`--interval S`; `--max-scans N`; live monitor, writes no slate file).|
 
 Together these verbs form a transparency arc across the pipeline —
 `signals` (what the collectors *see*) → `scan` (what the scout *proposes*) →
 `explain` (why the gate *ruled*) → `trace` (what a run *did*). `signals`,
 `explain`, `trace`, and `runs` are read-only and need no LLM call; `scan` is
 the one synthesizing step — it calls the LLM and writes the slate.
+
+`watch` turns that one-shot scan into the product's namesake proactive loop: it
+re-runs the scan pipeline every `--interval` seconds (default 3600) and re-prints
+the ranked, gated slate as your context changes, running until interrupted with
+Ctrl-C unless `--max-scans N` bounds it. It is a live monitor — unlike `scan` it
+writes no slate file and prints no `slate written:` trailer.
 
 Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
 via `PLA_*` environment variables). Run `pla --version` to print the installed

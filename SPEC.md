@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -351,6 +351,20 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `error: workspace not found: <path>` on stderr + exit 2 (the verbatim iter-10
     guard, before any collection), regardless of `--json`/`--kind`. Completes the
     transparency arc signals (see) → scan (propose) → explain (gate) → trace (did).
+  - `pla watch --workspace W [--interval S] [--max-scans N]` — the proactive
+    watch loop: re-run the SAME `scan` pipeline (collect → synthesize → gate →
+    render the ranked slate + gate decisions to stdout) every `--interval`
+    seconds via `scheduler.run_periodic`, prefixing each tick with a
+    `=== scan <n> ===` header (1-based). `--interval` is a float, default `3600.0`;
+    `--max-scans` is an int, default `None` = run forever (production "watch until
+    Ctrl-C"), a positive int bounds the run for tests/one-offs. Unlike `scan` it is
+    a LIVE monitor: it writes NO slate file and prints no `slate written:` trailer
+    (a tick's output is ephemeral, not an artifact). The LLM client is built ONCE
+    before the loop and reused every tick. A missing/non-directory `--workspace`
+    fails fast with `error: workspace not found: <path>` on stderr + exit 2 (the
+    verbatim iter-10 guard, before any client/collect and before consuming a
+    scripted response). Explicitly returns 0 (never `run_periodic`'s scan count).
+    No `--out`/`--format`; no slate-file writing (that is `scan`'s job).
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
 - `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.

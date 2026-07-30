@@ -2,9 +2,10 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into eight verbs a person actually runs -- scan, dispatch, run, resume, the
+into nine verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
-transcript renderer, and the read-only signals perception inspector -- and owns
+transcript renderer, the read-only signals perception inspector, and the periodic
+watch loop -- and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
@@ -46,6 +47,7 @@ from .models import (
     WorkspaceSnapshot,
     ensure_dir,
 )
+from .scheduler import run_periodic
 from .scout import GoalSynthesizer, gate, gate_slate
 
 _META_NAME = "meta.json"
@@ -70,7 +72,7 @@ _TRACE_OUTPUT_WIDTH = 80
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with eight subcommands and shared globals.
+    """Assemble the ``pla`` parser with nine subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -233,6 +235,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show only signals of this collector-defined kind (e.g. todo|note|git_commit).",
     )
     p_signals.set_defaults(func=_cmd_signals)
+
+    # `watch` wires scheduler.run_periodic into a user-facing verb: it re-runs the
+    # SAME collect->synthesize->gate->render body every --interval seconds,
+    # re-printing the ranked, gated slate as the workspace changes -- the
+    # proactive-monitoring loop the product is named for. Unlike `scan` it is a
+    # LIVE view: it writes NO slate file and prints no `slate written:` trailer (a
+    # monitor tick's output is ephemeral, not an artifact a later `dispatch`
+    # reads). --max-scans bounds the run (default None = run until Ctrl-C, the
+    # production case); --interval accepts 0 so the offline tests drive it with a
+    # bounded --max-scans and no real waiting.
+    p_watch = sub.add_parser(
+        "watch",
+        parents=[globals_],
+        help="Repeatedly scan a workspace on an interval (proactive watch loop).",
+    )
+    p_watch.add_argument("--workspace", required=True, help="Workspace root to watch.")
+    p_watch.add_argument(
+        "--interval",
+        type=float,
+        default=3600.0,
+        help="Seconds to wait between scans (default 3600).",
+    )
+    p_watch.add_argument(
+        "--max-scans",
+        type=int,
+        default=None,
+        help="Stop after N scans (default: run until interrupted with Ctrl-C).",
+    )
+    p_watch.set_defaults(func=_cmd_watch)
 
     return parser
 
@@ -1002,6 +1033,56 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         print(json.dumps(_signals_json_payload(snapshot, kind), indent=2))
     else:
         print(_render_signals(snapshot, kind))
+    return 0
+
+
+def _cmd_watch(args: argparse.Namespace) -> int:
+    """watch: re-run the scan pipeline every --interval seconds (proactive loop).
+
+    This is the product's namesake capability finally wired to a verb: it reuses
+    ``scan``'s collect -> synthesize -> gate -> render body verbatim, on a timer,
+    so a live workspace's ranked, gated slate is re-printed as its context
+    changes. Two deliberate departures from ``scan``: (1) it is a LIVE monitor, so
+    it writes NO slate file and prints no ``slate written:`` trailer -- a watch
+    tick's output is ephemeral, not an artifact a later ``dispatch`` consumes;
+    (2) the LLM client is built ONCE, before the loop, and reused across ticks
+    (the provider never changes between scans, and rebuilding it per-tick would be
+    pointless work for a long-lived watcher).
+
+    Bounded runs (``--max-scans N``) exist for tests and one-offs; the production
+    case is ``--max-scans`` omitted (``None``) -> run forever, exited with Ctrl-C,
+    exactly as ``run_periodic``'s docstring frames it. We explicitly ``return 0``
+    and NOT ``run_periodic``'s scan count -- returning the count would wrongly
+    surface as a nonzero exit code (e.g. 2 for a 2-scan run) through ``main()``'s
+    ``int()`` cast.
+    """
+    workspace = Path(args.workspace)
+    # Same front-door guard as scan/run/signals (verbatim iter-10): reject a
+    # missing/non-directory workspace with exit 2 BEFORE building a client or
+    # collecting, so a mistyped path is reported as the problem instead of
+    # degrading to an empty slate looping over nothing. Runs first, so it never
+    # consumes a scripted response and does not depend on --interval/--max-scans.
+    if not workspace.is_dir():
+        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+        return 2
+    settings = _settings(args, workspace_root=workspace)
+    client = create_client(settings)  # built once, reused every tick
+
+    count = 0
+
+    def scan_once() -> None:
+        # run_periodic owns the timer; this closure owns one tick: a 1-based
+        # header then the SAME scan body scan/run use (minus the slate-file write),
+        # so `watch` and `scan` can never disagree on what a scan produces.
+        nonlocal count
+        count += 1
+        print(f"=== scan {count} ===")
+        snapshot = _collect(workspace)
+        slate = GoalSynthesizer(client, settings).synthesize(snapshot)
+        decisions = gate_slate(slate, settings)
+        print(_render_table(slate, decisions))
+
+    run_periodic(scan_once, args.interval, iterations=args.max_scans)
     return 0
 
 
