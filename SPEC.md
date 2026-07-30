@@ -244,12 +244,17 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
   - `pla scan --workspace W [--out slate.json]` — collect → synthesize → print ranked
-    table (plain text) + gate decisions; write slate JSON.
+    table (plain text) + gate decisions; write slate JSON. A missing or
+    non-directory `--workspace` fails fast with `error: workspace not found: <path>`
+    on stderr and exit 2 (before any client/collect), rather than degrading to an
+    empty slate + exit 0.
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count) + artifact paths.
   - `pla run --workspace W` — scan then auto-dispatch the top AUTO_DISPATCH goal
-    (approval-gated goals are listed but never auto-run).
+    (approval-gated goals are listed but never auto-run). Same `--workspace`
+    guard as `scan`: a missing/non-directory path -> `error: workspace not found: <path>`
+    on stderr + exit 2 (no slate written, no run dir created).
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json]` — read-only, LLM-free lister of past dispatched runs
     under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,

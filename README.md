@@ -75,6 +75,11 @@ Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
 via `PLA_*` environment variables). Run `pla --version` to print the installed
 version (sourced from `proactive_loop.__version__`).
 
+`scan` and `run` validate `--workspace`: a missing or non-directory path fails
+fast with `error: workspace not found: <path>` on stderr and exit code 2, rather
+than silently producing an empty slate. A mistyped path is reported as the
+problem instead of hiding behind an empty result.
+
 ## How the offline scripted provider works
 
 Everything talks to models through one seam: `LLMClient.complete(system, prompt,

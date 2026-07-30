@@ -545,6 +545,14 @@ def _dispatch_goal(
 def _cmd_scan(args: argparse.Namespace) -> int:
     """scan: collect -> synthesize -> gate -> print table -> write slate JSON."""
     workspace = Path(args.workspace)
+    # Front-door guard: a mistyped/nonexistent workspace would otherwise degrade
+    # to an empty slate + exit 0 (every collector tolerates a missing dir, SPEC
+    # 4.1), silently hiding the real problem -- the path -- on the very first
+    # thing a new user tries. Fail fast BEFORE building a client/collecting, so
+    # the exit-2 missing-input contract matches dispatch/resume/runs/trace.
+    if not workspace.is_dir():
+        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+        return 2
     settings = _settings(args, workspace_root=workspace)
     client = create_client(settings)
 
@@ -605,6 +613,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     command but are NEVER auto-run -- that is the whole point of the L2 gate.
     """
     workspace = Path(args.workspace)
+    # Same front-door guard as scan (run == scan + auto-dispatch): reject a
+    # missing/non-directory workspace with exit 2 before any client/collect,
+    # so a bad path never produces an empty slate + a no-op auto-dispatch.
+    if not workspace.is_dir():
+        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+        return 2
     settings = _settings(args, workspace_root=workspace)
     client = create_client(settings)
 
