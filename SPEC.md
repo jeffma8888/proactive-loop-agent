@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -251,6 +251,21 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     a later `dispatch` agree), and the goal's rationale/sources/first-steps.
     Missing slate or unknown id → exit 2; a corrupt slate → exit 1 via the
     `main()` boundary. Builds no `LLMClient`.
+  - `pla trace --run-dir DIR [--json]` — read-only, LLM-free renderer of ONE
+    dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
+    `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,
+    goal title+id, status, step/iteration/llm-call counts) then one single-line
+    entry per step — `[index] kind …output…` with `done=true`/`done=false`
+    appended on `check` steps — collapsing embedded newlines and width-truncating
+    long output so the block never breaks; empty `steps` degrade to a
+    `(no steps recorded)` line. `--json` emits a parseable array (one object per
+    step: `index`, `kind`, `output` full/untruncated, `done`, `artifacts`; `[]`
+    when empty). `_render_trace` is a pure function of `(state, run_dir)` — it
+    reads no `meta.json` (the transcript is fully derivable from the checkpoint,
+    dropping a corrupt-meta edge). Missing/absent checkpoint → exit 2 (mirrors
+    `resume`); a corrupt checkpoint → exit 1 via the `main()` boundary. Builds
+    no `LLMClient`. Completes the run-lifecycle triad runs (find) → trace
+    (inspect) → resume (continue).
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
 - `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.

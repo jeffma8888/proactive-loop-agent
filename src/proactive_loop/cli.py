@@ -2,8 +2,9 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into six verbs a person actually runs -- scan, dispatch, run, resume, the
-read-only runs lister, and the read-only explain auditor -- and owns the two
+into seven verbs a person actually runs -- scan, dispatch, run, resume, the
+read-only runs lister, the read-only explain auditor, and the read-only trace
+transcript renderer -- and owns the two
 things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
@@ -37,8 +38,10 @@ from .models import (
     CandidateGoal,
     DispatchDecision,
     GoalSlate,
+    LoopStep,
     RunState,
     RunStatus,
+    StepKind,
     WorkspaceSnapshot,
     ensure_dir,
 )
@@ -52,6 +55,12 @@ _SLATE_NAME = "slate.json"
 # checkpoint; the black-box behavior contract depends on this exact text, so it
 # lives as a named constant rather than an inline literal.
 _NO_CHECKPOINT = "(no checkpoint)"
+# Max chars of a step's (newline-collapsed) output shown in the HUMAN trace
+# render. Kept well under the behavior contract's 500-char probe so a long tool
+# observation is always visibly truncated in the block form; the untruncated
+# text is only ever surfaced via `trace --json`. A named constant (not an inline
+# literal) so the truncation policy has one home.
+_TRACE_OUTPUT_WIDTH = 80
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +69,7 @@ _NO_CHECKPOINT = "(no checkpoint)"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with six subcommands and shared globals.
+    """Assemble the ``pla`` parser with seven subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -165,6 +174,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_explain.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
     p_explain.add_argument("--goal-id", required=True, help="Id of the goal to explain.")
     p_explain.set_defaults(func=_cmd_explain)
+
+    # `trace` renders ONE dispatched run's persisted PLAN->ACT->CHECK transcript
+    # from its checkpoint. Like `runs`/`explain` it inherits the globals so
+    # --provider/--scripted-responses are accepted but inert -- it builds no
+    # LLMClient, so a fresh clone can inspect what a finished run did with zero
+    # provider config. --run-dir is required (mirrors `resume`); --json swaps the
+    # truncated human transcript for a full, machine-parseable array of steps.
+    p_trace = sub.add_parser(
+        "trace",
+        parents=[globals_],
+        help="Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (read-only, LLM-free).",
+    )
+    p_trace.add_argument("--run-dir", required=True, help="A run-<id> directory to trace.")
+    p_trace.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the step transcript as a JSON array (full, untruncated output) instead of the human block.",
+    )
+    p_trace.set_defaults(func=_cmd_trace)
 
     return parser
 
@@ -426,6 +454,59 @@ def _render_explain(
     return "\n".join(lines)
 
 
+def _trace_step_line(step: LoopStep) -> str:
+    """One single-line transcript entry for *step* in the human trace render.
+
+    Embedded newlines (and any other whitespace runs) in a step's ``output`` are
+    collapsed to single spaces BEFORE width-truncation, so the block invariant
+    "exactly one printed line per recorded step" holds no matter what a tool
+    observation contained -- a multi-line ACT observation can never break the
+    layout. The line always begins ``[{index}] {kind}`` (``kind`` is a str-Enum,
+    so ``.value`` -> ``plan``/``act``/``check``), which lets a reader count
+    per-step lines by that prefix; a ``check`` step appends its verdict
+    (``done=true``/``done=false``) since ``done`` is only meaningful there.
+    """
+    # str.split() with no args splits on ANY whitespace run and drops empties, so
+    # this both flattens newlines to a single line and normalizes internal spacing.
+    text = " ".join(step.output.split())
+    if len(text) > _TRACE_OUTPUT_WIDTH:
+        # Reserve one column for the ellipsis so the shown text never exceeds the
+        # configured width; the full text is only available via `trace --json`.
+        text = text[: _TRACE_OUTPUT_WIDTH - 1] + "\u2026"
+    line = f"[{step.index}] {step.kind.value}"
+    if text:
+        line += f" {text}"
+    if step.kind is StepKind.CHECK:
+        line += f"  done={str(step.done).lower()}"
+    return line
+
+
+def _render_trace(state: RunState, run_dir: Path) -> str:
+    """Render one run's persisted PLAN->ACT->CHECK transcript as plain text.
+
+    A pure, disk-free, deterministic function of ``(state, run_dir)`` -- like
+    ``_render_runs`` / ``_render_run_summary`` / ``_render_explain`` it opens no
+    files. The transcript is fully derivable from the loaded checkpoint alone, so
+    this verb deliberately never reads ``meta.json`` (dropping a corrupt-meta
+    failure edge) and builds NO ``LLMClient``: inspecting what a finished run did
+    needs zero provider config. ``StepKind`` / ``RunStatus`` are str-Enums, so
+    their ``.value`` is printed (``plan`` / ``done``), never the ``.PLAN`` repr.
+    Header lines start with a word, per-step lines with ``[{index}]``, so the two
+    are unambiguously distinguishable; an empty ``steps`` list still prints the
+    header plus a legible ``(no steps recorded)`` line rather than a bare header.
+    """
+    header = [
+        f"run dir    : {run_dir.name}",
+        f"goal       : {state.goal.title}  (id={state.goal.id})",
+        f"status     : {state.status.value}",
+        f"steps      : {len(state.steps)}    iterations: {state.iterations_used}"
+        f"    llm calls: {state.llm_calls_used}",
+    ]
+    if not state.steps:
+        return "\n".join([*header, "(no steps recorded)"])
+    return "\n".join([*header, *(_trace_step_line(step) for step in state.steps)])
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -628,6 +709,49 @@ def _cmd_explain(args: argparse.Namespace) -> int:
     settings = _settings(args)
     decision = gate(goal, settings)
     print(_render_explain(goal, decision, settings))
+    return 0
+
+
+def _cmd_trace(args: argparse.Namespace) -> int:
+    """trace: render ONE run's persisted PLAN->ACT->CHECK transcript (read-only).
+
+    WHY it builds no LLMClient (like ``runs``/``explain``): the transcript is a
+    pure read of the ``RunState`` the loop already checkpointed after every step,
+    so a fresh clone can audit exactly what a finished run *did* with zero
+    provider wiring -- completing the run-lifecycle triad runs (find) -> trace
+    (inspect) -> resume (continue). Exit codes mirror ``resume``'s
+    missing-checkpoint contract and the shared ``main()`` error boundary: a run
+    dir with no ``checkpoint.json`` (or a dir that does not exist) loads to
+    ``None`` and returns ``2`` explicitly before any exception; a checkpoint that
+    exists but fails ``RunState`` validation raises a ``ValueError``
+    (``ValidationError`` / ``JSONDecodeError``) that the ``main()`` boundary maps
+    to a single legible ``error:`` line at exit ``1`` -- no bespoke swallow, no
+    traceback. Human form truncates long output for legibility; ``--json`` emits
+    every step's full, untruncated output as a parseable array.
+    """
+    run_dir = Path(args.run_dir)
+    state = Checkpoint(run_dir / _CHECKPOINT_NAME).load()
+    if state is None:
+        print(f"error: no checkpoint found in {run_dir}", file=sys.stderr)
+        return 2
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON array (empty -> []); no prose.
+        # Each dict is built explicitly so `kind` serializes as a plain string
+        # (its str-Enum .value) and the key set is exactly the contract's five --
+        # mirroring _run_row's explicit-dict convention.
+        rows = [
+            {
+                "index": step.index,
+                "kind": step.kind.value,
+                "output": step.output,
+                "done": step.done,
+                "artifacts": list(step.artifacts),
+            }
+            for step in state.steps
+        ]
+        print(json.dumps(rows, indent=2))
+    else:
+        print(_render_trace(state, run_dir))
     return 0
 
 
