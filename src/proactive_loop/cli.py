@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -49,6 +50,12 @@ from .models import (
 )
 from .scheduler import run_periodic
 from .scout import GoalSynthesizer, gate, gate_slate
+
+# Module logger for the orchestration layer. WHY only obtain a logger (never
+# configure handlers/levels here): a library must leave global logging policy to
+# its caller (or pytest's caplog); this file only emits records. Its name
+# resolves to "proactive_loop.cli".
+_LOG = logging.getLogger(__name__)
 
 _META_NAME = "meta.json"
 _CHECKPOINT_NAME = "checkpoint.json"
@@ -329,12 +336,25 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
 def _collect(workspace: Path) -> WorkspaceSnapshot:
     """Run every collector over *workspace* into one snapshot.
 
-    Collectors never raise (they degrade to ``[]``), so a missing dir or absent
-    git simply yields fewer signals rather than aborting the scan.
+    The §4.1 contract is that collectors never raise (they degrade to ``[]``).
+    This loop ENFORCES that invariant at the one orchestration seam behind every
+    front-door verb (``scan``/``run``/``signals``/``watch``) rather than merely
+    trusting it: each ``collect()`` call is isolated so a single collector that
+    raises is logged at WARNING and contributes ``[]``, leaving the surviving
+    collectors' signals intact instead of aborting the whole scan. A missing dir
+    or absent git therefore still simply yields fewer signals.
     """
     signals = []
     for collector in all_collectors():
-        signals.extend(collector.collect(workspace))
+        try:
+            signals.extend(collector.collect(workspace))
+        except Exception as exc:  # noqa: BLE001 - deliberate: contain a buggy collector
+            # A raising collector VIOLATES the §4.1 "never raises -> []" contract,
+            # so it is a bug IN THAT COLLECTOR. The orchestration layer's job is to
+            # contain-and-surface it (log + skip), never propagate it and take down
+            # every verb that shares this seam. Broad by design: any exception a
+            # collector leaks must be isolated, not just a known subset.
+            _LOG.warning("collector %r raised, skipping: %s", collector.name, exc)
     return WorkspaceSnapshot(root=str(workspace), signals=signals)
 
 

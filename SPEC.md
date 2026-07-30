@@ -366,6 +366,13 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     scripted response). Explicitly returns 0 (never `run_periodic`'s scan count).
     No `--out`/`--format`; no slate-file writing (that is `scan`'s job).
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
+  - `_collect(workspace) -> WorkspaceSnapshot` — the shared collector-orchestration
+    seam behind `scan`/`run`/`signals`/`watch`. It ENFORCES the §4.1 "collectors
+    never raise → `[]`" invariant (belt-and-suspenders over the per-collector
+    contract): each `collect()` is isolated in a `try/except Exception`, so one
+    collector that raises is logged at WARNING (naming its `name`) and contributes
+    `[]` while the surviving collectors' signals are preserved — a buggy collector
+    degrades the scan, never aborts it.
 - `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.
 - `examples/fixture_workspace/`: `projects/ai-experiments/{agent.py,eval_harness.py}`
