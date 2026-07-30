@@ -253,7 +253,17 @@ class ToolRegistry:
   case-insensitive substring grep over `workspace_root` first (then `artifacts_dir`),
   recursive, read-only, deterministic order (relpath asc, then line no.), bounded to 50
   hits (additive tool added in iter-13 — existing tool contracts unchanged, so **no
-  version bump**, mirroring iter-08's additive `RunState.retries`). Unknown tool →
+  version bump**, mirroring iter-08's additive `RunState.retries`);
+  `find_files(pattern, path=".")` → recursive basename **glob** file discovery over
+  `workspace_root` first (then `artifacts_dir`), matching each file's final path
+  component against a stdlib `fnmatch` shell glob (`*`/`?`/`[seq]`) case-folded on
+  BOTH sides for cross-platform determinism, read-only (matches on name only, never
+  reads content), deterministic order (relpath ascending, POSIX `/` separators),
+  bounded to 50 hits — the find-by-name third of the discovery triad (list one dir /
+  grep content / find by name); a pattern with `/` matches nothing (basename-only
+  boundary), directories/symlink-escapes/skip-dirs/hidden entries are never returned
+  (additive tool added in iter-21 — existing tool contracts unchanged, so **no
+  version bump**, mirroring iter-13's `search_files`). Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
 

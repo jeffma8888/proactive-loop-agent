@@ -10,14 +10,16 @@ every failure (including an unknown tool) becomes an ``"error: ..."`` string.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 from pathlib import Path
 
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ensure_dir
 
-# Cap on hits returned by search_files: keep observations bounded so a broad
-# query on a large workspace cannot flood the model's context window.
+# Cap on hits returned by search_files / find_files: keep observations bounded
+# so a broad query or glob on a large workspace cannot flood the model's
+# context window.
 _SEARCH_MAX_HITS = 50
 
 
@@ -49,12 +51,13 @@ class ToolRegistry:
             "list_files": self._list_files,
             "search_files": self._search_files,
             "append_file": self._append_file,
+            "find_files": self._find_files,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
                 "available tools: write_file, read_file, list_files, "
-                "search_files, append_file"
+                "search_files, append_file, find_files"
             )
         try:
             return handler(args or {})
@@ -221,6 +224,92 @@ class ToolRegistry:
         hits.sort(key=lambda h: (h[0], h[1]))
         truncated = len(hits) > _SEARCH_MAX_HITS
         lines = [f"{rel}:{lineno}: {line}" for rel, lineno, line in hits[:_SEARCH_MAX_HITS]]
+        if truncated:
+            lines.append(f"... (truncated at {_SEARCH_MAX_HITS} matches)")
+        return "\n".join(lines)
+
+    def _find_files(self, args: dict) -> str:
+        """Recursive basename-glob file discovery over a sandbox directory.
+
+        WHY this tool exists: ``search_files`` greps file *content* and
+        ``read_file`` needs a path you already know, so neither can answer the
+        first question a goal asks against an unfamiliar repo -- "where is the
+        ``Makefile``?", "find every ``test_*.py``", "is there a ``pyproject.toml``
+        anywhere here?". A file's *name* rarely appears inside another file, and
+        an empty or name-only-relevant file has no greppable content at all, so
+        content search cannot fill this gap. ``find_files`` walks the tree and
+        matches each file's *basename* against a shell glob (``*``/``?``/``[seq]``),
+        completing the discovery triad (list one dir / grep content / find by name).
+
+        Read-only by construction: it lists names but never writes and never
+        reads file *content* (matching is on the name only), so ``artifacts()``
+        is unaffected and it can never fault on a binary/undecodable file. Never
+        raises -- every failure (empty pattern, unsafe/missing path) degrades to
+        an observation string the loop can relay back to the model.
+
+        Determinism: matching case-folds BOTH operands and uses
+        ``fnmatch.fnmatchcase`` (NOT ``fnmatch.fnmatch``, which normalizes case
+        via ``os.path.normcase`` and is therefore OS-dependent), so results do
+        not depend on the host filesystem's native case sensitivity. The pattern
+        matches the basename ONLY -- a pattern containing ``/`` can never match a
+        bare filename and so yields the no-match sentinel (documented boundary).
+        """
+        pattern = str(args.get("pattern", ""))
+        if not pattern:
+            return "error: find_files requires a non-empty 'pattern'"
+        path = str(args.get("path", "."))
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+
+        # Resolve against workspace_root FIRST, then artifacts_dir -- identical
+        # precedence to _list_files/_search_files. Only the first root under
+        # which *path* is an existing directory is walked (no cross-root merge).
+        search_root: Path | None = None
+        base_root: Path | None = None
+        for root in (self.workspace_root, self.artifacts_dir):
+            candidate = root / path
+            if self._within(candidate, root) and candidate.is_dir():
+                base_root = root
+                search_root = candidate
+                break
+        if search_root is None:
+            return f"error: directory not found: {path!r}"
+
+        pattern_lower = pattern.lower()
+        relpaths: list[str] = []
+        # followlinks=False so os.walk never descends INTO a symlinked dir;
+        # symlinked *files* still surface in filenames and are guarded below.
+        for dirpath, dirnames, filenames in os.walk(search_root, followlinks=False):
+            # Prune noise/hidden dirs in place (shared skip set from the
+            # filesystem collector) and sort so descent order is deterministic.
+            dirnames[:] = sorted(
+                d for d in dirnames
+                if not _is_hidden(d) and d not in _SKIP_DIRS
+            )
+            for fname in filenames:
+                if _is_hidden(fname):
+                    continue
+                # Case-fold both sides then fnmatchcase (see docstring) so
+                # case-insensitivity is deterministic on every platform. Match
+                # the basename only -- the documented boundary.
+                if not fnmatch.fnmatchcase(fname.lower(), pattern_lower):
+                    continue
+                full = Path(dirpath) / fname
+                # Escape guard: a symlinked file resolving outside the sandbox
+                # root must never be listed (blocks symlink-based name leaks).
+                if not self._within(full, base_root):
+                    continue
+                relpaths.append(full.relative_to(search_root).as_posix())
+
+        if not relpaths:
+            return f"(no files matching {pattern!r})"
+        # os.walk emits a directory's own files BEFORE descending, so raw walk
+        # order is not strict relpath order. Sort to honor the pinned contract
+        # (relpath ascending), byte-stable across repeat calls.
+        relpaths.sort()
+        truncated = len(relpaths) > _SEARCH_MAX_HITS
+        lines = relpaths[:_SEARCH_MAX_HITS]
         if truncated:
             lines.append(f"... (truncated at {_SEARCH_MAX_HITS} matches)")
         return "\n".join(lines)

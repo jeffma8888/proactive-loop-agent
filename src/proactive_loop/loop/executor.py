@@ -226,7 +226,8 @@ class GoalLoop:
             f"SUGGESTED FIRST STEPS: {first_steps}\n\n"
             "TOOLS: write_file(path, content) [writes under artifacts/], "
             "append_file(path, content) [appends under artifacts/], "
-            "read_file(path), list_files(path), search_files(query, path)\n\n"
+            "read_file(path), list_files(path), search_files(query, path), "
+            "find_files(pattern, path) [glob file discovery by name]\n\n"
             f"{self._transcript(state)}\n"
             'Reply with JSON: {"thought": "...", '
             '"action": {"tool": "...", "args": {...}}}'
