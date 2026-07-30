@@ -25,6 +25,7 @@ import json
 import sys
 from pathlib import Path
 
+from . import __version__
 from .config import Settings
 from .collectors import all_collectors
 from .llm import LLMError
@@ -72,6 +73,14 @@ def build_parser() -> argparse.ArgumentParser:
             "resilient plan->act->check loop."
         ),
     )
+    # Top-level --version short-circuits parsing (argparse's built-in version
+    # action prints then raises SystemExit(0)) so it works with NO subcommand,
+    # ahead of the required-subparser check below. It lives on the top-level
+    # parser -- NOT on globals_ -- so it stays out of every subcommand's help.
+    # The version string is sourced once from proactive_loop.__version__ (the
+    # single source of truth), never a second hardcoded literal that could drift.
+    parser.add_argument("--version", action="version", version=f"pla {__version__}")
+
     globals_ = argparse.ArgumentParser(add_help=False)
     globals_.add_argument(
         "--provider",

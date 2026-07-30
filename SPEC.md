@@ -43,7 +43,7 @@ proactive-loop-agent/
 ├── LICENSE                   # MIT
 ├── SPEC.md                   # this file
 ├── src/proactive_loop/
-│   ├── __init__.py           # __version__ = "0.1.0"
+│   ├── __init__.py           # package metadata + __version__ (single source of truth)
 │   ├── models.py             # pydantic domain models
 │   ├── config.py             # Settings / RetryPolicy
 │   ├── llm/

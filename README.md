@@ -68,7 +68,8 @@ automatically.
 | `runs`    | List past dispatched runs under the state dir (`--json` for a JSON array).|
 
 Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
-via `PLA_*` environment variables).
+via `PLA_*` environment variables). Run `pla --version` to print the installed
+version (sourced from `proactive_loop.__version__`).
 
 ## How the offline scripted provider works
 
