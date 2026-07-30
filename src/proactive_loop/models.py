@@ -147,6 +147,13 @@ class RunState(BaseModel):
     steps: list[LoopStep] = Field(default_factory=list)
     iterations_used: int = 0
     llm_calls_used: int = 0
+    # L0 self-healing counter: incremented once per backoff-retry the executor
+    # recovers from (via with_retry's on_retry hook). WHY it lives on the run:
+    # "resilient by design" is the product's headline, but retries are silently
+    # absorbed -- persisting the count makes that self-healing observable/auditable
+    # instead of invisible. Defaulted to 0 so pre-iter-08 checkpoints (which lack
+    # the key) still deserialize cleanly as a no-op; ge=0 since it only ever grows.
+    retries: int = Field(default=0, ge=0)
     artifacts_dir: str = ""
     created_at: datetime = Field(default_factory=_now)
 

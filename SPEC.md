@@ -91,6 +91,10 @@ Key invariants the other layers rely on:
   `{"raise": "throttle"|"timeout"}`, raises `ScriptExhaustedError` when empty.
 - `parse_json_block` tolerates ```json fences, leading/trailing prose, and
   trailing junk after a valid value (e.g. a stray brace) via `raw_decode`.
+- `RunState.retries` is a non-negative int counter (default `0`) of the L0
+  backoff-retries the L1 executor recovered from during a run. Defaulted so a
+  pre-existing checkpoint written without the key still deserializes cleanly as
+  `retries == 0` (a non-breaking, non-versioned foundation-contract addition).
 
 ## 4. Module contracts
 
@@ -204,7 +208,9 @@ class Checkpoint:
 
   `with_retry` retries ONLY `LLMThrottleError`/`LLMTimeoutError`; backoff =
   `min(base * factor**(attempt-1), max) * (1 ± jitter)`; re-raises after
-  `policy.max_attempts`; injectable `sleep` for tests.
+  `policy.max_attempts`; injectable `sleep` for tests. The optional
+  `on_retry(attempt, delay, exc)` hook fires once per recovered backoff-retry
+  (the L1 executor passes it to increment `RunState.retries`).
 
 ```python
 # executor.py
@@ -217,8 +223,10 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 
   Per iteration: PLAN — LLM returns JSON `{"thought": str, "action": {"tool": str,
   "args": dict}}`; ACT — `tools.execute`; CHECK — LLM sees observation, returns JSON
-  `{"done": bool, "reason": str}`. All LLM calls wrapped in `with_retry`. Append
-  `LoopStep`s to `RunState`, checkpoint after every step. Stop: done=True → DONE;
+  `{"done": bool, "reason": str}`. All LLM calls wrapped in `with_retry`, with an
+  `on_retry` hook that increments `RunState.retries` on every recovered
+  backoff-retry (PLAN and CHECK alike, since both route through the one wrapped
+  call site). Append `LoopStep`s to `RunState`, checkpoint after every step. Stop: done=True → DONE;
   `iterations_used >= settings.max_iterations` or llm call budget hit →
   BUDGET_EXHAUSTED; unparseable PLAN/CHECK JSON → feed error observation back, count
   iteration, continue. `resume` continues from a loaded RunState.
@@ -233,7 +241,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   - `pla scan --workspace W [--out slate.json]` — collect → synthesize → print ranked
     table (plain text) + gate decisions; write slate JSON.
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
-    requires `--yes`; BLOCKED refuses; run GoalLoop; print summary + artifact paths.
+    requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
+    iteration/llm-call budget use, and the run's retry count) + artifact paths.
   - `pla run --workspace W` — scan then auto-dispatch the top AUTO_DISPATCH goal
     (approval-gated goals are listed but never auto-run).
   - `pla resume --run-dir DIR` — load checkpoint, continue.
@@ -254,8 +263,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   - `pla trace --run-dir DIR [--json]` — read-only, LLM-free renderer of ONE
     dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
     `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,
-    goal title+id, status, step/iteration/llm-call counts) then one single-line
-    entry per step — `[index] kind …output…` with `done=true`/`done=false`
+    goal title+id, status, step/iteration/llm-call counts, and the run's retry
+    count) then one single-line entry per step — `[index] kind …output…` with `done=true`/`done=false`
     appended on `check` steps — collapsing embedded newlines and width-truncating
     long output so the block never breaks; empty `steps` degrade to a
     `(no steps recorded)` line. `--json` emits a parseable array (one object per

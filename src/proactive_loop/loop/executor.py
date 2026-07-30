@@ -139,7 +139,17 @@ class GoalLoop:
                 system=self._SYSTEM, prompt=prompt, tag=tag
             ).text
 
-        text = with_retry(_call, self._settings.retry, sleep=self._sleep)
+        def _count_retry(attempt: int, delay: float, exc: Exception) -> None:
+            # Record each recovered backoff-retry on the run so the L0
+            # self-healing is observable rather than silently absorbed. This
+            # runs for EVERY LLM call the executor makes -- PLAN and CHECK
+            # alike, since both route through this one method -- so the counter
+            # covers the whole run, not just planning.
+            state.retries += 1
+
+        text = with_retry(
+            _call, self._settings.retry, sleep=self._sleep, on_retry=_count_retry
+        )
         state.llm_calls_used += 1
         return text
 

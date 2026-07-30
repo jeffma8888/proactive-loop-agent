@@ -294,12 +294,18 @@ def _render_table(slate: GoalSlate, decisions: list[DispatchDecision]) -> str:
 def _render_run_summary(
     goal: CandidateGoal, state: RunState, run_dir: Path, tools: ToolRegistry
 ) -> str:
-    """Human summary of a finished loop run: status, budget use, artifact paths."""
+    """Human summary of a finished loop run: status, budget use, retries, artifacts.
+
+    The ``retries`` line makes the product's headline "resilient by design"
+    observable: it reports how many transient throttle/timeout blips the L0 layer
+    silently recovered from during the run (0 for a clean run).
+    """
     lines = [
         "",
         f"dispatched : {goal.title}  (id={goal.id})",
         f"status     : {state.status.value}",
         f"iterations : {state.iterations_used}    llm calls: {state.llm_calls_used}",
+        f"retries    : {state.retries}",
         f"run dir    : {run_dir}",
     ]
     artifacts = tools.artifacts()
@@ -500,7 +506,7 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
         f"goal       : {state.goal.title}  (id={state.goal.id})",
         f"status     : {state.status.value}",
         f"steps      : {len(state.steps)}    iterations: {state.iterations_used}"
-        f"    llm calls: {state.llm_calls_used}",
+        f"    llm calls: {state.llm_calls_used}    retries: {state.retries}",
     ]
     if not state.steps:
         return "\n".join([*header, "(no steps recorded)"])

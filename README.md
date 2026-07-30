@@ -30,7 +30,8 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
   iterations. The ACT phase can only touch a sandboxed artifacts directory.
 - **L0 resilience** wraps every model call in retry-with-backoff and checkpoints
   the run state after every step, so a throttle blip or a crash never loses more
-  than the in-flight step.
+  than the in-flight step. Each recovered retry is counted on the run and shown
+  in the run summary and the `pla trace` header, so the self-healing is visible.
 
 ## Quickstart
 

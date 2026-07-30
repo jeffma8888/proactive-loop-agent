@@ -15,7 +15,8 @@ backlog when they close a docs-vs-code honesty gap on a public repo (the standin
 iter-01 tie-break rule: an integrity fix outranks a net-new capability). Applied
 iters 01, 03, and 05; iters 04, 06, and 07 went net-new (`pla runs`, `pla explain`,
 then `pla trace`) because no live 30s-falsifiable docs-vs-code contradiction existed
-those iterations. The integrity tie-break is now a depleted resource: both iter-07
+those iterations. iter-08 returns to the queued backlog, applying #6 (retry telemetry)
+to complete the observability arc runs → explain → trace → retry-visibility. The integrity tie-break is now a depleted resource: both iter-07
 scouts independently re-verified the verb lists and version sources are all consistent,
 so a net-new capability need not defer to an integrity fix.
 
@@ -26,7 +27,7 @@ so a net-new capability need not defer to an integrity fix.
 | 3 | `pla explain --slate --goal-id` — print the score arithmetic + which gate rule fired + sources, making the autonomy contract auditable | CLI/L2 | High | Low | Scout A C1 (iter-02) | **SHIPPED — iter-06** (`5d59292`; completes the scan → runs → explain legibility arc; additive cli.py-only auditor of the pre-dispatch gate decision) |
 | 4 | GitHub Actions CI (`uv sync` + `uv run pytest` + `make demo`) + a "tests passing" README badge — first trust signal on a public repo; machine-verifies every future loop commit | DX/CI | High | Very Low | Scout B C2 (iter-02) | Planned |
 | 5 | `DependencyCollector` — new L2 signal reading project manifests (`pyproject.toml`/`package.json`/…) so the scout proposes stack-appropriate goals | L2 | High | Low | Scout A C1 (iter-01) | Planned |
-| 6 | Surface L0 retry telemetry into `RunState` + the run summary (wire the defined-but-unused `on_retry` hook) so self-healing is visible | L0×L1 | Med-High | Low | Scout B C2 (iter-01) | Planned (pairs with #1) |
+| 6 | Surface L0 retry telemetry into `RunState` + the run summary + `trace` header (wire the defined-but-unused `on_retry` hook) so self-healing is visible | L0×L1 | Med-High | Low | Scout B C2 (iter-01) | **SELECTED — iter-08** (scalar `RunState.retries` counter, executor wires `on_retry`; additive/non-breaking, no version bump; picked over the strong net-new alt Scout A C1 `DependencyCollector` #5 on thesis-leverage + observability-arc-completion grounds — see iter-08 pm.md) |
 | 7 | `pla --version` + a version-consistency guard test; also fix the stale `SPEC.md §2` `__version__ = "0.1.0"` comment (code is `0.1.1`) | CLI/DX | Med | Very Low | Scout B C3 (iter-02) | **SHIPPED — iter-05** (`169f1a1`; integrity tie-break: only live 30s-falsifiable docs-vs-code gap in the tree; shipped `--version` + drift-guard, not a bare doc edit) |
 | 8 | `WorkingTreeCollector` — new L2 signal for uncommitted/unpushed git work (`git status --porcelain`, `@{u}..HEAD`); complements `git_activity` (present vs. past) | L2 | Med | Low | Scout A C2 (iter-02) | Planned |
 | 9 | Read-only `search_files(query, path)` sandbox tool for the L1 loop so it can *discover* code in a real workspace, not just read known paths | L1 | Med | Low-Med | Scout A C2 (iter-01) | Planned |
