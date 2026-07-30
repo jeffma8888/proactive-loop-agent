@@ -196,6 +196,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_explain.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
     p_explain.add_argument("--goal-id", required=True, help="Id of the goal to explain.")
+    # Mirrors runs/trace/signals: a default-off boolean that swaps the human audit
+    # block for one JSON object (the 12-key gate-audit schema). It is applied AFTER
+    # the exit-2/exit-1 guards in _cmd_explain, so it selects a rendering only and
+    # never perturbs the exit-code contract.
+    p_explain.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the gate audit as one JSON object instead of the human block.",
+    )
     p_explain.set_defaults(func=_cmd_explain)
 
     # `trace` renders ONE dispatched run's persisted PLAN->ACT->CHECK transcript
@@ -741,6 +750,52 @@ def _signals_json_payload(snapshot: WorkspaceSnapshot, kind: str | None = None) 
     }
 
 
+def _explain_json_payload(
+    goal: CandidateGoal, decision: DispatchDecision, settings: Settings
+) -> dict:
+    """Build the ``explain --json`` document as a pure function of inputs.
+
+    The machine-readable twin of ``_render_explain``: one object of EXACTLY the
+    12 contract keys, built from an EXPLICIT allowlist -- never ``goal.model_dump()``
+    (the iter-08 schema-leak discipline that ``_scan_json_payload`` /
+    ``_signals_json_payload`` follow): a field added later to ``CandidateGoal`` /
+    ``Settings`` / ``DispatchDecision`` (a ``timestamp``-style addition) must NOT
+    silently leak onto this wire schema, which a ``jq``/CI pipeline asserts on.
+
+    ``category`` and ``decision`` emit their str-Enum ``.value`` (``"learning"`` /
+    ``"auto_dispatch"``), never a ``GoalCategory.``/``AutonomyDecision.`` repr.
+    ``score`` ECHOES the computed field (``goal.score``) rather than recomputing it,
+    exactly as ``_render_explain`` does, so the JSON audit can never disagree with
+    the value that drives ranking; ``score_components`` carries the four raw
+    operands so a consumer can re-derive it. ``decision``/``reason`` come from the
+    SAME ``gate(goal, settings)`` object the human path and a later ``dispatch``
+    act on, and ``auto_dispatch_threshold`` echoes ``settings.auto_dispatch_min_score``
+    (resolved via the ``_settings(args)`` seam every verb shares). ``sources`` and
+    ``suggested_first_steps`` are plain lists -> JSON arrays (``[]`` when empty, NOT
+    the human ``(none)`` marker). Kept pure/disk-free and client-free so it is
+    unit-testable without a workspace, a slate file, or an ``LLMClient``.
+    """
+    return {
+        "id": goal.id,
+        "title": goal.title,
+        "category": goal.category.value,
+        "score": goal.score,
+        "score_components": {
+            "impact": goal.impact,
+            "urgency": goal.urgency,
+            "confidence": goal.confidence,
+            "effort_weight": goal.effort_weight,
+        },
+        "auto_dispatch_threshold": settings.auto_dispatch_min_score,
+        "decision": decision.decision.value,
+        "reason": decision.reason,
+        "appropriate_now": goal.appropriate_now,
+        "rationale": goal.rationale,
+        "sources": list(goal.sources),
+        "suggested_first_steps": list(goal.suggested_first_steps),
+    }
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -963,6 +1018,9 @@ def _cmd_explain(args: argparse.Namespace) -> int:
     file or an unknown goal id (returned explicitly, before any exception); a
     corrupt slate raises ``ValidationError`` (a ``ValueError``) and is mapped to
     ``1`` by the top-level ``main()`` boundary as one legible ``error:`` line.
+    ``--json`` swaps the human audit block for one machine-parseable object
+    (``_explain_json_payload``) AFTER those guards, so the exit contract is
+    ``--json``-independent -- rendering selection only, like ``runs``/``trace``/``signals``.
     """
     slate_path = Path(args.slate)
     if not slate_path.is_file():
@@ -978,7 +1036,13 @@ def _cmd_explain(args: argparse.Namespace) -> int:
 
     settings = _settings(args)
     decision = gate(goal, settings)
-    print(_render_explain(goal, decision, settings))
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
+        # guards above (exit 2 / exit 1) already ran, so --json selects a rendering
+        # only and leaves the exit-code contract untouched.
+        print(json.dumps(_explain_json_payload(goal, decision, settings), indent=2))
+    else:
+        print(_render_explain(goal, decision, settings))
     return 0
 
 

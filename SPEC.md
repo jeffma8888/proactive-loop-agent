@@ -343,8 +343,16 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     computed `score`), the live `gate(goal, settings)` decision + the rule that
     fired + the auto-dispatch threshold it was compared against (so `explain` and
     a later `dispatch` agree), and the goal's rationale/sources/first-steps.
+    `--json` emits one object of exactly the 12 keys `id, title, category, score,
+    score_components{impact,urgency,confidence,effort_weight}, auto_dispatch_threshold,
+    decision, reason, appropriate_now, rationale, sources, suggested_first_steps` —
+    built from an explicit allowlist (never `model_dump`; the iter-08 schema-leak
+    discipline), with `category`/`decision` as their str-Enum `.value`, `score`
+    echoing the computed field, and `sources`/`suggested_first_steps` as JSON arrays
+    (`[]` when empty, not the human `(none)` marker), so it pipes cleanly into `jq`.
     Missing slate or unknown id → exit 2; a corrupt slate → exit 1 via the
-    `main()` boundary. Builds no `LLMClient`.
+    `main()` boundary (all before any rendering, so the exit contract is
+    `--json`-independent). Builds no `LLMClient`.
   - `pla trace --run-dir DIR [--json]` — read-only, LLM-free renderer of ONE
     dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
     `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,
