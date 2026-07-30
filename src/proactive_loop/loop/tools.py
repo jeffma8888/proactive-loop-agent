@@ -10,9 +10,15 @@ every failure (including an unknown tool) becomes an ``"error: ..."`` string.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ensure_dir
+
+# Cap on hits returned by search_files: keep observations bounded so a broad
+# query on a large workspace cannot flood the model's context window.
+_SEARCH_MAX_HITS = 50
 
 
 class ToolRegistry:
@@ -41,11 +47,12 @@ class ToolRegistry:
             "write_file": self._write_file,
             "read_file": self._read_file,
             "list_files": self._list_files,
+            "search_files": self._search_files,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
-                "available tools: write_file, read_file, list_files"
+                "available tools: write_file, read_file, list_files, search_files"
             )
         try:
             return handler(args or {})
@@ -102,6 +109,87 @@ class ToolRegistry:
                 names = sorted(p.name for p in candidate.iterdir())
                 return "\n".join(names) if names else "(empty)"
         return f"error: directory not found: {path!r}"
+
+    def _search_files(self, args: dict) -> str:
+        """Grep-like, read-only substring search over a sandbox directory.
+
+        WHY this tool exists: without it the ACT phase can only ``read_file`` a
+        path it already knows -- on a real workspace the dispatched agent is
+        blind. ``search_files`` lets the loop *discover* where content lives
+        before reading it, which is what makes a goal executable against an
+        unfamiliar repo rather than only against pre-known paths.
+
+        Read-only by construction: it walks and reads but never writes, so
+        ``artifacts()`` is unaffected. Never raises -- every failure (empty
+        query, unsafe/missing path, binary file) degrades to an observation
+        string the loop can relay back to the model.
+        """
+        query = str(args.get("query", ""))
+        if not query:
+            return "error: search_files requires a non-empty 'query'"
+        path = str(args.get("path", "."))
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+
+        # Resolve against workspace_root FIRST, then artifacts_dir -- the same
+        # precedence as _list_files: search is directory-oriented and the
+        # primary discovery target is the read-only workspace. Only the first
+        # root under which *path* is an existing directory is searched (no
+        # cross-root merging, mirroring list_files).
+        search_root: Path | None = None
+        base_root: Path | None = None
+        for root in (self.workspace_root, self.artifacts_dir):
+            candidate = root / path
+            if self._within(candidate, root) and candidate.is_dir():
+                base_root = root
+                search_root = candidate
+                break
+        if search_root is None:
+            return f"error: directory not found: {path!r}"
+
+        query_lower = query.lower()
+        hits: list[tuple[str, int, str]] = []
+        # followlinks=False so os.walk never descends INTO a symlinked dir;
+        # symlinked *files* still surface in filenames and are guarded below.
+        for dirpath, dirnames, filenames in os.walk(search_root, followlinks=False):
+            # Prune noise/hidden dirs in place (shared skip set from the
+            # filesystem collector, per the iter-09 private-import lesson) and
+            # sort so descent order is deterministic.
+            dirnames[:] = sorted(
+                d for d in dirnames
+                if not _is_hidden(d) and d not in _SKIP_DIRS
+            )
+            for fname in sorted(filenames):
+                if _is_hidden(fname):
+                    continue
+                full = Path(dirpath) / fname
+                # Escape guard: a symlinked file resolving outside the sandbox
+                # root must never be read (blocks symlink-based exfiltration).
+                if not self._within(full, base_root):
+                    continue
+                try:
+                    text = full.read_text(encoding="utf-8")
+                except (UnicodeDecodeError, OSError):
+                    # Binary/unreadable: skip silently, keep searching.
+                    continue
+                relpath = full.relative_to(search_root).as_posix()
+                for lineno, line in enumerate(text.splitlines(), start=1):
+                    if query_lower in line.lower():
+                        hits.append((relpath, lineno, line))
+
+        if not hits:
+            return f"(no matches for {query!r})"
+        # os.walk emits a directory's own files BEFORE descending into its
+        # subdirectories, so raw walk order is not strict relpath order. Sort
+        # the collected hits to honor the pinned contract: (relpath ascending,
+        # then line number ascending), byte-stable across repeat calls.
+        hits.sort(key=lambda h: (h[0], h[1]))
+        truncated = len(hits) > _SEARCH_MAX_HITS
+        lines = [f"{rel}:{lineno}: {line}" for rel, lineno, line in hits[:_SEARCH_MAX_HITS]]
+        if truncated:
+            lines.append(f"... (truncated at {_SEARCH_MAX_HITS} matches)")
+        return "\n".join(lines)
 
     # --- sandbox helpers ------------------------------------------------
 

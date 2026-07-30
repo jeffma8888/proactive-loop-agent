@@ -208,8 +208,13 @@ class ToolRegistry:
 
   Tools: `write_file(path, content)` → under `artifacts_dir` ONLY (reject `..` and
   absolute paths); `read_file(path)` → workspace_root or artifacts_dir, read-only;
-  `list_files(path=".")`. Unknown tool → observation string starting `"error:"`
-  (never raises — the loop feeds errors back to the model).
+  `list_files(path=".")`; `search_files(query, path=".")` → case-insensitive
+  substring grep over `workspace_root` first (then `artifacts_dir`), recursive,
+  read-only, deterministic order (relpath asc, then line no.), bounded to 50 hits
+  (additive tool added in iter-13 — existing tool contracts unchanged, so **no
+  version bump**, mirroring iter-08's additive `RunState.retries`). Unknown tool →
+  observation string starting `"error:"` (never raises — the loop feeds errors
+  back to the model).
 
 ```python
 # resilience.py
