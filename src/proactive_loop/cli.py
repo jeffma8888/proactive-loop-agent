@@ -2,10 +2,11 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into four verbs a person actually runs -- scan, dispatch, run, resume -- and owns
-the two things a library must not: argument parsing and where run artifacts land
-on disk. Keeping that policy here (never inside the loop) means the autonomy
-contract has exactly one enforcement point per verb.
+into five verbs a person actually runs -- scan, dispatch, run, resume, and the
+read-only runs lister -- and owns the two things a library must not: argument
+parsing and where run artifacts land on disk. Keeping that policy here (never
+inside the loop) means the autonomy contract has exactly one enforcement point
+per verb.
 
 Layout of a dispatched run under ``state_dir``::
 
@@ -45,6 +46,10 @@ _META_NAME = "meta.json"
 _CHECKPOINT_NAME = "checkpoint.json"
 _ARTIFACTS_NAME = "artifacts"
 _SLATE_NAME = "slate.json"
+# Verbatim status marker shown by the runs lister for a run dir with no loadable
+# checkpoint; the black-box behavior contract depends on this exact text, so it
+# lives as a named constant rather than an inline literal.
+_NO_CHECKPOINT = "(no checkpoint)"
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +58,7 @@ _SLATE_NAME = "slate.json"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with four subcommands and shared globals.
+    """Assemble the ``pla`` parser with five subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -120,6 +125,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_resume.add_argument("--run-dir", required=True, help="A run-<id> directory to resume.")
     p_resume.set_defaults(func=_cmd_resume)
+
+    # `runs` inherits the same globals (parents=[globals_]) so it accepts
+    # --state-dir; --provider/--scripted-responses are accepted but inert (the
+    # handler builds no LLMClient). This is what makes it a zero-config,
+    # LLM-free lister that also surfaces the --run-dir value `resume` needs.
+    p_runs = sub.add_parser(
+        "runs",
+        parents=[globals_],
+        help="List past dispatched runs under the state dir (read-only, LLM-free).",
+    )
+    p_runs.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the run list as a JSON array instead of the human table.",
+    )
+    p_runs.set_defaults(func=_cmd_runs)
 
     return parser
 
@@ -252,6 +273,85 @@ def _read_meta(run_dir: Path) -> dict:
     """Load run metadata, or ``{}`` if none was written."""
     path = run_dir / _META_NAME
     return json.loads(path.read_text()) if path.is_file() else {}
+
+
+def _iter_run_dirs(state_dir: Path) -> list[Path]:
+    """Return *state_dir*'s ``run-*`` subdirs, sorted ascending by ``.name``.
+
+    A missing or non-directory *state_dir* yields ``[]`` so ``runs`` degrades to
+    a clean "no runs" line instead of raising -- the same tolerant posture the
+    rest of the run machinery already takes. Sorting by name (not mtime) makes
+    the listing deterministic: two invocations against an unchanged state dir
+    produce byte-identical output.
+    """
+    if not state_dir.is_dir():
+        return []
+    return sorted(
+        (p for p in state_dir.iterdir() if p.is_dir() and p.name.startswith("run-")),
+        key=lambda p: p.name,
+    )
+
+
+def _count_artifacts(run_dir: Path) -> int:
+    """Count regular files under *run_dir*'s ``artifacts/`` (recursive); 0 if absent."""
+    artifacts_dir = run_dir / _ARTIFACTS_NAME
+    if not artifacts_dir.is_dir():
+        return 0
+    return sum(1 for p in artifacts_dir.rglob("*") if p.is_file())
+
+
+def _run_row(run_dir: Path) -> dict:
+    """Summarize one run dir into a plain, JSON-serializable row.
+
+    Tolerant by construction: a run dir whose ``checkpoint.json`` is missing OR
+    unreadable (truncated/corrupt) still produces a legible row whose status is
+    the verbatim ``(no checkpoint)`` marker -- one bad run must never abort the
+    whole listing or raise out of the handler. ``RunStatus`` is a str-Enum, so a
+    loaded status is emitted as ``state.status.value`` (e.g. ``done``), never the
+    ``RunStatus.DONE`` repr. ``run_id`` is the dir name (``run-<goal_id>``) -- the
+    exact value a person feeds ``resume --run-dir``, which is the point of listing.
+    """
+    try:
+        state = Checkpoint(run_dir / _CHECKPOINT_NAME).load()
+    except (ValueError, OSError):
+        state = None  # corrupt/truncated checkpoint -> degrade, never crash the listing
+    try:
+        meta = _read_meta(run_dir)
+    except (ValueError, OSError):
+        meta = {}
+    if state is not None:
+        status = state.status.value
+        goal = state.goal.title
+        iterations = state.iterations_used
+    else:
+        status, goal, iterations = _NO_CHECKPOINT, "", 0
+    return {
+        "run_id": run_dir.name,
+        "status": status,
+        "goal": goal,
+        "iterations": iterations,
+        "artifacts": _count_artifacts(run_dir),
+        "workspace": meta.get("workspace_root", ""),
+    }
+
+
+def _render_runs(rows: list[dict]) -> str:
+    """Render run rows as a plain-text table, or a legible "no runs" line.
+
+    A pure function of its (already id-sorted) input rows -- mirrors the
+    _render_table / _render_run_summary convention so the output is deterministic
+    and unit-testable without touching disk.
+    """
+    if not rows:
+        return "no runs found under the state dir."
+    header = f"{'RUN ID':<26} {'STATUS':<16} {'ITERS':>5} {'ARTIFACTS':>9}  GOAL"
+    lines = [header, "-" * max(len(header), 60)]
+    for row in rows:
+        lines.append(
+            f"{row['run_id']:<26} {row['status']:<16} {row['iterations']:>5} "
+            f"{row['artifacts']:>9}  {row['goal']}"
+        )
+    return "\n".join(lines)
 
 
 def _dispatch_goal(
@@ -404,6 +504,27 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     final = loop.run(state.goal, resume=state)
 
     print(_render_run_summary(state.goal, final, run_dir, tools))
+    return 0
+
+
+def _cmd_runs(args: argparse.Namespace) -> int:
+    """runs: list past dispatched runs under the state dir (read-only, LLM-free).
+
+    WHY it builds no LLMClient: it is a pure, tolerant read over the run state
+    dispatch/run/resume already persist, so a fresh clone can enumerate and
+    inspect every past run with zero provider wiring. It also repairs resume's
+    usability -- the run_id column is exactly the --run-dir value resume wants,
+    so discovering a run no longer means hand-hunting an opaque path. Always
+    exits 0: an absent or empty state dir is a legitimate "no runs" answer, not
+    a fault.
+    """
+    settings = _settings(args)
+    rows = [_run_row(d) for d in _iter_run_dirs(settings.state_dir)]
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON array (empty -> []); no prose.
+        print(json.dumps(rows, indent=2))
+    else:
+        print(_render_runs(rows))
     return 0
 
 

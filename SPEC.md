@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -237,6 +237,12 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   - `pla run --workspace W` — scan then auto-dispatch the top AUTO_DISPATCH goal
     (approval-gated goals are listed but never auto-run).
   - `pla resume --run-dir DIR` — load checkpoint, continue.
+  - `pla runs [--json]` — read-only, LLM-free lister of past dispatched runs
+    under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,
+    artifact count, goal title, workspace), id-sorted and deterministic; a run
+    dir with no loadable checkpoint degrades to a `(no checkpoint)` row rather
+    than aborting. Makes `resume --run-dir DIR`'s argument discoverable. `--json`
+    emits a parseable array (`[]` when empty). Builds no `LLMClient`.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
 - `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.
