@@ -187,6 +187,12 @@ def create_client(settings: Settings) -> LLMClient: ...
   `"bedrock"` → **lazy import** inside the branch, thin adapter class per provider
   mapping SDK throttle/timeout exceptions to `LLMThrottleError`/`LLMTimeoutError`.
 - Unknown provider → `ValueError` listing valid options.
+- A live provider (`anthropic`/`openai`/`bedrock`) selected while its optional SDK is
+  not installed → an actionable `LLMError` naming the pip package (e.g. `pip install
+  boto3` for `bedrock`, whose package name differs from the label) and the
+  `--provider scripted` fallback — NOT a raw `ModuleNotFoundError` traceback — so the
+  fault routes through `main()`'s narrow `except (LLMError, ValueError, OSError)`
+  boundary as a one-line `error: ...` + exit 1 like every other environment fault.
 - Tests: `tests/test_providers.py` — scripted path works from file; unknown provider
   raises; **prove no `anthropic`/`openai`/`boto3` import leak** when provider=scripted
   (assert not in `sys.modules` after create).

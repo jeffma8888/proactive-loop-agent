@@ -17,6 +17,8 @@ tests assert explicitly).
 
 from __future__ import annotations
 
+import importlib
+from types import ModuleType
 from typing import Protocol
 
 from ..config import Settings
@@ -143,9 +145,37 @@ class _CompleteFn(Protocol):
     def __call__(self, *, system: str, prompt: str, tag: str) -> LLMResponse: ...
 
 
+def _require(module: str, provider: str) -> ModuleType:
+    """Lazily import an optional provider SDK, or raise an actionable `LLMError`.
+
+    WHY: each live provider imports its heavyweight SDK inside its own branch
+    (see the module docstring) so the offline scripted default never drags them
+    in. But a bare `import anthropic` raises `ModuleNotFoundError` when the SDK
+    is not installed -- and that type is OUTSIDE `main()`'s deliberately narrow
+    error boundary (`except (LLMError, ValueError, OSError)`, cli.py), so
+    `pla scan --provider anthropic` without the SDK would crash with a raw
+    traceback instead of the one-line `error: ...` + exit 1 every other
+    environment fault produces. Re-raising as `LLMError` -- the type
+    `create_client` already uses for misconfiguration -- routes the fault
+    through that boundary with zero new plumbing and upholds this module's own
+    principle that "misconfiguration should be obvious, not a cryptic error".
+    `provider` is the user-facing label, which can differ from the pip package
+    (e.g. `bedrock` ships in `boto3`), so the message names BOTH and points at
+    the offline `--provider scripted` fallback.
+    """
+    try:
+        return importlib.import_module(module)
+    except ImportError as exc:
+        raise LLMError(
+            f"provider {provider!r} requires the {module!r} package, which is "
+            f"not installed. Install it (e.g. `pip install {module}`) or use "
+            f"--provider scripted."
+        ) from exc
+
+
 def _create_anthropic(settings: Settings) -> LLMClient:
     """Build an Anthropic-backed client (SDK imported lazily, by design)."""
-    import anthropic  # lazy: keep the SDK out of sys.modules on the scripted path
+    anthropic = _require("anthropic", "anthropic")  # actionable LLMError if absent
 
     sdk = anthropic.Anthropic()
     model = settings.model or "claude-3-5-sonnet-latest"
@@ -174,7 +204,7 @@ def _create_anthropic(settings: Settings) -> LLMClient:
 
 def _create_openai(settings: Settings) -> LLMClient:
     """Build an OpenAI-backed client (SDK imported lazily, by design)."""
-    import openai  # lazy: see module docstring
+    openai = _require("openai", "openai")  # actionable LLMError if absent
 
     sdk = openai.OpenAI()
     model = settings.model or "gpt-4o-mini"
@@ -205,7 +235,9 @@ def _create_openai(settings: Settings) -> LLMClient:
 
 def _create_bedrock(settings: Settings) -> LLMClient:
     """Build a Bedrock-backed client via boto3 (SDK imported lazily, by design)."""
-    import boto3  # lazy: see module docstring
+    boto3 = _require("boto3", "bedrock")  # actionable LLMError if absent
+    # botocore is a hard dependency of boto3, so this import is unreachable when
+    # boto3 is absent -- no guard needed (see PM spec Out of Scope).
     from botocore.exceptions import ConnectTimeoutError, ReadTimeoutError
 
     sdk = boto3.client("bedrock-runtime")
