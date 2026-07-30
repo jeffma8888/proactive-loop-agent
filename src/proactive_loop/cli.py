@@ -26,6 +26,7 @@ from pathlib import Path
 
 from .config import Settings
 from .collectors import all_collectors
+from .llm import LLMError
 from .llm.providers import create_client
 from .loop import Checkpoint, GoalLoop, ToolRegistry
 from .models import (
@@ -126,12 +127,38 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Parse *argv* and dispatch to the selected subcommand handler.
 
-    Returns a process exit code; each handler owns its own non-zero codes so a
-    caller (or the ``pla`` console script) can distinguish refusals from faults.
+    Exit-code contract (a caller -- or the ``pla`` console script -- can tell a
+    deliberate refusal apart from a fault):
+
+    * ``0`` -- success.
+    * ``1`` -- operational fault: a foreseeable operator/environment error
+      (bad ``--provider``, missing/malformed input file, or a model-boundary
+      failure once the retry budget is spent). Reported as one ``error: ...``
+      line on stderr, never a raw traceback.
+    * ``2`` -- not-found / no-checkpoint (a handler returned it explicitly).
+    * ``3`` -- BLOCKED by the autonomy contract.
+    * ``4`` -- needs-approval (re-run with ``--yes``).
+
+    WHY the top-level guard is a *narrow* tuple and not bare ``except``:
+    ``LLMError`` covers a persistent throttle/timeout that escapes the L0 retry
+    budget; ``ValueError`` transitively covers ``json.JSONDecodeError`` and
+    pydantic ``ValidationError`` (a hand-corrupted script or slate) plus an
+    unknown provider; ``OSError`` covers a missing ``--scripted-responses``
+    file (``FileNotFoundError``). A "resilient by design" layer must fail
+    legibly on its loudest surface -- the CLI -- rather than dumping a
+    stacktrace on foreseeable input. ``SystemExit`` and ``KeyboardInterrupt``
+    subclass ``BaseException`` (not ``Exception``), so they are outside the
+    tuple: argparse ``--help``/usage exits and Ctrl-C propagate unchanged. The
+    handlers' own codes 2/3/4 are ``return``ed before any exception fires, so
+    they pass through the boundary untouched.
     """
     parser = build_parser()
-    args = parser.parse_args(argv)
-    return int(args.func(args))
+    args = parser.parse_args(argv)  # argparse SystemExit (help/usage) stays outside the guard
+    try:
+        return int(args.func(args))
+    except (LLMError, ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
 
 # ---------------------------------------------------------------------------
