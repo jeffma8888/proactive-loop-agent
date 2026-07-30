@@ -7,6 +7,7 @@ Importers can use this list directly or filter/extend it as needed.
 from __future__ import annotations
 
 from proactive_loop.collectors.base import Collector
+from proactive_loop.collectors.dependencies import DependencyCollector
 from proactive_loop.collectors.filesystem import RecentFilesCollector
 from proactive_loop.collectors.git_activity import GitActivityCollector
 from proactive_loop.collectors.notes import NotesCollector
@@ -25,6 +26,7 @@ def all_collectors() -> list[Collector]:
         GitActivityCollector(),
         TodoCollector(),
         NotesCollector(),
+        DependencyCollector(),
     ]
 
 
@@ -34,5 +36,6 @@ __all__ = [
     "GitActivityCollector",
     "TodoCollector",
     "NotesCollector",
+    "DependencyCollector",
     "all_collectors",
 ]

@@ -23,7 +23,8 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
 ```
 
 - **L2 scout** turns raw context (recent files, git activity, `TODO`/`FIXME`
-  comments, notes) into a ranked list of candidate goals, then applies a policy
+  comments, notes, dependency manifests) into a ranked list of candidate goals,
+  then applies a policy
   gate. Sensitive categories (finance/legal, health/admin) *always* require
   human approval, no matter how high they score.
 - **L1 goal loop** drives one approved goal through bounded plan/act/check

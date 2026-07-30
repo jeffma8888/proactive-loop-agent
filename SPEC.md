@@ -120,6 +120,11 @@ class Collector(Protocol):
 - `notes.py: NotesCollector(name="notes", max_items=20)` — scan `*.md` under dirs
   named `notes|journal|docs`; emit heading (`# ...`) + first paragraph signals,
   `kind="note"`.
+- `dependencies.py: DependencyCollector(name="dependencies", max_manifests=20)` —
+  walk `root` (same skip rules as `RecentFilesCollector`) and emit one signal per
+  `pyproject.toml` / `requirements.txt` / `package.json`, `kind="dependency"`;
+  stdlib-only parse (`tomllib`/`json`/line-split), never raises → `[]`. Reports
+  facts (ecosystem, manifest, declared-dep count) only; the synthesizer judges.
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
