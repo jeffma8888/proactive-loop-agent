@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -313,6 +313,27 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `resume`); a corrupt checkpoint → exit 1 via the `main()` boundary. Builds
     no `LLMClient`. Completes the run-lifecycle triad runs (find) → trace
     (inspect) → resume (continue).
+  - `pla signals --workspace W [--json] [--kind K]` — read-only, LLM-free
+    inspector of the FIRST pipeline stage: the raw `ContextSignal`s the collectors
+    perceive for a workspace, printed WITHOUT synthesizing (builds no `LLMClient`),
+    so `scan`'s question "what does the scout actually see?" is answerable with
+    zero provider config and no LLM call. Human form groups signals under a
+    `## <kind> (<count>)` header per distinct kind (kinds sorted ascending;
+    signals within a kind ordered by `(source, summary, path or "")`), one
+    two-space-indented line per signal — `  <source>  w<weight:.2f>  <summary>`
+    with ` -> <path>` appended only when the signal carries a path — and an empty
+    selection degrades to a single `(no signals collected)` line. `--json` emits
+    one object `{workspace_root, signals[...]}` where each signal is an explicit
+    dict of exactly the six keys `source, kind, summary, detail, path, weight`
+    (no `timestamp`; the iter-08 schema-leak discipline), the flat `signals` array
+    ordered by `(kind, source, summary, path or "")`, degrading to `[]` (not the
+    human marker) when a `--kind` matches nothing, so it pipes cleanly into `jq`.
+    `--kind K` narrows to one collector-defined kind (dynamic; not validated
+    against a fixed enum — an unknown kind is just an empty selection). A
+    missing/non-directory `--workspace` fails fast with
+    `error: workspace not found: <path>` on stderr + exit 2 (the verbatim iter-10
+    guard, before any collection), regardless of `--json`/`--kind`. Completes the
+    transparency arc signals (see) → scan (propose) → explain (gate) → trace (did).
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
 - `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.

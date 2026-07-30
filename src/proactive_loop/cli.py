@@ -2,10 +2,10 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into seven verbs a person actually runs -- scan, dispatch, run, resume, the
-read-only runs lister, the read-only explain auditor, and the read-only trace
-transcript renderer -- and owns the two
-things a library must not: argument
+into eight verbs a person actually runs -- scan, dispatch, run, resume, the
+read-only runs lister, the read-only explain auditor, the read-only trace
+transcript renderer, and the read-only signals perception inspector -- and owns
+the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
 per verb.
@@ -36,6 +36,7 @@ from .loop import Checkpoint, GoalLoop, ToolRegistry
 from .models import (
     AutonomyDecision,
     CandidateGoal,
+    ContextSignal,
     DispatchDecision,
     GoalSlate,
     LoopStep,
@@ -69,7 +70,7 @@ _TRACE_OUTPUT_WIDTH = 80
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with seven subcommands and shared globals.
+    """Assemble the ``pla`` parser with eight subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -206,6 +207,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the step transcript as a JSON array (full, untruncated output) instead of the human block.",
     )
     p_trace.set_defaults(func=_cmd_trace)
+
+    # `signals` prints the raw ContextSignals the collectors perceive for a
+    # workspace -- the FIRST stage of the pipeline, which every other verb hides
+    # behind a synthesize call. Like `runs`/`explain`/`trace` it inherits the
+    # globals so --provider/--scripted-responses/--state-dir are accepted but
+    # INERT: the handler builds no LLMClient, so a fresh clone can inspect what
+    # the scout sees with zero provider wiring and without paying for an LLM call.
+    # --workspace is required (mirrors scan/run); --json swaps the grouped human
+    # view for one machine-parseable object; --kind narrows to one collector kind.
+    p_signals = sub.add_parser(
+        "signals",
+        parents=[globals_],
+        help="Print the raw context signals the collectors perceive (read-only, LLM-free).",
+    )
+    p_signals.add_argument("--workspace", required=True, help="Workspace root to inspect.")
+    p_signals.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the signals as one JSON object instead of the grouped human view.",
+    )
+    p_signals.add_argument(
+        "--kind",
+        default=None,
+        help="Show only signals of this collector-defined kind (e.g. todo|note|git_commit).",
+    )
+    p_signals.set_defaults(func=_cmd_signals)
 
     return parser
 
@@ -593,6 +620,76 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
     return "\n".join([*header, *(_trace_step_line(step) for step in state.steps)])
 
 
+def _render_signals(snapshot: WorkspaceSnapshot, kind: str | None = None) -> str:
+    """Render the raw collector signals grouped by kind as plain text.
+
+    A pure, disk-free, deterministic function of ``(snapshot, kind)`` -- like
+    ``_render_runs`` / ``_render_trace`` it opens no files and builds no client, so
+    the exact human view is reproducible from a synthetic snapshot alone. The
+    optional ``kind`` narrows the view to one collector-defined kind; an empty
+    selection (zero signals, or a ``kind`` matching none) degrades to a single
+    ``(no signals collected)`` marker rather than a bare or blank block. Kind
+    headers ``## <kind> (<count>)`` appear in ascending lexicographic order, and
+    within each section signals are ordered by ``(source, summary, path or "")``
+    so two renders of the same snapshot are byte-identical. ``weight`` is shown as
+    ``w<value:.2f>`` (the JSON view keeps it a raw number); a signal's ``path`` is
+    echoed verbatim after `` -> `` ONLY when present, so a path-less note carries
+    no arrow. Header lines start with ``## `` and signal lines with two spaces, so
+    the two are unambiguously distinguishable (a caller can count kinds by ``## ``).
+    """
+    selected = [s for s in snapshot.signals if kind is None or s.kind == kind]
+    if not selected:
+        return "(no signals collected)"
+    grouped: dict[str, list[ContextSignal]] = {}
+    for signal in selected:
+        grouped.setdefault(signal.kind, []).append(signal)
+    lines: list[str] = []
+    for group_kind in sorted(grouped):
+        section = grouped[group_kind]
+        lines.append(f"## {group_kind} ({len(section)})")
+        for signal in sorted(section, key=lambda s: (s.source, s.summary, s.path or "")):
+            line = f"  {signal.source}  w{signal.weight:.2f}  {signal.summary}"
+            if signal.path is not None:
+                line += f" -> {signal.path}"
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _signals_json_payload(snapshot: WorkspaceSnapshot, kind: str | None = None) -> dict:
+    """Build the ``signals --json`` document as a pure function of inputs.
+
+    Exactly two top-level keys -- ``workspace_root`` (== ``snapshot.root``) and
+    ``signals`` (a FLAT array ordered by ``(kind, source, summary, path or "")``).
+    Each signal is an EXPLICIT dict of exactly the six contract keys ``source,
+    kind, summary, detail, path, weight`` -- never ``model_dump`` (the iter-08
+    schema-leak lesson): the model's ``timestamp`` (and any field added later) is
+    deliberately excluded so the wire schema stays a small, stable contract a
+    ``jq`` pipeline can rely on. ``path`` is echoed as-is (JSON ``null`` when
+    ``None``); ``weight`` stays a raw JSON number (the human view renders it
+    ``w<value:.2f>``). A ``kind`` matching nothing degrades to ``signals == []``
+    (NOT the human ``(no signals collected)`` marker), so the JSON is always one
+    object -- an empty array, never prose. Mirrors the ``_scan_json_payload`` /
+    ``_run_row`` explicit-dict convention; kept pure/disk-free so it is
+    unit-testable without touching a workspace or a client.
+    """
+    selected = [s for s in snapshot.signals if kind is None or s.kind == kind]
+    selected.sort(key=lambda s: (s.kind, s.source, s.summary, s.path or ""))
+    return {
+        "workspace_root": snapshot.root,
+        "signals": [
+            {
+                "source": s.source,
+                "kind": s.kind,
+                "summary": s.summary,
+                "detail": s.detail,
+                "path": s.path,
+                "weight": s.weight,
+            }
+            for s in selected
+        ],
+    }
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -874,6 +971,37 @@ def _cmd_trace(args: argparse.Namespace) -> int:
         print(json.dumps(rows, indent=2))
     else:
         print(_render_trace(state, run_dir))
+    return 0
+
+
+def _cmd_signals(args: argparse.Namespace) -> int:
+    """signals: print the raw ContextSignals the collectors perceive (read-only).
+
+    WHY it builds no LLMClient (like ``runs``/``explain``/``trace``): it stops at
+    the FIRST pipeline stage -- ``_collect`` alone -- and never synthesizes, so a
+    developer can see exactly what the scout perceives for a workspace with zero
+    provider wiring and without paying for an LLM call, completing the
+    transparency arc signals (what it sees) -> scan (what it proposes) -> explain
+    (why it gated) -> trace (what it did). It reuses the verbatim iter-10
+    ``--workspace`` ``is_dir()`` guard so a missing/non-dir path fails fast with
+    ``error: workspace not found: <path>`` on stderr + exit 2 BEFORE any
+    collection (never degrading to an empty inspector), matching
+    scan/run/resume/runs/trace's missing-input contract. ``--json`` swaps the
+    grouped human view for one machine-parseable object; ``--kind`` narrows to one
+    collector-defined kind (an unrecognized kind is simply an empty selection, not
+    an error -- kinds are dynamic, so there is no fixed enum to validate against).
+    """
+    workspace = Path(args.workspace)
+    if not workspace.is_dir():
+        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+        return 2
+    snapshot = _collect(workspace)
+    kind = getattr(args, "kind", None)
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer.
+        print(json.dumps(_signals_json_payload(snapshot, kind), indent=2))
+    else:
+        print(_render_signals(snapshot, kind))
     return 0
 
 

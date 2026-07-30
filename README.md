@@ -71,6 +71,13 @@ automatically.
 | `runs`    | List past dispatched runs under the state dir (`--json` for a JSON array).|
 | `explain` | Show one goal's score math, gate decision + reason, and provenance (read-only).|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--json` for a full array; read-only).|
+| `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters; read-only, LLM-free).|
+
+Together these verbs form a transparency arc across the pipeline —
+`signals` (what the collectors *see*) → `scan` (what the scout *proposes*) →
+`explain` (why the gate *ruled*) → `trace` (what a run *did*). `signals`,
+`explain`, `trace`, and `runs` are read-only and need no LLM call; `scan` is
+the one synthesizing step — it calls the LLM and writes the slate.
 
 Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
 via `PLA_*` environment variables). Run `pla --version` to print the installed
