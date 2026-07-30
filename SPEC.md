@@ -95,6 +95,10 @@ Key invariants the other layers rely on:
   backoff-retries the L1 executor recovered from during a run. Defaulted so a
   pre-existing checkpoint written without the key still deserializes cleanly as
   `retries == 0` (a non-breaking, non-versioned foundation-contract addition).
+- `Settings.auto_dispatch_min_score` is a non-negative float (`Field(ge=0.0)`,
+  default `4.0`); a negative threshold is rejected at construction to prevent a
+  silent whole-slate auto-dispatch (all score operands are bounded `>= 0`, so a
+  negative threshold would auto-fire the gate for every non-sensitive goal).
 
 ## 4. Module contracts
 

@@ -60,7 +60,14 @@ class Settings(BaseModel):
     scripted_responses_path: Path | None = None
     workspace_root: Path = Path(".")
     state_dir: Path = Path(".pla_runs")
-    auto_dispatch_min_score: float = 4.0
+    # A negative threshold would make ``score >= threshold`` trivially true for
+    # every non-sensitive, appropriate goal (all score operands are bounded
+    # ``>= 0``), silently auto-dispatching the whole slate with zero human
+    # approval -- the single worst misconfiguration for a gate-sensitive-work
+    # agent. Bound it ``ge=0.0`` (NOT ``gt``) because ``0.0`` is a legitimate,
+    # deliberate "auto-dispatch every scored goal" setting; no upper bound
+    # because a large threshold just approves less, which is safe.
+    auto_dispatch_min_score: float = Field(default=4.0, ge=0.0)
     sensitive_categories: set[GoalCategory] = Field(
         default_factory=lambda: set(DEFAULT_SENSITIVE)
     )
