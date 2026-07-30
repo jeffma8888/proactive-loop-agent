@@ -117,6 +117,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument(
         "--out", default=None, help="Where to write the slate JSON (default <state_dir>/slate.json)."
     )
+    # choices makes argparse reject an unknown format at PARSE time (outside the
+    # main() try), so an invalid value is a SystemExit(2) usage error naming the
+    # bad choice -- no client built, no collection run, no slate written. Default
+    # table keeps every existing scan invocation byte-for-byte unchanged.
+    p_scan.add_argument(
+        "--format",
+        choices=["table", "json", "markdown"],
+        default="table",
+        help=(
+            "stdout rendering: table (default, human) | json (one JSON object, no "
+            "trailer, pipes cleanly into jq) | markdown (paste-ready GFM table + trailer)."
+        ),
+    )
     p_scan.set_defaults(func=_cmd_scan)
 
     p_dispatch = sub.add_parser(
@@ -289,6 +302,73 @@ def _render_table(slate: GoalSlate, decisions: list[DispatchDecision]) -> str:
     if not slate.goals:
         lines.append("(no candidate goals)")
     return "\n".join(lines)
+
+
+def _md_cell(text: str) -> str:
+    """Sanitize one string for a GitHub-flavored Markdown table cell.
+
+    Two hazards can break a GFM table layout, and this collapses both so every
+    goal renders as exactly one physical row with a constant number of ``|``
+    delimiters no matter what the synthesizer put in a title: (1) an embedded
+    newline or whitespace run -- ``" ".join(text.split())`` flattens ANY
+    whitespace (incl. ``\n``/``\t``) to single spaces; (2) a literal ``|`` inside
+    the value -- escaped to ``\\|`` AFTER the collapse so the delimiter count the
+    renderer emits is the only unescaped ``|`` on the line.
+    """
+    return " ".join(text.split()).replace("|", "\\|")
+
+
+def _render_markdown(slate: GoalSlate, decisions: list[DispatchDecision]) -> str:
+    """Render the ranked slate + gate outcome as a paste-ready GFM table.
+
+    A pure, disk-free function of ``(slate, decisions)`` -- like ``_render_table``
+    it consumes the SAME ``zip(slate.ranked(), decisions)``, so the markdown, the
+    json payload, and the human table can never disagree on order or gate outcome.
+    Fixed 5-column shape ``| # | decision | score | category | title |``; every
+    text cell is routed through ``_md_cell`` (behavior 8) and the score cell is
+    ``:.2f`` (matching the table). An empty slate degrades to the same
+    ``(no candidate goals)`` marker ``_render_table`` uses, after the header rows.
+    """
+    lines = [
+        "| # | decision | score | category | title |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for rank, (goal, decision) in enumerate(zip(slate.ranked(), decisions), start=1):
+        lines.append(
+            f"| {rank} | {_md_cell(decision.decision.value)} | {goal.score:.2f} "
+            f"| {_md_cell(goal.category.value)} | {_md_cell(goal.title)} |"
+        )
+    if not slate.goals:
+        lines.append("(no candidate goals)")
+    return "\n".join(lines)
+
+
+def _scan_json_payload(slate: GoalSlate, decisions: list[DispatchDecision]) -> dict:
+    """Build the ``scan --format json`` document as a pure function of inputs.
+
+    Exactly two top-level keys -- ``workspace_root`` (the scanned path) and
+    ``goals`` (an array in ``slate.ranked()`` order, the SAME ``zip`` the table and
+    markdown use, so all three agree on order and gate outcome). Each goal is an
+    explicit dict of exactly the seven contract keys, with ``category``/``decision``
+    emitted as their str-Enum ``.value`` (never a ``GoalCategory.``/``AutonomyDecision.``
+    repr) -- mirroring ``_run_row`` and ``trace --json``. Kept pure/disk-free so it
+    is unit-testable without touching a workspace or a client.
+    """
+    return {
+        "workspace_root": slate.workspace_root,
+        "goals": [
+            {
+                "id": goal.id,
+                "title": goal.title,
+                "category": goal.category.value,
+                "score": goal.score,
+                "appropriate_now": goal.appropriate_now,
+                "decision": decision.decision.value,
+                "reason": decision.reason,
+            }
+            for goal, decision in zip(slate.ranked(), decisions)
+        ],
+    }
 
 
 def _render_run_summary(
@@ -543,13 +623,25 @@ def _dispatch_goal(
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:
-    """scan: collect -> synthesize -> gate -> print table -> write slate JSON."""
+    """scan: collect -> synthesize -> gate -> render (table|json|markdown) -> write slate JSON.
+
+    ``--format`` selects the STDOUT rendering only; every format writes the
+    identical slate file to ``--out`` (behavior 10), so a later
+    ``dispatch``/``explain``/``trace`` behaves the same regardless of which format
+    printed it. ``json`` is the one format that suppresses the ``slate written:``
+    trailer so its whole stdout is a single JSON object that pipes cleanly into
+    ``jq``; ``table`` (the default) and ``markdown`` keep the human trailer. The
+    ``table`` branch is the pre-existing code path verbatim, so a bare ``scan`` and
+    ``scan --format table`` are byte-for-byte identical (behaviors 1-2).
+    """
     workspace = Path(args.workspace)
     # Front-door guard: a mistyped/nonexistent workspace would otherwise degrade
     # to an empty slate + exit 0 (every collector tolerates a missing dir, SPEC
     # 4.1), silently hiding the real problem -- the path -- on the very first
     # thing a new user tries. Fail fast BEFORE building a client/collecting, so
-    # the exit-2 missing-input contract matches dispatch/resume/runs/trace.
+    # the exit-2 missing-input contract matches dispatch/resume/runs/trace. This
+    # runs before any format handling, so it holds for every --format value
+    # (behavior 12); an invalid --format was already rejected by argparse upstream.
     if not workspace.is_dir():
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
@@ -560,8 +652,18 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     slate = GoalSynthesizer(client, settings).synthesize(snapshot)
     decisions = gate_slate(slate, settings)
 
-    print(_render_table(slate, decisions))
     out = Path(args.out) if args.out else settings.state_dir / _SLATE_NAME
+    if args.format == "json":
+        # Suppress the trailer so the ENTIRE stdout is one JSON document -- a
+        # `pla scan --format json | jq` pipeline sees a single object and nothing
+        # else. The slate file is still written identically (behavior 10).
+        print(json.dumps(_scan_json_payload(slate, decisions), indent=2))
+        _write_slate(slate, out)
+        return 0
+    # table (default) and markdown share the human trailer; only the renderer
+    # differs. The table branch is the original code path unchanged (behaviors 1-2).
+    render = _render_markdown if args.format == "markdown" else _render_table
+    print(render(slate, decisions))
     _write_slate(slate, out)
     print(f"\nslate written: {out}")
     return 0

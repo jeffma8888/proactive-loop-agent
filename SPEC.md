@@ -253,11 +253,20 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 ### 4.5 cli + scheduler + examples
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
-  - `pla scan --workspace W [--out slate.json]` — collect → synthesize → print ranked
-    table (plain text) + gate decisions; write slate JSON. A missing or
-    non-directory `--workspace` fails fast with `error: workspace not found: <path>`
-    on stderr and exit 2 (before any client/collect), rather than degrading to an
-    empty slate + exit 0.
+  - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown}]` —
+    collect → synthesize → gate → render the ranked slate + gate decisions to
+    stdout; write slate JSON. `--format` (default `table`, backward compatible)
+    selects stdout rendering ONLY and never changes the persisted slate file:
+    `table` = the human plain-text table + a `slate written: <path>` trailer (a
+    bare `scan` is byte-identical to `--format table`); `json` = one JSON object on
+    stdout (`{workspace_root, goals[...]}`, goals in `ranked()` order, each with the
+    live gate `decision`/`reason`) and NO trailer, so it pipes cleanly into `jq`;
+    `markdown` = a paste-ready GitHub-flavored table (`| # | decision | score |
+    category | title |`) plus the same trailer. An invalid `--format` is an argparse
+    usage error (exit 2). A missing or non-directory `--workspace` fails fast with
+    `error: workspace not found: <path>` on stderr and exit 2 (before any
+    client/collect, regardless of `--format`), rather than degrading to an empty
+    slate + exit 0.
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count) + artifact paths.

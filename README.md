@@ -64,7 +64,7 @@ automatically.
 
 | Command   | What it does                                                              |
 |-----------|---------------------------------------------------------------------------|
-| `scan`    | Collect context, synthesize + gate a slate, print it, write slate JSON.   |
+| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown`), write slate JSON.|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--yes` confirms approval).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal.          |
 | `resume`  | Load a checkpoint from a run dir and continue the loop.                   |
@@ -80,6 +80,22 @@ version (sourced from `proactive_loop.__version__`).
 fast with `error: workspace not found: <path>` on stderr and exit code 2, rather
 than silently producing an empty slate. A mistyped path is reported as the
 problem instead of hiding behind an empty result.
+
+`scan --format` picks the stdout rendering without changing the slate file it
+writes (so `dispatch`/`explain`/`trace` behave identically no matter which format
+printed it):
+
+- `table` (default) — the human ranked table plus a `slate written: <path>`
+  trailer. A bare `scan` is byte-identical to `scan --format table`.
+- `json` — a single JSON object on stdout, `{"workspace_root": ..., "goals": [...]}`,
+  goals in ranked order each carrying the live gate `decision`/`reason`, and **no**
+  trailer, so `pla scan ... --format json | jq` sees one clean document.
+- `markdown` — a paste-ready GitHub-flavored table
+  (`| # | decision | score | category | title |`) plus the trailer — the
+  most portfolio-friendly artifact: "here is what my agent proposed and how the
+  autonomy gate ruled."
+
+An invalid `--format` value is rejected by argparse as a usage error (exit 2).
 
 ## How the offline scripted provider works
 
