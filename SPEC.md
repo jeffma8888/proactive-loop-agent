@@ -139,6 +139,18 @@ class Collector(Protocol):
   @{u}..HEAD`) — it NEVER runs `git fetch`/`ls-remote` or any network op (see
   section 5); never raises → `[]`. Reports facts only; the synthesizer judges.
   (Additive, non-breaking foundation-contract addition.)
+- `test_posture.py: TestPostureCollector(name="test_posture", max_items=20)` —
+  walk `root` (same skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/
+  `_is_hidden`) and emit one `kind="test_posture"` signal per top-level project
+  dir (direct child of `root`, or `"."` for files in `root`) that contains at
+  least one *source* file. A candidate file (`.py`/`.ts`/`.js`/`.go`/`.rs`) is a
+  *test* file when its name starts with `test_`, its stem ends with `_test`, it
+  contains `.test.`/`.spec.`, or it lives under a `tests`/`test`/`__tests__`
+  dir; anything else is source. Summary `"<project>: <S> src, <T> test files"`
+  with ` (untested)` appended iff `T == 0`; weight `0.7` untested else `0.4`.
+  Stdlib-only (`os`/`pathlib`), never raises → `[]`. Reports the raw `(src,
+  test)` counts only; the synthesizer judges whether to propose adding tests.
+  (Additive collector, exactly like iters 09/11 — no version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
