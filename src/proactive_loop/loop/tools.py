@@ -48,11 +48,13 @@ class ToolRegistry:
             "read_file": self._read_file,
             "list_files": self._list_files,
             "search_files": self._search_files,
+            "append_file": self._append_file,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
-                "available tools: write_file, read_file, list_files, search_files"
+                "available tools: write_file, read_file, list_files, "
+                "search_files, append_file"
             )
         try:
             return handler(args or {})
@@ -83,6 +85,38 @@ class ToolRegistry:
         if rel not in self._artifacts:
             self._artifacts.append(rel)
         return f"wrote {len(content)} chars to artifacts/{rel}"
+
+    def _append_file(self, args: dict) -> str:
+        """Append *content* to *path* under artifacts_dir; refuse escapes.
+
+        WHY a distinct append primitive: ``write_file`` overwrites, so growing
+        an artifact across PLAN->ACT->CHECK steps otherwise forces a
+        read-then-rewrite of the whole file through the prompt -- burning
+        context tokens and inviting clobber/truncation bugs. Append opens the
+        target in ``"a"`` mode so an existing artifact is *extended*, and
+        creates the file (and parents) when absent, mirroring ``write_file``'s
+        exact sandbox guards (``_reject_unsafe`` + resolved ``_within``) so it
+        can never escape the artifacts dir.
+        """
+        path = str(args.get("path", ""))
+        content = str(args.get("content", ""))
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+        target = self.artifacts_dir / path
+        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
+        # destination is still inside the sandbox before touching the disk.
+        if not self._within(target, self.artifacts_dir):
+            return f"error: refusing to write outside artifacts dir: {path!r}"
+        ensure_dir(target.parent)
+        # Append mode ("a"), never write_text, so an existing artifact is
+        # extended rather than clobbered.
+        with target.open("a") as f:
+            f.write(content)
+        rel = str(target.relative_to(self.artifacts_dir))
+        if rel not in self._artifacts:
+            self._artifacts.append(rel)
+        return f"appended {len(content)} chars to artifacts/{rel}"
 
     def _read_file(self, args: dict) -> str:
         """Read *path* from artifacts_dir or the read-only workspace_root."""

@@ -222,12 +222,17 @@ class ToolRegistry:
     def artifacts(self) -> list[str]: ...                  # relpaths written so far
 ```
 
-  Tools: `write_file(path, content)` → under `artifacts_dir` ONLY (reject `..` and
-  absolute paths); `read_file(path)` → workspace_root or artifacts_dir, read-only;
-  `list_files(path=".")`; `search_files(query, path=".")` → case-insensitive
-  substring grep over `workspace_root` first (then `artifacts_dir`), recursive,
-  read-only, deterministic order (relpath asc, then line no.), bounded to 50 hits
-  (additive tool added in iter-13 — existing tool contracts unchanged, so **no
+  Tools: `write_file(path, content)` → overwrites under `artifacts_dir` ONLY (reject
+  `..` and absolute paths); `append_file(path, content)` → *extends* (append mode)
+  under `artifacts_dir` ONLY, creating the file (and parents) if absent, with the same
+  `..`/absolute/symlink refusals as `write_file` — the incremental-authoring primitive
+  so a multi-step goal grows an artifact without a read-then-rewrite (additive tool
+  added in iter-17 — existing tool contracts unchanged, so **no version bump**,
+  mirroring iter-13's `search_files`); `read_file(path)` → workspace_root or
+  artifacts_dir, read-only; `list_files(path=".")`; `search_files(query, path=".")` →
+  case-insensitive substring grep over `workspace_root` first (then `artifacts_dir`),
+  recursive, read-only, deterministic order (relpath asc, then line no.), bounded to 50
+  hits (additive tool added in iter-13 — existing tool contracts unchanged, so **no
   version bump**, mirroring iter-08's additive `RunState.retries`). Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
