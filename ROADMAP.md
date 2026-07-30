@@ -1,16 +1,18 @@
 # Enhancement Roadmap
 
 A maturity/enhancement backlog layered on the shipped **v0.1.1**, grounded in
-[`SPEC.md`](SPEC.md). The product is already complete and tested (over 120 tests
-green, grown with iter-01); everything here is a small, self-contained increment
+[`SPEC.md`](SPEC.md). The product is already complete and tested (134 tests
+green through iter-02); everything here is a small, self-contained increment
 that raises the bar of an existing layer — L2 scout perception, L1 loop
 execution, L0 resilience/observability, or CLI/DX — without breaking the public
 contracts. Each iteration of the dev loop selects exactly one row.
 
 Ordering is by leverage on the product's thesis ("a proactivity layer that is
 resilient by design"), balanced against blast radius. Seeded from both PM scouts
-(new-capability lens + hardening/DX lens) across iters 01–02 and a fresh read of
-`SPEC.md`.
+(new-capability lens + hardening/DX lens) across iters 01–03 and a fresh read of
+`SPEC.md`. Net-new rows (#17+) surfaced mid-loop by a scout may jump the queued
+backlog when they close a docs-vs-code honesty gap on a public repo (the standing
+iter-01 tie-break rule: an integrity fix outranks a net-new capability).
 
 | # | Enhancement | Layer | Value | Risk | Source | Status |
 |---|-------------|-------|-------|------|--------|--------|
@@ -30,5 +32,6 @@ resilient by design"), balanced against blast radius. Seeded from both PM scouts
 | 14 | Ship a PEP 561 `src/proactive_loop/py.typed` marker so the fully type-hinted library exports as typed to downstream consumers | DX | Low | Very Low | Scout B C3 sibling | Planned |
 | 15 | `pla scan --top N` to cap the printed slate for large workspaces (JSON write unchanged) | CLI/DX | Low | Very Low | PM-lead (SPEC read) | Planned |
 | 16 | README section documenting the lazy-imported provider adapters (anthropic/openai/bedrock) with an env-var example | Docs | Low | None | PM-lead (SPEC read) | Planned |
+| 17 | **Wire `PLA_RETRY_*` env vars into `Settings.from_env`** — the five `RetryPolicy` knobs (max_attempts, base_backoff_sec, backoff_factor, max_backoff_sec, jitter_frac) are the product's headline L0 resilience controls, yet `from_env` reads none of them while `config.py`'s docstring promises "everything overridable via PLA_*". Makes the claim true; purely additive (no path changes unless a new env var is set); pydantic validates ranges and bad values compose with iter-02's CLI error boundary | L0/config | High | Very Low | Scout B C1 (iter-03) | **SELECTED — iter-03** (net-new; jumped queue on integrity grounds) |
 
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._

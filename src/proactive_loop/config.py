@@ -1,13 +1,19 @@
 """Runtime settings and retry policy.
 
-Everything is overridable via environment variables (prefix PLA_) so the CLI,
-tests, and any embedding host can configure behavior without code changes.
-The default provider is "scripted" so the whole system runs offline.
+Everything is overridable via environment variables (prefix ``PLA_``) so the
+CLI, tests, and any embedding host can configure behavior without code changes.
+This includes the five L0 ``RetryPolicy`` knobs -- ``PLA_RETRY_MAX_ATTEMPTS``,
+``PLA_RETRY_BASE_BACKOFF_SEC``, ``PLA_RETRY_BACKOFF_FACTOR``,
+``PLA_RETRY_MAX_BACKOFF_SEC``, ``PLA_RETRY_JITTER_FRAC`` -- so the product's
+headline resilience surface is tunable on an unattended, throttle-resilient
+deployment without editing source. The default provider is "scripted" so the
+whole system runs offline.
 """
 
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -16,6 +22,18 @@ from .models import GoalCategory
 
 ENV_PREFIX = "PLA_"
 
+# The five ``PLA_RETRY_*`` env vars, each mapped to (RetryPolicy field, coercion).
+# Coercion runs at read time so a non-numeric value fails with ValueError exactly
+# like the MAX_ITERATIONS read; only the vars actually present are applied, which
+# is what lets a partial set leave the untouched RetryPolicy fields at defaults.
+_RETRY_ENV_VARS: tuple[tuple[str, str, Callable[[str], object]], ...] = (
+    ("RETRY_MAX_ATTEMPTS", "max_attempts", int),
+    ("RETRY_BASE_BACKOFF_SEC", "base_backoff_sec", float),
+    ("RETRY_BACKOFF_FACTOR", "backoff_factor", float),
+    ("RETRY_MAX_BACKOFF_SEC", "max_backoff_sec", float),
+    ("RETRY_JITTER_FRAC", "jitter_frac", float),
+)
+
 DEFAULT_SENSITIVE = frozenset({GoalCategory.HEALTH_ADMIN, GoalCategory.FINANCE_LEGAL})
 
 
@@ -23,7 +41,8 @@ class RetryPolicy(BaseModel):
     """Exponential backoff parameters for throttle/timeout retries.
 
     Defaults are demo-scale (seconds). A production deployment against a real
-    rate-limited API would raise base_backoff_sec substantially.
+    rate-limited API would raise base_backoff_sec substantially -- set it (and
+    the other four knobs) via the ``PLA_RETRY_*`` env vars, no code change needed.
     """
 
     max_attempts: int = Field(default=5, ge=1)
@@ -78,6 +97,18 @@ class Settings(BaseModel):
             env_values["max_iterations"] = int(v)
         if (v := _get("MAX_LLM_CALLS")) is not None:
             env_values["max_llm_calls"] = int(v)
+
+        # Merge present-only PLA_RETRY_* overrides onto RetryPolicy() defaults.
+        # Building from only the vars that are set (rather than a fully specified
+        # policy) keeps unspecified fields at their defaults, and only touches
+        # .retry at all when at least one knob is provided -- so an environment
+        # with no PLA_RETRY_* vars yields the unchanged default RetryPolicy.
+        retry_overrides: dict[str, object] = {}
+        for suffix, field, coerce in _RETRY_ENV_VARS:
+            if (v := _get(suffix)) is not None:
+                retry_overrides[field] = coerce(v)
+        if retry_overrides:
+            env_values["retry"] = RetryPolicy(**retry_overrides)  # type: ignore[arg-type]
 
         env_values.update({k: v for k, v in overrides.items() if v is not None})
         return cls(**env_values)  # type: ignore[arg-type]
