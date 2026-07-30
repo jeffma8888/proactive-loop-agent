@@ -66,6 +66,7 @@ automatically.
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal.          |
 | `resume`  | Load a checkpoint from a run dir and continue the loop.                   |
 | `runs`    | List past dispatched runs under the state dir (`--json` for a JSON array).|
+| `explain` | Show one goal's score math, gate decision + reason, and provenance (read-only).|
 
 Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
 via `PLA_*` environment variables). Run `pla --version` to print the installed

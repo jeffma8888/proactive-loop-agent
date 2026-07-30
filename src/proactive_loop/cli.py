@@ -2,8 +2,9 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into five verbs a person actually runs -- scan, dispatch, run, resume, and the
-read-only runs lister -- and owns the two things a library must not: argument
+into six verbs a person actually runs -- scan, dispatch, run, resume, the
+read-only runs lister, and the read-only explain auditor -- and owns the two
+things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
 per verb.
@@ -59,7 +60,7 @@ _NO_CHECKPOINT = "(no checkpoint)"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with five subcommands and shared globals.
+    """Assemble the ``pla`` parser with six subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -150,6 +151,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the run list as a JSON array instead of the human table.",
     )
     p_runs.set_defaults(func=_cmd_runs)
+
+    # `explain` mirrors `dispatch`'s slate + goal-id inputs but runs nothing: it
+    # inherits the globals (so `--provider`/`--scripted-responses` are accepted
+    # but inert -- it builds no LLMClient) and prints one goal's full decision
+    # audit. Making --slate and --goal-id required (one goal per invocation) keeps
+    # the verb unambiguous -- there is no implicit "explain the top goal" default.
+    p_explain = sub.add_parser(
+        "explain",
+        parents=[globals_],
+        help="Explain one goal's score math, gate decision, and provenance (read-only, LLM-free).",
+    )
+    p_explain.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
+    p_explain.add_argument("--goal-id", required=True, help="Id of the goal to explain.")
+    p_explain.set_defaults(func=_cmd_explain)
 
     return parser
 
@@ -363,6 +378,54 @@ def _render_runs(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _render_explain(
+    goal: CandidateGoal, decision: DispatchDecision, settings: Settings
+) -> str:
+    """Render one goal's full decision audit: score math, gate outcome, sources.
+
+    A pure function of ``(goal, decision, settings)`` -- like ``_render_table`` /
+    ``_render_runs`` it touches no disk, so the same block is reproducible from a
+    loaded slate alone (behavior 10). The score line's right-hand side is
+    ``goal.score`` *echoed*, never recomputed here, so the printed arithmetic can
+    never disagree with the computed field that actually drives ranking. Numeric
+    operands use ``:g`` (drop trailing zeros: ``4.0`` -> ``4``, ``0.9`` -> ``0.9``)
+    so the math reads the way the model authored the weights; the threshold uses
+    plain float form (``4.0``) so it echoes ``settings.auto_dispatch_min_score`` as
+    stored. The gate outcome + reason surface verbatim from ``decision`` -- the
+    same object ``dispatch`` acts on -- so explain and a later dispatch agree.
+    """
+    # Substituted arithmetic mirrors CandidateGoal.score's formula exactly; the
+    # right-hand {score} is the model's own computed field, echoed verbatim so the
+    # printed result can never drift from the value that drives ranking.
+    arithmetic = (
+        f"{goal.impact:g} * {goal.urgency:g} * {goal.confidence:g} "
+        f"/ {goal.effort_weight:g} = {goal.score:g}"
+    )
+    lines = [
+        f"goal        : {goal.title}  (id={goal.id})",
+        f"category    : {goal.category.value}",
+        "score       : impact * urgency * confidence / effort_weight",
+        f"              {arithmetic}   "
+        f"(auto-dispatch threshold: {settings.auto_dispatch_min_score})",
+        f"decision    : {decision.decision.value}  ({decision.reason})",
+        f"appropriate now: {str(goal.appropriate_now).lower()}",
+        f"rationale   : {goal.rationale}",
+    ]
+    # A (none) marker (not an omitted section) keeps the block shape stable
+    # whether or not the synthesizer attached any provenance to the goal.
+    lines.append("sources     :")
+    if goal.sources:
+        lines.extend(f"  - {src}" for src in goal.sources)
+    else:
+        lines.append("  (none)")
+    lines.append("suggested first steps:")
+    if goal.suggested_first_steps:
+        lines.extend(f"  - {step}" for step in goal.suggested_first_steps)
+    else:
+        lines.append("  (none)")
+    return "\n".join(lines)
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -534,6 +597,37 @@ def _cmd_runs(args: argparse.Namespace) -> int:
         print(json.dumps(rows, indent=2))
     else:
         print(_render_runs(rows))
+    return 0
+
+
+def _cmd_explain(args: argparse.Namespace) -> int:
+    """explain: print one goal's full, LLM-free decision audit from a saved slate.
+
+    WHY it builds no LLMClient (like ``runs``): it is a pure read over a persisted
+    slate. It re-gates the goal through the SAME ``gate(goal, settings)`` the
+    ``dispatch`` verb uses -- so an ``explain`` and a subsequent ``dispatch`` can
+    never disagree -- and renders the score arithmetic, the autonomy rule that
+    fired, and the goal's rationale/sources/first-steps. It runs nothing and
+    re-scores nothing. Exit codes mirror ``dispatch``: ``2`` for a missing slate
+    file or an unknown goal id (returned explicitly, before any exception); a
+    corrupt slate raises ``ValidationError`` (a ``ValueError``) and is mapped to
+    ``1`` by the top-level ``main()`` boundary as one legible ``error:`` line.
+    """
+    slate_path = Path(args.slate)
+    if not slate_path.is_file():
+        print(f"error: slate file not found: {slate_path}", file=sys.stderr)
+        return 2
+
+    slate = GoalSlate.model_validate_json(slate_path.read_text())
+
+    goal = slate.get(args.goal_id)
+    if goal is None:
+        print(f"error: goal id {args.goal_id!r} not found in slate", file=sys.stderr)
+        return 2
+
+    settings = _settings(args)
+    decision = gate(goal, settings)
+    print(_render_explain(goal, decision, settings))
     return 0
 
 

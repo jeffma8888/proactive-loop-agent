@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -243,6 +243,14 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     dir with no loadable checkpoint degrades to a `(no checkpoint)` row rather
     than aborting. Makes `resume --run-dir DIR`'s argument discoverable. `--json`
     emits a parseable array (`[]` when empty). Builds no `LLMClient`.
+  - `pla explain --slate slate.json --goal-id ID` — read-only, LLM-free auditor
+    of ONE goal in a saved slate: prints its score arithmetic
+    (`impact * urgency * confidence / effort_weight = score`, echoing the model's
+    computed `score`), the live `gate(goal, settings)` decision + the rule that
+    fired + the auto-dispatch threshold it was compared against (so `explain` and
+    a later `dispatch` agree), and the goal's rationale/sources/first-steps.
+    Missing slate or unknown id → exit 2; a corrupt slate → exit 1 via the
+    `main()` boundary. Builds no `LLMClient`.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
 - `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.
