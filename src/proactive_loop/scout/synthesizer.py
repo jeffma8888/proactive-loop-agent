@@ -36,10 +36,14 @@ never drift from its inputs. Any extra keys are ignored.
 
 from __future__ import annotations
 
+import time
+from typing import Callable
+
 from pydantic import ValidationError
 
 from proactive_loop.config import Settings
 from proactive_loop.llm.client import LLMClient, parse_json_block
+from proactive_loop.loop.resilience import with_retry
 from proactive_loop.models import CandidateGoal, GoalCategory, GoalSlate, WorkspaceSnapshot
 
 #: Call-site tag so scripted clients and providers can route synthesis calls.
@@ -91,24 +95,47 @@ def _validate_entry(entry: object) -> CandidateGoal | None:
 class GoalSynthesizer:
     """Synthesize a ranked goal slate from a workspace snapshot via the LLM."""
 
-    def __init__(self, client: LLMClient, settings: Settings) -> None:
+    def __init__(
+        self,
+        client: LLMClient,
+        settings: Settings,
+        *,
+        sleep: Callable[[float], object] = time.sleep,
+    ) -> None:
         self._client = client
         self._settings = settings
+        # Injected into with_retry so tests can assert backoff without waiting,
+        # mirroring the L1 GoalLoop convention (executor.py). Keyword-only and
+        # defaulted so every existing positional ``(client, settings)`` call
+        # site (e.g. cli.py) constructs unchanged.
+        self._sleep = sleep
 
     def synthesize(self, snapshot: WorkspaceSnapshot) -> GoalSlate:
         """Scan signals -> LLM -> validated, deduped GoalSlate.
+
+        The single model call is wrapped in :func:`with_retry` (L0) so a
+        transient throttle/timeout on this front-door call recovers with backoff
+        instead of crashing the scan — resilience parity with the L1 loop, which
+        already retries every PLAN/CHECK call.
 
         The returned slate is unsorted storage; callers use ``slate.ranked()``
         for display order. Scores are never computed here — they live on
         CandidateGoal as a computed field.
         """
         prompt = _build_prompt(snapshot)
-        response = self._client.complete(
-            system=self._system_prompt(),
-            prompt=prompt,
-            tag=SYNTHESIZE_TAG,
-        )
-        goals = self._parse_goals(response.text)
+
+        def _call() -> str:
+            return self._client.complete(
+                system=self._system_prompt(),
+                prompt=prompt,
+                tag=SYNTHESIZE_TAG,
+            ).text
+
+        # with_retry only retries LLMThrottleError/LLMTimeoutError; any real
+        # fault (bad request, ScriptExhaustedError, a bug) still propagates
+        # immediately rather than burning the retry budget.
+        text = with_retry(_call, self._settings.retry, sleep=self._sleep)
+        goals = self._parse_goals(text)
         return GoalSlate(workspace_root=snapshot.root, goals=goals)
 
     def _system_prompt(self) -> str:

@@ -141,7 +141,8 @@ def create_client(settings: Settings) -> LLMClient: ...
 ```python
 # synthesizer.py
 class GoalSynthesizer:
-    def __init__(self, client: LLMClient, settings: Settings): ...
+    def __init__(self, client: LLMClient, settings: Settings,
+                 *, sleep: Callable[[float], object] = time.sleep): ...
     def synthesize(self, snapshot: WorkspaceSnapshot) -> GoalSlate: ...
 SYNTHESIZE_TAG = "synthesize"
 ```
@@ -151,6 +152,14 @@ SYNTHESIZE_TAG = "synthesize"
   of goal dicts via `parse_json_block`, validates into `CandidateGoal`
   (invalid entries are skipped, not fatal), **re-computes nothing** (score is a
   computed field), dedupes by normalized title, returns `GoalSlate`.
+- The single `client.complete(...)` call is wrapped in
+  `with_retry(_call, settings.retry, sleep=self._sleep)` (an L2 → L0 dependency;
+  the arrow points inward), mirroring the L1 executor so a transient
+  throttle/timeout on the scout's front-door model call recovers with backoff
+  instead of crashing the scan. `sleep` is an optional keyword-only ctor arg
+  (default `time.sleep`), injected for deterministic, wait-free tests; only
+  `LLMThrottleError`/`LLMTimeoutError` are retried, so non-transient errors
+  still surface immediately.
 - LLM JSON contract (documented in module docstring):
   `[{"title","rationale","category","impact","urgency","confidence","effort_weight","appropriate_now","sources","suggested_first_steps"}]`
 - `policy.py`:
