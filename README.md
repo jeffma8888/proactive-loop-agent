@@ -23,8 +23,10 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
 ```
 
 - **L2 scout** turns raw context (recent files, git activity, uncommitted &
-  unpushed working-tree changes, `TODO`/`FIXME` comments, notes, dependency
-  manifests, untested source directories) into a ranked list of candidate goals,
+  unpushed working-tree changes, interrupted git operations (merge / rebase /
+  cherry-pick / revert, detached HEAD), `TODO`/`FIXME` comments, notes,
+  dependency manifests, untested source directories) into a ranked list of
+  candidate goals,
   then applies a policy
   gate. Sensitive categories (finance/legal, health/admin) *always* require
   human approval, no matter how high they score.

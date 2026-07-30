@@ -139,6 +139,26 @@ class Collector(Protocol):
   @{u}..HEAD`) — it NEVER runs `git fetch`/`ls-remote` or any network op (see
   section 5); never raises → `[]`. Reports facts only; the synthesizer judges.
   (Additive, non-breaking foundation-contract addition.)
+- `git_state.py: GitStateCollector(name="git_state", max_items=30)` —
+  interrupted-operation git companion to `git_activity` (committed past) and
+  `working_tree` (present diff/unpushed). Reads `.git` **marker files with
+  `pathlib` only** (a genuinely different mechanism — NO `subprocess`, NO
+  network, NO `git` invocation) for `root` and each direct child dir whose
+  `.git` is a directory, surfacing dangling operations that block or corrupt
+  the next action yet are invisible to the other two git collectors: an
+  unfinished **merge** (`.git/MERGE_HEAD`), **rebase**
+  (`.git/rebase-merge/` or `.git/rebase-apply/`), **cherry-pick**
+  (`.git/CHERRY_PICK_HEAD`), **revert** (`.git/REVERT_HEAD`), and a
+  **detached HEAD** (`.git/HEAD` holding a raw commit, not `ref: …`). Each
+  detected state is independent (no cross-state suppression — a rebase may
+  co-emit a detached-HEAD signal) and emits one `kind="git_state"` signal
+  with `weight=0.8`, `path=None`; output is sorted by `summary` ascending and
+  capped at `max_items`. A `.git` that is a *file* (worktree/submodule
+  pointer) is skipped, not followed. Never raises → `[]`. Reports facts only
+  (which interrupted state, in which repo dir); the synthesizer judges whether
+  to propose finishing or aborting the operation. (Additive collector, exactly
+  like iters 09/11/16 — a new `kind` flows into synthesis via `by_kind()` with
+  zero synthesizer change, so no version bump.)
 - `test_posture.py: TestPostureCollector(name="test_posture", max_items=20)` —
   walk `root` (same skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/
   `_is_hidden`) and emit one `kind="test_posture"` signal per top-level project
