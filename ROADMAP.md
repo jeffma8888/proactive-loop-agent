@@ -16,7 +16,10 @@ iter-01 tie-break rule: an integrity fix outranks a net-new capability). Applied
 iters 01, 03, and 05; iters 04, 06, and 07 went net-new (`pla runs`, `pla explain`,
 then `pla trace`) because no live 30s-falsifiable docs-vs-code contradiction existed
 those iterations. iter-08 returns to the queued backlog, applying #6 (retry telemetry)
-to complete the observability arc runs → explain → trace → retry-visibility. The integrity tie-break is now a depleted resource: both iter-07
+to complete the observability arc runs → explain → trace → retry-visibility. iter-09
+shipped #5 (DependencyCollector), iter-10 shipped #21 (net-new `--workspace` guard), and
+iter-11 returns to the queued backlog with #8 (WorkingTreeCollector) — its consecutive-collector
+objection now spent by iter-10's CLI verb. The integrity tie-break is now a depleted resource: both iter-07
 scouts independently re-verified the verb lists and version sources are all consistent,
 so a net-new capability need not defer to an integrity fix.
 
@@ -29,7 +32,7 @@ so a net-new capability need not defer to an integrity fix.
 | 5 | `DependencyCollector` — new L2 signal reading project manifests (`pyproject.toml`/`package.json`/…) so the scout proposes stack-appropriate goals | L2 | High | Low | Scout A C1 (iter-01) | **SHIPPED — iter-09** (`d0da144`; new `kind="dependency"` flows into synthesis via `by_kind()` with zero synthesizer change; picked over #4 CI+badge, which exposes no black-box behavior for the tester stage — see iter-09 pm.md) |
 | 6 | Surface L0 retry telemetry into `RunState` + the run summary + `trace` header (wire the defined-but-unused `on_retry` hook) so self-healing is visible | L0×L1 | Med-High | Low | Scout B C2 (iter-01) | **SHIPPED — iter-08** (`807b819`; scalar `RunState.retries` counter, executor wires `on_retry`; additive/non-breaking, no version bump; completed the observability arc runs → explain → trace → retry-visibility) |
 | 7 | `pla --version` + a version-consistency guard test; also fix the stale `SPEC.md §2` `__version__ = "0.1.0"` comment (code is `0.1.1`) | CLI/DX | Med | Very Low | Scout B C3 (iter-02) | **SHIPPED — iter-05** (`169f1a1`; integrity tie-break: only live 30s-falsifiable docs-vs-code gap in the tree; shipped `--version` + drift-guard, not a bare doc edit) |
-| 8 | `WorkingTreeCollector` — new L2 signal for uncommitted/unpushed git work (`git status --porcelain`, `@{u}..HEAD`); complements `git_activity` (present vs. past) | L2 | Med | Low | Scout A C2 (iter-02) | Planned |
+| 8 | `WorkingTreeCollector` — new L2 signal for uncommitted/unpushed git work (`git status --porcelain`, `@{u}..HEAD`); complements `git_activity` (present vs. past) | L2 | Med | Low | Scout A C2 (iter-02) | **SELECTED — iter-11** (adds present-state git perception — the product's core scan-the-working-context thesis, currently half-blind to only the committed past; only prior objection — 'consecutive collector' in iter-10 — is spent since iter-10 shipped a CLI verb; picked over the strong test-only #19 symlink suite, which per iter-07's pm.md 'starves the Engineer stage' — see iter-11 pm.md) |
 | 9 | Read-only `search_files(query, path)` sandbox tool for the L1 loop so it can *discover* code in a real workspace, not just read known paths | L1 | Med | Low-Med | Scout A C2 (iter-01) | Planned |
 | 10 | `append_file(path, content)` sandbox tool — first-class incremental artifact authoring across loop iterations (vs. read-then-rewrite) | L1 | Med | Low | Scout A C3 (iter-02) | Planned |
 | 11 | `pla scan --format {table,json,markdown}` — pipeable/shareable slate output (default `table`, backward compatible) | CLI/DX | Med | Very Low | Scout A C3 (iter-01) | Planned |

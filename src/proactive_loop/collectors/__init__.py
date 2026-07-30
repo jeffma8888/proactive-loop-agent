@@ -12,6 +12,7 @@ from proactive_loop.collectors.filesystem import RecentFilesCollector
 from proactive_loop.collectors.git_activity import GitActivityCollector
 from proactive_loop.collectors.notes import NotesCollector
 from proactive_loop.collectors.todos import TodoCollector
+from proactive_loop.collectors.working_tree import WorkingTreeCollector
 
 
 def all_collectors() -> list[Collector]:
@@ -27,6 +28,7 @@ def all_collectors() -> list[Collector]:
         TodoCollector(),
         NotesCollector(),
         DependencyCollector(),
+        WorkingTreeCollector(),
     ]
 
 
@@ -37,5 +39,6 @@ __all__ = [
     "TodoCollector",
     "NotesCollector",
     "DependencyCollector",
+    "WorkingTreeCollector",
     "all_collectors",
 ]

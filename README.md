@@ -22,8 +22,9 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
                              atomic JSON checkpoints -> resumable runs
 ```
 
-- **L2 scout** turns raw context (recent files, git activity, `TODO`/`FIXME`
-  comments, notes, dependency manifests) into a ranked list of candidate goals,
+- **L2 scout** turns raw context (recent files, git activity, uncommitted &
+  unpushed working-tree changes, `TODO`/`FIXME` comments, notes, dependency
+  manifests) into a ranked list of candidate goals,
   then applies a policy
   gate. Sensitive categories (finance/legal, health/admin) *always* require
   human approval, no matter how high they score.

@@ -125,6 +125,16 @@ class Collector(Protocol):
   `pyproject.toml` / `requirements.txt` / `package.json`, `kind="dependency"`;
   stdlib-only parse (`tomllib`/`json`/line-split), never raises → `[]`. Reports
   facts (ecosystem, manifest, declared-dep count) only; the synthesizer judges.
+- `working_tree.py: WorkingTreeCollector(name="working_tree", max_items=30)` —
+  present-state git companion to `git_activity` (which sees only the committed
+  past). `git -C <dir> status --porcelain` via subprocess for `root` and each
+  direct child dir that has `.git`; emits one `kind="working_tree"` signal per
+  changed path (tracked change or untracked file; per-path signals capped at
+  `max_items`) plus at most one summary signal counting unpushed local commits.
+  Unpushed detection reads ONLY the local tracking ref (`git rev-list --count
+  @{u}..HEAD`) — it NEVER runs `git fetch`/`ls-remote` or any network op (see
+  section 5); never raises → `[]`. Reports facts only; the synthesizer judges.
+  (Additive, non-breaking foundation-contract addition.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
