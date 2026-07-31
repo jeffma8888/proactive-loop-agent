@@ -333,7 +333,21 @@ class ToolRegistry:
   undecodable (binary) file degrades to an `"error:"` via `execute()`'s never-raise wrapper.
   It completes the bounded-observation family as find / list / grep / describe / PEEK / read
   (additive tool added in iter-29 — existing tool contracts unchanged, so **no version bump**,
-  mirroring iter-13's `search_files`). Unknown tool →
+  mirroring iter-13's `search_files`); `remove_file(path)` → **deletes** a file under
+  `artifacts_dir` ONLY (the first destructive-mutation tool, completing the write-side CRUD
+  story create/update/read/**delete**). Refuses `..`/absolute/symlink-escape paths with the
+  SAME error strings as `write_file` (via the shared `_reject_unsafe` + a resolved `_within`
+  gate that fires BEFORE any `unlink`, so a symlink escaping the sandbox returns `error:
+  refusing to remove outside artifacts dir: <p>` and never deletes through the link);
+  refuses a directory (`error: refusing to remove a directory: <p>`, dir survives) and a
+  missing target (`error: no such artifact: <p>`) with observable errors. It resolves ONLY
+  against `artifacts_dir` — never against, and never deleting anything under, the read-only
+  `workspace_root` (a workspace-only path degrades to `no such artifact`) — and on success
+  returns `removed artifacts/<relpath>`, dropping the relpath from `artifacts()` when tracked
+  (the drop is conditional on membership, so an untracked on-disk artifact is still removable).
+  Never `move_file`/`rmdir`/recursive delete (out of scope). (Additive tool added in iter-33 —
+  existing tool contracts unchanged, so **no version bump**, mirroring iter-13's
+  `search_files`.) Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
 

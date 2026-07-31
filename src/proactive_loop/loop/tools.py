@@ -54,13 +54,14 @@ class ToolRegistry:
             "find_files": self._find_files,
             "stat_file": self._stat_file,
             "head_file": self._head_file,
+            "remove_file": self._remove_file,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
                 "available tools: write_file, read_file, list_files, "
                 "search_files, append_file, find_files, stat_file, "
-                "head_file"
+                "head_file, remove_file"
             )
         try:
             return handler(args or {})
@@ -123,6 +124,50 @@ class ToolRegistry:
         if rel not in self._artifacts:
             self._artifacts.append(rel)
         return f"appended {len(content)} chars to artifacts/{rel}"
+
+    def _remove_file(self, args: dict) -> str:
+        """Delete a file under artifacts_dir ONLY; refuse escapes/dirs/missing.
+
+        WHY a destructive verb: ``write_file``/``append_file`` complete
+        create/update but the sandbox could never REMOVE a file, so a
+        multi-iteration goal that scaffolds the wrong artifact had no clean
+        recourse -- ``write_file(path, "")`` merely leaves a stale 0-byte file.
+        ``remove_file`` closes the write-side CRUD gap (create/update/read/
+        DELETE) and is the mutation mirror of how the read side was completed
+        across iters 13/21/26/29.
+
+        Guard order is load-bearing for a destructive op and mirrors
+        ``write_file``: ``_reject_unsafe`` (empty/``..``/absolute) FIRST, then
+        the *resolved* ``_within`` gate BEFORE any ``unlink`` (so a symlink
+        escaping the sandbox can never delete through the link), then existence
+        and directory checks. It resolves ONLY against ``artifacts_dir`` -- it
+        never touches the read-only ``workspace_root`` -- so a workspace-only
+        path degrades to ``no such artifact`` rather than a deletion. Dropping
+        the relpath from the tracked ``artifacts()`` list is conditional on
+        membership, so an untracked on-disk artifact is still removable without
+        raising. Never raises: every failure is an ``"error: ..."`` observation.
+        """
+        path = str(args.get("path", ""))
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+        target = self.artifacts_dir / path
+        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
+        # target is still inside the sandbox BEFORE any unlink (load-bearing for
+        # a destructive op -- must fire before touching disk).
+        if not self._within(target, self.artifacts_dir):
+            return f"error: refusing to remove outside artifacts dir: {path!r}"
+        if not target.exists():
+            return f"error: no such artifact: {path!r}"
+        if target.is_dir():
+            return f"error: refusing to remove a directory: {path!r}"
+        target.unlink()
+        rel = str(target.relative_to(self.artifacts_dir))
+        # Conditional on membership: an untracked on-disk artifact (written
+        # directly, not via write_file) is still removable without a KeyError.
+        if rel in self._artifacts:
+            self._artifacts.remove(rel)
+        return f"removed artifacts/{rel}"
 
     def _read_file(self, args: dict) -> str:
         """Read *path* from artifacts_dir or the read-only workspace_root."""
