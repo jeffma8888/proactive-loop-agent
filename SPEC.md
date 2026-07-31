@@ -105,6 +105,16 @@ Key invariants the other layers rely on:
   default `4.0`); a negative threshold is rejected at construction to prevent a
   silent whole-slate auto-dispatch (all score operands are bounded `>= 0`, so a
   negative threshold would auto-fire the gate for every non-sensitive goal).
+  Its `+inf` mirror is rejected too: a non-finite threshold is refused at
+  construction (message contains `finite`) because `+inf` passes the `ge` bound yet
+  silently *suppresses* the whole slate (every finite score is `< inf`, so the gate
+  never resolves AUTO_DISPATCH while `pla run` still exits `0`). No upper bound is
+  added — a large finite threshold merely approves less.
+- The three upward-unbounded `RetryPolicy` floats (`base_backoff_sec`,
+  `backoff_factor`, `max_backoff_sec`) likewise reject non-finite values at
+  construction, since an `inf` backoff makes `_backoff_delay` compute `min(raw, inf)
+  == inf` and a retry `sleep(inf)` hangs an unattended run forever. `jitter_frac` is
+  already fully bounded (`ge=0.0, le=1.0`) and needs no such guard.
 
 ## 4. Module contracts
 
