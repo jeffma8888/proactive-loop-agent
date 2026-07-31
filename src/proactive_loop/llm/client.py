@@ -57,6 +57,16 @@ class ScriptedLLMClient:
     remaining entry whose tag == X, or whose tag == "" (wildcard). No match ->
     ScriptExhaustedError. This keeps multi-call flows (plan/check interleaving)
     both strict and easy to author.
+
+    Load-time shape contract (validated EAGERLY, never deferred to `complete`):
+    a file-backed script must be a JSON list, or a JSON object carrying a list
+    under the key ``"responses"``; and EVERY entry must be an object/dict. Both
+    `from_file` and the direct constructor enforce the per-entry rule through the
+    one shared `_validate_entries` check, so a malformed script fails fast with a
+    plain `ValueError` -- which the `pla` CLI boundary maps to a single
+    ``error:`` line + exit 1 -- instead of a raw ``KeyError`` at load (a dict
+    missing ``"responses"``) or a deferred ``AttributeError`` the first time
+    `complete` reaches a non-dict entry.
     """
 
     _RAISES: dict[str, type[LLMError]] = {
@@ -65,15 +75,63 @@ class ScriptedLLMClient:
     }
 
     def __init__(self, entries: list[dict[str, Any]]):
+        # Validate eagerly: a non-dict entry must surface HERE, at construction,
+        # not on the first `complete()` deep inside a dispatched run (where it
+        # used to raise an uncaught `AttributeError`). See the class docstring.
+        self._validate_entries(entries)
         self._entries: list[dict[str, Any]] = list(entries)
         self.calls: list[str] = []  # tags seen, for test assertions
 
+    @staticmethod
+    def _validate_entries(entries: list[Any], *, source: str = "scripted responses") -> None:
+        """Raise `ValueError` if any element of *entries* is not a dict.
+
+        Shared by `from_file` and `__init__` so the "every entry is an object"
+        rule has ONE definition that cannot drift between the two entry points.
+        *source* is woven into the message -- a file path from `from_file`, a
+        generic label from the direct constructor -- alongside the 0-based index
+        of the FIRST offending entry, so an operator can locate the typo at once.
+        Assumes *entries* is already a list (the caller checks the top-level shape).
+        """
+        for i, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"{source}: entry at index {i} must be an object/dict, "
+                    f"got {type(entry).__name__}"
+                )
+
     @classmethod
     def from_file(cls, path: Path) -> "ScriptedLLMClient":
-        data = json.loads(Path(path).read_text())
-        entries = data["responses"] if isinstance(data, dict) else data
+        """Load a scripted client from a JSON file, validating its shape eagerly.
+
+        Accepts a top-level list, or an object with a list under ``"responses"``.
+        Every shape fault -- an object with no ``"responses"`` key, a non-list
+        ``responses``/top-level scalar, or a non-dict entry -- raises a plain
+        `ValueError` naming the file path (and, for a bad entry, its index), so
+        the `pla` boundary reports one ``error:`` line rather than dumping a
+        ``KeyError``/``AttributeError`` traceback on a first-run config typo.
+        """
+        p = Path(path)
+        data = json.loads(p.read_text())
+        if isinstance(data, dict):
+            # A dict MUST carry the entries under "responses". WHY not `data["responses"]`:
+            # a bare subscript on a keyless dict raises `KeyError`, which is OUTSIDE
+            # main()'s (LLMError, ValueError, OSError) boundary -> a raw traceback.
+            if "responses" not in data:
+                raise ValueError(
+                    f"scripted responses file {p} is an object without a "
+                    f"'responses' key; expected a list or {{'responses': [...]}}"
+                )
+            entries = data["responses"]
+        else:
+            entries = data
         if not isinstance(entries, list):
-            raise ValueError(f"scripted responses file {path} must be a list or {{'responses': [...]}}")
+            raise ValueError(
+                f"scripted responses file {p} must be a list or {{'responses': [...]}}"
+            )
+        # Entry-shape check with file-path context BEFORE construction, so the
+        # load-time error names the file and the offending index.
+        cls._validate_entries(entries, source=f"scripted responses file {p}")
         return cls(entries)
 
     def remaining(self) -> int:

@@ -89,6 +89,12 @@ Key invariants the other layers rely on:
 - `ScriptedLLMClient` matches on `tag` (exact match, else entries with tag `""`
   match anything), consumes entries in order, supports scripted failures via
   `{"raise": "throttle"|"timeout"}`, raises `ScriptExhaustedError` when empty.
+  Load-time shape contract (validated eagerly, shared by `from_file` and the
+  direct constructor): a file-backed script must be a JSON list or an object
+  carrying a list under `"responses"`, and every entry must be an object/dict;
+  any violation raises a plain `ValueError` at load/construction (never a raw
+  `KeyError`, and never a deferred `AttributeError` inside `complete`), so the
+  CLI boundary maps it to one `error:` line + exit 1.
 - `parse_json_block` tolerates ```json fences, leading/trailing prose, and
   trailing junk after a valid value (e.g. a stray brace) via `raw_decode`.
 - `RunState.retries` is a non-negative int counter (default `0`) of the L0
