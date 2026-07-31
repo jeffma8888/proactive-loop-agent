@@ -601,6 +601,56 @@ def _write_slate(slate: GoalSlate, out: Path) -> None:
     out.write_text(slate.model_dump_json(indent=2))
 
 
+def _state_dir_guard(state_dir: Path) -> str | None:
+    """Reject a ``--state-dir`` that exists but is not a directory (message-or-``None``).
+
+    WHY a fail-fast structural check, not a permission probe: ``scan``/``run``/
+    ``dispatch`` later create ``state_dir`` on demand (``ensure_dir``) and write
+    the slate + run directory UNDER it, so an EXISTING non-directory (a regular
+    file, a device) makes those writes raise a raw OS errno (``[Errno 17] File
+    exists`` / ``[Errno 20] Not a directory``) AFTER the expensive
+    collect->synthesize pipeline already ran and printed a success-looking table.
+    Catching it up front -- the mirror image of the ``--workspace`` INPUT guard --
+    turns that late, leaked errno into one clean actionable line and spares a live
+    provider's LLM budget. An ABSENT state-dir is legal (made on demand); only an
+    existing non-directory is rejected. Structural typing only -- no ``os.access``
+    write-permission pre-detection (out of scope, keeps the guard deterministic).
+    """
+    if state_dir.exists() and not state_dir.is_dir():
+        return f"--state-dir is not a directory: {state_dir}"
+    return None
+
+
+def _out_target_guard(out: Path) -> str | None:
+    """Reject a ``--out`` slate target that cannot become a writable file (message-or-``None``).
+
+    Pre-detects the two STRUCTURAL failures that otherwise surface only at the
+    real write -- after the whole pipeline renders a success-looking table --
+    leaking a raw OS errno (the mirror image of the ``--workspace`` INPUT guard):
+      * ``out`` is itself a directory -> a text write raises
+        ``[Errno 21] Is a directory``.
+      * an EXISTING component of ``out``'s parent chain is a NON-directory (a file
+        sitting where a directory must be) -> parent creation / write raises
+        ``[Errno 20] Not a directory``.
+    A fully-absent parent chain is LEGAL: ``_write_slate`` makes parents on demand,
+    so the deepest existing ancestor of an all-new path is a directory and the
+    guard allows it. The ancestor walk provably terminates: the filesystem root
+    (``/``) and ``.`` both always ``exists()``, so it always reaches an existing
+    node. Structural typing only -- no ``os.access`` / write-permission /
+    read-only-mount pre-detection (a correctly-typed but unwritable path still
+    surfaces its real error at the write via ``main()``), keeping the guard
+    deterministic and side-effect-free.
+    """
+    if out.is_dir():
+        return f"--out is a directory: {out}"
+    anc = out.parent
+    while not anc.exists():
+        anc = anc.parent
+    if not anc.is_dir():
+        return f"--out parent is not a directory: {anc}"
+    return None
+
+
 def _render_table(
     slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
 ) -> str:
@@ -1447,13 +1497,24 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
     settings = _settings(args, workspace_root=workspace)
+    # Symmetric OUTPUT-path guard (the mirror image of the --workspace INPUT
+    # guard above): fail fast BEFORE building a client / collecting / rendering,
+    # so a bad slate target never runs the whole pipeline and prints a
+    # success-looking table only to die on a leaked OS errno. When --out is
+    # given the slate goes THERE and state_dir is untouched for the slate, so we
+    # guard ONLY --out; otherwise the default slate lives under state_dir, so we
+    # guard state_dir. Computed ONCE here and reused by every format branch below.
+    out = Path(args.out) if args.out else settings.state_dir / _SLATE_NAME
+    msg = _out_target_guard(out) if args.out else _state_dir_guard(settings.state_dir)
+    if msg is not None:
+        print(f"error: {msg}", file=sys.stderr)
+        return 2
     client = create_client(settings)
 
     snapshot = _collect(workspace)
     slate = GoalSynthesizer(client, settings).synthesize(snapshot)
     decisions = gate_slate(slate, settings)
 
-    out = Path(args.out) if args.out else settings.state_dir / _SLATE_NAME
     if args.format == "json":
         # Suppress the trailer so the ENTIRE stdout is one JSON document -- a
         # `pla scan --format json | jq` pipeline sees a single object and nothing
@@ -1507,6 +1568,16 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     workspace_root = Path(slate.workspace_root) if slate.workspace_root else Path(".")
     settings = _settings(args, workspace_root=workspace_root)
 
+    # Fail-fast state-dir guard: dispatch writes the run directory under
+    # state_dir, so an existing non-directory state_dir fails late at run-write.
+    # Placed AFTER the slate load + settings (so slate-not-found still wins) but
+    # BEFORE the goal lookup / gate / client (so a bad state-dir wins over a
+    # bogus goal-id) -- keeping both single-fault exit-2 contracts intact.
+    msg = _state_dir_guard(settings.state_dir)
+    if msg is not None:
+        print(f"error: {msg}", file=sys.stderr)
+        return 2
+
     goal = slate.get(args.goal_id)
     if goal is None:
         print(f"error: goal id {args.goal_id!r} not found in slate", file=sys.stderr)
@@ -1545,6 +1616,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
     settings = _settings(args, workspace_root=workspace)
+    # Same fail-fast OUTPUT guard as scan: run writes the slate AND the run
+    # directory under state_dir, so an existing non-directory state_dir would
+    # spend the LLM budget then leak a raw errno at the first write. Reject
+    # before create_client so nothing expensive runs on a doomed target.
+    msg = _state_dir_guard(settings.state_dir)
+    if msg is not None:
+        print(f"error: {msg}", file=sys.stderr)
+        return 2
     client = create_client(settings)
 
     snapshot = _collect(workspace)

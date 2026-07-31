@@ -492,7 +492,15 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     or non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr and exit 2 (before any
     client/collect, regardless of `--format`), rather than degrading to an empty
-    slate + exit 0.
+    slate + exit 0. Symmetrically on the OUTPUT side, an `--out` that is a
+    directory (`error: --out is a directory: <path>`) or whose parent chain
+    contains an existing non-directory (`error: --out parent is not a directory:
+    <deepest-existing-ancestor>`), and — when `--out` is absent or on `run`/
+    `dispatch` — a `--state-dir` that exists but is not a directory (`error:
+    --state-dir is not a directory: <path>`), each fail fast with exit 2 BEFORE
+    any client/collect/render/file write, mirroring the `--workspace` guard (a
+    fully-absent parent chain and an existing plain-file `--out` stay legal —
+    structural typing only, no write-permission pre-detection).
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count) + artifact paths.
