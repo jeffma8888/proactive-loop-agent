@@ -33,6 +33,8 @@ import math
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from . import __version__
 from .config import Settings
 from .collectors import all_collectors
@@ -52,6 +54,7 @@ from .models import (
     StepKind,
     WorkspaceSnapshot,
     ensure_dir,
+    sanitize_validation_error,
 )
 from .scheduler import run_periodic
 from .scout import GoalSynthesizer, gate, gate_slate
@@ -568,6 +571,26 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
         state_dir=Path(state_dir) if state_dir else None,
         workspace_root=workspace_root,
     )
+
+
+def _load_slate(path: Path) -> GoalSlate:
+    """Load + validate a slate JSON file, mapping pydantic's ``ValidationError``
+    to one dependency-opaque ``ValueError`` (see ``sanitize_validation_error``).
+
+    Shared by every slate-load verb (``explain``/``dispatch``/``diff``) so the
+    failure path is uniform: on a corrupt (malformed-JSON) OR schema-invalid slate
+    the ``main()`` boundary prints ONE ``error: invalid slate file '<path>': <N>
+    validation error[s][; first at <loc>]`` line -- never the vendor's multi-line
+    dump (model class name, ``[type=...]`` taxonomy, ``errors.pydantic.dev/<ver>``
+    URL, or the raw ``input_value=`` echo of the user's file bytes). The happy path
+    is byte-identical to a bare ``model_validate_json`` -- the sanitizer only
+    intercepts the failure; a ``read_text`` ``OSError`` still surfaces to ``main()``
+    unchanged (the callers' ``is_file`` guard runs first anyway).
+    """
+    try:
+        return GoalSlate.model_validate_json(path.read_text())
+    except ValidationError as exc:
+        raise ValueError(sanitize_validation_error("slate", path, exc)) from None
 
 
 def _collect(workspace: Path) -> WorkspaceSnapshot:
@@ -1564,7 +1587,7 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         print(f"error: slate file not found: {slate_path}", file=sys.stderr)
         return 2
 
-    slate = GoalSlate.model_validate_json(slate_path.read_text())
+    slate = _load_slate(slate_path)
     workspace_root = Path(slate.workspace_root) if slate.workspace_root else Path(".")
     settings = _settings(args, workspace_root=workspace_root)
 
@@ -1726,7 +1749,7 @@ def _cmd_explain(args: argparse.Namespace) -> int:
         print(f"error: slate file not found: {slate_path}", file=sys.stderr)
         return 2
 
-    slate = GoalSlate.model_validate_json(slate_path.read_text())
+    slate = _load_slate(slate_path)
 
     goal = slate.get(args.goal_id)
     if goal is None:
@@ -1896,8 +1919,8 @@ def _cmd_diff(args: argparse.Namespace) -> int:
         print(f"error: slate file not found: {new_path}", file=sys.stderr)
         return 2
 
-    old_slate = GoalSlate.model_validate_json(old_path.read_text())
-    new_slate = GoalSlate.model_validate_json(new_path.read_text())
+    old_slate = _load_slate(old_path)
+    new_slate = _load_slate(new_path)
 
     settings = _settings(args)
     result = _compute_diff(old_slate, new_slate, settings)

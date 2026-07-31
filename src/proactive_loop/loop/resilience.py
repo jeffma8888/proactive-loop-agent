@@ -15,9 +15,11 @@ import time
 from pathlib import Path
 from typing import Callable, TypeVar
 
+from pydantic import ValidationError
+
 from proactive_loop.config import RetryPolicy
 from proactive_loop.llm.client import LLMThrottleError, LLMTimeoutError
-from proactive_loop.models import RunState, ensure_dir
+from proactive_loop.models import RunState, ensure_dir, sanitize_validation_error
 
 T = TypeVar("T")
 
@@ -90,7 +92,22 @@ class Checkpoint:
         os.replace(tmp, self.path)
 
     def load(self) -> RunState | None:
-        """Return the checkpointed state, or None if none has been saved."""
+        """Return the checkpointed state, or None if none has been saved.
+
+        A present-but-corrupt checkpoint (schema-invalid OR malformed JSON) is
+        mapped to one dependency-opaque ``ValueError`` (via
+        ``sanitize_validation_error``) so the CLI ``error:`` boundary that
+        ``trace``/``resume`` funnel through never leaks pydantic's multi-line dump
+        (model class name, ``[type=...]`` taxonomy, ``errors.pydantic.dev/<ver>``
+        URL, or the raw ``input_value=`` echo of the checkpoint bytes). An ABSENT
+        file still returns ``None`` (unchanged), and ``_run_row`` still catches the
+        resulting ``ValueError`` to degrade a bad run to ``(no checkpoint)``.
+        """
         if not self.path.is_file():
             return None
-        return RunState.from_json(self.path.read_text())
+        try:
+            return RunState.from_json(self.path.read_text())
+        except ValidationError as exc:
+            raise ValueError(
+                sanitize_validation_error("checkpoint", self.path, exc)
+            ) from None

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, ValidationError, computed_field
 
 
 def _now() -> datetime:
@@ -172,3 +172,34 @@ def ensure_dir(path: Path) -> Path:
     """Small shared helper: mkdir -p and return the path."""
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def sanitize_validation_error(kind: str, path: Path, exc: ValidationError) -> str:
+    """Reduce a pydantic ``ValidationError`` to one dependency-opaque line.
+
+    WHY: ``model_validate_json`` on a corrupt slate/checkpoint otherwise leaks the
+    vendor's multi-line dump onto the CLI's ``error:`` boundary -- the model class
+    name, pydantic's ``[type=...]`` error taxonomy, a live ``errors.pydantic.dev/<ver>``
+    URL that pins (and rots with) the dependency version, and a raw echo of the
+    user's file bytes via ``input_value=``. On a PUBLIC repo that both fingerprints
+    the dependency and prints file contents back to stderr, while every OTHER CLI
+    fault already presents as ONE clean line. This names only the file, the pydantic
+    error *count*, and the first error's *location* -- all safe scalars, none of the
+    leaked fields.
+
+    ``<loc>`` (the first error's ``loc`` tuple joined by ``.``, e.g. ``goals.0.impact``
+    or ``status``) is appended only when non-empty; a malformed-JSON failure
+    (``json_invalid``) carries an empty ``loc``, so its clause is omitted. Callers
+    wrap the returned message in a plain ``ValueError`` so ``main()`` maps it to
+    ``error: <msg>`` at exit 1 -- exit code and prefix unchanged (bug fix, not a
+    versioned contract change).
+    """
+    count = exc.error_count()
+    plural = "" if count == 1 else "s"
+    msg = f"invalid {kind} file '{path}': {count} validation error{plural}"
+    errors = exc.errors()
+    if errors:
+        loc = errors[0].get("loc") or ()
+        if loc:
+            msg += "; first at " + ".".join(str(part) for part in loc)
+    return msg

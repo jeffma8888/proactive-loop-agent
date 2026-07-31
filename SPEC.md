@@ -115,6 +115,18 @@ Key invariants the other layers rely on:
   construction, since an `inf` backoff makes `_backoff_delay` compute `min(raw, inf)
   == inf` and a retry `sleep(inf)` hangs an unattended run forever. `jitter_frac` is
   already fully bounded (`ge=0.0, le=1.0`) and needs no such guard.
+- Corrupt-load sanitization: slate load (via the shared `cli.py` helper `_load_slate`,
+  used by `explain`/`dispatch`/`diff`) and checkpoint load (`Checkpoint.load()`, used by
+  `resume`/`trace`/`runs`) map a pydantic `ValidationError` — schema-invalid OR malformed
+  JSON, since `model_validate_json` raises `ValidationError(json_invalid)` for both — to a
+  plain `ValueError` whose message is `invalid {slate|checkpoint} file '<path>': <N>
+  validation error[s][; first at <loc>]` (`<loc>` = the first error's `loc` joined by `.`,
+  appended only when non-empty). It NEVER contains the pydantic docs URL, the `[type=...]`
+  error taxonomy, the model class name (`GoalSlate`/`RunState`), or the raw `input_value=`
+  echo of the user's file bytes. `main()`'s `error:` prefix and exit code (1) are unchanged,
+  and a valid slate/checkpoint load is byte-identical; `load()` still returns `None` for an
+  ABSENT checkpoint. This is a bug fix (closing the last error-presentation leak), NOT a
+  versioned contract change, so `__version__` stays `0.1.1`.
 
 ## 4. Module contracts
 
