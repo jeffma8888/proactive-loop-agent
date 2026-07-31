@@ -231,6 +231,33 @@ class Collector(Protocol):
   propose gitignoring/removing/LFS-tracking it. (Additive collector, exactly
   like iters 09/11/16/20/28 — a new `kind` flows into synthesis via `by_kind()`
   with zero synthesizer change, so no version bump.)
+- `secret_file.py: SecretFileCollector(name="secret_file", max_items=20)` — security-hygiene companion to `large_file`/`merge_conflict`: a secret-shaped
+  file committed to a (public) repo is the highest-stakes leak hazard. Walk
+  `root` (same dir-prune rules as `RecentFilesCollector`, reusing
+  `_SKIP_DIRS`/`_is_hidden` for the DIR prune only) and emit one
+  `kind="secret_file"` signal per file whose **case-folded basename** MATCHES
+  (exact name ∈ `{.env, .envrc, credentials, .netrc, .npmrc, .pypirc,
+  .git-credentials, id_rsa, id_dsa, id_ecdsa, id_ed25519}`, OR starts with the
+  `.env.` prefix, OR ends with a key/cert suffix ∈ `{.pem, .key, .p12, .pfx,
+  .keystore, .jks}`) and is **not EXCLUDED** (case-folded basename ending in
+  `{.example, .sample, .template, .dist, .md, .pub}` — public keys, docs,
+  templates). Unlike `large_file`, hidden **files** ARE scanned (the flagship
+  `.env`/`.netrc`/`.env.*` targets are hidden); only hidden/skip **dirs** are
+  pruned. Files only, never dirs. Summary `"<relpath>: secret-shaped file"`
+  where `<relpath>` is forward-slashed relative to `root`; `detail=""`,
+  `weight=0.85` (a fixed, high, non-decaying hazard fact, above `large_file`'s
+  0.6), the absolute file path in `path`, `timestamp=None`. Output is ordered
+  by ascending forward-slashed relpath, then capped at `max_items` (only
+  `max_items` is ctor-overridable; the match/exclusion sets are fixed
+  constants). **Basename/metadata-only — NEVER opens file content** (no
+  entropy/regex content scan, no MIME sniffing, no `.gitignore`/git-lfs
+  awareness), so it structurally cannot raise on binary/non-UTF-8 bytes and a
+  secret VALUE can never appear in a signal — only the filename can. Pure
+  stdlib (`os`/`pathlib`), never raises → `[]`. Reports facts only (which
+  file); the synthesizer judges whether to propose gitignoring/removing it.
+  (Additive collector, exactly like iters 09/11/16/20/28/41 — a new `kind`
+  flows into synthesis via `by_kind()` with zero synthesizer change, so no
+  version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
@@ -643,3 +670,4 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 - No references to Amazon, internal tools, employers, or real people anywhere.
 - Type hints everywhere; docstrings explain WHY; small functions.
 - Every module ships with tests; `uv run pytest` must pass from a clean checkout.
+- `SecretFileCollector` is **basename/metadata-only**: it never opens file content, does no entropy/regex content scan, and has no `.gitignore`/git-lfs awareness (out of scope — this hard line keeps it binary-safe and prevents it from becoming the vetoed iter-31 content scanner).

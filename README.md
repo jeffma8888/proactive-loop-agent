@@ -26,7 +26,8 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
   unpushed working-tree changes, interrupted git operations (merge / rebase /
   cherry-pick / revert, detached HEAD), `TODO`/`FIXME` comments, notes,
   dependency manifests, untested source directories, leftover merge-conflict
-  markers in committed files, large files past a size threshold) into a ranked list of
+  markers in committed files, large files past a size threshold,
+  secret-shaped files (`.env`, private keys, credentials)) into a ranked list of
   candidate goals,
   then applies a policy
   gate. Sensitive categories (finance/legal, health/admin) *always* require
