@@ -171,6 +171,26 @@ class Collector(Protocol):
   Stdlib-only (`os`/`pathlib`), never raises → `[]`. Reports the raw `(src,
   test)` counts only; the synthesizer judges whether to propose adding tests.
   (Additive collector, exactly like iters 09/11 — no version bump.)
+- `merge_conflict.py: MergeConflictCollector(name="merge_conflict", max_items=30)` —
+  committed-conflict-marker companion to `git_state` (which reads `.git/MERGE_HEAD`
+  for an *in-progress* merge — that marker vanishes at `git commit` while the
+  `<<<<<<<`/`>>>>>>>` TEXT survives inside the committed file). Walk `root` (same
+  skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/`_is_hidden`),
+  content-scan each scanned-extension file for conflict-marker label lines and
+  emit one `kind="merge_conflict"` signal per affected file. A marker line is a
+  line whose raw text (no leading-whitespace strip) **starts with** the OPEN
+  prefix `"<<<<<<< "` or CLOSE prefix `">>>>>>> "` (seven chevrons + one space at
+  column 0); the ambiguous middle `=======` separator is **excluded** from both
+  detection and the count (a bare run of `=` is a Markdown setext underline / ASCII
+  rule → false positives). `N` = open-prefix lines + close-prefix lines; summary
+  `"<relpath>: <N> conflict marker(s)"` (singular only at `N==1`), `detail=""`,
+  `weight=0.9`, `path=<relpath>` (forward-slashed, relative to root). Scans a
+  focused text/source extension set (case-insensitive; no `.lock`/binary/image
+  types); output sorted by relpath ascending and capped at `max_items`. Pure
+  stdlib (`os`/`pathlib`), never raises → `[]`. Reports facts only (which file,
+  how many markers); the synthesizer judges whether to propose resolving them.
+  (Additive collector, exactly like iters 09/11/16/20 — a new `kind` flows into
+  synthesis via `by_kind()` with zero synthesizer change, so no version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
