@@ -168,16 +168,21 @@ def _first_json_start(text: str) -> int | None:
 
 
 def parse_json_block(text: str) -> Any:
-    """Extract and parse JSON from model output, tolerating fences and junk.
+    """Extract and parse JSON from model output via junk-tolerant ``raw_decode``.
 
     Strategy, in order of preference:
-      1. A fenced ```json block, if present.
-      2. ``raw_decode`` from the first ``{`` or ``[``: this parses exactly ONE
+      1. ``raw_decode`` from the first ``{`` or ``[``: this parses exactly ONE
          complete JSON value and IGNORES any trailing junk. That tolerance is
          the point -- live models occasionally append a stray brace or a
          sentence after an otherwise-valid object (observed in a live run:
          ``...}}} }``), which a naive "first-brace to last-brace" slice would
-         turn into unbalanced, unparseable input.
+         turn into unbalanced, unparseable input. Running this FIRST -- before
+         any fence regex -- also keeps a code fence embedded in a string value
+         (e.g. a write_file whose content is a markdown doc with a ```python
+         ... ``` block) from being mistaken for the wrapper.
+      2. A fenced ```json block, if present: the fallback for when the earliest
+         opener is a non-JSON brace in prose and the real JSON lives only inside
+         the fence.
       3. The whole stripped string, as a last resort.
 
     Raises ValueError if nothing parses -- callers decide whether that is fatal
