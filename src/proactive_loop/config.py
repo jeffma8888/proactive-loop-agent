@@ -37,6 +37,35 @@ _RETRY_ENV_VARS: tuple[tuple[str, str, Callable[[str], object]], ...] = (
 DEFAULT_SENSITIVE = frozenset({GoalCategory.HEALTH_ADMIN, GoalCategory.FINANCE_LEGAL})
 
 
+def _coerce_env(suffix: str, value: str, coerce: Callable[[str], object]) -> object:
+    """Coerce a raw ``PLA_*`` env value, upgrading a bare coercion failure into an
+    actionable one that names the offending env var and its expected type.
+
+    Why: ``config.py`` promises every knob is env-overridable, and the product's own
+    operating principle (iter-23) is that misconfiguration should be obvious, not
+    cryptic. A bare ``int("abc")`` raises ``invalid literal for int()`` which tells
+    the operator nothing about WHICH ``PLA_*`` var is wrong -- the first thing a
+    public-repo user hits when tuning the headline L0 resilience knobs. We wrap ONLY
+    the per-value ``int``/``float`` coercion so a typo fails with
+    ``PLA_<NAME> must be a valid <type>, got '<value>'``; pydantic range validation
+    on the constructed models is deliberately left unwrapped so its out-of-range /
+    negative ``ValidationError``s continue to flow through untouched.
+
+    A plain ``ValueError`` (not a subclass) is raised so it composes with iter-02's
+    ``main()`` boundary (``except (LLMError, ValueError, OSError)``) and keeps exit
+    code ``1``; the message is a single line so it renders as one clean ``error:``
+    line at the CLI.
+    """
+    typeword = "integer" if coerce is int else "number"
+    try:
+        return coerce(value)
+    except ValueError:
+        # ``from None`` drops the builtin chain so ``str(exc)`` stays single-line.
+        raise ValueError(
+            f"{ENV_PREFIX}{suffix} must be a valid {typeword}, got {value!r}"
+        ) from None
+
+
 class RetryPolicy(BaseModel):
     """Exponential backoff parameters for throttle/timeout retries.
 
@@ -81,6 +110,11 @@ class Settings(BaseModel):
 
         Explicit overrides always win over the environment so CLI flags can
         take precedence without callers having to mutate os.environ.
+
+        A malformed numeric env var (e.g. ``PLA_MAX_ITERATIONS=abc``) fails fast
+        with an actionable ``PLA_<NAME> must be a valid <integer|number>`` message
+        naming the offending var and its expected type, instead of a cryptic
+        Python coercion error. Out-of-range values still surface via pydantic.
         """
         env_values: dict[str, object] = {}
 
@@ -99,11 +133,13 @@ class Settings(BaseModel):
         if (v := _get("STATE_DIR")) is not None:
             env_values["state_dir"] = Path(v)
         if (v := _get("AUTO_DISPATCH_MIN_SCORE")) is not None:
-            env_values["auto_dispatch_min_score"] = float(v)
+            env_values["auto_dispatch_min_score"] = _coerce_env(
+                "AUTO_DISPATCH_MIN_SCORE", v, float
+            )
         if (v := _get("MAX_ITERATIONS")) is not None:
-            env_values["max_iterations"] = int(v)
+            env_values["max_iterations"] = _coerce_env("MAX_ITERATIONS", v, int)
         if (v := _get("MAX_LLM_CALLS")) is not None:
-            env_values["max_llm_calls"] = int(v)
+            env_values["max_llm_calls"] = _coerce_env("MAX_LLM_CALLS", v, int)
 
         # Merge present-only PLA_RETRY_* overrides onto RetryPolicy() defaults.
         # Building from only the vars that are set (rather than a fully specified
@@ -113,7 +149,7 @@ class Settings(BaseModel):
         retry_overrides: dict[str, object] = {}
         for suffix, field, coerce in _RETRY_ENV_VARS:
             if (v := _get(suffix)) is not None:
-                retry_overrides[field] = coerce(v)
+                retry_overrides[field] = _coerce_env(suffix, v, coerce)
         if retry_overrides:
             env_values["retry"] = RetryPolicy(**retry_overrides)  # type: ignore[arg-type]
 
