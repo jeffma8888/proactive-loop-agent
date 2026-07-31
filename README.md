@@ -179,8 +179,8 @@ remaining entry whose tag is `X` (or the wildcard `""`). An entry may instead
 carry `{"raise": "throttle"|"timeout"}` to exercise the L0 retry path. This
 single seam is what makes the entire pipeline deterministic and testable end to
 end without any network access. Swapping in a live provider (`anthropic`,
-`openai`, `bedrock`, `ollama`) is a one-flag change and lazily imports only that
-SDK. The `ollama` provider runs the full plan->act->check loop against a
+`openai`, `bedrock`, `ollama`, `groq`) is a one-flag change and lazily imports
+only that SDK. The `ollama` provider runs the full plan->act->check loop against a
 locally-hosted model with **no API key and no network egress** -- extending
 offline-first from the scripted test double to real runtime execution.
 

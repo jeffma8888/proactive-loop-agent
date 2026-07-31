@@ -99,9 +99,14 @@ def _make_ollama_stub() -> types.ModuleType:
 
 def test_behavior1_ollama_is_registered_provider_appended_last():
     assert "ollama" in VALID_PROVIDERS, "'ollama' must be a registered provider"
-    # Exact tuple: the four existing entries unchanged, ollama appended last.
-    assert VALID_PROVIDERS == ("scripted", "anthropic", "openai", "bedrock", "ollama"), (
-        f"VALID_PROVIDERS must be the exact five-tuple with ollama last; got {VALID_PROVIDERS!r}"
+    # Prefix invariant: the four pre-ollama entries are unchanged and ollama
+    # sits in its appended slot (index 4). Asserted as a PREFIX rather than an
+    # exact tuple so a later additive provider (e.g. iter-49 `groq`, appended
+    # after ollama) does not falsely fail this iter-32 contract -- ollama was
+    # "last" only relative to the providers that existed at iter-32.
+    assert VALID_PROVIDERS[:5] == ("scripted", "anthropic", "openai", "bedrock", "ollama"), (
+        "VALID_PROVIDERS must keep the four pre-ollama entries unchanged with "
+        f"ollama at index 4; got {VALID_PROVIDERS!r}"
     )
 
 

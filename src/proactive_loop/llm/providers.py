@@ -33,7 +33,7 @@ from .client import (
 
 # Public list of accepted providers, reused in dispatch and error messages so
 # the two can never drift apart.
-VALID_PROVIDERS: tuple[str, ...] = ("scripted", "anthropic", "openai", "bedrock", "ollama")
+VALID_PROVIDERS: tuple[str, ...] = ("scripted", "anthropic", "openai", "bedrock", "ollama", "groq")
 
 
 def create_client(settings: Settings) -> LLMClient:
@@ -55,6 +55,8 @@ def create_client(settings: Settings) -> LLMClient:
         return _create_bedrock(settings)
     if provider == "ollama":
         return _create_ollama(settings)
+    if provider == "groq":
+        return _create_groq(settings)
     raise ValueError(
         f"unknown provider {provider!r}; valid options are: "
         f"{', '.join(VALID_PROVIDERS)}"
@@ -341,6 +343,55 @@ def _create_ollama(settings: Settings) -> LLMClient:
         complete_fn=_complete,
         throttle_excs=(ollama.ResponseError,),
         timeout_excs=(ollama.RequestError,),
+    )
+
+
+def _create_groq(settings: Settings) -> LLMClient:
+    """Build a client backed by a Groq-hosted model (SDK imported lazily, by design).
+
+    WHY this is a near-verbatim clone of `_create_openai`: the `groq` SDK is an
+    OpenAI-SDK-shaped clone -- same construction (`groq.Groq()`), same call
+    surface (`sdk.chat.completions.create(model=..., messages=[...])`), same
+    reply/usage shape (`completion.choices[0].message.content`,
+    `completion.usage.prompt_tokens`/`.completion_tokens`), and the same
+    throttle/timeout exception NAMES (`groq.RateLimitError` /
+    `groq.APITimeoutError`). So this branch is `_create_openai` with the
+    namespace and model default swapped, reusing `_require` and `_SdkAdapter`
+    with zero change. Groq is a cloud backend that serves open models
+    (Llama, Mixtral, ...) on its LPU inference stack, so it needs an API key
+    and network egress at CALL time -- but, exactly like every other live
+    branch, construction opens no connection.
+    """
+    groq = _require("groq", "groq")  # actionable LLMError if absent
+
+    sdk = groq.Groq()
+    model = settings.model or "llama-3.3-70b-versatile"
+
+    def _complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
+        completion = sdk.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        text = completion.choices[0].message.content or ""
+        usage = {}
+        if completion.usage is not None:
+            usage = {
+                "input_tokens": completion.usage.prompt_tokens,
+                "output_tokens": completion.usage.completion_tokens,
+            }
+        return LLMResponse(text=text, model=model, usage=usage)
+
+    # CRITICAL (same invariant as the ollama branch): source BOTH exception
+    # tuples from the `groq` namespace ONLY, never `httpx` or any other module,
+    # so `_create_groq` construction depends solely on `groq` and a single
+    # self-contained stub module can exercise the present-SDK path fully offline.
+    return _SdkAdapter(
+        complete_fn=_complete,
+        throttle_excs=(groq.RateLimitError,),
+        timeout_excs=(groq.APITimeoutError,),
     )
 
 
