@@ -74,6 +74,70 @@ _TRACE_OUTPUT_WIDTH = 80
 
 
 # ---------------------------------------------------------------------------
+# logging setup
+# ---------------------------------------------------------------------------
+
+
+class _CliLogHandler(logging.StreamHandler):
+    """The single stderr handler the CLI attaches under ``-v``/``-vv``.
+
+    WHY a dedicated subclass and not a bare ``StreamHandler``: it lets
+    ``_configure_logging`` recognise *its own* handler by type and stay strictly
+    idempotent -- re-invoking ``main()`` within one process (as the test suite
+    does hundreds of times) must reuse this handler, never stack a second one on
+    the package logger.
+    """
+
+
+def _verbosity_to_level(count: int) -> int:
+    """Map a ``-v`` repeat *count* to a stdlib logging level. Pure, no side effects.
+
+    ``count <= 0`` -> ``WARNING`` (the library default; level-0 is a deliberate
+    no-op so default output stays byte-identical). ``count == 1`` -> ``INFO``,
+    ``count >= 2`` -> ``DEBUG``. Reads no logger and mutates no global state, so
+    it is trivially unit-testable and safe to call on every invocation.
+    """
+    if count <= 0:
+        return logging.WARNING
+    if count == 1:
+        return logging.INFO
+    return logging.DEBUG
+
+
+def _configure_logging(level: int) -> None:
+    """Attach one guarded stderr handler to the ``proactive_loop`` package logger.
+
+    WHY level-0 (``WARNING``) is a STRICT no-op -- attach nothing, change no
+    level: the library never configures logging for itself, and the only default
+    emit site (the iter-19 ``_collect`` WARNING) rides Python last-resort
+    handler; attaching any handler here would divert that record and change
+    default output. So we configure only when the operator asked for more
+    (``-v``/``-vv``, i.e. ``level < WARNING``).
+
+    Idempotent by design: it finds an existing :class:`_CliLogHandler` and reuses
+    it (refreshing the stream to the *current* ``sys.stderr`` so it stays correct
+    under repeated calls or captured streams) rather than adding a second handler.
+    It touches ONLY the ``proactive_loop`` logger -- never the root logger, never
+    ``logging.basicConfig`` -- so it cannot perturb the caller global logging.
+    """
+    if level >= logging.WARNING:
+        return
+    logger = logging.getLogger("proactive_loop")
+    handler = next(
+        (h for h in logger.handlers if isinstance(h, _CliLogHandler)), None
+    )
+    if handler is None:
+        handler = _CliLogHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+        logger.addHandler(handler)
+    else:
+        # Re-point at the live stderr (pytest capsys / redirection swap it) so a
+        # reused handler never writes to a stale, possibly-closed stream.
+        handler.setStream(sys.stderr)
+    logger.setLevel(level)
+
+
+# ---------------------------------------------------------------------------
 # argument parsing
 # ---------------------------------------------------------------------------
 
@@ -116,6 +180,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--state-dir",
         default=None,
         help="Directory for slates, checkpoints, and run artifacts (default .pla_runs).",
+    )
+    # Repeatable verbosity dial, on the SHARED globals parent so it is accepted
+    # AFTER any subcommand (like --provider). count-action: absent -> 0, -v -> 1,
+    # -vv -> 2, ... WHY it lives here and NOT on the top-level parser (where
+    # --version is): --version must short-circuit with no subcommand, but -v is a
+    # per-run knob every verb inherits. No collision with --version -- that is a
+    # long option on the top-level parser only; -v is a short option on the
+    # subparsers, and argparse abbreviation applies to long options, never short.
+    globals_.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help=(
+            "Increase runtime log verbosity on stderr (-v INFO, -vv DEBUG); "
+            "surfaces the L0 retry/backoff self-healing as it happens. "
+            "Default (absent) is silent and leaves stdout untouched."
+        ),
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -336,6 +418,11 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = build_parser()
     args = parser.parse_args(argv)  # argparse SystemExit (help/usage) stays outside the guard
+    # Configure package-logger verbosity ONCE, before dispatch, from the shared
+    # -v/--verbose count. Level 0 (no -v) is a strict no-op, so default runs stay
+    # byte-identical; -v/-vv route the executor L0-retry INFO/DEBUG records to
+    # stderr as the run backs off, leaving every verb stdout untouched.
+    _configure_logging(_verbosity_to_level(getattr(args, "verbose", 0)))
     try:
         return int(args.func(args))
     except (LLMError, ValueError, OSError) as exc:

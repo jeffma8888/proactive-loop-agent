@@ -9,6 +9,7 @@ the model itself only ever sees the PLAN and CHECK prompts.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable
 
@@ -34,6 +35,11 @@ _PLAN_PARSE_ERROR = (
 _CHECK_PARSE_ERROR = (
     "error: your last CHECK was not valid JSON; treating the goal as not done"
 )
+
+# Module logger (name resolves to "proactive_loop.loop.executor"). WHY only
+# obtain a logger, never configure it: this layer just EMITS the L0 self-healing
+# record; whether it reaches stderr is the CLI -v/-vv decision (or pytest caplog).
+_LOG = logging.getLogger(__name__)
 
 
 class GoalLoop:
@@ -146,6 +152,19 @@ class GoalLoop:
             # alike, since both route through this one method -- so the counter
             # covers the whole run, not just planning.
             state.retries += 1
+            # Emit the SAME event as a live INFO record so the headline "resilient
+            # by design" story is visible DURING the run (the checkpoint counter
+            # only surfaces it after). Emitted UNCONDITIONALLY at the source: the
+            # -v/-vv flag decides whether a handler forwards it to stderr, but the
+            # record exists regardless, so caplog can capture it with no CLI. The
+            # 1-based *attempt* is the just-failed try that is being retried.
+            _LOG.info(
+                "L0 retry %d for %s (backing off %.2fs): %s",
+                attempt,
+                tag,
+                delay,
+                exc,
+            )
 
         text = with_retry(
             _call, self._settings.retry, sleep=self._sleep, on_retry=_count_retry

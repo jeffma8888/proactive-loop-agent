@@ -440,7 +440,11 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     the `main()` boundary (both before any rendering, so the exit contract is
     `--json`-independent). Builds no `LLMClient`, runs no collector/subprocess, and
     writes no file.
-  - Global flags: `--provider`, `--scripted-responses`, `--state-dir`.
+  - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
+    (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
+    `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,
+    so the L0 retry/backoff self-healing is visible on stderr as it happens while stdout
+    stays untouched -- level 0 is a strict no-op).
   - `_collect(workspace) -> WorkspaceSnapshot` — the shared collector-orchestration
     seam behind `scan`/`run`/`signals`/`watch`. It ENFORCES the §4.1 "collectors
     never raise → `[]`" invariant (belt-and-suspenders over the per-collector
