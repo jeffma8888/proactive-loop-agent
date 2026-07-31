@@ -2,10 +2,11 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into ten verbs a person actually runs -- scan, dispatch, run, resume, the
+into eleven verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
 transcript renderer, the read-only signals perception inspector, the periodic
-watch loop, and the read-only diff slate-delta inspector -- and owns
+watch loop, the read-only diff slate-delta inspector, and the read-only policy
+autonomy-contract catalog -- and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
@@ -42,6 +43,7 @@ from .models import (
     CandidateGoal,
     ContextSignal,
     DispatchDecision,
+    GoalCategory,
     GoalSlate,
     LoopStep,
     RunState,
@@ -188,7 +190,7 @@ def _non_negative_float(raw: str) -> float:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with ten subcommands and shared globals.
+    """Assemble the ``pla`` parser with eleven subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -462,6 +464,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the diff as one JSON object instead of the human sections.",
     )
     p_diff.set_defaults(func=_cmd_diff)
+
+    # `policy` prints the STANDING autonomy contract itself -- the product's
+    # headline safety mechanism -- with zero input: no --workspace, no slate, no
+    # LLM. It inherits the globals so --provider/--scripted-responses/--state-dir
+    # are accepted but INERT (the handler builds no LLMClient, runs no collector,
+    # touches no filesystem); it exists precisely so a reviewer of this public repo
+    # can answer "how does it decide what to auto-run vs. gate for approval?"
+    # WITHOUT first running a scan against an LLM-configured workspace. It is the
+    # top of the decision arc: policy (the rules) -> scan (proposals) -> explain
+    # (why THIS goal) -> trace (what it did). --json swaps the human catalog for one
+    # explicit-allowlist object; the threshold is resolved through the shared
+    # _settings seam, so a PLA_AUTO_DISPATCH_MIN_SCORE override shows the EFFECTIVE
+    # contract. Deliberately NO --workspace: the contract is context-free.
+    p_policy = sub.add_parser(
+        "policy",
+        parents=[globals_],
+        help="Print the standing autonomy contract: gate rules, auto-dispatch threshold, and sensitive categories (read-only, LLM-free).",
+    )
+    p_policy.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the autonomy contract as one JSON object instead of the human catalog.",
+    )
+    p_policy.set_defaults(func=_cmd_policy)
 
     return parser
 
@@ -1252,6 +1278,105 @@ def _diff_json_payload(old_path: str, new_path: str, result: dict) -> dict:
     }
 
 
+# The four ordered gate rules narrated in plain English, in EXACTLY the
+# first-match-wins order `policy.gate` evaluates them. This is a small,
+# hand-maintained ordered list -- the one deliberate, acknowledged doc-vs-code
+# coupling of the `policy` verb (per the iter-39 spec): we do NOT reflect over
+# `gate()`'s body to derive these strings. Only the ENUMERABLE parts of the
+# contract (the category set, the threshold, the sensitive flags) are
+# source-driven from `list(GoalCategory)` / `Settings`, so a new category can
+# never silently drop out (the iter-37/38 completeness-trap discipline); the
+# rule NARRATION is prose a human keeps in step with `scout/policy.py`.
+# Each string is tied by comment to its `gate()` branch so the coupling is
+# visible at the one place it lives.
+_POLICY_RULES: tuple[str, ...] = (
+    # gate branch 1: `goal.category in settings.sensitive_categories` -> NEEDS_APPROVAL
+    "A goal in a sensitive category always needs human approval, even at a maximal score.",
+    # gate branch 2: `not goal.appropriate_now` -> BLOCKED
+    "Otherwise, a goal that is not appropriate right now is blocked.",
+    # gate branch 3: `goal.score >= settings.auto_dispatch_min_score` -> AUTO_DISPATCH
+    "Otherwise, a goal whose score meets the auto-dispatch threshold is auto-dispatched.",
+    # gate branch 4: else -> NEEDS_APPROVAL
+    "Otherwise, the goal needs human approval before it runs.",
+)
+
+
+def _policy_json_payload(settings: Settings) -> dict:
+    """Build the ``policy --json`` document as a pure function of ``settings``.
+
+    One object of EXACTLY the four contract keys
+    ``{auto_dispatch_min_score, sensitive_categories, categories, rules}``, built
+    from an EXPLICIT allowlist -- never ``settings.model_dump()`` (the iter-08
+    schema-leak discipline every ``*_json_payload`` follows): a field added later
+    to ``Settings`` (a ``model``/``retry``-style addition) must NOT silently leak
+    onto this wire schema, which a ``jq``/CI pipeline asserts on.
+
+    ``auto_dispatch_min_score`` ECHOES the resolved ``settings`` threshold (a raw
+    JSON number, not the ``:.2f`` human string), so a ``PLA_AUTO_DISPATCH_MIN_SCORE``
+    override surfaces the EFFECTIVE contract through the shared ``_settings`` seam.
+    ``categories`` is driven straight from ``list(GoalCategory)`` (sorted by
+    ``.value``) so a future category cannot silently drop out; each item is an
+    EXPLICIT ``{category, sensitive}`` dict emitting the enum ``.value`` (never a
+    ``GoalCategory.`` repr) with ``sensitive`` computed against
+    ``settings.sensitive_categories``. ``sensitive_categories`` is that same set as
+    a sorted list of ``.value`` strings. ``rules`` is the module-level
+    ``_POLICY_RULES`` narration (copied to a fresh list so a caller cannot mutate
+    the shared tuple). Kept pure/disk-free and client-free so it is unit-testable
+    without a workspace, a slate file, or an ``LLMClient``.
+    """
+    return {
+        "auto_dispatch_min_score": settings.auto_dispatch_min_score,
+        "sensitive_categories": sorted(
+            cat.value for cat in settings.sensitive_categories
+        ),
+        "categories": [
+            {
+                "category": cat.value,
+                "sensitive": cat in settings.sensitive_categories,
+            }
+            for cat in sorted(GoalCategory, key=lambda c: c.value)
+        ],
+        "rules": list(_POLICY_RULES),
+    }
+
+
+def _render_policy(settings: Settings) -> str:
+    """Render the standing autonomy contract as plain text (read-only, LLM-free).
+
+    A pure, disk-free, deterministic function of ``settings`` -- like
+    ``_render_runs`` / ``_render_signals`` it opens no file and builds no client,
+    so the exact human view is reproducible from a ``Settings`` alone. It surfaces
+    the headline safety mechanism as a STANDING catalog (no workspace, no slate,
+    no LLM): the resolved auto-dispatch threshold, every ``GoalCategory`` tagged
+    sensitive vs. auto-eligible, and the four ordered ``policy.gate`` rules in
+    first-match-wins order.
+
+    The threshold uses ``:.2f`` so a default renders ``4.00`` and a
+    ``PLA_AUTO_DISPATCH_MIN_SCORE`` override renders ``6.50`` -- proving the
+    EFFECTIVE contract, resolved through the shared ``_settings`` seam, is what is
+    shown. Categories are driven straight from ``list(GoalCategory)`` (sorted by
+    ``.value``) so a future category cannot silently drop out (the iter-37/38
+    completeness-trap discipline); each carries a ``(sensitive)`` annotation IFF it
+    is in ``settings.sensitive_categories`` -- so the four non-sensitive category
+    lines never carry that word. Rules are numbered 1-4 in gate order.
+    """
+    lines = [
+        "autonomy contract",
+        f"  auto-dispatch threshold (min score): {settings.auto_dispatch_min_score:.2f}",
+        "",
+        "categories:",
+    ]
+    for cat in sorted(GoalCategory, key=lambda c: c.value):
+        # The (sensitive) marker is the ONLY place the word appears on a category
+        # line, so a line carrying a non-sensitive category value never contains it.
+        annotation = "  (sensitive)" if cat in settings.sensitive_categories else ""
+        lines.append(f"  - {cat.value}{annotation}")
+    lines.append("")
+    lines.append("gate rules (first match wins):")
+    lines.extend(f"  {i}. {rule}" for i, rule in enumerate(_POLICY_RULES, start=1))
+    return "\n".join(lines)
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -1690,6 +1815,36 @@ def _cmd_diff(args: argparse.Namespace) -> int:
         print(json.dumps(_diff_json_payload(args.old, args.new, result), indent=2))
     else:
         print(_render_diff(result))
+    return 0
+
+
+def _cmd_policy(args: argparse.Namespace) -> int:
+    """policy: print the STANDING autonomy contract (read-only, LLM-free, zero-input).
+
+    WHY it builds no ``LLMClient`` and reads no workspace (like
+    ``runs``/``explain``/``trace``/``signals``/``diff``): the autonomy contract is
+    the headline safety claim, yet today it is only inspectable REACTIVELY --
+    ``explain`` shows ONE gated goal, ``scan`` shows a whole gated slate, and both
+    demand a synthesized slate (an LLM call + a workspace). ``policy`` is the
+    standing "what ARE the rules?" window: a zero-input, zero-LLM, zero-workspace
+    catalog of the gate itself -- the top of the decision arc policy (rules) ->
+    scan (proposals) -> explain (why THIS goal) -> trace (what it did).
+
+    It builds ``settings`` through the SHARED ``_settings(args)`` seam so a
+    ``PLA_AUTO_DISPATCH_MIN_SCORE`` override surfaces the EFFECTIVE threshold, and
+    NOTHING else: no ``create_client`` (so an inert/bad ``--scripted-responses``
+    path is simply never opened -- exit 0, not the eager-load exit 1 a
+    client-building verb would give), no collector, no filesystem, no gate
+    mutation. So it structurally cannot regress any existing behavior. It always
+    returns 0; ``--json`` swaps the human catalog for one explicit-allowlist object
+    (rendering selection only -- there is no input to fail on).
+    """
+    settings = _settings(args)
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer.
+        print(json.dumps(_policy_json_payload(settings), indent=2))
+    else:
+        print(_render_policy(settings))
     return 0
 
 

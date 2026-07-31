@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -574,6 +574,27 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     the `main()` boundary (both before any rendering, so the exit contract is
     `--json`-independent). Builds no `LLMClient`, runs no collector/subprocess, and
     writes no file.
+  - `pla policy [--json]` — read-only, LLM-free, zero-input catalog of the STANDING
+    autonomy contract itself: the product's headline safety mechanism, surfaced
+    PROACTIVELY rather than only reactively through a gated `scan`/`explain` (both of
+    which need a synthesized slate). Takes NO `--workspace` (the contract is
+    context-free) and builds no `LLMClient` (an inert/nonexistent `--scripted-responses`
+    is never opened → exit 0, unlike a client-building verb's eager-load exit 1), runs
+    no collector, and touches no filesystem — so it structurally cannot regress any
+    existing behavior. It resolves `settings` through the shared `_settings(args)` seam
+    so a `PLA_AUTO_DISPATCH_MIN_SCORE` override shows the EFFECTIVE threshold. Human form
+    prints the threshold (`:.2f`, e.g. `4.00`), every `GoalCategory` `.value` (one line
+    each, sorted, driven from `list(GoalCategory)` so a future category cannot drop out)
+    with a `(sensitive)` annotation on the sensitive ones only, and the four ordered
+    `policy.gate` rules (first match wins). `--json` emits one object of EXACTLY the four
+    keys `auto_dispatch_min_score, sensitive_categories, categories, rules` — an explicit
+    allowlist (never `model_dump`; the iter-08 schema-leak discipline): `categories` is a
+    sorted list of `{category, sensitive}`, `sensitive_categories` a sorted list of
+    enum `.value` strings, `auto_dispatch_min_score` the raw resolved number, and `rules`
+    a four-element ordered narration of the gate branches (the one small hand-maintained
+    doc-vs-code coupling; only the category/threshold/sensitive parts are source-driven).
+    Always exits 0 (no input to fail on). It is the top of the decision arc policy (the
+    rules) → scan (proposals) → explain (why THIS goal) → trace (what a run did).
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
     (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
     `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,
