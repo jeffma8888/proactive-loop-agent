@@ -33,7 +33,10 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
   gate. Sensitive categories (finance/legal, health/admin) *always* require
   human approval, no matter how high they score.
 - **L1 goal loop** drives one approved goal through bounded plan/act/check
-  iterations. The ACT phase can only touch a sandboxed artifacts directory.
+  iterations. The ACT phase can only touch a sandboxed artifacts directory,
+  through a fixed set of path-guarded tools: write, append, read, relocate
+  (`move_file`), and delete files, plus read-only discovery (list / search /
+  find / stat / head).
 - **L0 resilience** wraps every model call in retry-with-backoff and checkpoints
   the run state after every step, so a throttle blip or a crash never loses more
   than the in-flight step. Each recovered retry is counted on the run and shown

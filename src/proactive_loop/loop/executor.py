@@ -249,7 +249,8 @@ class GoalLoop:
             "find_files(pattern, path) [glob file discovery by name], "
             "stat_file(path) [describe one path: type/bytes/lines/ext], "
             "head_file(path, max_lines) [first N lines of a file; N default 40], "
-            "remove_file(path) [deletes a file under artifacts/]\n\n"
+            "remove_file(path) [deletes a file under artifacts/], "
+            "move_file(src, dst) [rename/relocate a file under artifacts/]\n\n"
             f"{self._transcript(state)}\n"
             'Reply with JSON: {"thought": "...", '
             '"action": {"tool": "...", "args": {...}}}'

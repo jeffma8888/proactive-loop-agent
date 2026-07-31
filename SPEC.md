@@ -412,9 +412,28 @@ class ToolRegistry:
   `workspace_root` (a workspace-only path degrades to `no such artifact`) — and on success
   returns `removed artifacts/<relpath>`, dropping the relpath from `artifacts()` when tracked
   (the drop is conditional on membership, so an untracked on-disk artifact is still removable).
-  Never `move_file`/`rmdir`/recursive delete (out of scope). (Additive tool added in iter-33 —
-  existing tool contracts unchanged, so **no version bump**, mirroring iter-13's
-  `search_files`.) Unknown tool →
+  Never `rmdir`/recursive delete (out of scope; `move_file` is now its own tool). (Additive
+  tool added in iter-33 — existing tool contracts unchanged, so **no version bump**, mirroring
+  iter-13's `search_files`); `move_file(src, dst)` → **atomically relocates/renames** ONE file
+  under `artifacts_dir` ONLY (`os.replace`), completing the write-side mutation family create
+  (`write_file`) / update (`append_file`) / read / **move** / delete (`remove_file`). Refuses
+  `..`/absolute/symlink-escape paths on BOTH `src` and `dst` with the SAME error strings as
+  `write_file` (via the shared `_reject_unsafe` + a resolved `_within` gate on EACH that fires
+  BEFORE any disk write, so a symlink escaping the sandbox on either side returns `error: refusing
+  to move outside artifacts dir: <p>` and never moves through the link); refuses a directory src
+  (`error: refusing to move a directory: <src>`, dir survives), a missing src (`error: no such
+  artifact: <src>`), and an already-existing dst (`error: destination already exists: <dst>` —
+  never a silent clobber, both files intact) with observable errors. Guard order is load-bearing:
+  `_reject_unsafe(src)` → `_reject_unsafe(dst)` → resolved `_within(src)` → resolved `_within(dst)`
+  → src exists → src not a dir → dst does not exist → `ensure_dir(dst.parent)` → `os.replace` →
+  tracked-list update. It resolves ONLY against `artifacts_dir` — never against, and never moving
+  anything under, the read-only `workspace_root` (a workspace-only src degrades to `no such
+  artifact`) — creates missing `dst` parent dirs, and on success returns `moved artifacts/<src-rel>
+  -> artifacts/<dst-rel>` (POSIX `/` separators), dropping `src`'s relpath from `artifacts()` when
+  tracked (conditional on membership, so an untracked on-disk src is still movable) and appending
+  `dst`'s relpath when absent. `rmdir`/recursive move stay out of scope (single files only).
+  (Additive tool added in iter-45 — existing tool contracts unchanged, so **no version bump**,
+  mirroring iter-13's `search_files`.) Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
 

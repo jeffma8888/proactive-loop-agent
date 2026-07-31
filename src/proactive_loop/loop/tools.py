@@ -55,13 +55,14 @@ class ToolRegistry:
             "stat_file": self._stat_file,
             "head_file": self._head_file,
             "remove_file": self._remove_file,
+            "move_file": self._move_file,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
                 "available tools: write_file, read_file, list_files, "
                 "search_files, append_file, find_files, stat_file, "
-                "head_file, remove_file"
+                "head_file, remove_file, move_file"
             )
         try:
             return handler(args or {})
@@ -168,6 +169,77 @@ class ToolRegistry:
         if rel in self._artifacts:
             self._artifacts.remove(rel)
         return f"removed artifacts/{rel}"
+
+    def _move_file(self, args: dict) -> str:
+        """Atomically relocate/rename ONE file under artifacts_dir; refuse
+        escapes, directories, a missing src, and any existing dst.
+
+        WHY a dedicated move verb: ``write_file``/``append_file``/``read_file``/
+        ``remove_file`` gave the sandbox create/update/read/DELETE, but a goal
+        that scaffolds an artifact under the wrong name still had NO clean
+        relocate -- only ``read_file`` -> ``write_file(new)`` -> ``remove_file(old)``
+        (three calls, non-atomic, doubling the byte payload back through the
+        model, and leaving a window where both copies exist). ``move_file``
+        closes that gap with a single atomic rename, completing the write-side
+        mutation family create/update/read/**move**/delete.
+
+        Guard order is load-bearing for a mutation and mirrors ``remove_file``:
+        ``_reject_unsafe`` (empty/``..``/absolute) on BOTH ``src`` and ``dst``
+        FIRST (src before dst), then the *resolved* ``_within`` gate on src and
+        on dst BEFORE any disk write -- so a symlink escaping the sandbox on
+        EITHER side can never move a file out of, or write one through the link
+        into, an external location. Only after both paths are proven in-sandbox
+        do the state checks run: src must exist, src must not be a directory
+        (single files only), and dst must NOT already exist (never a silent
+        clobber). It resolves ONLY against ``artifacts_dir`` -- never the
+        read-only ``workspace_root`` -- so a workspace-only src degrades to
+        ``no such artifact``. Missing ``dst`` parent dirs are created, the move
+        is ``os.replace`` (atomic rename), and the tracked ``artifacts()`` list
+        is updated: the src relpath is dropped IF tracked (conditional on
+        membership, so an untracked on-disk src still moves without a KeyError)
+        and the dst relpath is appended if absent. Never raises: every failure
+        is an ``"error: ..."`` observation the loop can relay back to the model.
+        """
+        src = str(args.get("src", ""))
+        dst = str(args.get("dst", ""))
+        # _reject_unsafe on src BEFORE dst (shared empty/``..``/absolute message,
+        # src checked first) -- purely textual, so a ``..``/absolute src never
+        # reaches path resolution.
+        rejection = self._reject_unsafe(src)
+        if rejection is not None:
+            return rejection
+        rejection = self._reject_unsafe(dst)
+        if rejection is not None:
+            return rejection
+        src_target = self.artifacts_dir / src
+        dst_target = self.artifacts_dir / dst
+        # Belt-and-suspenders against symlink tricks: confirm BOTH the resolved
+        # src and the resolved dst are inside the sandbox BEFORE any disk write.
+        # The dst gate must fire here (before ensure_dir/os.replace) so a symlink
+        # dst can never write a file THROUGH the link outside the sandbox.
+        if not self._within(src_target, self.artifacts_dir):
+            return f"error: refusing to move outside artifacts dir: {src!r}"
+        if not self._within(dst_target, self.artifacts_dir):
+            return f"error: refusing to move outside artifacts dir: {dst!r}"
+        if not src_target.exists():
+            return f"error: no such artifact: {src!r}"
+        if src_target.is_dir():
+            return f"error: refusing to move a directory: {src!r}"
+        # No silent clobber: an existing dst is refused (this also covers a
+        # src == dst move, which resolves to the same existing path).
+        if dst_target.exists():
+            return f"error: destination already exists: {dst!r}"
+        ensure_dir(dst_target.parent)
+        os.replace(src_target, dst_target)
+        src_rel = str(src_target.relative_to(self.artifacts_dir))
+        dst_rel = str(dst_target.relative_to(self.artifacts_dir))
+        # Drop src IF tracked (untracked on-disk src still moves cleanly), then
+        # append dst if not already present -- mirrors write_file's dedupe.
+        if src_rel in self._artifacts:
+            self._artifacts.remove(src_rel)
+        if dst_rel not in self._artifacts:
+            self._artifacts.append(dst_rel)
+        return f"moved artifacts/{src_rel} -> artifacts/{dst_rel}"
 
     def _read_file(self, args: dict) -> str:
         """Read *path* from artifacts_dir or the read-only workspace_root."""
