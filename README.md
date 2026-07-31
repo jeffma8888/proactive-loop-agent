@@ -87,8 +87,12 @@ the one synthesizing step — it calls the LLM and writes the slate.
 `watch` turns that one-shot scan into the product's namesake proactive loop: it
 re-runs the scan pipeline every `--interval` seconds (default 3600) and re-prints
 the ranked, gated slate as your context changes, running until interrupted with
-Ctrl-C unless `--max-scans N` bounds it. It is a live monitor — unlike `scan` it
-writes no slate file and prints no `slate written:` trailer.
+Ctrl-C unless `--max-scans N` bounds it. Both knobs are guarded at parse time
+like `--top`: `--interval` must be non-negative (`>= 0`; `0` is legal so offline
+runs need no real wait) and `--max-scans` must be a positive integer, so a bad
+value fails fast with an exit-2 usage error before any scan runs. It is a live
+monitor — unlike `scan` it writes no slate file and prints no `slate written:`
+trailer.
 
 `diff` is the comparative companion to `watch`: hand it two saved slates (`--old`/`--new`) and it classifies goals as added / removed / changed (the score moved past `1e-9` or the gate decision flipped) / unchanged, matched by normalized title (`title.strip().lower()`) rather than the random per-scan id — turning a stream of point-in-time slates into a change feed. It re-gates each side live, so a goal that crossed the autonomy threshold shows up in `changed`. `--json` emits one `{old, new, added, removed, changed, unchanged_count}` object. Like the other inspectors it builds no `LLMClient`, runs nothing, and writes no file.
 

@@ -526,9 +526,16 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     watch loop: re-run the SAME `scan` pipeline (collect → synthesize → gate →
     render the ranked slate + gate decisions to stdout) every `--interval`
     seconds via `scheduler.run_periodic`, prefixing each tick with a
-    `=== scan <n> ===` header (1-based). `--interval` is a float, default `3600.0`;
-    `--max-scans` is an int, default `None` = run forever (production "watch until
-    Ctrl-C"), a positive int bounds the run for tests/one-offs. Unlike `scan` it is
+    `=== scan <n> ===` header (1-based). `--interval` is a float, default `3600.0`,
+    validated **non-negative at parse time** (`>= 0`; `0` stays legal so offline
+    tests can drive `watch` with a bounded `--max-scans` and no real wait);
+    `--max-scans` is a **positive int** (`>= 1`), default `None` = run forever
+    (production "watch until Ctrl-C"), a positive int bounds the run for
+    tests/one-offs. A negative/non-numeric `--interval` or a zero/negative/
+    non-integer `--max-scans` is an argparse usage error (exit 2) BEFORE any
+    client/collect/render — matching the `--top` parse-time-guard clause, so the
+    namesake loop can neither half-run then leak `time.sleep`'s builtin errno
+    string nor silently no-op with exit 0. Unlike `scan` it is
     a LIVE monitor: it writes NO slate file and prints no `slate written:` trailer
     (a tick's output is ephemeral, not an artifact). The LLM client is built ONCE
     before the loop and reused every tick. A missing/non-directory `--workspace`

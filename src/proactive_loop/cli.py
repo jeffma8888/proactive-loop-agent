@@ -162,6 +162,31 @@ def _positive_int(raw: str) -> int:
     return value
 
 
+def _non_negative_float(raw: str) -> float:
+    """argparse ``type=`` validator: parse a NON-negative float (``>= 0``).
+
+    Mirrors ``_positive_int`` for ``watch``'s ``--interval``: it fires at PARSE
+    time -- BEFORE any LLM client is built, any collector runs, or any tick is
+    rendered -- so a bad ``--interval`` is a ``SystemExit(2)`` usage error with
+    zero side effects, never a half-completed run that emits scan #1 then dies on
+    the 2nd tick's ``time.sleep`` leaking its builtin ``sleep length must be
+    non-negative`` errno string. ``float(raw)`` lets a non-number (e.g. ``abc``)
+    raise ``ValueError``, which argparse itself converts into the exit-2 usage
+    error; a parsed ``value < 0.0`` raises ``ArgumentTypeError``.
+
+    WHY ``>= 0.0`` and NOT ``> 0.0`` (do NOT "tighten" this): ``--interval 0`` is a
+    LOAD-BEARING legal value pinned by SPEC §4.5 so the offline test-suite can
+    drive ``watch`` with a bounded ``--max-scans`` and NO real ``sleep`` wait. A
+    zero interval is a supported test-drive knob, not a degenerate input.
+    """
+    value = float(raw)
+    if value < 0.0:
+        raise argparse.ArgumentTypeError(
+            f"must be a non-negative number (>= 0), got {value}"
+        )
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Assemble the ``pla`` parser with ten subcommands and shared globals.
 
@@ -379,6 +404,16 @@ def build_parser() -> argparse.ArgumentParser:
     # reads). --max-scans bounds the run (default None = run until Ctrl-C, the
     # production case); --interval accepts 0 so the offline tests drive it with a
     # bounded --max-scans and no real waiting.
+    #
+    # Both numeric knobs are guarded at PARSE time, matching --top's fail-fast
+    # discipline: --interval is a _non_negative_float (>= 0; 0 stays legal per
+    # SPEC §4.5) and --max-scans reuses --top's _positive_int (>= 1). A bad value
+    # is a SystemExit(2) usage error BEFORE any client/collect/render -- so the
+    # namesake watch loop can never half-run a scan then leak time.sleep's builtin
+    # "sleep length must be non-negative" on a negative interval, nor silently
+    # succeed on a zero/negative --max-scans (a degenerate no-op that reported
+    # exit 0). Non-string argparse defaults (3600.0 / None) bypass type= entirely,
+    # so the "run forever, hourly" production default is untouched.
     p_watch = sub.add_parser(
         "watch",
         parents=[globals_],
@@ -387,15 +422,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_watch.add_argument("--workspace", required=True, help="Workspace root to watch.")
     p_watch.add_argument(
         "--interval",
-        type=float,
+        type=_non_negative_float,
         default=3600.0,
-        help="Seconds to wait between scans (default 3600).",
+        help=(
+            "Seconds to wait between scans (default 3600). Non-negative (>= 0; 0 is "
+            "legal for offline test-drives); a negative or non-numeric value is a "
+            "usage error (exit 2)."
+        ),
     )
     p_watch.add_argument(
         "--max-scans",
-        type=int,
+        type=_positive_int,
         default=None,
-        help="Stop after N scans (default: run until interrupted with Ctrl-C).",
+        help=(
+            "Stop after N scans (default: run until interrupted with Ctrl-C). A "
+            "non-positive or non-integer value is a usage error (exit 2)."
+        ),
     )
     p_watch.set_defaults(func=_cmd_watch)
 
