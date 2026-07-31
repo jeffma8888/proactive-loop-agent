@@ -247,7 +247,8 @@ class GoalLoop:
             "append_file(path, content) [appends under artifacts/], "
             "read_file(path), list_files(path), search_files(query, path), "
             "find_files(pattern, path) [glob file discovery by name], "
-            "stat_file(path) [describe one path: type/bytes/lines/ext]\n\n"
+            "stat_file(path) [describe one path: type/bytes/lines/ext], "
+            "head_file(path, max_lines) [first N lines of a file; N default 40]\n\n"
             f"{self._transcript(state)}\n"
             'Reply with JSON: {"thought": "...", '
             '"action": {"tool": "...", "args": {...}}}'

@@ -53,12 +53,14 @@ class ToolRegistry:
             "append_file": self._append_file,
             "find_files": self._find_files,
             "stat_file": self._stat_file,
+            "head_file": self._head_file,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
                 "available tools: write_file, read_file, list_files, "
-                "search_files, append_file, find_files, stat_file"
+                "search_files, append_file, find_files, stat_file, "
+                "head_file"
             )
         try:
             return handler(args or {})
@@ -133,6 +135,82 @@ class ToolRegistry:
             candidate = root / path
             if self._within(candidate, root) and candidate.is_file():
                 return candidate.read_text()
+        return f"error: file not found under artifacts or workspace: {path!r}"
+
+    def _head_file(self, args: dict) -> str:
+        """Return the first *max_lines* lines of *path* -- a bounded top-of-file
+        peek so a goal can judge relevance BEFORE committing context to a full
+        ``read_file``.
+
+        WHY this tool exists: ``read_file`` is the sandbox's ONLY unbounded
+        reader -- it pulls the WHOLE file into a single observation, so on a
+        large log / config / source file it floods the model's context budget in
+        one ACT step. ``stat_file`` (iter-26) can *measure* that hazard ("how
+        big?") but cannot READ a window. ``head_file`` fills exactly that gap: a
+        cheap, bounded peek at the top of a file, completing the sandbox's
+        bounded-observation family as find / list / grep / describe / PEEK /
+        read.
+
+        Resolution precedence is ``artifacts_dir`` FIRST then ``workspace_root``
+        -- IDENTICAL to ``read_file`` / ``stat_file`` -- so ``head_file(x)`` and
+        ``read_file(x)`` always read the SAME copy. For a file with ``<=
+        max_lines`` lines the return is BYTE-IDENTICAL to ``read_file`` (no
+        trailer); for a longer file it is the first *max_lines* lines with their
+        original terminators preserved, followed by a single trailer line
+        ``... (showing first {max_lines} of {total} lines)`` -- emitted ONLY when
+        the file is actually truncated (``total > max_lines``).
+
+        ``max_lines`` defaults to 40 and accepts an int or an integer-valued
+        string; a non-positive or non-integer value is rejected (nothing read).
+        Path-safety errors (empty / traversal / absolute) are reported BEFORE
+        ``max_lines`` validation, mirroring the check order the other tools use.
+
+        Read-only by construction: it reads but never writes, so ``artifacts()``
+        is unaffected. Never raises -- an unsafe / empty / bad-arg / missing path
+        degrades to an ``"error: ..."`` observation, and an undecodable (binary)
+        file surfaces as an ``"error:"`` via ``execute()``'s never-raise wrapper
+        (mirroring ``read_file``'s decode behavior).
+        """
+        path = str(args.get("path", ""))
+        # Tool-specific empty/missing-path error BEFORE _reject_unsafe (which
+        # would emit the generic "empty path" message), mirroring stat_file.
+        if not path:
+            return "error: head_file requires a non-empty 'path'"
+        # Path-safety (traversal/absolute) is validated BEFORE max_lines so an
+        # unsafe path is still reported even alongside a bad max_lines.
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+        # max_lines must be a positive integer (int or integer-valued string);
+        # a bool, float, None, non-numeric string, or other type is rejected and
+        # NOTHING is read on rejection.
+        max_lines = self._coerce_positive_int(args.get("max_lines", 40))
+        if max_lines is None:
+            return "error: head_file 'max_lines' must be a positive integer"
+        # Precedence: artifacts_dir FIRST, then workspace_root (see docstring) --
+        # identical to read_file, so head_file and read_file read the SAME copy.
+        # A symlink escaping both roots fails _within and is never read (falls
+        # through to "not found").
+        for root in (self.artifacts_dir, self.workspace_root):
+            candidate = root / path
+            if self._within(candidate, root) and candidate.is_file():
+                # read_text() (NOT read_bytes) so a short file is byte-identical
+                # to read_file, sharing the same universal-newline handling; an
+                # undecodable file raises here and execute()'s wrapper turns it
+                # into an "error:" observation.
+                text = candidate.read_text()
+                # splitlines(keepends=True) preserves each line's terminator and
+                # round-trips exactly ("".join(lines) == text), so the
+                # not-truncated path returns the file verbatim.
+                lines = text.splitlines(keepends=True)
+                total = len(lines)
+                if total <= max_lines:
+                    return text
+                head = "".join(lines[:max_lines])
+                # total > max_lines means the last kept line is NOT the file's
+                # final line, so it always carries a terminator -> the trailer
+                # begins on a fresh line.
+                return f"{head}... (showing first {max_lines} of {total} lines)"
         return f"error: file not found under artifacts or workspace: {path!r}"
 
     def _list_files(self, args: dict) -> str:
@@ -381,6 +459,29 @@ class ToolRegistry:
         return f"error: no such path: {path!r}"
 
     # --- sandbox helpers ------------------------------------------------
+
+    @staticmethod
+    def _coerce_positive_int(value: object) -> int | None:
+        """Coerce *value* to a strictly-positive int, else return ``None``.
+
+        Accepts a genuine ``int`` or an integer-valued ``str`` (e.g. ``"3"``);
+        rejects ``bool`` (an int subclass, but a boolean count is a caller
+        error, so ``True``/``False`` are NOT silently treated as ``1``/``0``),
+        ``float``, ``None``, non-numeric strings, and every other type. Used to
+        validate ``head_file``'s ``max_lines`` (must be a positive integer).
+        """
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            n = value
+        elif isinstance(value, str):
+            try:
+                n = int(value)
+            except ValueError:
+                return None
+        else:
+            return None
+        return n if n > 0 else None
 
     @staticmethod
     def _reject_unsafe(path: str) -> str | None:

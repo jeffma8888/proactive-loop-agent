@@ -303,7 +303,24 @@ class ToolRegistry:
   it and the count is OS-independent), refuses `..`/absolute/symlink-escape paths, and
   returns `error: no such path: '<p>'` for a path in neither root (additive tool added in
   iter-26 — existing tool contracts unchanged, so **no version bump**, mirroring iter-13's
-  `search_files`). Unknown tool →
+  `search_files`); `head_file(path, max_lines=40)` → the first `max_lines` lines of a file —
+  a bounded top-of-file **peek** so a goal can judge relevance BEFORE committing context to a
+  full `read_file` (the sandbox's only unbounded reader). Resolves `artifacts_dir` FIRST then
+  `workspace_root` — the SAME precedence as `read_file`/`stat_file`, so `head_file(x)` and
+  `read_file(x)` read the same copy. For a file with `<= max_lines` lines the return is
+  **byte-identical** to `read_file` (no trailer, original terminators preserved via
+  `read_text` + `splitlines(keepends=True)`); a longer file returns its first `max_lines`
+  lines plus a single trailer line `... (showing first {max_lines} of {total} lines)`, emitted
+  ONLY when truncated (`total > max_lines`). `max_lines` defaults to 40 and accepts an int or
+  an integer-valued string; a non-positive/non-integer value → `error: head_file 'max_lines'
+  must be a positive integer` (nothing read). Path-safety errors (empty/`..`/absolute) are
+  reported BEFORE `max_lines` validation; a symlink escaping both roots and a
+  directory/missing target → `error: file not found under artifacts or workspace: '<p>'`
+  (mirroring `read_file`). Read-only (never writes; `artifacts()` unaffected), and an
+  undecodable (binary) file degrades to an `"error:"` via `execute()`'s never-raise wrapper.
+  It completes the bounded-observation family as find / list / grep / describe / PEEK / read
+  (additive tool added in iter-29 — existing tool contracts unchanged, so **no version bump**,
+  mirroring iter-13's `search_files`). Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
 
