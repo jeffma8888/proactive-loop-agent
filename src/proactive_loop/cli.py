@@ -29,6 +29,7 @@ import csv
 import io
 import json
 import logging
+import math
 import sys
 from pathlib import Path
 
@@ -165,7 +166,7 @@ def _positive_int(raw: str) -> int:
 
 
 def _non_negative_float(raw: str) -> float:
-    """argparse ``type=`` validator: parse a NON-negative float (``>= 0``).
+    """argparse ``type=`` validator: parse a FINITE, NON-negative float (``>= 0``).
 
     Mirrors ``_positive_int`` for ``watch``'s ``--interval``: it fires at PARSE
     time -- BEFORE any LLM client is built, any collector runs, or any tick is
@@ -174,14 +175,28 @@ def _non_negative_float(raw: str) -> float:
     the 2nd tick's ``time.sleep`` leaking its builtin ``sleep length must be
     non-negative`` errno string. ``float(raw)`` lets a non-number (e.g. ``abc``)
     raise ``ValueError``, which argparse itself converts into the exit-2 usage
-    error; a parsed ``value < 0.0`` raises ``ArgumentTypeError``.
+    error; a NON-finite value (``nan``/``inf``/``-inf``) or a parsed
+    ``value < 0.0`` raises ``ArgumentTypeError``. The finite check runs BEFORE the
+    ``< 0.0`` check, so ``-inf`` is reported as non-finite, not merely negative.
+
+    WHY reject non-finite (iter-40): ``float("nan") < 0.0`` and ``float("inf") <
+    0.0`` are BOTH ``False``, so a fat-fingered ``--interval nan``/``inf`` slipped
+    the ``< 0.0`` guard and detonated downstream in ``scheduler.run_periodic``'s
+    ``time.sleep`` -- rendering scan #1 (a side effect) then leaking a raw builtin
+    (``Invalid value NaN`` / ``OverflowError: timestamp out of range``). Rejecting
+    non-finite at parse time closes that gap and honors this validator's own
+    zero-side-effects contract on the namesake ``watch`` verb.
 
     WHY ``>= 0.0`` and NOT ``> 0.0`` (do NOT "tighten" this): ``--interval 0`` is a
     LOAD-BEARING legal value pinned by SPEC §4.5 so the offline test-suite can
     drive ``watch`` with a bounded ``--max-scans`` and NO real ``sleep`` wait. A
-    zero interval is a supported test-drive knob, not a degenerate input.
+    zero interval is a supported test-drive knob, not a degenerate input. This is
+    ORTHOGONAL to the non-finite rejection above: rejecting ``nan``/``inf`` does
+    not touch the ``0``-is-legal rule -- ``0.0`` is finite and ``>= 0.0``.
     """
     value = float(raw)
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError(f"must be a finite number, got {value}")
     if value < 0.0:
         raise argparse.ArgumentTypeError(
             f"must be a non-negative number (>= 0), got {value}"
