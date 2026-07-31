@@ -52,12 +52,13 @@ class ToolRegistry:
             "search_files": self._search_files,
             "append_file": self._append_file,
             "find_files": self._find_files,
+            "stat_file": self._stat_file,
         }.get(tool)
         if handler is None:
             return (
                 f"error: unknown tool {tool!r}; "
                 "available tools: write_file, read_file, list_files, "
-                "search_files, append_file, find_files"
+                "search_files, append_file, find_files, stat_file"
             )
         try:
             return handler(args or {})
@@ -313,6 +314,71 @@ class ToolRegistry:
         if truncated:
             lines.append(f"... (truncated at {_SEARCH_MAX_HITS} matches)")
         return "\n".join(lines)
+
+    def _stat_file(self, args: dict) -> str:
+        """Describe ONE path in a single bounded line -- the read-only triage
+        primitive that lets a goal decide whether a path is worth a full read.
+
+        WHY this tool exists: the loop's only ways to learn about a *specific*
+        path are ``read_file`` (which pulls the WHOLE file into one observation
+        -- the single unbounded reader, so it can flood the model's context) or
+        ``list_files`` (a directory listing only). Neither answers the cheap
+        triage question "what IS this path, and how big?" before committing the
+        context budget to reading it. ``stat_file`` returns a single bounded
+        line -- for a file its type / byte size / line count / extension, for a
+        directory its type / direct-entry count -- completing the discovery
+        family as find / list / grep / DESCRIBE / read.
+
+        Read-only by construction: it stats and (for a file) reads bytes to
+        count lines but never writes, so ``artifacts()`` is unaffected.
+        Deterministic: it reports NO mtime / timestamp / permission field, and
+        the line count is a *byte-level* ``splitlines()`` that never decodes --
+        so it can never fault on a binary file and is OS-independent. Never
+        raises -- every failure (empty path, unsafe path, missing path) degrades
+        to an ``"error: ..."`` observation the loop can relay back to the model.
+
+        Root precedence is ``artifacts_dir`` FIRST, then ``workspace_root`` --
+        IDENTICAL to ``read_file`` (and deliberately the OPPOSITE of
+        ``list_files``/``search_files``/``find_files``), so ``stat_file(x)`` and
+        ``read_file(x)`` always resolve the SAME copy and the reported
+        bytes/lines match what ``read_file`` returns.
+        """
+        path = str(args.get("path", ""))
+        # Tool-specific empty/missing-path error BEFORE _reject_unsafe (which
+        # would emit the generic "empty path" message), mirroring how
+        # search_files/find_files check their required arg first.
+        if not path:
+            return "error: stat_file requires a non-empty 'path'"
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+        # Echo the input path back, normalized to POSIX "/" separators.
+        relpath = Path(path).as_posix()
+        # Precedence: artifacts_dir FIRST, then workspace_root (see docstring).
+        # Only the first root under which the resolved path is within-root AND
+        # exists is described; a symlink escaping both roots fails _within and
+        # so is never described (falls through to "no such path").
+        for root in (self.artifacts_dir, self.workspace_root):
+            candidate = root / path
+            if not self._within(candidate, root):
+                continue
+            if candidate.is_file():
+                data = candidate.read_bytes()
+                suffix = Path(path).suffix
+                ext = suffix if suffix else "(none)"
+                # Byte-level splitlines(): never decodes, so a binary file
+                # cannot fault the count and the result is OS-independent.
+                return (
+                    f"{relpath}  type=file  bytes={len(data)}  "
+                    f"lines={len(data.splitlines())}  ext={ext}"
+                )
+            if candidate.is_dir():
+                # Direct children only (files + subdirs, INCLUDING hidden
+                # entries and skip-dirs), non-recursive -- mirrors list_files'
+                # unfiltered listing.
+                entries = len(list(candidate.iterdir()))
+                return f"{relpath}  type=dir  entries={entries}"
+        return f"error: no such path: {path!r}"
 
     # --- sandbox helpers ------------------------------------------------
 

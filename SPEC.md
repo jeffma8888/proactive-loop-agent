@@ -269,7 +269,21 @@ class ToolRegistry:
   grep content / find by name); a pattern with `/` matches nothing (basename-only
   boundary), directories/symlink-escapes/skip-dirs/hidden entries are never returned
   (additive tool added in iter-21 — existing tool contracts unchanged, so **no
-  version bump**, mirroring iter-13's `search_files`). Unknown tool →
+  version bump**, mirroring iter-13's `search_files`); `stat_file(path)` → describe
+  ONE path in a single bounded line: a file as `type=file  bytes=<st_size>
+  lines=<byte-level splitlines() count>  ext=<suffix|(none)>` and a directory as
+  `type=dir  entries=<direct-child count>` (all direct children incl. hidden entries and
+  skip-dirs, non-recursive) — the *describe* primitive that triages a path before a full
+  `read_file`, completing the discovery family as find / list / grep / describe / read.
+  Resolves `artifacts_dir` FIRST then `workspace_root` — the SAME precedence as `read_file`
+  (deliberately the OPPOSITE of `list_files`/`search_files`/`find_files`), so `stat_file(x)`
+  and `read_file(x)` resolve the same copy and the reported bytes/lines match. Read-only
+  (never writes; `artifacts()` unaffected), deterministic (NO mtime / timestamp /
+  permission field; the byte-level line count never decodes, so a binary file cannot fault
+  it and the count is OS-independent), refuses `..`/absolute/symlink-escape paths, and
+  returns `error: no such path: '<p>'` for a path in neither root (additive tool added in
+  iter-26 — existing tool contracts unchanged, so **no version bump**, mirroring iter-13's
+  `search_files`). Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
 
