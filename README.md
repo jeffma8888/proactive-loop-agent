@@ -67,7 +67,7 @@ automatically.
 
 | Command   | What it does                                                              |
 |-----------|---------------------------------------------------------------------------|
-| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown`; `--top N` caps the printed rows, the written slate stays complete), write slate JSON.|
+| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv`; `--top N` caps the printed rows, the written slate stays complete), write slate JSON.|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--yes` confirms approval).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal.          |
 | `resume`  | Load a checkpoint from a run dir and continue the loop.                   |
@@ -121,17 +121,25 @@ printed it):
   (`| # | decision | score | category | title |`) plus the trailer — the
   most portfolio-friendly artifact: "here is what my agent proposed and how the
   autonomy gate ruled."
+- `csv` — an RFC-4180 export (via the stdlib `csv` module) for spreadsheets /
+  `pandas.read_csv` / `csvkit`: a header row `rank,decision,score,category,title`
+  then one row per ranked goal, with **no** trailer (the whole stdout is one CSV
+  document). RFC-4180 quoting preserves commas, quotes, and newlines inside a
+  title, so a consumer recovers it exactly (unlike `markdown`, which collapses
+  whitespace); an empty slate emits the header row only. Sort by score, filter to
+  `needs_approval`, or pivot a slate by category in one `read_csv`.
 
 An invalid `--format` value is rejected by argparse as a usage error (exit 2).
 
 `scan --top N` caps the STDOUT rendering to the N highest-ranked goals (across
-all three `--format` values), while the slate file it writes always stays the
+all four `--format` values), while the slate file it writes always stays the
 **complete** record — stdout is a view, the file is the record, so
 `dispatch`/`explain`/`diff`/`runs` still operate on every goal. `--top` slices
 the existing ranked order (it never re-orders): `table`/`markdown` print a
 `... showing top N of M` note after the rows only when the cap actually hides
-goals (`N < M`), and `json` stays a pure single `{workspace_root, goals}` object
-with just a shortened `goals` array (no note, no trailer, no count key). A bare
+goals (`N < M`), while `json` stays a pure single `{workspace_root, goals}` object
+and `csv` stays a pure header-plus-rows CSV document — both with just a shortened
+row set (no note, no trailer, no count key). A bare
 `scan` — or `--top N` with `N ≥ M` — is byte-identical to the pre-flag output. A
 non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage error
 (exit 2), rejected before any collection runs or slate is written.

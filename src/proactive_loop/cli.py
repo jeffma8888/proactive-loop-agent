@@ -24,6 +24,8 @@ Layout of a dispatched run under ``state_dir``::
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import logging
 import sys
@@ -233,11 +235,12 @@ def build_parser() -> argparse.ArgumentParser:
     # table keeps every existing scan invocation byte-for-byte unchanged.
     p_scan.add_argument(
         "--format",
-        choices=["table", "json", "markdown"],
+        choices=["table", "json", "markdown", "csv"],
         default="table",
         help=(
             "stdout rendering: table (default, human) | json (one JSON object, no "
-            "trailer, pipes cleanly into jq) | markdown (paste-ready GFM table + trailer)."
+            "trailer, pipes cleanly into jq) | markdown (paste-ready GFM table + trailer) "
+            "| csv (RFC-4180 data stream, no trailer, opens in Excel / pandas.read_csv)."
         ),
     )
     # A stdout-view cap on the number of ranked goals printed; the persisted slate
@@ -632,6 +635,67 @@ def _scan_json_payload(
             for goal, decision in pairs
         ],
     }
+
+
+def _render_csv(
+    slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
+) -> str:
+    """Render the ranked slate + gate outcome as an RFC-4180 CSV data stream.
+
+    A pure, disk-free function of ``(slate, decisions)`` -- like ``_render_table`` /
+    ``_render_markdown`` / ``_scan_json_payload`` it consumes the SAME
+    ``zip(slate.ranked(), decisions)``, so the csv can never disagree with the
+    human table, the markdown table, or the json payload on order, score, or gate
+    outcome. Five columns exactly: ``rank, decision, score, category, title`` (the
+    same column set as ``markdown``/``table`` -- an ``id`` column is deliberately out
+    of scope for cross-format consistency).
+
+    WHY the stdlib ``csv`` module and NOT a manual comma-join: RFC-4180 quoting
+    *preserves* commas, double-quotes, AND embedded newlines inside a field, so a
+    consumer (Excel / Google Sheets / ``pandas.read_csv`` / ``csvkit``) recovers the
+    EXACT ``title`` string. ``_render_markdown``'s ``_md_cell`` deliberately does the
+    OPPOSITE -- it collapses every whitespace run (incl. ``\n``) to a single space and
+    escapes ``|`` so a title always renders as one physical GFM row -- so markdown
+    provably cannot round-trip such a title. The two formats target different
+    consumers (a spreadsheet vs a GitHub comment) with different escaping.
+
+    ``QUOTE_MINIMAL`` (the default dialect) quotes a field ONLY when it contains the
+    delimiter, a quote, or a line terminator, so the common case stays unquoted and
+    diff-friendly. Titles are written VERBATIM (the raw string); the score cell is
+    ``f"{score:.2f}"`` (byte-identical to the markdown/table score cell for the same
+    inputs) and enums render as their ``.value`` strings.
+
+    An empty slate yields the HEADER ROW ONLY -- a valid empty CSV table -- with NO
+    ``(no candidate goals)`` prose marker (that would corrupt the data stream). This
+    differs deliberately from ``table``/``markdown``, which append that marker.
+
+    ``top`` caps the emitted data rows to the first N ranked pairs (identical slice
+    discipline to the other renderers); ``None`` shows all. The persisted slate file
+    is always the COMPLETE record regardless of ``top`` (that write is ``_cmd_scan``'s
+    job, not this pure renderer's).
+
+    Returns the full CSV document as a string (the stdlib writer uses ``\r\n`` row
+    terminators, including after the final row, per RFC-4180). The caller emits it
+    with NO extra trailing newline so ``csv.reader`` over the stdout yields exactly
+    the header + data rows and no spurious blank row.
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)  # default = RFC-4180, QUOTE_MINIMAL
+    writer.writerow(["rank", "decision", "score", "category", "title"])
+    pairs = list(zip(slate.ranked(), decisions))
+    if top is not None:
+        pairs = pairs[:top]
+    for rank, (goal, decision) in enumerate(pairs, start=1):
+        writer.writerow(
+            [
+                str(rank),
+                decision.decision.value,
+                f"{goal.score:.2f}",
+                goal.category.value,
+                goal.title,
+            ]
+        )
+    return buffer.getvalue()
 
 
 def _render_run_summary(
@@ -1176,16 +1240,18 @@ def _dispatch_goal(
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:
-    """scan: collect -> synthesize -> gate -> render (table|json|markdown) -> write slate JSON.
+    """scan: collect -> synthesize -> gate -> render (table|json|markdown|csv) -> write slate JSON.
 
     ``--format`` selects the STDOUT rendering only; every format writes the
     identical slate file to ``--out`` (behavior 10), so a later
     ``dispatch``/``explain``/``trace`` behaves the same regardless of which format
-    printed it. ``json`` is the one format that suppresses the ``slate written:``
-    trailer so its whole stdout is a single JSON object that pipes cleanly into
-    ``jq``; ``table`` (the default) and ``markdown`` keep the human trailer. The
-    ``table`` branch is the pre-existing code path verbatim, so a bare ``scan`` and
-    ``scan --format table`` are byte-for-byte identical (behaviors 1-2).
+    printed it. ``json`` and ``csv`` are the pure data-stream formats that suppress
+    the ``slate written:`` trailer (and the ``--top`` truncation note) so their whole
+    stdout is a single machine-parseable document -- ``json`` pipes cleanly into
+    ``jq``, ``csv`` loads with ``pandas.read_csv`` / a spreadsheet; ``table`` (the
+    default) and ``markdown`` keep the human trailer. The ``table`` branch is the
+    pre-existing code path verbatim, so a bare ``scan`` and ``scan --format table``
+    are byte-for-byte identical (behaviors 1-2).
     """
     workspace = Path(args.workspace)
     # Front-door guard: a mistyped/nonexistent workspace would otherwise degrade
@@ -1213,6 +1279,18 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         # --top caps only the goals array; NO note/trailer, so the jq pipe stays
         # a pure single {workspace_root, goals} object even when capped.
         print(json.dumps(_scan_json_payload(slate, decisions, top=args.top), indent=2))
+        _write_slate(slate, out)
+        return 0
+    if args.format == "csv":
+        # A pure RFC-4180 data stream (json-style purity): NO `slate written:`
+        # trailer and NO `... showing top N of M` truncation note, so the ENTIRE
+        # stdout is a single valid CSV document that `pandas.read_csv` / a
+        # spreadsheet consumes directly. WHY `sys.stdout.write` with NO trailing
+        # newline (not `print`): the csv module already terminates every row
+        # (incl. the last) with `\r\n`, so `print` would append a spurious blank
+        # row that `csv.reader` might surface. `--top` caps the emitted rows while
+        # `_write_slate` still persists the COMPLETE slate (behaviors 5, 6).
+        sys.stdout.write(_render_csv(slate, decisions, top=args.top))
         _write_slate(slate, out)
         return 0
     # table (default) and markdown share the human trailer; only the renderer

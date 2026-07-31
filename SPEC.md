@@ -393,7 +393,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 ### 4.5 cli + scheduler + examples
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
-  - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown}]
+  - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown,csv}]
     [--top N]` —
     collect → synthesize → gate → render the ranked slate + gate decisions to
     stdout; write slate JSON. `--format` (default `table`, backward compatible)
@@ -403,16 +403,23 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     stdout (`{workspace_root, goals[...]}`, goals in `ranked()` order, each with the
     live gate `decision`/`reason`) and NO trailer, so it pipes cleanly into `jq`;
     `markdown` = a paste-ready GitHub-flavored table (`| # | decision | score |
-    category | title |`) plus the same trailer. An invalid `--format` is an argparse
-    usage error (exit 2). `--top N` (default: all) caps the STDOUT rendering to the
-    N highest-ranked goals UNIFORMLY across all three formats — stdout is a VIEW,
+    category | title |`) plus the same trailer. `csv` = an RFC-4180 data stream via
+    the stdlib `csv` module (`QUOTE_MINIMAL`), a header row `rank,decision,score,
+    category,title` then one row per ranked goal (score `:.2f`, enums as `.value`,
+    title verbatim so a comma/quote/newline round-trips), with NO `slate written:`
+    trailer and NO truncation note like `json` (the whole stdout is one CSV document
+    for `pandas.read_csv`/a spreadsheet); an empty slate emits the header row only,
+    and `--top` caps the emitted rows while `_write_slate` still persists the complete
+    slate. An invalid `--format` is an argparse usage error (exit 2). `--top N` (default: all) caps the STDOUT rendering to the
+    N highest-ranked goals UNIFORMLY across all four formats — stdout is a VIEW,
     the persisted slate file is always the COMPLETE record (`_write_slate` writes
     all goals regardless of `--top`), so every downstream verb still operates on the
     full slate. `--top` never re-orders (it slices the existing `ranked()` order);
     for `table`/`markdown` a `... showing top N of M` note prints after the rows and
     before the trailer ONLY when `N < M` (a cap hiding nothing is byte-identical to
-    no flag); `json` stays a pure single `{workspace_root, goals}` object with no
-    note/trailer and only a shortened `goals` array (no count key added). A
+    no flag); `json` stays a pure single `{workspace_root, goals}` object and `csv`
+    stays a pure header-plus-rows CSV document, both with no note/trailer and only a
+    shortened row set (no count key/row added). A
     non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage
     error (exit 2) at PARSE time, before any client/collect/slate-write. A missing
     or non-directory `--workspace` fails fast with
