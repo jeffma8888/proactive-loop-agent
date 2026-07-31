@@ -142,6 +142,24 @@ def _configure_logging(level: int) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _positive_int(raw: str) -> int:
+    """argparse ``type=`` validator: parse a STRICTLY-positive integer.
+
+    WHY it lives on the argument's ``type=`` and not inside ``main()``: like
+    ``--format``'s ``choices=``, it fires at PARSE time -- BEFORE any LLM client
+    is built, any collector runs, or any slate is written -- so a bad ``--top`` is
+    a ``SystemExit(2)`` usage error with zero side effects (no partial slate file).
+    ``int(raw)`` lets a non-integer (e.g. ``abc``) raise ``ValueError``, which
+    argparse itself converts into the exit-2 usage error; a parsed value ``< 1``
+    (``0``, ``-1``) raises ``ArgumentTypeError`` because zero rendered rows is a
+    degenerate view, not a use case.
+    """
+    value = int(raw)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be a positive integer (>= 1), got {value}")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Assemble the ``pla`` parser with ten subcommands and shared globals.
 
@@ -220,6 +238,21 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "stdout rendering: table (default, human) | json (one JSON object, no "
             "trailer, pipes cleanly into jq) | markdown (paste-ready GFM table + trailer)."
+        ),
+    )
+    # A stdout-view cap on the number of ranked goals printed; the persisted slate
+    # is ALWAYS complete (the file is the record, stdout is the view). default=None
+    # means "show all", byte-identical to no flag. type=_positive_int rejects
+    # --top 0/-1/abc as a PARSE-time usage error (exit 2), mirroring --format choices=
+    # fail-fast discipline -- no client, no collection, no slate write.
+    p_scan.add_argument(
+        "--top",
+        type=_positive_int,
+        default=None,
+        help=(
+            "Print only the top-N ranked goals; the written slate is always "
+            "complete. A non-positive or non-integer value is a usage error "
+            "(exit 2). Default (absent) shows all goals."
         ),
     )
     p_scan.set_defaults(func=_cmd_scan)
@@ -482,15 +515,28 @@ def _write_slate(slate: GoalSlate, out: Path) -> None:
     out.write_text(slate.model_dump_json(indent=2))
 
 
-def _render_table(slate: GoalSlate, decisions: list[DispatchDecision]) -> str:
+def _render_table(
+    slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
+) -> str:
     """Render the ranked slate + gate outcome as a plain-text table.
 
     Rows are in ranked() order so the top actionable (AUTO_DISPATCH) goal is the
     first such row -- matching the order the gate decisions were computed in.
+
+    ``top`` caps the printed data rows to the first N ranked ``(goal, decision)``
+    pairs. ``None`` (the default, and the only value a bare ``scan`` ever passes)
+    is byte-identical to the pre-flag render. Slicing NEVER re-orders -- it takes
+    the first N of the EXISTING ranked pairs, so shown rows are ranks
+    ``1..min(N, M)``, highest score first. The ``(no candidate goals)`` marker
+    keeps keying off the FULL ``slate.goals``, so it fires iff the WHOLE slate is
+    empty, independent of ``top``.
     """
     header = f"{'#':>2}  {'DECISION':<14} {'SCORE':>7}  {'CATEGORY':<13} TITLE"
     lines = [header, "-" * max(len(header), 60)]
-    for rank, (goal, decision) in enumerate(zip(slate.ranked(), decisions), start=1):
+    pairs = list(zip(slate.ranked(), decisions))
+    if top is not None:
+        pairs = pairs[:top]
+    for rank, (goal, decision) in enumerate(pairs, start=1):
         lines.append(
             f"{rank:>2}  {decision.decision.value:<14} {goal.score:>7.2f}  "
             f"{goal.category.value:<13} {goal.title}"
@@ -514,7 +560,9 @@ def _md_cell(text: str) -> str:
     return " ".join(text.split()).replace("|", "\\|")
 
 
-def _render_markdown(slate: GoalSlate, decisions: list[DispatchDecision]) -> str:
+def _render_markdown(
+    slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
+) -> str:
     """Render the ranked slate + gate outcome as a paste-ready GFM table.
 
     A pure, disk-free function of ``(slate, decisions)`` -- like ``_render_table``
@@ -524,12 +572,20 @@ def _render_markdown(slate: GoalSlate, decisions: list[DispatchDecision]) -> str
     text cell is routed through ``_md_cell`` (behavior 8) and the score cell is
     ``:.2f`` (matching the table). An empty slate degrades to the same
     ``(no candidate goals)`` marker ``_render_table`` uses, after the header rows.
+
+    ``top`` caps the printed data rows to the first N ranked pairs (identical
+    slice discipline to ``_render_table``); ``None`` is byte-identical to the
+    pre-flag render and the ``(no candidate goals)`` marker still keys off the
+    FULL slate, so it is independent of ``top``.
     """
     lines = [
         "| # | decision | score | category | title |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for rank, (goal, decision) in enumerate(zip(slate.ranked(), decisions), start=1):
+    pairs = list(zip(slate.ranked(), decisions))
+    if top is not None:
+        pairs = pairs[:top]
+    for rank, (goal, decision) in enumerate(pairs, start=1):
         lines.append(
             f"| {rank} | {_md_cell(decision.decision.value)} | {goal.score:.2f} "
             f"| {_md_cell(goal.category.value)} | {_md_cell(goal.title)} |"
@@ -539,7 +595,9 @@ def _render_markdown(slate: GoalSlate, decisions: list[DispatchDecision]) -> str
     return "\n".join(lines)
 
 
-def _scan_json_payload(slate: GoalSlate, decisions: list[DispatchDecision]) -> dict:
+def _scan_json_payload(
+    slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
+) -> dict:
     """Build the ``scan --format json`` document as a pure function of inputs.
 
     Exactly two top-level keys -- ``workspace_root`` (the scanned path) and
@@ -549,7 +607,16 @@ def _scan_json_payload(slate: GoalSlate, decisions: list[DispatchDecision]) -> d
     emitted as their str-Enum ``.value`` (never a ``GoalCategory.``/``AutonomyDecision.``
     repr) -- mirroring ``_run_row`` and ``trace --json``. Kept pure/disk-free so it
     is unit-testable without touching a workspace or a client.
+
+    ``top`` caps the ``goals`` array to the first N ranked pairs (the SAME slice
+    the table/markdown renderers apply, so the three stay consistent). The wire
+    schema is UNCHANGED -- still exactly the two keys ``workspace_root`` and
+    ``goals`` -- ``top`` only SHORTENS the array; it never adds a count field.
+    ``None`` yields the full array (byte-identical to the pre-flag payload).
     """
+    pairs = list(zip(slate.ranked(), decisions))
+    if top is not None:
+        pairs = pairs[:top]
     return {
         "workspace_root": slate.workspace_root,
         "goals": [
@@ -562,7 +629,7 @@ def _scan_json_payload(slate: GoalSlate, decisions: list[DispatchDecision]) -> d
                 "decision": decision.decision.value,
                 "reason": decision.reason,
             }
-            for goal, decision in zip(slate.ranked(), decisions)
+            for goal, decision in pairs
         ],
     }
 
@@ -1143,14 +1210,24 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         # Suppress the trailer so the ENTIRE stdout is one JSON document -- a
         # `pla scan --format json | jq` pipeline sees a single object and nothing
         # else. The slate file is still written identically (behavior 10).
-        print(json.dumps(_scan_json_payload(slate, decisions), indent=2))
+        # --top caps only the goals array; NO note/trailer, so the jq pipe stays
+        # a pure single {workspace_root, goals} object even when capped.
+        print(json.dumps(_scan_json_payload(slate, decisions, top=args.top), indent=2))
         _write_slate(slate, out)
         return 0
     # table (default) and markdown share the human trailer; only the renderer
     # differs. The table branch is the original code path unchanged (behaviors 1-2).
     render = _render_markdown if args.format == "markdown" else _render_table
-    print(render(slate, decisions))
+    print(render(slate, decisions, top=args.top))
+    # `_write_slate` persists the FULL slate regardless of --top (the load-bearing
+    # invariant: stdout is a view, the file is the complete record).
     _write_slate(slate, out)
+    # Human truncation note (table + markdown only) -- printed ONLY when the cap
+    # actually hides goals (N < M), on its own line AFTER the render and BEFORE the
+    # trailer. A cap that hides nothing (top None, or top >= M) prints no note, so
+    # such an invocation stays byte-identical to bare `scan`.
+    if args.top is not None and args.top < len(slate.goals):
+        print(f"... showing top {args.top} of {len(slate.goals)}")
     print(f"\nslate written: {out}")
     return 0
 

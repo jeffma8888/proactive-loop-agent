@@ -329,7 +329,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 ### 4.5 cli + scheduler + examples
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
-  - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown}]` —
+  - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown}]
+    [--top N]` —
     collect → synthesize → gate → render the ranked slate + gate decisions to
     stdout; write slate JSON. `--format` (default `table`, backward compatible)
     selects stdout rendering ONLY and never changes the persisted slate file:
@@ -339,7 +340,18 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     live gate `decision`/`reason`) and NO trailer, so it pipes cleanly into `jq`;
     `markdown` = a paste-ready GitHub-flavored table (`| # | decision | score |
     category | title |`) plus the same trailer. An invalid `--format` is an argparse
-    usage error (exit 2). A missing or non-directory `--workspace` fails fast with
+    usage error (exit 2). `--top N` (default: all) caps the STDOUT rendering to the
+    N highest-ranked goals UNIFORMLY across all three formats — stdout is a VIEW,
+    the persisted slate file is always the COMPLETE record (`_write_slate` writes
+    all goals regardless of `--top`), so every downstream verb still operates on the
+    full slate. `--top` never re-orders (it slices the existing `ranked()` order);
+    for `table`/`markdown` a `... showing top N of M` note prints after the rows and
+    before the trailer ONLY when `N < M` (a cap hiding nothing is byte-identical to
+    no flag); `json` stays a pure single `{workspace_root, goals}` object with no
+    note/trailer and only a shortened `goals` array (no count key added). A
+    non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage
+    error (exit 2) at PARSE time, before any client/collect/slate-write. A missing
+    or non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr and exit 2 (before any
     client/collect, regardless of `--format`), rather than degrading to an empty
     slate + exit 0.
