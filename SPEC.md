@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy / tools
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -358,7 +358,22 @@ class ToolRegistry:
     def __init__(self, workspace_root: Path, artifacts_dir: Path): ...
     def execute(self, tool: str, args: dict) -> str: ...   # returns observation text
     def artifacts(self) -> list[str]: ...                  # relpaths written so far
+    @staticmethod
+    def tool_names() -> tuple[str, ...]: ...               # canonical registered tool names -- single source of truth
 ```
+
+  `tool_names()` returns the canonical registered tool names as an immutable
+  tuple. It is a **staticmethod** (the tool surface is static -- it does not
+  depend on `workspace_root`/`artifacts_dir`), so it is callable on the class
+  `ToolRegistry.tool_names()` without constructing a registry, as well as on any
+  instance. It is the SINGLE source of truth for the tool-name set: `execute()`
+  dispatches ONLY these names (each to its `_<name>` handler) and builds its
+  unknown-tool `available tools:` list from the same tuple, so the dispatch
+  allowlist, the error message, this accessor, and the `pla tools` catalog can
+  never disagree (a test drift-guards the catalog key set against it). Added in
+  iter-48 as a public accessor over the existing dispatch allowlist --
+  `execute()`'s observable behavior (same dispatch, same unknown-tool error
+  string) is unchanged, so **no version bump**.
 
   Tools: `write_file(path, content)` → overwrites under `artifacts_dir` ONLY (reject
   `..` and absolute paths); `append_file(path, content)` → *extends* (append mode)
@@ -671,6 +686,38 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     doc-vs-code coupling; only the category/threshold/sensitive parts are source-driven).
     Always exits 0 (no input to fail on). It is the top of the decision arc policy (the
     rules) → scan (proposals) → explain (why THIS goal) → trace (what a run did).
+  - `pla tools [--json]` — read-only, LLM-free, zero-input catalog of the L1 ACT
+    sandbox tool surface: every registered tool + a one-line description + its
+    access class + the sandbox read/write invariant, so a reviewer of this public
+    repo can answer "what can a dispatched goal actually DO to my disk?" WITHOUT
+    running anything. Takes NO `--workspace` and no positional argument (the tool
+    surface is static and context-free); inherits the shared `globals_` parent so
+    `--provider`/`--scripted-responses`/`--state-dir` are ACCEPTED but INERT — it
+    builds no `LLMClient` (an inert/nonexistent `--scripted-responses` is never
+    opened → exit 0, unlike a client-building verb's eager-load exit 1), resolves
+    no settings, runs no collector, and touches no filesystem, so it structurally
+    cannot regress any existing behavior (the same envelope as `policy`). Human
+    form states the sandbox invariant (`artifacts_dir` is the WRITABLE root,
+    `workspace_root` is READ-ONLY) then lists every tool name-ascending, one per
+    line as `name  access  description` — the access token on each line is exactly
+    the tool's class from the closed set `{read-only, create-update, move, delete}`
+    and no description emits any OTHER access word (so `remove_file`'s line reads
+    `delete`, never `read-only`). The access mapping is: `write_file`/`append_file`
+    → `create-update`; `read_file`/`head_file`/`list_files`/`stat_file`/
+    `search_files`/`find_files` → `read-only`; `move_file` → `move`; `remove_file`
+    → `delete`. `--json` emits one object of EXACTLY two top-level keys
+    `{sandbox, tools}` — an explicit allowlist (never `model_dump`; the iter-08
+    schema-leak discipline): `sandbox` names the writable root (`artifacts_dir`)
+    and the read-only root (`workspace_root`), and `tools` is a name-ascending
+    array of 10 `{name, access, description}` objects (exactly those three keys
+    each). The catalog (`name → (access, description)`) is a hand-maintained map
+    (mirroring `_POLICY_RULES` for `policy`); a test drift-guards its key set to
+    equal `ToolRegistry.tool_names()`, so a tool added to (or dropped from) the
+    registry without a matching catalog edit turns that guard RED. Always exits 0
+    (no input to fail on). It is the L1 action-surface window of the transparency
+    arc policy (autonomy rules) → signals (L2 perception) → **tools** (L1 action
+    surface) → explain (why THIS goal) → trace (what a run did). Additive verb
+    (iter-48) — no existing verb behavior changes, so **no version bump**.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
     (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
     `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,

@@ -22,6 +22,36 @@ from proactive_loop.models import ensure_dir
 # context window.
 _SEARCH_MAX_HITS = 50
 
+# The canonical, ORDERED registry of sandbox tool names -- the SINGLE source of
+# truth for four things that must never disagree: (1) execute()'s dispatch
+# allowlist, (2) the unknown-tool observation's 'available tools:' list, (3) the
+# public ToolRegistry.tool_names() accessor, and (4) the 'pla tools' catalog
+# (whose key set a test drift-guards against this tuple). Each name maps by a
+# STRICT convention to its handler method _<name> (e.g. 'write_file' ->
+# self._write_file), so execute() derives dispatch from this one list rather than
+# a parallel handler dict that could silently drift out of step: a tool can never
+# be advertised without a handler, nor dispatched without being listed.
+# WHY a plain membership gate in front of getattr (never a bare
+# getattr(self, tool)): only a name PRESENT in this allowlist is resolved, so a
+# caller can never reach a private helper (_reject_unsafe, _within) or a public
+# method (execute, artifacts) by passing its name as a 'tool' -- the sandbox's
+# explicit-allowlist discipline (iter-08) applied to dispatch.
+# Ordered to match the create/update/read/discover/mutate story the tools were
+# grown in (iters 13-45); tool_names() callers compare as a set, but this is also
+# the byte-stable order of the unknown-tool message.
+_TOOL_NAMES: tuple[str, ...] = (
+    "write_file",
+    "read_file",
+    "list_files",
+    "search_files",
+    "append_file",
+    "find_files",
+    "stat_file",
+    "head_file",
+    "remove_file",
+    "move_file",
+)
+
 
 class ToolRegistry:
     """Dispatch model tool calls to sandboxed, side-effect-bounded handlers.
@@ -45,25 +75,19 @@ class ToolRegistry:
         Never raises: an unknown tool or a rejected/failed operation becomes an
         ``"error: ..."`` observation the loop can relay back to the model.
         """
-        handler = {
-            "write_file": self._write_file,
-            "read_file": self._read_file,
-            "list_files": self._list_files,
-            "search_files": self._search_files,
-            "append_file": self._append_file,
-            "find_files": self._find_files,
-            "stat_file": self._stat_file,
-            "head_file": self._head_file,
-            "remove_file": self._remove_file,
-            "move_file": self._move_file,
-        }.get(tool)
-        if handler is None:
+        # Dispatch is gated by the _TOOL_NAMES allowlist (the single source of
+        # truth): only a name in that tuple resolves -- to its _<name> handler by
+        # the strict naming convention -- so a tool can never be dispatched that
+        # tool_names() does not advertise, and the membership gate keeps a caller
+        # from reaching a private helper or a public method by name. An unknown
+        # tool degrades to the SAME 'available tools:' observation as before,
+        # built from _TOOL_NAMES so the list can never drift from what dispatches.
+        if tool not in _TOOL_NAMES:
             return (
                 f"error: unknown tool {tool!r}; "
-                "available tools: write_file, read_file, list_files, "
-                "search_files, append_file, find_files, stat_file, "
-                "head_file, remove_file, move_file"
+                "available tools: " + ", ".join(_TOOL_NAMES)
             )
+        handler = getattr(self, f"_{tool}")
         try:
             return handler(args or {})
         except Exception as exc:  # never let a tool fault abort the loop
@@ -72,6 +96,24 @@ class ToolRegistry:
     def artifacts(self) -> list[str]:
         """Return the relpaths (under artifacts_dir) written so far."""
         return list(self._artifacts)
+
+    @staticmethod
+    def tool_names() -> tuple[str, ...]:
+        """Return the canonical registered tool names, in dispatch order.
+
+        The SINGLE source of truth for the tool-name set (the module-level
+        _TOOL_NAMES): execute() dispatches ONLY these names (each to its _<name>
+        handler) and refuses every other, and the 'pla tools' catalog's key set
+        is drift-guarded against this tuple by a test -- so a tool added to the
+        registry without a catalog entry (or vice versa) turns the guard RED.
+
+        WHY a staticmethod (no self): the tool surface is STATIC -- it does not
+        depend on a workspace_root / artifacts_dir -- so callers can ask for it on
+        the class (ToolRegistry.tool_names()) without constructing a registry, as
+        well as on any instance. Returns the shared immutable tuple, so a caller
+        cannot mutate the registry's advertised contract.
+        """
+        return _TOOL_NAMES
 
     # --- tool handlers --------------------------------------------------
 

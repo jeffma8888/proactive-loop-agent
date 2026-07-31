@@ -2,11 +2,12 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into eleven verbs a person actually runs -- scan, dispatch, run, resume, the
+into twelve verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
 transcript renderer, the read-only signals perception inspector, the periodic
-watch loop, the read-only diff slate-delta inspector, and the read-only policy
-autonomy-contract catalog -- and owns
+watch loop, the read-only diff slate-delta inspector, the read-only policy
+autonomy-contract catalog, and the read-only tools sandbox-surface catalog --
+and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
 inside the loop) means the autonomy contract has exactly one enforcement point
@@ -506,6 +507,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the autonomy contract as one JSON object instead of the human catalog.",
     )
     p_policy.set_defaults(func=_cmd_policy)
+
+    # `tools` prints the L1 ACT sandbox's action surface -- every registered tool,
+    # its access class, and the read/write sandbox invariant -- with zero input:
+    # no --workspace, no slate, no LLM. It is the L1 analogue of `policy`: where
+    # `policy` catalogs the autonomy RULES, `tools` catalogs what a dispatched goal
+    # can DO to the disk. It inherits the globals so --provider/--scripted-responses/
+    # --state-dir are ACCEPTED but INERT (the handler builds no LLMClient, runs no
+    # collector, opens no file -- the tool surface is static and context-free), so a
+    # reviewer of this public repo can answer "what can a dispatched goal touch?"
+    # WITHOUT running anything. It completes the transparency arc one layer at a
+    # time: policy (autonomy rules) -> signals (L2 perception) -> tools (L1 action
+    # surface) -> explain (why THIS goal) -> trace (what a run did). --json swaps the
+    # human catalog for one explicit-allowlist object. Deliberately NO --workspace
+    # and no positional argument.
+    p_tools = sub.add_parser(
+        "tools",
+        parents=[globals_],
+        help="Print the L1 sandbox tool surface: every tool, its access class, and the sandbox read/write invariant (read-only, LLM-free, no workspace).",
+    )
+    p_tools.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the tool catalog as one JSON object instead of the human catalog.",
+    )
+    p_tools.set_defaults(func=_cmd_tools)
 
     return parser
 
@@ -1465,6 +1491,106 @@ def _render_policy(settings: Settings) -> str:
     return "\n".join(lines)
 
 
+# The four access classes a sandbox tool can belong to -- a CLOSED set, named
+# once so the `tools` catalog, its JSON, and any reviewer read the identical
+# vocabulary (mirrors how `_POLICY_RULES` pins the gate narration). read-only:
+# reads/discovers but never mutates; create-update: writes/extends an artifact;
+# move: relocates one artifact; delete: removes one artifact.
+_ACCESS_READ_ONLY = "read-only"
+_ACCESS_CREATE_UPDATE = "create-update"
+_ACCESS_MOVE = "move"
+_ACCESS_DELETE = "delete"
+
+# The hand-maintained catalog of the L1 ACT tool surface: name -> (access class,
+# one-line description). This is the ONE deliberate, acknowledged doc-vs-code
+# coupling of the `tools` verb (mirroring `_POLICY_RULES` for `policy`): the
+# access class and the human prose are curated here, NOT reflected out of
+# `tools.py`. What IS source-driven is the completeness guard -- a test asserts
+# this map's KEY SET equals `ToolRegistry.tool_names()`, so a tool added to (or
+# dropped from) the registry without a matching catalog edit turns that guard RED
+# (the iter-37/38 completeness-trap discipline). Each description avoids emitting
+# any access word OTHER than the tool's own class, so a per-line check reads one
+# unambiguous access token. Ordering here is irrelevant -- both renders sort by
+# name -- but it is grouped by access class for a human editor's benefit.
+_TOOL_CATALOG: dict[str, tuple[str, str]] = {
+    # create-update -- the write side
+    "write_file": (_ACCESS_CREATE_UPDATE, "Create or overwrite a file under the artifacts dir."),
+    "append_file": (_ACCESS_CREATE_UPDATE, "Extend a file under the artifacts dir, creating it if absent."),
+    # read-only -- the read/discovery side
+    "read_file": (_ACCESS_READ_ONLY, "Return the whole contents of a file from the sandbox."),
+    "head_file": (_ACCESS_READ_ONLY, "Return the first N lines of a file (a bounded top-of-file peek)."),
+    "list_files": (_ACCESS_READ_ONLY, "List the entries of one directory in the sandbox."),
+    "stat_file": (_ACCESS_READ_ONLY, "Describe one path in a line: type, byte size, line count, extension."),
+    "search_files": (_ACCESS_READ_ONLY, "Grep file contents for a substring across a sandbox directory."),
+    "find_files": (_ACCESS_READ_ONLY, "Find files by basename glob across a sandbox directory."),
+    # move -- relocate
+    "move_file": (_ACCESS_MOVE, "Atomically rename or relocate one file within the artifacts dir."),
+    # delete -- remove
+    "remove_file": (_ACCESS_DELETE, "Remove one file under the artifacts dir."),
+}
+
+# The sandbox invariant, named once so the human view and the --json object agree:
+# writes are confined to the artifacts dir; the workspace is read-only.
+_SANDBOX_WRITABLE_ROOT = "artifacts_dir"
+_SANDBOX_READ_ONLY_ROOT = "workspace_root"
+
+
+def _tools_json_payload() -> dict:
+    """Build the ``tools --json`` document -- a pure, input-free function.
+
+    One object of EXACTLY two top-level keys ``{sandbox, tools}``, built from an
+    EXPLICIT allowlist (never ``model_dump``; the iter-08 schema-leak discipline):
+    ``sandbox`` names the writable root (``artifacts_dir``) and the read-only root
+    (``workspace_root``); ``tools`` is the ``_TOOL_CATALOG`` projected to a list of
+    ``{name, access, description}`` objects with EXACTLY those three keys each,
+    ordered by ``name`` ascending (``sorted`` on the catalog items). The catalog
+    is the single source for the emitted set, and a test drift-guards its key set
+    against ``ToolRegistry.tool_names()`` so the wire set can never diverge from
+    the live registry. Disk-free and client-free -- the tool surface is static, so
+    no workspace / slate / ``LLMClient`` is consulted.
+    """
+    return {
+        "sandbox": {
+            "writable_root": _SANDBOX_WRITABLE_ROOT,
+            "read_only_root": _SANDBOX_READ_ONLY_ROOT,
+        },
+        "tools": [
+            {"name": name, "access": access, "description": description}
+            for name, (access, description) in sorted(_TOOL_CATALOG.items())
+        ],
+    }
+
+
+def _render_tools() -> str:
+    """Render the L1 sandbox tool surface as plain text (read-only, LLM-free).
+
+    A pure, disk-free, deterministic function -- like ``_render_policy`` it opens
+    no file and builds no client, so the exact human view is reproducible from the
+    module catalog alone. It states the sandbox invariant (``artifacts_dir`` is
+    the WRITABLE root, ``workspace_root`` is READ-ONLY) then lists every tool,
+    name-ascending, one per line as ``name  access  description`` so a reader can
+    answer "what can a dispatched goal do to my disk, and how dangerous is each
+    door?" at a glance. The access token on each tool line is exactly the tool's
+    class from the closed set ``{read-only, create-update, move, delete}`` and the
+    per-tool descriptions never emit any OTHER access word, so the line for
+    ``remove_file`` reads ``delete`` and never ``read-only``.
+    """
+    lines = [
+        "sandbox tool surface (L1 ACT)",
+        "",
+        "sandbox invariant:",
+        f"  writable root:   {_SANDBOX_WRITABLE_ROOT}",
+        f"  read-only root:  {_SANDBOX_READ_ONLY_ROOT}",
+        "  a dispatched goal may touch the disk ONLY through the tools below,",
+        f"  confined to {_SANDBOX_WRITABLE_ROOT}.",
+        "",
+        "tools (name / access / description):",
+    ]
+    for name, (access, description) in sorted(_TOOL_CATALOG.items()):
+        lines.append(f"  {name:<13}{access:<15}{description}")
+    return "\n".join(lines)
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -1962,6 +2088,31 @@ def _cmd_policy(args: argparse.Namespace) -> int:
         print(json.dumps(_policy_json_payload(settings), indent=2))
     else:
         print(_render_policy(settings))
+    return 0
+
+
+def _cmd_tools(args: argparse.Namespace) -> int:
+    """tools: print the L1 ACT sandbox tool surface (read-only, LLM-free, zero-input).
+
+    WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
+    the sandbox tool surface is STATIC (the ten registered tools, their access
+    classes, and the artifacts-dir/workspace-root invariant do not depend on any
+    env override, workspace, slate, or LLM). So this handler resolves no settings,
+    builds no ``create_client`` (an inert/bad ``--scripted-responses`` path is
+    simply never opened -- exit 0, not the eager-load exit 1 a client-building verb
+    would give), runs no collector, and touches no filesystem. It structurally
+    cannot regress any existing behavior -- the same envelope that made ``policy``
+    a clean ship. It always returns 0; ``--json`` swaps the human catalog for one
+    explicit-allowlist object (rendering selection only -- there is no input to
+    fail on). It is the L1 action-surface window of the transparency arc: policy
+    (autonomy rules) -> signals (L2 perception) -> tools (L1 action surface) ->
+    explain (why THIS goal) -> trace (what a run did).
+    """
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer.
+        print(json.dumps(_tools_json_payload(), indent=2))
+    else:
+        print(_render_tools())
     return 0
 
 
