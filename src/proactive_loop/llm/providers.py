@@ -33,7 +33,7 @@ from .client import (
 
 # Public list of accepted providers, reused in dispatch and error messages so
 # the two can never drift apart.
-VALID_PROVIDERS: tuple[str, ...] = ("scripted", "anthropic", "openai", "bedrock")
+VALID_PROVIDERS: tuple[str, ...] = ("scripted", "anthropic", "openai", "bedrock", "ollama")
 
 
 def create_client(settings: Settings) -> LLMClient:
@@ -53,6 +53,8 @@ def create_client(settings: Settings) -> LLMClient:
         return _create_openai(settings)
     if provider == "bedrock":
         return _create_bedrock(settings)
+    if provider == "ollama":
+        return _create_ollama(settings)
     raise ValueError(
         f"unknown provider {provider!r}; valid options are: "
         f"{', '.join(VALID_PROVIDERS)}"
@@ -264,6 +266,81 @@ def _create_bedrock(settings: Settings) -> LLMClient:
         complete_fn=_complete,
         throttle_excs=(sdk.exceptions.ThrottlingException,),
         timeout_excs=(ReadTimeoutError, ConnectTimeoutError),
+    )
+
+
+def _attr_or_key(obj: object, name: str, default: object) -> object:
+    """Read `name` off `obj` by attribute, falling back to mapping-key access.
+
+    WHY: ollama's `ChatResponse` may arrive as a typed object (attribute
+    access, e.g. `resp.message.content`) or as a plain `dict` (key access)
+    depending on the installed SDK version. Reading either shape without
+    importing the SDK's model classes keeps the ollama branch dependent on
+    ONLY the top-level `ollama` namespace -- the property that lets a single
+    self-contained stub module exercise construction fully offline.
+    """
+    if hasattr(obj, name):
+        return getattr(obj, name)
+    if isinstance(obj, dict):
+        return obj.get(name, default)
+    return default
+
+
+def _create_ollama(settings: Settings) -> LLMClient:
+    """Build a client backed by a locally-hosted model served by `ollama`.
+
+    WHY this provider matters: it is the first *runtime* backend that upholds
+    the project's offline-first thesis (SPEC 5). The three cloud providers
+    (`anthropic`/`openai`/`bedrock`) each require a paid API key and network
+    egress, so until now the only key-free, network-free path was the `scripted`
+    test double -- which replays a fixed JSON file and cannot actually reason.
+    `ollama` runs the full plan->act->check loop against a model hosted on
+    `localhost` with no key and no data leaving the machine, extending
+    "fully offline" from the fixture to real execution.
+    """
+    ollama = _require("ollama", "ollama")  # actionable LLMError if absent
+
+    # Zero-arg: the ollama client only opens a local HTTP session lazily and
+    # makes NO network call at construction -- so this is safe offline and is
+    # exactly what the present-SDK test stubs (construction touches only the
+    # `ollama` namespace, never a second SDK or the network).
+    sdk = ollama.Client()
+    model = settings.model or "llama3.1"
+
+    def _complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
+        response = sdk.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        # ollama exposes the reply at `message.content`; read defensively so
+        # either the typed `ChatResponse` or a plain dict works (see
+        # `_attr_or_key`).
+        message = _attr_or_key(response, "message", {})
+        text = _attr_or_key(message, "content", "") or ""
+        prompt_eval = _attr_or_key(response, "prompt_eval_count", None)
+        eval_count = _attr_or_key(response, "eval_count", None)
+        usage: dict[str, int] = {}
+        if prompt_eval is not None or eval_count is not None:
+            usage = {
+                "input_tokens": prompt_eval or 0,
+                "output_tokens": eval_count or 0,
+            }
+        return LLMResponse(text=text, model=model, usage=usage)
+
+    # CRITICAL: source BOTH exception tuples from the `ollama` namespace ONLY
+    # (its documented public error types), never `httpx` or any other module.
+    # That keeps `_create_ollama` construction dependent solely on `ollama`, so
+    # a single self-contained stub module suffices to prove the present-SDK path
+    # offline. `ResponseError`->throttle / `RequestError`->timeout is a
+    # best-effort taxonomy consistent with the other adapters; its precision is
+    # unobservable offline (the live `.chat()` path is untested by design).
+    return _SdkAdapter(
+        complete_fn=_complete,
+        throttle_excs=(ollama.ResponseError,),
+        timeout_excs=(ollama.RequestError,),
     )
 
 

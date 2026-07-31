@@ -202,17 +202,30 @@ class Collector(Protocol):
 def create_client(settings: Settings) -> LLMClient: ...
 ```
 
+- `VALID_PROVIDERS == ("scripted", "anthropic", "openai", "bedrock", "ollama")` —
+  the single source of accepted provider names, reused verbatim in the
+  unknown-provider `ValueError` message and every missing-SDK error path so the
+  dispatch and the messages can never drift apart.
 - `settings.provider`: `"scripted"` (default) → `ScriptedLLMClient.from_file(settings.scripted_responses_path)`
   (empty client with clear error message if path is None); `"anthropic"` / `"openai"` /
-  `"bedrock"` → **lazy import** inside the branch, thin adapter class per provider
-  mapping SDK throttle/timeout exceptions to `LLMThrottleError`/`LLMTimeoutError`.
-- Unknown provider → `ValueError` listing valid options.
-- A live provider (`anthropic`/`openai`/`bedrock`) selected while its optional SDK is
-  not installed → an actionable `LLMError` naming the pip package (e.g. `pip install
-  boto3` for `bedrock`, whose package name differs from the label) and the
-  `--provider scripted` fallback — NOT a raw `ModuleNotFoundError` traceback — so the
-  fault routes through `main()`'s narrow `except (LLMError, ValueError, OSError)`
-  boundary as a one-line `error: ...` + exit 1 like every other environment fault.
+  `"bedrock"` / `"ollama"` → **lazy import** inside the branch, thin adapter class per
+  provider mapping SDK throttle/timeout exceptions to `LLMThrottleError`/`LLMTimeoutError`.
+- `"ollama"` is the LOCAL / offline runtime backend: a lazy `ollama.Client()` (no API
+  key, no network egress; it talks to a model served on `localhost`), `model` defaults
+  to `"llama3.1"`, and its throttle/timeout exception taxonomy is sourced from the
+  `ollama` namespace ONLY (`ollama.ResponseError` → throttle, `ollama.RequestError` →
+  timeout) so the branch depends on no second SDK and construction stays offline. It
+  extends the offline-first thesis (section 5) from the scripted test double to real
+  runtime execution. Additive, exactly like iter-23 — a new provider whose absence-guard
+  and taxonomy reuse the existing machinery, so **no version bump**.
+- Unknown provider → `ValueError` listing valid options (all five, incl. `ollama`).
+- A live provider (`anthropic`/`openai`/`bedrock`/`ollama`) selected while its optional
+  SDK is not installed → an actionable `LLMError` naming the pip package (e.g. `pip
+  install boto3` for `bedrock`, whose package name differs from the label; `pip install
+  ollama` for `ollama`) and the `--provider scripted` fallback — NOT a raw
+  `ModuleNotFoundError` traceback — so the fault routes through `main()`'s narrow
+  `except (LLMError, ValueError, OSError)` boundary as a one-line `error: ...` + exit 1
+  like every other environment fault.
 - Tests: `tests/test_providers.py` — scripted path works from file; unknown provider
   raises; **prove no `anthropic`/`openai`/`boto3` import leak** when provider=scripted
   (assert not in `sys.modules` after create).
