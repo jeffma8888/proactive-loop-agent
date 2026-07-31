@@ -7,9 +7,9 @@ Coverage:
 - NotesCollector: finds headings + paragraphs under notes/journal/docs dirs.
 - Graceful degradation (registry-driven): EVERY collector in all_collectors()
   returns [] / a list (never raises) on nonexistent, file-as-root, empty, and
-  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for all 9
+  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for all 10
   collectors and auto-covering any future one with zero test edits.
-- all_collectors(): the registry exposes EXACTLY the 9 documented collector types.
+- all_collectors(): the registry exposes EXACTLY the 10 documented collector types.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from proactive_loop.collectors import (
     DependencyCollector,
     GitActivityCollector,
     GitStateCollector,
+    LargeFileCollector,
     MergeConflictCollector,
     NotesCollector,
     RecentFilesCollector,
@@ -79,7 +80,7 @@ def _touch_file(path: Path, content: str = "", *, mtime_offset_sec: float = 0.0)
 # collector to the registry and it is covered here with zero test edits.
 _ALL_COLLECTOR_PARAMS = [pytest.param(c, id=c.name) for c in all_collectors()]
 
-# The 9 collectors documented in SPEC §4.1. Asserting the full name-SET (not a
+# The 10 collectors documented in SPEC §4.1. Asserting the full name-SET (not a
 # subset, not a bare count) catches BOTH a collector silently dropped from the
 # registry and a documented collector missing from it.
 _DOCUMENTED_COLLECTOR_NAMES = frozenset(
@@ -93,6 +94,7 @@ _DOCUMENTED_COLLECTOR_NAMES = frozenset(
         "working_tree",
         "test_posture",
         "merge_conflict",
+        "large_file",
     }
 )
 _EXPORTED_COLLECTOR_CLASSES = frozenset(
@@ -106,6 +108,7 @@ _EXPORTED_COLLECTOR_CLASSES = frozenset(
         WorkingTreeCollector,
         PostureCollector,
         MergeConflictCollector,
+        LargeFileCollector,
     }
 )
 
@@ -533,7 +536,7 @@ class TestNotesCollector:
 
 class TestAllCollectors:
     def test_registry_covers_all_collector_types(self) -> None:
-        """The registry must expose EXACTLY the 9 documented collectors (SPEC §4.1).
+        """The registry must expose EXACTLY the 10 documented collectors (SPEC §4.1).
 
         WHY a full-set check (not the old 4-type subset, and not a bare count): a
         SUBSET check silently passes when a collector is dropped from the registry,
@@ -581,7 +584,7 @@ class TestGracefulDegradation:
     """Prove the SPEC §4.1 never-raise invariant for EVERY registered collector.
 
     Every test here is parametrized from _ALL_COLLECTOR_PARAMS (built from
-    all_collectors()), so all 9 current collectors -- and any future one -- are
+    all_collectors()), so all 10 current collectors -- and any future one -- are
     covered with zero test edits. If a collector unexpectedly raises, that is a
     real §4.1 violation to FIX in the collector, not to exempt here.
     """

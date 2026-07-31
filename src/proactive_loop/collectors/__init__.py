@@ -11,6 +11,7 @@ from proactive_loop.collectors.dependencies import DependencyCollector
 from proactive_loop.collectors.filesystem import RecentFilesCollector
 from proactive_loop.collectors.git_activity import GitActivityCollector
 from proactive_loop.collectors.git_state import GitStateCollector
+from proactive_loop.collectors.large_file import LargeFileCollector
 from proactive_loop.collectors.merge_conflict import MergeConflictCollector
 from proactive_loop.collectors.notes import NotesCollector
 from proactive_loop.collectors.test_posture import TestPostureCollector
@@ -35,6 +36,7 @@ def all_collectors() -> list[Collector]:
         WorkingTreeCollector(),
         TestPostureCollector(),
         MergeConflictCollector(),
+        LargeFileCollector(),
     ]
 
 
@@ -49,5 +51,6 @@ __all__ = [
     "WorkingTreeCollector",
     "TestPostureCollector",
     "MergeConflictCollector",
+    "LargeFileCollector",
     "all_collectors",
 ]

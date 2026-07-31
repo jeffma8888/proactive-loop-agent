@@ -197,6 +197,30 @@ class Collector(Protocol):
   how many markers); the synthesizer judges whether to propose resolving them.
   (Additive collector, exactly like iters 09/11/16/20 — a new `kind` flows into
   synthesis via `by_kind()` with zero synthesizer change, so no version bump.)
+- `large_file.py: LargeFileCollector(name="large_file", max_items=20, min_bytes=5_000_000)` — repo-hygiene companion to the other filesystem
+  collectors: an oversized file in a workspace (a stray build artifact, an
+  accidentally-saved dataset, a checked-in binary) is a classic pre-commit
+  hazard that bloats git history the moment it is committed. Walk `root` (same
+  skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/`_is_hidden`, and
+  skipping hidden files too) and emit one `kind="large_file"` signal per file
+  whose size is **at or above** `min_bytes` (inclusive `size >= min_bytes`: a
+  file of exactly the threshold IS flagged). Summary
+  `"<relpath>: <human> (large)"` where `<relpath>` is forward-slashed relative
+  to `root` and `<human>` renders the raw byte size with SI (decimal) units at
+  one decimal place (`n>=1_000_000`→`"5.0 MB"`, `1_000<=n<1_000_000`→`"2.5 KB"`,
+  `n<1_000`→`"250 B"`); `detail=""`, `weight=0.6` (a fixed mid-range hygiene
+  fact, mirroring `DependencyCollector`, not time-decaying), the absolute file
+  path in `path`, `timestamp=None`. Output is ordered by descending byte size, ties
+  broken by ascending relpath, then capped at `max_items` (the largest files
+  are kept). `min_bytes`/`max_items` are ctor-overridable defaults only (no CLI
+  flag, no `"5MB"` unit parsing). Reads **only `st_size` metadata and never
+  opens file content** (SPEC Out of Scope: no line counting, no MIME sniffing,
+  no git/.gitignore/git-lfs awareness), so it structurally cannot raise on
+  binary/non-UTF-8 bytes. Pure stdlib (`os`/`pathlib`), never raises → `[]`.
+  Reports facts only (which file, how large); the synthesizer judges whether to
+  propose gitignoring/removing/LFS-tracking it. (Additive collector, exactly
+  like iters 09/11/16/20/28 — a new `kind` flows into synthesis via `by_kind()`
+  with zero synthesizer change, so no version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
