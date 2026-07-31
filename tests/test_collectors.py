@@ -5,8 +5,11 @@ Coverage:
 - GitActivityCollector: real temp git repo (skipped if git unavailable), missing-repo degrades.
 - TodoCollector: finds TODO/FIXME/XXX and markdown checkboxes, respects max_items.
 - NotesCollector: finds headings + paragraphs under notes/journal/docs dirs.
-- Graceful degradation: all collectors return [] on missing or empty directories.
-- all_collectors(): returns one of each type.
+- Graceful degradation (registry-driven): EVERY collector in all_collectors()
+  returns [] / a list (never raises) on nonexistent, file-as-root, empty, and
+  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for all 9
+  collectors and auto-covering any future one with zero test edits.
+- all_collectors(): the registry exposes EXACTLY the 9 documented collector types.
 """
 
 from __future__ import annotations
@@ -20,10 +23,18 @@ from pathlib import Path
 import pytest
 
 from proactive_loop.collectors import (
+    DependencyCollector,
     GitActivityCollector,
+    GitStateCollector,
+    MergeConflictCollector,
     NotesCollector,
     RecentFilesCollector,
+    # Aliased so the module-level name is NOT 'Test*': pytest's collection
+    # heuristic would otherwise try to collect the collector class itself as a
+    # test case and emit a PytestCollectionWarning (same trick as test_iter16_*).
+    TestPostureCollector as PostureCollector,
     TodoCollector,
+    WorkingTreeCollector,
     all_collectors,
 )
 from proactive_loop.collectors.base import Collector
@@ -54,6 +65,74 @@ def _touch_file(path: Path, content: str = "", *, mtime_offset_sec: float = 0.0)
         new_mtime = time.time() + mtime_offset_sec
         os.utime(path, (new_mtime, new_mtime))
     return path
+
+
+# ---------------------------------------------------------------------------
+# Registry-driven never-raise proof (SPEC §4.1)
+# ---------------------------------------------------------------------------
+#
+# The SPEC §4.1 invariant -- every collector is pure stdlib + deterministic and
+# NEVER raises on a missing dir / hostile input, degrading to [] -- is the core
+# "resilient by design" thesis. Driving the graceful-degradation proof from
+# all_collectors() (rather than a hardcoded subset) means every present AND
+# future collector is proven automatically, so the proof can never rot: add a
+# collector to the registry and it is covered here with zero test edits.
+_ALL_COLLECTOR_PARAMS = [pytest.param(c, id=c.name) for c in all_collectors()]
+
+# The 9 collectors documented in SPEC §4.1. Asserting the full name-SET (not a
+# subset, not a bare count) catches BOTH a collector silently dropped from the
+# registry and a documented collector missing from it.
+_DOCUMENTED_COLLECTOR_NAMES = frozenset(
+    {
+        "recent_files",
+        "git_activity",
+        "git_state",
+        "todos",
+        "notes",
+        "dependencies",
+        "working_tree",
+        "test_posture",
+        "merge_conflict",
+    }
+)
+_EXPORTED_COLLECTOR_CLASSES = frozenset(
+    {
+        RecentFilesCollector,
+        GitActivityCollector,
+        GitStateCollector,
+        TodoCollector,
+        NotesCollector,
+        DependencyCollector,
+        WorkingTreeCollector,
+        PostureCollector,
+        MergeConflictCollector,
+    }
+)
+
+
+def _build_hostile_tree(root: Path) -> None:
+    """Populate *root* with a realistic 'never-raise' stressor tree.
+
+    WHY these six ingredients: the existing empty/nonexistent cases never touch
+    the CONTENT-scanning collectors on undecodable input. This tree forces every
+    parse/decode path -- UTF-8 text decode, tomllib, json, and conflict-marker
+    scanning -- to face bytes it cannot decode or parse, which is exactly where a
+    naive collector would raise instead of degrading to a list.
+    """
+    (root / "a" / "b" / "c" / "d").mkdir(parents=True)
+    # Zero-byte file with a scanned extension.
+    (root / "empty.md").write_bytes(b"")
+    # A scanned SOURCE file whose bytes are not valid UTF-8.
+    (root / "junk.py").write_bytes(b"\xff\xfe\x00\x01 TODO garbage \x80\x81")
+    # Invalid, non-UTF-8 pyproject.toml -- stresses DependencyCollector's TOML parse.
+    (root / "pyproject.toml").write_bytes(b"\xff\xfe not toml \x00")
+    # Invalid package.json with garbage bytes -- stresses the JSON parse.
+    (root / "package.json").write_bytes(b"\x00\x01\x02 no")
+    # Committed conflict-marker file -- stresses MergeConflictCollector.
+    (root / "conflict.py").write_text(
+        "x = 1\n<<<<<<< HEAD\na\n=======\nb\n>>>>>>> other\n",
+        encoding="utf-8",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -453,13 +532,19 @@ class TestNotesCollector:
 
 
 class TestAllCollectors:
-    def test_returns_all_four_types(self) -> None:
+    def test_registry_covers_all_collector_types(self) -> None:
+        """The registry must expose EXACTLY the 9 documented collectors (SPEC §4.1).
+
+        WHY a full-set check (not the old 4-type subset, and not a bare count): a
+        SUBSET check silently passes when a collector is dropped from the registry,
+        and a COUNT check passes when one collector is swapped for a duplicate of
+        another. Asserting both the exact name-set and the exact type-set catches a
+        documented collector missing from the registry AND an undocumented one
+        sneaking in.
+        """
         collectors = all_collectors()
-        types = {type(c) for c in collectors}
-        assert RecentFilesCollector in types
-        assert GitActivityCollector in types
-        assert TodoCollector in types
-        assert NotesCollector in types
+        assert {c.name for c in collectors} == _DOCUMENTED_COLLECTOR_NAMES
+        assert {type(c) for c in collectors} == _EXPORTED_COLLECTOR_CLASSES
 
     def test_each_has_name_attribute(self) -> None:
         for c in all_collectors():
@@ -493,52 +578,55 @@ class TestAllCollectors:
 
 
 class TestGracefulDegradation:
-    """Verify that no collector raises on unusual inputs."""
+    """Prove the SPEC §4.1 never-raise invariant for EVERY registered collector.
 
-    @pytest.mark.parametrize(
-        "collector",
-        [
-            RecentFilesCollector(),
-            GitActivityCollector(),
-            TodoCollector(),
-            NotesCollector(),
-        ],
-    )
+    Every test here is parametrized from _ALL_COLLECTOR_PARAMS (built from
+    all_collectors()), so all 9 current collectors -- and any future one -- are
+    covered with zero test edits. If a collector unexpectedly raises, that is a
+    real §4.1 violation to FIX in the collector, not to exempt here.
+    """
+
+    @pytest.mark.parametrize("collector", _ALL_COLLECTOR_PARAMS)
     def test_nonexistent_root_returns_empty(
         self, collector: Collector, tmp_path: Path
     ) -> None:
+        """A path that does not exist must degrade to exactly [] (not raise)."""
         signals = collector.collect(tmp_path / "does_not_exist")
         assert signals == []
 
-    @pytest.mark.parametrize(
-        "collector",
-        [
-            RecentFilesCollector(),
-            GitActivityCollector(),
-            TodoCollector(),
-            NotesCollector(),
-        ],
-    )
+    @pytest.mark.parametrize("collector", _ALL_COLLECTOR_PARAMS)
     def test_empty_root_returns_list(
         self, collector: Collector, tmp_path: Path
     ) -> None:
+        """A freshly-created empty directory must return a list (not raise)."""
         result = collector.collect(tmp_path)
         assert isinstance(result, list)
 
-    @pytest.mark.parametrize(
-        "collector",
-        [
-            RecentFilesCollector(),
-            GitActivityCollector(),
-            TodoCollector(),
-            NotesCollector(),
-        ],
-    )
-    def test_file_passed_as_root_returns_empty(
+    @pytest.mark.parametrize("collector", _ALL_COLLECTOR_PARAMS)
+    def test_file_passed_as_root_returns_list(
         self, collector: Collector, tmp_path: Path
     ) -> None:
-        """Passing a file path instead of a directory should degrade to []."""
+        """A regular file passed where a directory is expected must return a list.
+
+        The contract is 'a list, no exception'; the exact contents are unconstrained.
+        """
         f = tmp_path / "file.txt"
         f.write_text("hello")
         result = collector.collect(f)
+        assert isinstance(result, list)
+
+    @pytest.mark.parametrize("collector", _ALL_COLLECTOR_PARAMS)
+    def test_hostile_undecodable_tree_returns_list(
+        self, collector: Collector, tmp_path: Path
+    ) -> None:
+        """A tree of undecodable / unparseable content must not make any collector raise.
+
+        This is the realistic stressor the empty/nonexistent cases never touch: it
+        forces the content-scanning and manifest-parsing collectors (todos,
+        test_posture, merge_conflict, dependencies, ...) to face non-UTF-8 bytes,
+        invalid TOML/JSON, a zero-byte file, and committed conflict markers. Every
+        collector must still degrade to a list.
+        """
+        _build_hostile_tree(tmp_path)
+        result = collector.collect(tmp_path)
         assert isinstance(result, list)
