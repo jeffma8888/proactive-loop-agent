@@ -496,7 +496,32 @@ class ToolRegistry:
   tracked (conditional on membership, so an untracked on-disk src is still movable) and appending
   `dst`'s relpath when absent. `rmdir`/recursive move stay out of scope (single files only).
   (Additive tool added in iter-45 — existing tool contracts unchanged, so **no version bump**,
-  mirroring iter-13's `search_files`.) Unknown tool →
+  mirroring iter-13's `search_files`.); `diff_files(path_a, path_b)` → the read-only **COMPARE**
+  primitive: a bounded, deterministic, stdlib-`difflib` unified diff of two sandbox files, so a
+  dispatched goal can verify at the loop's CHECK step WHAT CHANGED between two files (a rewritten
+  artifact vs a prior version / workspace reference / template / spec) WITHOUT pulling both whole
+  files into the model context. It completes the read family as read / peek-top(`head_file`) /
+  peek-bottom(`tail_file`) / describe(`stat_file`) / list / find / grep / **compare**. Resolves
+  `artifacts_dir` FIRST then `workspace_root` on BOTH paths — the SAME precedence as
+  `read_file`/`head_file`/`stat_file`, so a fresh artifact can be diffed against a workspace
+  reference and `diff_files(x, x)` reads the SAME copy `read_file(x)` reads. Read-only (reads two
+  files but never writes; `artifacts()` unaffected). Guards mirror `read_file` verbatim via the
+  shared `_reject_unsafe` on EACH path (an empty path → the generic `error: empty path is not
+  allowed`, NOT a tool-specific message) plus a resolved `_within` gate (a symlink escaping both
+  roots is never read, falling through to `error: file not found under artifacts or workspace:
+  '<p>'`); `path_a` is FULLY resolved (safety THEN its not-found check) BEFORE `path_b`, so the
+  error order is deterministic (`path_a`'s error wins when both are bad). Byte-identical inputs
+  (including the same path passed twice) → the single line `files are identical: {path_a} ==
+  {path_b}` (never an empty string, since `unified_diff` emits nothing for identical inputs);
+  differing inputs → a unified diff labeled with the caller's relative paths verbatim (`--- {path_a}`
+  / `+++ {path_b}`, default `lineterm="\n"`), bounded to the first `_DIFF_MAX_LINES` (a FIXED module
+  constant = 200, NOT a caller argument — the arg surface stays exactly `(path_a, path_b)`) diff
+  lines followed by a fresh-line trailer `... (diff truncated at 200 lines)` when the full diff
+  exceeds the cap (no trailer at or under it). Never raises — an unsafe/empty/missing path degrades
+  to an `"error: ..."` observation and a binary/undecodable file surfaces as an `"error:"` via
+  `execute()`'s never-raise wrapper (mirroring `read_file`'s decode behavior). Directory/recursive
+  diff is out of scope (single files only). (Additive tool added in iter-61 — existing tool
+  contracts unchanged, so **no version bump**, mirroring iter-13's `search_files`.) Unknown tool →
   observation string starting `"error:"` (never raises — the loop feeds errors
   back to the model).
 

@@ -1651,6 +1651,7 @@ _TOOL_CATALOG: dict[str, tuple[str, str]] = {
     "stat_file": (_ACCESS_READ_ONLY, "Describe one path in a line: type, byte size, line count, extension."),
     "search_files": (_ACCESS_READ_ONLY, "Grep file contents for a substring across a sandbox directory."),
     "find_files": (_ACCESS_READ_ONLY, "Find files by basename glob across a sandbox directory."),
+    "diff_files": (_ACCESS_READ_ONLY, "Compare two files and return a bounded unified diff (read-only)."),
     # move -- relocate
     "move_file": (_ACCESS_MOVE, "Atomically rename or relocate one file within the artifacts dir."),
     # delete -- remove

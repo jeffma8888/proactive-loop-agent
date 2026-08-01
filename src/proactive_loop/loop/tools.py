@@ -10,6 +10,7 @@ every failure (including an unknown tool) becomes an ``"error: ..."`` string.
 
 from __future__ import annotations
 
+import difflib
 import fnmatch
 import os
 from pathlib import Path
@@ -21,6 +22,14 @@ from proactive_loop.models import ensure_dir
 # so a broad query or glob on a large workspace cannot flood the model's
 # context window.
 _SEARCH_MAX_HITS = 50
+
+# Cap on lines EMITTED by diff_files: a diff is an aggregate observation over
+# TWO files, so -- like search_files' hit stream (_SEARCH_MAX_HITS), NOT like
+# head_file/tail_file's caller-chosen window of ONE file -- it is bounded by a
+# FIXED module constant, never a caller argument. This keeps diff_files' arg
+# surface exactly (path_a, path_b) and stops a runaway diff on two large,
+# wholly-different files from flooding the model's context window.
+_DIFF_MAX_LINES = 200
 
 # The canonical, ORDERED registry of sandbox tool names -- the SINGLE source of
 # truth for four things that must never disagree: (1) execute()'s dispatch
@@ -51,6 +60,7 @@ _TOOL_NAMES: tuple[str, ...] = (
     "remove_file",
     "move_file",
     "tail_file",
+    "diff_files",
 )
 
 
@@ -696,6 +706,113 @@ class ToolRegistry:
                 entries = len(list(candidate.iterdir()))
                 return f"{relpath}  type=dir  entries={entries}"
         return f"error: no such path: {path!r}"
+
+    def _diff_files(self, args: dict) -> str:
+        """Return a bounded unified diff of two sandbox files -- the read-only
+        COMPARE primitive that lets a goal verify WHAT CHANGED between two files.
+
+        WHY this tool exists: the sandbox has a rich READ family -- ``read_file``
+        / ``head_file`` / ``tail_file`` / ``stat_file`` / ``list_files`` /
+        ``find_files`` / ``search_files`` -- but a dispatched goal had NO way to
+        observe the difference BETWEEN two files, which is exactly the question
+        the loop's CHECK step asks: did an edit do what it intended? Its only
+        recourse was to pull BOTH whole files into the model context and eyeball
+        the delta -- expensive on large files and error-prone. ``diff_files``
+        gives the loop a precise, bounded, deterministic observation of exactly
+        the changed lines, completing the read family as read / peek-top(head) /
+        peek-bottom(tail) / describe(stat) / list / find / grep / COMPARE.
+
+        Read-only by construction: it reads two files but never writes, so
+        ``artifacts()`` is unaffected. Resolution precedence is ``artifacts_dir``
+        FIRST then ``workspace_root`` on BOTH paths -- IDENTICAL to ``read_file``
+        / ``head_file`` / ``stat_file`` -- so a fresh artifact can be diffed
+        against a workspace reference/template and ``diff_files(x, x)`` reads the
+        SAME copy ``read_file(x)`` reads. It reuses the shared ``_reject_unsafe``
+        guard verbatim on each path -- so an empty path yields the generic
+        ``error: empty path is not allowed`` (mirroring ``read_file``, NOT a
+        tool-specific message) -- and ``path_a`` is FULLY resolved (safety THEN
+        its not-found check) BEFORE ``path_b`` even begins validation, so the
+        error order is deterministic: ``path_a``'s error wins when BOTH are bad.
+        A symlink escaping both roots fails the resolved ``_within`` gate and is
+        never read (falls through to "not found"). Never raises -- an unsafe /
+        empty / missing path degrades to an ``"error: ..."`` observation, and an
+        undecodable (binary) file surfaces as an ``"error:"`` via ``execute()``'s
+        never-raise wrapper (mirroring ``read_file``'s decode behavior).
+
+        Byte-identical inputs (including the same path passed twice) yield the
+        single line ``files are identical: {path_a} == {path_b}`` -- never an
+        empty string, since ``unified_diff`` emits nothing for identical inputs.
+        Differing inputs yield a standard ``difflib`` unified diff labeled with
+        the caller-supplied relative paths verbatim (``--- {path_a}`` /
+        ``+++ {path_b}``, default ``lineterm="\n"``), bounded to the first
+        ``_DIFF_MAX_LINES`` (200) lines followed by a fresh-line trailer
+        ``... (diff truncated at 200 lines)`` when the full diff exceeds the cap
+        (no trailer at or under the cap).
+        """
+        path_a = str(args.get("path_a", ""))
+        path_b = str(args.get("path_b", ""))
+
+        # path_a is fully resolved -- safety guard THEN existence/read -- BEFORE
+        # path_b even begins validation, so the error order is deterministic:
+        # path_a's error wins when BOTH paths are bad (D6). Each path mirrors
+        # read_file's guard shape verbatim: the shared _reject_unsafe (so an
+        # empty path yields the generic "empty path is not allowed", NOT a
+        # tool-specific message), then the artifacts_dir-FIRST / workspace_root-
+        # second _within resolution (so a symlink escaping both roots fails the
+        # gate and is never read, and diff_files(x, x) reads the SAME copy
+        # read_file(x) reads).
+        rejection = self._reject_unsafe(path_a)
+        if rejection is not None:
+            return rejection
+        content_a: str | None = None
+        for root in (self.artifacts_dir, self.workspace_root):
+            candidate = root / path_a
+            if self._within(candidate, root) and candidate.is_file():
+                # read_text() may raise on an undecodable (binary) file; the
+                # exception propagates to execute()'s never-raise wrapper, which
+                # surfaces it as an "error: tool 'diff_files' failed: ..." obs.
+                content_a = candidate.read_text()
+                break
+        if content_a is None:
+            return f"error: file not found under artifacts or workspace: {path_a!r}"
+
+        # Only THEN validate + resolve path_b (same guard shape, same precedence).
+        rejection = self._reject_unsafe(path_b)
+        if rejection is not None:
+            return rejection
+        content_b: str | None = None
+        for root in (self.artifacts_dir, self.workspace_root):
+            candidate = root / path_b
+            if self._within(candidate, root) and candidate.is_file():
+                content_b = candidate.read_text()
+                break
+        if content_b is None:
+            return f"error: file not found under artifacts or workspace: {path_b!r}"
+
+        # unified_diff over keepends line lists (they round-trip exactly): byte-
+        # identical inputs yield an EMPTY diff -> the explicit identical line
+        # (D4; never an empty observation). Labels are the caller's relative
+        # paths verbatim (D5); lineterm defaults to "\n".
+        diff = list(
+            difflib.unified_diff(
+                content_a.splitlines(keepends=True),
+                content_b.splitlines(keepends=True),
+                fromfile=path_a,
+                tofile=path_b,
+            )
+        )
+        if not diff:
+            return f"files are identical: {path_a} == {path_b}"
+        # Bound the emitted diff to the first _DIFF_MAX_LINES lines (D3): a
+        # runaway diff on two wholly-different large files cannot flood the
+        # model context. The trailer begins on its OWN fresh line even when the
+        # last kept diff line lacks a terminator (a file with no final newline).
+        if len(diff) > _DIFF_MAX_LINES:
+            body = "".join(diff[:_DIFF_MAX_LINES])
+            if not body.endswith("\n"):
+                body += "\n"
+            return f"{body}... (diff truncated at {_DIFF_MAX_LINES} lines)"
+        return "".join(diff)
 
     # --- sandbox helpers ------------------------------------------------
 
