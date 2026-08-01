@@ -36,6 +36,7 @@ never drift from its inputs. Any extra keys are ignored.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable
 
@@ -53,6 +54,13 @@ SYNTHESIZE_TAG = "synthesize"
 # deliberately small: the goal is a representative sample per kind, not a dump.
 _MAX_SIGNALS_PER_KIND = 8
 _MAX_SUMMARY_CHARS = 200
+
+# Module logger (name resolves to "proactive_loop.scout.synthesizer"). WHY only
+# obtain a logger, never configure it: this layer just EMITS the L0 self-healing
+# record for the scan front-door; whether it reaches stderr is the CLI -v/-vv
+# decision (or pytest caplog). Mirrors executor.py so "grep L0 retry" is uniform
+# across the L1 loop and this L2 scout.
+_LOG = logging.getLogger(__name__)
 
 
 def _build_prompt(snapshot: WorkspaceSnapshot) -> str:
@@ -131,10 +139,33 @@ class GoalSynthesizer:
                 tag=SYNTHESIZE_TAG,
             ).text
 
+        def _count_retry(attempt: int, delay: float, exc: Exception) -> None:
+            # Mirror the L1 executor's on_retry hook so a recovered throttle/
+            # timeout on THIS front-door scan call emits the SAME live INFO
+            # record the loop already emits for PLAN/CHECK retries -- closing
+            # the observability half of the docstring's "resilience parity"
+            # promise. Log-ONLY: the scan path has no RunState, so (unlike
+            # executor._count_retry) there is no ``retries`` counter to bump --
+            # the one deliberate difference. Emitted UNCONDITIONALLY at the
+            # source; the -v/-vv flag only decides whether a handler forwards it
+            # to stderr, so caplog can capture it with no CLI. The 1-based
+            # *attempt* is the just-failed try that is being retried; the tag is
+            # SYNTHESIZE_TAG so the message shape matches executor._count_retry.
+            _LOG.info(
+                "L0 retry %d for %s (backing off %.2fs): %s",
+                attempt,
+                SYNTHESIZE_TAG,
+                delay,
+                exc,
+            )
+
         # with_retry only retries LLMThrottleError/LLMTimeoutError; any real
         # fault (bad request, ScriptExhaustedError, a bug) still propagates
-        # immediately rather than burning the retry budget.
-        text = with_retry(_call, self._settings.retry, sleep=self._sleep)
+        # immediately rather than burning the retry budget. The on_retry hook
+        # makes each recovered backoff visible (see _count_retry above).
+        text = with_retry(
+            _call, self._settings.retry, sleep=self._sleep, on_retry=_count_retry
+        )
         goals = self._parse_goals(text)
         return GoalSlate(workspace_root=snapshot.root, goals=goals)
 
