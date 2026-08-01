@@ -67,7 +67,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy / tools
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy / tools / collectors
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -763,6 +763,35 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     arc policy (autonomy rules) → signals (L2 perception) → **tools** (L1 action
     surface) → explain (why THIS goal) → trace (what a run did). Additive verb
     (iter-48) — no existing verb behavior changes, so **no version bump**.
+  - `pla collectors [--json]` — read-only, LLM-free, zero-input catalog of the L2
+    PERCEPTION surface: every registered context collector + a one-line
+    description of what it perceives, so a reader of this public repo can answer
+    "what does the proactivity layer even look at?" WITHOUT a workspace or an LLM.
+    It is the L2 analogue of `tools` (the L1 action surface) and the context-free
+    FRONT DOOR to `signals`: where `signals` REQUIRES `--workspace` and enumerates
+    only the signals that fired THERE, `collectors` answers the prior question
+    "what perceivers even exist?" against the static collector SET. Takes NO
+    `--workspace` and no positional argument; inherits the shared `globals_` parent
+    so `--provider`/`--scripted-responses`/`--state-dir` are ACCEPTED but INERT — it
+    builds no `LLMClient` (an inert/nonexistent `--scripted-responses` is never
+    opened → exit 0, unlike a client-building verb's eager-load exit 1), resolves
+    no settings, runs no collector, and touches no filesystem, so it structurally
+    cannot regress any existing behavior (the same envelope as `policy`/`tools`).
+    Human form lists every collector name-ascending, one per line as
+    `name  description`. `--json` emits one object of EXACTLY one top-level key
+    `{collectors}` — an explicit allowlist (never `model_dump`; the iter-08
+    schema-leak discipline): `collectors` is a name-ascending array of 12
+    `{name, description}` objects (exactly those two keys each). The catalog
+    (`name → description`) is a hand-maintained map (mirroring `_TOOL_CATALOG` for
+    `tools`); a test drift-guards its key set to equal `{c.name for c in
+    all_collectors()}`, so a collector added to (or dropped from) the registry
+    without a matching catalog edit turns that guard RED. It emits name→description
+    only — NOT the per-signal `kind` (a per-signal attribute that can differ from a
+    collector's name, e.g. `git_activity` → `git_commit`). Always exits 0 (no input
+    to fail on). It is the FRONT DOOR of the transparency arc **collectors** (what
+    perceivers exist) → signals (raw output for a workspace) → scan (proposals) →
+    explain (why THIS goal) → trace (what a run did). Additive verb (iter-57) — no
+    existing verb behavior changes, so **no version bump**.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
     (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
     `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,

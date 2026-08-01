@@ -2,11 +2,12 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into twelve verbs a person actually runs -- scan, dispatch, run, resume, the
+into thirteen verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
 transcript renderer, the read-only signals perception inspector, the periodic
 watch loop, the read-only diff slate-delta inspector, the read-only policy
-autonomy-contract catalog, and the read-only tools sandbox-surface catalog --
+autonomy-contract catalog, the read-only tools sandbox-surface catalog, and the
+read-only collectors L2-perception catalog --
 and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
@@ -534,6 +535,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the tool catalog as one JSON object instead of the human catalog.",
     )
     p_tools.set_defaults(func=_cmd_tools)
+
+    # `collectors` prints the L2 PERCEPTION surface -- every registered context
+    # collector plus a one-line description of what it perceives -- with zero
+    # input: no --workspace, no signals, no LLM. It is the L2 analogue of `tools`
+    # (the L1 action surface) and `policy` (the autonomy rules): where `signals`
+    # REQUIRES a --workspace and only enumerates the signals that fired THERE,
+    # `collectors` answers the prior, context-free question "what perceivers even
+    # exist?" against the static collector SET. It inherits the globals so
+    # --provider/--scripted-responses/--state-dir are ACCEPTED but INERT (the
+    # handler builds no LLMClient, runs no collector, opens no file -- the catalog
+    # is static and context-free), so a portfolio reader can answer "what does the
+    # proactivity layer look at?" WITHOUT a workspace or an LLM. It is the FRONT
+    # DOOR of the transparency arc: collectors (what perceivers exist) -> signals
+    # (raw output for a workspace) -> scan (proposals) -> explain (why THIS goal)
+    # -> trace (what a run did). --json swaps the human catalog for one
+    # explicit-allowlist object. Deliberately NO --workspace and no positional arg.
+    p_collectors = sub.add_parser(
+        "collectors",
+        parents=[globals_],
+        help="Print the L2 perception surface: every registered context collector and a one-line description of what it perceives (read-only, LLM-free, no workspace).",
+    )
+    p_collectors.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the collector catalog as one JSON object instead of the human catalog.",
+    )
+    p_collectors.set_defaults(func=_cmd_collectors)
 
     return parser
 
@@ -1691,6 +1719,80 @@ def _render_tools() -> str:
     return "\n".join(lines)
 
 
+# The hand-maintained catalog of the L2 PERCEPTION surface: collector name -> a
+# one-line description of what it perceives. This is the ONE deliberate,
+# acknowledged doc-vs-code coupling of the `collectors` verb (mirroring
+# `_TOOL_CATALOG` for `tools` and `_POLICY_RULES` for `policy`): the human prose
+# is curated here, NOT reflected out of the collector class docstrings at
+# runtime. What IS source-driven is the completeness guard -- a test asserts this
+# map's KEY SET equals `{c.name for c in all_collectors()}`, so a collector added
+# to (or dropped from) the registry without a matching catalog edit turns that
+# guard RED (the same anti-rot discipline `_TOOL_CATALOG` uses against
+# `ToolRegistry.tool_names()`). Each description is one line, curated from the
+# collector's own class docstring, and deliberately describes ONLY that collector
+# (never another collector's job). Ordering here is irrelevant -- both renders
+# sort by name.
+_COLLECTOR_CATALOG: dict[str, str] = {
+    "dependencies": "Dependency manifests declared in the workspace (pyproject, package.json, etc.).",
+    "git_activity": "Recent commits across the workspace's git repositories.",
+    "git_stash": "Forgotten entries sitting in the git stash reflog.",
+    "git_state": "Interrupted or dangling git operations read from .git markers.",
+    "large_file": "Files at or above a byte-size threshold worth a second look.",
+    "merge_conflict": "Files still carrying unresolved conflict markers.",
+    "notes": "Heading-and-paragraph blocks found in notes directories.",
+    "recent_files": "Files modified most recently under the workspace.",
+    "secret_file": "Secret-shaped files matched by basename (.env, credentials, keys).",
+    "test_posture": "Top-level project directories that contain source files.",
+    "todos": "TODO/FIXME/XXX comments and unchecked Markdown checkboxes.",
+    "working_tree": "Present-state git signals: dirty paths and unpushed commits.",
+}
+
+
+def _collectors_json_payload() -> dict:
+    """Build the ``collectors --json`` document -- a pure, input-free function.
+
+    One object of EXACTLY one top-level key ``{collectors}``, built from an
+    EXPLICIT allowlist (never ``model_dump``; the iter-08 schema-leak discipline):
+    ``collectors`` is the ``_COLLECTOR_CATALOG`` projected to a list of
+    ``{name, description}`` objects with EXACTLY those two keys each, ordered by
+    ``name`` ascending (``sorted`` on the catalog items). The catalog is the
+    single source for the emitted set, and a test drift-guards its key set against
+    ``{c.name for c in all_collectors()}`` so the wire set can never diverge from
+    the live registry. Disk-free and client-free -- the collector SET is static,
+    so no workspace / signal / ``LLMClient`` is consulted.
+    """
+    return {
+        "collectors": [
+            {"name": name, "description": description}
+            for name, description in sorted(_COLLECTOR_CATALOG.items())
+        ],
+    }
+
+
+def _render_collectors() -> str:
+    """Render the L2 perception surface as plain text (read-only, LLM-free).
+
+    A pure, disk-free, deterministic function -- like ``_render_tools`` it opens
+    no file and builds no client, so the exact human view is reproducible from the
+    module catalog alone. It lists every registered collector, name-ascending, one
+    per line as ``name  description`` so a reader can answer "what does the
+    proactivity layer even look at?" with no workspace and no LLM call. It is the
+    context-free FRONT DOOR to ``signals`` (which needs a ``--workspace`` and only
+    shows what fired there).
+    """
+    lines = [
+        "context collectors (L2 perception)",
+        "",
+        "each collector perceives one kind of working-context signal;",
+        "run `pla signals --workspace W` to see what they emit for a workspace.",
+        "",
+        "collectors (name / description):",
+    ]
+    for name, description in sorted(_COLLECTOR_CATALOG.items()):
+        lines.append(f"  {name:<16}{description}")
+    return "\n".join(lines)
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -2225,6 +2327,31 @@ def _cmd_tools(args: argparse.Namespace) -> int:
         print(json.dumps(_tools_json_payload(), indent=2))
     else:
         print(_render_tools())
+    return 0
+
+
+def _cmd_collectors(args: argparse.Namespace) -> int:
+    """collectors: print the L2 perception surface (read-only, LLM-free, zero-input).
+
+    WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
+    the collector SET is STATIC (the twelve registered collectors and their
+    curated descriptions do not depend on any env override, workspace, signal, or
+    LLM). So this handler resolves no settings, builds no ``create_client`` (an
+    inert/bad ``--scripted-responses`` path is simply never opened -- exit 0, not
+    the eager-load exit 1 a client-building verb would give), runs no collector,
+    and touches no filesystem. It structurally cannot regress any existing
+    behavior -- the same envelope that made ``policy``/``tools`` a clean ship. It
+    always returns 0; ``--json`` swaps the human catalog for one explicit-allowlist
+    object (rendering selection only -- there is no input to fail on). It is the
+    context-free FRONT DOOR of the transparency arc: collectors (what perceivers
+    exist) -> signals (raw output for a workspace) -> scan (proposals) -> explain
+    (why THIS goal) -> trace (what a run did).
+    """
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer.
+        print(json.dumps(_collectors_json_payload(), indent=2))
+    else:
+        print(_render_collectors())
     return 0
 
 
