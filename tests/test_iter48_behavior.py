@@ -19,7 +19,7 @@ documented public surfaces: the ``pla`` CLI via
 code), the public API ``proactive_loop.loop.tools.ToolRegistry`` (its
 ``tool_names()`` accessor and ``execute()`` observation strings), and the public
 ``proactive_loop.__version__`` string. **No file under ``src/`` was read, no
-engineer/reviewer notes were read, and no ``git diff`` was consulted.** The ten
+engineer/reviewer notes were read, and no ``git diff`` was consulted.** The eleven
 canonical tool names, the closed access-class set, and the access mapping are
 encoded here as the spec-declared "Tester's constants", NOT imported from the
 implementation, so the tests encode the spec and would catch an implementation
@@ -42,7 +42,7 @@ from proactive_loop.loop.tools import ToolRegistry
 # NOT imported from src, to keep the tests black-box against the contract.
 # --------------------------------------------------------------------------
 
-# The ten canonical tool names (order-independent; compared as a set).
+# The eleven canonical tool names (order-independent; compared as a set).
 CANONICAL_TOOLS = {
     "write_file",
     "read_file",
@@ -54,6 +54,7 @@ CANONICAL_TOOLS = {
     "head_file",
     "remove_file",
     "move_file",
+    "tail_file",
 }
 
 # The closed access-class set (no other access word may be emitted).
@@ -69,6 +70,7 @@ ACCESS_BY_TOOL = {
     "find_files": "read-only",
     "stat_file": "read-only",
     "head_file": "read-only",
+    "tail_file": "read-only",
     "move_file": "move",
     "remove_file": "delete",
 }
@@ -128,12 +130,12 @@ def _tools_json(capsys) -> dict:
 
 
 # ==========================================================================
-# Behavior 1 --- `pla tools` exits 0 and prints a human catalog naming all 10
+# Behavior 1 --- `pla tools` exits 0 and prints a human catalog naming all 11
 # canonical tools (each at least once).
 # ==========================================================================
 
 
-def test_b01_tools_exit0_lists_all_ten(capsys):
+def test_b01_tools_exit0_lists_all_eleven(capsys):
     rc, out, err = _run(["tools"], capsys)
     assert rc == 0, f"bare `pla tools` must exit 0 (no config needed); stderr={err!r}"
     assert out.strip(), f"stdout must be non-empty; got {out!r}"
@@ -241,14 +243,14 @@ def test_b05_json_two_key_allowlist_sandbox_and_tools(capsys):
 # ==========================================================================
 # Behavior 6 --- Each tools element is {name, access, description} EXACTLY;
 # name str, access str in closed set, description non-empty str; array is
-# name-ascending and has exactly 10 elements.
+# name-ascending and has exactly 11 elements.
 # ==========================================================================
 
 
 def test_b06_json_tools_elements_shape_order_count(capsys):
     obj = _tools_json(capsys)
     tools = obj["tools"]
-    assert len(tools) == 10, f"tools array must have exactly 10 elements; got {len(tools)}"
+    assert len(tools) == 11, f"tools array must have exactly 11 elements; got {len(tools)}"
     for t in tools:
         assert set(t.keys()) == TOOL_OBJ_KEYS, (
             f"each tool object must have EXACTLY {sorted(TOOL_OBJ_KEYS)}; got {sorted(t.keys())}"
@@ -264,7 +266,7 @@ def test_b06_json_tools_elements_shape_order_count(capsys):
     names = [t["name"] for t in tools]
     assert names == sorted(names), f"tools must be ordered by name ascending; got {names}"
     assert set(names) == CANONICAL_TOOLS, (
-        f"the 10 names must be exactly the canonical set; got {sorted(names)}"
+        f"the 11 names must be exactly the canonical set; got {sorted(names)}"
     )
 
 
@@ -309,9 +311,9 @@ def test_b09_tool_names_public_and_all_dispatchable(tmp_path):
     names = ToolRegistry.tool_names()
     # Compared as a set (order unspecified per the spec).
     assert set(names) == CANONICAL_TOOLS, (
-        f"tool_names() must return exactly the canonical 10 names; got {names}"
+        f"tool_names() must return exactly the canonical 11 names; got {names}"
     )
-    assert len(names) == 10, f"tool_names() must return 10 names; got {len(names)}"
+    assert len(names) == 11, f"tool_names() must return 11 names; got {len(names)}"
     workspace = tmp_path / "ws"
     artifacts = tmp_path / "art"
     workspace.mkdir()
