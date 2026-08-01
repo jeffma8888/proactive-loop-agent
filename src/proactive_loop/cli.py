@@ -237,7 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     globals_.add_argument(
         "--provider",
         default=None,
-        help="LLM provider: scripted (default, offline) | anthropic | openai | bedrock | ollama",
+        help="LLM provider: scripted (default, offline) | anthropic | openai | bedrock | ollama | groq | together",
     )
     globals_.add_argument(
         "--scripted-responses",

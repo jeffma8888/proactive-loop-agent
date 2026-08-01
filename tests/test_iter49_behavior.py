@@ -115,15 +115,22 @@ def _make_groq_stub() -> types.ModuleType:
 
 def test_behavior1_groq_is_registered_provider_appended_last():
     assert "groq" in VALID_PROVIDERS, "'groq' must be a registered provider"
-    # The five existing entries are unchanged and groq is appended last.
-    assert VALID_PROVIDERS == (
+    # The five originally-shipped entries are unchanged and groq is appended last
+    # of that original set. Asserted as a PREFIX (not an exact whole-tuple equality)
+    # so later iterations that append further providers after groq (e.g. iter-65's
+    # `together`) do NOT spuriously break this iter-49 fixture -- the invariant
+    # under test is "the first six providers, ending in groq, are stable".
+    assert VALID_PROVIDERS[:6] == (
         "scripted",
         "anthropic",
         "openai",
         "bedrock",
         "ollama",
         "groq",
-    ), f"VALID_PROVIDERS must be the six-tuple with groq last; got {VALID_PROVIDERS!r}"
+    ), f"the first six providers must be unchanged with groq last of them; got {VALID_PROVIDERS!r}"
+    assert VALID_PROVIDERS[5] == "groq", (
+        f"groq must remain the sixth registered provider; got {VALID_PROVIDERS!r}"
+    )
 
 
 # ===========================================================================

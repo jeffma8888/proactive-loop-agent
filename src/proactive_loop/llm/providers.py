@@ -33,7 +33,15 @@ from .client import (
 
 # Public list of accepted providers, reused in dispatch and error messages so
 # the two can never drift apart.
-VALID_PROVIDERS: tuple[str, ...] = ("scripted", "anthropic", "openai", "bedrock", "ollama", "groq")
+VALID_PROVIDERS: tuple[str, ...] = (
+    "scripted",
+    "anthropic",
+    "openai",
+    "bedrock",
+    "ollama",
+    "groq",
+    "together",
+)
 
 
 def create_client(settings: Settings) -> LLMClient:
@@ -57,6 +65,8 @@ def create_client(settings: Settings) -> LLMClient:
         return _create_ollama(settings)
     if provider == "groq":
         return _create_groq(settings)
+    if provider == "together":
+        return _create_together(settings)
     raise ValueError(
         f"unknown provider {provider!r}; valid options are: "
         f"{', '.join(VALID_PROVIDERS)}"
@@ -392,6 +402,57 @@ def _create_groq(settings: Settings) -> LLMClient:
         complete_fn=_complete,
         throttle_excs=(groq.RateLimitError,),
         timeout_excs=(groq.APITimeoutError,),
+    )
+
+
+def _create_together(settings: Settings) -> LLMClient:
+    """Build a client backed by a Together AI-hosted open model (SDK lazy, by design).
+
+    WHY this is a near-verbatim clone of `_create_groq` (and thus `_create_openai`):
+    the `together` SDK is a Stainless-generated, OpenAI-SDK-shaped client -- same
+    zero-arg construction (`together.Together()`, which reads `TOGETHER_API_KEY`
+    from the environment and opens NO connection at construction), same call
+    surface (`sdk.chat.completions.create(model=..., messages=[...])`), same
+    reply/usage shape (`completion.choices[0].message.content`,
+    `completion.usage.prompt_tokens`/`.completion_tokens`), and the same top-level
+    throttle/timeout exception NAMES (`together.RateLimitError` /
+    `together.APITimeoutError`, verified against the published `together` package's
+    documented error taxonomy). So this branch is `_create_groq` with the namespace
+    and model default swapped, reusing `_require` and `_SdkAdapter` with zero change.
+    Together AI is a CLOUD backend serving open models (Llama, Mixtral, ...) on its
+    inference stack, so it needs an API key and network egress at CALL time -- but,
+    exactly like every other live branch, construction opens no connection.
+    """
+    together = _require("together", "together")  # actionable LLMError if absent
+
+    sdk = together.Together()
+    model = settings.model or "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+
+    def _complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
+        completion = sdk.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        text = completion.choices[0].message.content or ""
+        usage = {}
+        if completion.usage is not None:
+            usage = {
+                "input_tokens": completion.usage.prompt_tokens,
+                "output_tokens": completion.usage.completion_tokens,
+            }
+        return LLMResponse(text=text, model=model, usage=usage)
+
+    # CRITICAL (same invariant as the ollama/groq branches): source BOTH exception
+    # tuples from the `together` namespace ONLY, never `httpx` or any other module,
+    # so `_create_together` construction depends solely on `together` and a single
+    # self-contained stub module can exercise the present-SDK path fully offline.
+    return _SdkAdapter(
+        complete_fn=_complete,
+        throttle_excs=(together.RateLimitError,),
+        timeout_excs=(together.APITimeoutError,),
     )
 
 

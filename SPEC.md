@@ -329,13 +329,13 @@ class Collector(Protocol):
 def create_client(settings: Settings) -> LLMClient: ...
 ```
 
-- `VALID_PROVIDERS == ("scripted", "anthropic", "openai", "bedrock", "ollama", "groq")` —
+- `VALID_PROVIDERS == ("scripted", "anthropic", "openai", "bedrock", "ollama", "groq", "together")` —
   the single source of accepted provider names, reused verbatim in the
   unknown-provider `ValueError` message and every missing-SDK error path so the
   dispatch and the messages can never drift apart.
 - `settings.provider`: `"scripted"` (default) → `ScriptedLLMClient.from_file(settings.scripted_responses_path)`
   (empty client with clear error message if path is None); `"anthropic"` / `"openai"` /
-  `"bedrock"` / `"ollama"` / `"groq"` → **lazy import** inside the branch, thin adapter class per
+  `"bedrock"` / `"ollama"` / `"groq"` / `"together"` → **lazy import** inside the branch, thin adapter class per
   provider mapping SDK throttle/timeout exceptions to `LLMThrottleError`/`LLMTimeoutError`.
 - `"ollama"` is the LOCAL / offline runtime backend: a lazy `ollama.Client()` (no API
   key, no network egress; it talks to a model served on `localhost`), `model` defaults
@@ -357,11 +357,27 @@ def create_client(settings: Settings) -> LLMClient: ...
   stub. Additive, exactly like iters 23/32 — a new provider whose absence-guard and
   taxonomy reuse the existing `_require`/`_SdkAdapter` machinery verbatim, so **no version
   bump**.
-- Unknown provider → `ValueError` listing valid options (all six, incl. `ollama` and `groq`).
-- A live provider (`anthropic`/`openai`/`bedrock`/`ollama`/`groq`) selected while its optional
+- `"together"` is a CLOUD backend serving Together AI-hosted open models (Llama, Mixtral,
+  …) on Together's inference stack. Its Python SDK is a Stainless-generated,
+  OpenAI-SDK-shaped clone, so `_create_together` is a near-verbatim mirror of
+  `_create_groq`: a lazy `together.Together()` (zero-arg, reads `TOGETHER_API_KEY` from the
+  environment, no network at construction), `model` defaults to
+  `"meta-llama/Llama-3.3-70B-Instruct-Turbo"`, the completion uses
+  `sdk.chat.completions.create(model=…, messages=[{system},{user}])` with usage from
+  `completion.usage.prompt_tokens`/`.completion_tokens`, and its throttle/timeout
+  exception taxonomy is sourced from the `together` namespace ONLY
+  (`together.RateLimitError` → throttle, `together.APITimeoutError` → timeout) so the
+  branch depends on no second SDK/transport (e.g. `httpx`) and construction stays
+  offline-constructible from a single stub. Additive, exactly like iters 23/32/49 — a new
+  provider whose absence-guard and taxonomy reuse the existing `_require`/`_SdkAdapter`
+  machinery verbatim, so **no version bump**.
+- Unknown provider → `ValueError` listing valid options (all seven, incl. `ollama`, `groq`
+  and `together`).
+- A live provider (`anthropic`/`openai`/`bedrock`/`ollama`/`groq`/`together`) selected while its optional
   SDK is not installed → an actionable `LLMError` naming the pip package (e.g. `pip
   install boto3` for `bedrock`, whose package name differs from the label; `pip install
-  ollama` for `ollama`; `pip install groq` for `groq`) and the `--provider scripted`
+  ollama` for `ollama`; `pip install groq` for `groq`; `pip install together` for
+  `together`) and the `--provider scripted`
   fallback — NOT a raw `ModuleNotFoundError` traceback — so the fault routes through
   `main()`'s narrow `except (LLMError, ValueError, OSError)` boundary as a one-line
   `error: ...` + exit 1 like every other environment fault.
