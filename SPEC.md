@@ -819,14 +819,14 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     line as `name  access  description` — the access token on each line is exactly
     the tool's class from the closed set `{read-only, create-update, move, delete}`
     and no description emits any OTHER access word (so `remove_file`'s line reads
-    `delete`, never `read-only`). The access mapping is: `write_file`/`append_file`
+    `delete`, never `read-only`). The access mapping is: `write_file`/`append_file`/`replace_in_file`
     → `create-update`; `read_file`/`head_file`/`list_files`/`stat_file`/
-    `search_files`/`find_files` → `read-only`; `move_file` → `move`; `remove_file`
+    `search_files`/`find_files`/`tail_file`/`diff_files` → `read-only`; `move_file` → `move`; `remove_file`
     → `delete`. `--json` emits one object of EXACTLY two top-level keys
     `{sandbox, tools}` — an explicit allowlist (never `model_dump`; the iter-08
     schema-leak discipline): `sandbox` names the writable root (`artifacts_dir`)
     and the read-only root (`workspace_root`), and `tools` is a name-ascending
-    array of 10 `{name, access, description}` objects (exactly those three keys
+    array of 13 `{name, access, description}` objects (exactly those three keys
     each). The catalog (`name → (access, description)`) is a hand-maintained map
     (mirroring `_POLICY_RULES` for `policy`); a test drift-guards its key set to
     equal `ToolRegistry.tool_names()`, so a tool added to (or dropped from) the
@@ -852,7 +852,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     Human form lists every collector name-ascending, one per line as
     `name  description`. `--json` emits one object of EXACTLY one top-level key
     `{collectors}` — an explicit allowlist (never `model_dump`; the iter-08
-    schema-leak discipline): `collectors` is a name-ascending array of 12
+    schema-leak discipline): `collectors` is a name-ascending array of 13
     `{name, description}` objects (exactly those two keys each). The catalog
     (`name → description`) is a hand-maintained map (mirroring `_TOOL_CATALOG` for
     `tools`); a test drift-guards its key set to equal `{c.name for c in
