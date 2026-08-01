@@ -598,7 +598,14 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   call site). Append `LoopStep`s to `RunState`, checkpoint after every step. Stop: done=True → DONE;
   `iterations_used >= settings.max_iterations` or llm call budget hit →
   BUDGET_EXHAUSTED; unparseable PLAN/CHECK JSON → feed error observation back, count
-  iteration, continue. `resume` continues from a loaded RunState.
+  iteration, continue — AND emit one live `WARNING` per absorbed parse
+  failure on the executor module logger `proactive_loop.loop.executor`, message
+  prefix `L1 degraded ` carrying the 1-based iteration index (the `CHECK` case
+  fires ONLY on a genuine parse failure, never on a well-formed `done: false`).
+  This is the degradation twin of the iter-25 `L0 retry ` INFO record and is a
+  behaviour-preserving, non-versioned observability add (no schema / stdout /
+  exit-code / control-flow change; prefix disjoint from `L0 retry `).
+  `resume` continues from a loaded RunState.
 - Tests: `tests/test_loop.py` — 2-iteration scripted run reaches DONE with artifact
   written; sandbox rejects `../evil`; throttle-twice-then-succeed asserts backoff
   sequence via injected sleep; budget exhaustion; checkpoint save→load→resume

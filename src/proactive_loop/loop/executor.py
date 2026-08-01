@@ -37,8 +37,10 @@ _CHECK_PARSE_ERROR = (
 )
 
 # Module logger (name resolves to "proactive_loop.loop.executor"). WHY only
-# obtain a logger, never configure it: this layer just EMITS the L0 self-healing
-# record; whether it reaches stderr is the CLI -v/-vv decision (or pytest caplog).
+# obtain a logger, never configure it: this layer just EMITS the resilience
+# records -- the "L0 retry " INFO for a recovered backoff-retry and the
+# "L1 degraded " WARNING for a fail-safe-absorbed parse failure -- while whether
+# they reach stderr is the CLI -v/-vv decision (or pytest caplog).
 _LOG = logging.getLogger(__name__)
 
 
@@ -89,8 +91,18 @@ class GoalLoop:
 
             action = self._parse_action(plan_raw)
             if action is None:
-                # No executable action: record the parse error as this
+                # No executable action: surface the absorbed model-misbehaviour
+                # as a live WARNING (the degradation twin of the "L0 retry" INFO)
+                # so a run stalling on garbage PLANs is observable in real time
+                # rather than silently degrading to BUDGET_EXHAUSTED. Emitted
+                # BEFORE the increment so the reported index is the 1-based
+                # iteration that degraded. Then record the parse error as this
                 # iteration's observation, count the iteration, try again.
+                _LOG.warning(
+                    "L1 degraded iteration %d: PLAN not parseable; fed error "
+                    "observation back and continued",
+                    state.iterations_used + 1,
+                )
                 self._record(state, StepKind.ACT, _PLAN_PARSE_ERROR)
                 state.iterations_used += 1
                 self._save(state)
@@ -104,7 +116,18 @@ class GoalLoop:
             check_raw = self._llm(
                 self.CHECK_TAG, self._check_prompt(state, observation), state
             )
-            done, reason = self._parse_check(check_raw)
+            done, reason, check_parsed = self._parse_check(check_raw)
+            if not check_parsed:
+                # Same live-WARNING signal for a garbled CHECK. Keyed on the
+                # explicit parse-failure flag (never on `done is False`) so a
+                # legitimate well-formed `done: false` verdict is NOT a
+                # degradation. Emitted before the shared increment below, so the
+                # index is the 1-based iteration that degraded.
+                _LOG.warning(
+                    "L1 degraded iteration %d: CHECK not parseable; treated as "
+                    "not-done and continued",
+                    state.iterations_used + 1,
+                )
             self._record(state, StepKind.CHECK, reason, done=done)
 
             state.iterations_used += 1
@@ -219,19 +242,25 @@ class GoalLoop:
         return {"tool": tool, "args": args if isinstance(args, dict) else {}}
 
     @staticmethod
-    def _parse_check(check_raw: str) -> tuple[bool, str]:
-        """Extract ``(done, reason)`` from a CHECK reply.
+    def _parse_check(check_raw: str) -> tuple[bool, str, bool]:
+        """Extract ``(done, reason, parsed_ok)`` from a CHECK reply.
 
-        An unparseable CHECK is deliberately read as *not done* with an error
-        reason, so a garbled verdict never falsely completes the run.
+        *parsed_ok* is ``False`` iff the reply could not be parsed as the
+        required CHECK object. WHY a distinct flag rather than sniffing the
+        returned reason: it lets the caller log a garbled verdict as a
+        degradation while keeping a well-formed ``done: false`` (honest not-yet
+        progress) out of that channel -- the two are indistinguishable by
+        ``done``/``reason`` alone. An unparseable CHECK is still deliberately
+        read as *not done* with an error reason, so a garbled verdict never
+        falsely completes the run.
         """
         try:
             data = parse_json_block(check_raw)
         except ValueError:
-            return False, _CHECK_PARSE_ERROR
+            return False, _CHECK_PARSE_ERROR, False
         if not isinstance(data, dict):
-            return False, _CHECK_PARSE_ERROR
-        return bool(data.get("done", False)), str(data.get("reason", ""))
+            return False, _CHECK_PARSE_ERROR, False
+        return bool(data.get("done", False)), str(data.get("reason", "")), True
 
     # --- prompt rendering -----------------------------------------------
 
