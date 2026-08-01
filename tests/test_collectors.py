@@ -7,9 +7,9 @@ Coverage:
 - NotesCollector: finds headings + paragraphs under notes/journal/docs dirs.
 - Graceful degradation (registry-driven): EVERY collector in all_collectors()
   returns [] / a list (never raises) on nonexistent, file-as-root, empty, and
-  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for all 12
+  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for all 13
   collectors and auto-covering any future one with zero test edits.
-- all_collectors(): the registry exposes EXACTLY the 12 documented collector types.
+- all_collectors(): the registry exposes EXACTLY the 13 documented collector types.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from proactive_loop.collectors import (
+    CiConfigCollector,
     DependencyCollector,
     GitActivityCollector,
     GitStateCollector,
@@ -82,11 +83,12 @@ def _touch_file(path: Path, content: str = "", *, mtime_offset_sec: float = 0.0)
 # collector to the registry and it is covered here with zero test edits.
 _ALL_COLLECTOR_PARAMS = [pytest.param(c, id=c.name) for c in all_collectors()]
 
-# The 12 collectors documented in SPEC §4.1. Asserting the full name-SET (not a
+# The 13 collectors documented in SPEC §4.1. Asserting the full name-SET (not a
 # subset, not a bare count) catches BOTH a collector silently dropped from the
 # registry and a documented collector missing from it.
 _DOCUMENTED_COLLECTOR_NAMES = frozenset(
     {
+        "ci_config",
         "recent_files",
         "git_activity",
         "git_state",
@@ -103,6 +105,7 @@ _DOCUMENTED_COLLECTOR_NAMES = frozenset(
 )
 _EXPORTED_COLLECTOR_CLASSES = frozenset(
     {
+        CiConfigCollector,
         RecentFilesCollector,
         GitActivityCollector,
         GitStateCollector,
@@ -542,7 +545,7 @@ class TestNotesCollector:
 
 class TestAllCollectors:
     def test_registry_covers_all_collector_types(self) -> None:
-        """The registry must expose EXACTLY the 12 documented collectors (SPEC §4.1).
+        """The registry must expose EXACTLY the 13 documented collectors (SPEC §4.1).
 
         WHY a full-set check (not the old 4-type subset, and not a bare count): a
         SUBSET check silently passes when a collector is dropped from the registry,

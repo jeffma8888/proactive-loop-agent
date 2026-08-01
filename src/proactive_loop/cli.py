@@ -1743,6 +1743,7 @@ def _render_tools() -> str:
 # (never another collector's job). Ordering here is irrelevant -- both renders
 # sort by name.
 _COLLECTOR_CATALOG: dict[str, str] = {
+    "ci_config": "Continuous-integration posture: a recognized CI config, or source code with none.",
     "dependencies": "Dependency manifests declared in the workspace (pyproject, package.json, etc.).",
     "git_activity": "Recent commits across the workspace's git repositories.",
     "git_stash": "Forgotten entries sitting in the git stash reflog.",
@@ -2355,7 +2356,7 @@ def _cmd_collectors(args: argparse.Namespace) -> int:
     """collectors: print the L2 perception surface (read-only, LLM-free, zero-input).
 
     WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
-    the collector SET is STATIC (the twelve registered collectors and their
+    the collector SET is STATIC (the thirteen registered collectors and their
     curated descriptions do not depend on any env override, workspace, signal, or
     LLM). So this handler resolves no settings, builds no ``create_client`` (an
     inert/bad ``--scripted-responses`` path is simply never opened -- exit 0, not

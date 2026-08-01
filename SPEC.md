@@ -294,6 +294,30 @@ class Collector(Protocol):
   (Additive collector, exactly like iters 09/11/16/20/28/41 — a new `kind`
   flows into synthesis via `by_kind()` with zero synthesizer change, so no
   version bump.)
+- `ci_config.py: CiConfigCollector(name="ci_config", max_items=30)` —
+  automation-posture companion to `dependencies` (deps) and `test_posture`
+  (tests), completing the deps/tests/**CI** triad of orthogonal repo-health
+  axes: a repo with real source but no CI is a near-universally-actionable
+  maintenance gap the scout was previously blind to. Detection is
+  **root-anchored** (CI config is a repo-root concept — source commonly lives
+  under `src/` while CI lives at the root) and **presence-only** (pathlib
+  `is_dir`/`is_file`/`iterdir`, never opening file content). Emit AT MOST ONE
+  `kind="ci_config"` signal: if a recognized CI marker is present (checked in a
+  FIXED order, first match names the `<system>`: `.github/workflows/` holding a
+  `*.yml`/`*.yaml` file → `GitHub Actions`; then `.gitlab-ci.yml` → `GitLab CI`;
+  `.circleci/config.yml` → `CircleCI`; `azure-pipelines.yml` → `Azure Pipelines`;
+  `Jenkinsfile` → `Jenkins`; `.travis.yml` → `Travis CI`; `bitbucket-pipelines.yml`
+  → `Bitbucket Pipelines`) emit `summary="CI configured (<system>)"`, `weight=0.5`;
+  else if the tree has any source file (`.py`/`.ts`/`.js`/`.go`/`.rs`, same
+  `_SKIP_DIRS`/`_is_hidden` prune as the sibling collectors) emit
+  `summary="no CI configured"`, `weight=0.8` (the actionable gap outweighs an
+  already-configured repo); otherwise `[]`. Every signal: `detail=""`,
+  `path=str(root)` (the workspace root, not a file), `timestamp=None`. Per-project
+  / monorepo CI granularity and any CI-file CONTENT inspection are Out of Scope.
+  Pure stdlib (`os`/`pathlib`), never raises → `[]`. Reports facts only; the
+  synthesizer judges whether to propose wiring up CI. (Additive collector,
+  exactly like iters 09/11/16/20/28/37/42/53 — a new `kind` flows into synthesis
+  via `by_kind()` with zero synthesizer change, so no version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and

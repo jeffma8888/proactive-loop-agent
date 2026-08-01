@@ -16,7 +16,7 @@ observable stdout / stderr / exit code), the public registry API
 ``proactive_loop.collectors.all_collectors()``, and the public
 ``proactive_loop.__version__`` string. **No file under ``src/`` was read, no
 engineer/reviewer notes were read, and no ``git diff`` was consulted.** The
-twelve canonical collector names are encoded here as the spec-declared "Tester's
+thirteen canonical collector names are encoded here as the spec-declared "Tester's
 ground facts" (pm.md), NOT imported from any private catalog, so the tests
 encode the CONTRACT and would catch an implementation that silently drifts.
 Every test is fully offline: zero network, zero API keys, no live provider.
@@ -39,6 +39,7 @@ from proactive_loop.collectors import all_collectors
 # --------------------------------------------------------------------------
 
 CANONICAL_COLLECTORS = {
+    "ci_config",
     "dependencies",
     "git_activity",
     "git_stash",
@@ -156,7 +157,7 @@ def test_b02_human_lists_each_collector_with_description(capsys):
             assert first not in lines_by_name, f"collector {first!r} listed twice"
             lines_by_name[first] = stripped
     assert set(lines_by_name) == CANONICAL_COLLECTORS, (
-        f"leading-token name set must equal the canonical 12; missing="
+        f"leading-token name set must equal the canonical 13; missing="
         f"{CANONICAL_COLLECTORS - set(lines_by_name)}, "
         f"extra={set(lines_by_name) - CANONICAL_COLLECTORS}"
     )
@@ -219,7 +220,7 @@ def test_b04_json_entries_exact_two_key_allowlist(capsys):
 
 
 # ==========================================================================
-# Behavior 5 --- `--json` collector names equal the canonical 12, ascending.
+# Behavior 5 --- `--json` collector names equal the canonical 13, ascending.
 # ==========================================================================
 
 
@@ -227,10 +228,10 @@ def test_b05_json_names_equal_sorted_canonical(capsys):
     obj = _collectors_json(capsys)
     names = [c["name"] for c in obj["collectors"]]
     assert names == sorted(CANONICAL_COLLECTORS), (
-        f"json names must equal sorted canonical 12 (no dups/extras, ascending); "
+        f"json names must equal sorted canonical 13 (no dups/extras, ascending); "
         f"got {names}"
     )
-    assert len(names) == 12
+    assert len(names) == 13
 
 
 # ==========================================================================
@@ -256,7 +257,7 @@ def test_b06_human_names_equal_live_registry(capsys):
     human = set(_collector_leading_tokens(out))
     live = {c.name for c in all_collectors()}
     assert human == live == CANONICAL_COLLECTORS, (
-        f"human-form name set must equal the live registry and the canonical 12; "
+        f"human-form name set must equal the live registry and the canonical 13; "
         f"human={sorted(human)}, live={sorted(live)}"
     )
 
@@ -342,8 +343,8 @@ def test_b10_version_unchanged():
     )
 
 
-def test_b10_registry_unchanged_twelve_collectors():
-    assert len(all_collectors()) == 12, "the collector registry must still have 12 entries"
+def test_b10_registry_unchanged_thirteen_collectors():
+    assert len(all_collectors()) == 13, "the collector registry must still have 13 entries"
     assert {c.name for c in all_collectors()} == CANONICAL_COLLECTORS, (
         "the collector registry name set must be unchanged (verb adds no collector)"
     )

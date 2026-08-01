@@ -7,6 +7,7 @@ Importers can use this list directly or filter/extend it as needed.
 from __future__ import annotations
 
 from proactive_loop.collectors.base import Collector
+from proactive_loop.collectors.ci_config import CiConfigCollector
 from proactive_loop.collectors.dependencies import DependencyCollector
 from proactive_loop.collectors.filesystem import RecentFilesCollector
 from proactive_loop.collectors.git_activity import GitActivityCollector
@@ -41,6 +42,7 @@ def all_collectors() -> list[Collector]:
         MergeConflictCollector(),
         LargeFileCollector(),
         SecretFileCollector(),
+        CiConfigCollector(),
     ]
 
 
@@ -58,5 +60,6 @@ __all__ = [
     "MergeConflictCollector",
     "LargeFileCollector",
     "SecretFileCollector",
+    "CiConfigCollector",
     "all_collectors",
 ]
