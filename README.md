@@ -160,6 +160,60 @@ row set (no note, no trailer, no count key). A bare
 non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage error
 (exit 2), rejected before any collection runs or slate is written.
 
+## Configuration (environment variables)
+
+Every runtime knob is overridable from the environment with the `PLA_` prefix,
+so the CLI, the test suite, and any embedding host can tune behavior without a
+code change. Four settings also have a direct CLI flag (`--provider`,
+`--scripted-responses`, `--state-dir`, and `--workspace`) and can be set either
+way; the remaining nine are environment-only. **Precedence: an explicit CLI flag
+(or `Settings.from_env(...)` override) always wins over the corresponding
+environment variable, which in turn wins over the built-in default.** Every
+default listed below is the single source of truth (the field default on
+`Settings` / `RetryPolicy`), so `Settings.from_env()` with none of these set is
+identical to a bare `Settings()`.
+
+**Core**
+
+| Variable | Flag equivalent | Default | Meaning |
+|----------|-----------------|---------|---------|
+| `PLA_PROVIDER` | `--provider` | `scripted` | LLM provider name; `scripted` is the offline default (a deterministic test double, no network and no API key). |
+| `PLA_MODEL` | *(env-only)* | *(none)* | Model identifier handed to a live provider; unused by the scripted default. |
+| `PLA_SCRIPTED_RESPONSES` | `--scripted-responses` | *(none)* | Path to the scripted-responses JSON that drives the offline `scripted` provider. |
+| `PLA_WORKSPACE_ROOT` | `--workspace` | `.` | Workspace root the collectors scan for context signals. |
+| `PLA_STATE_DIR` | `--state-dir` | `.pla_runs` | Directory where slates, run dirs, and atomic checkpoints are written. |
+
+**Scout budget**
+
+| Variable | Flag equivalent | Default | Meaning |
+|----------|-----------------|---------|---------|
+| `PLA_AUTO_DISPATCH_MIN_SCORE` | *(env-only)* | `4.0` | Gate threshold: a non-sensitive, appropriate goal scoring at or above this auto-dispatches; below it needs approval. |
+| `PLA_MAX_ITERATIONS` | *(env-only)* | `8` | Maximum PLAN/ACT/CHECK iterations for a single dispatched goal loop. |
+| `PLA_MAX_LLM_CALLS` | *(env-only)* | `24` | Hard cap on total LLM calls per session, a backstop budget across the whole run. |
+
+**L0 resilience (retry / backoff)**
+
+The product's headline self-healing surface: every model call is wrapped in
+retry-with-exponential-backoff, and all five knobs are tunable without editing
+source (raise `PLA_RETRY_BASE_BACKOFF_SEC` substantially against a real
+rate-limited API).
+
+| Variable | Flag equivalent | Default | Meaning |
+|----------|-----------------|---------|---------|
+| `PLA_RETRY_MAX_ATTEMPTS` | *(env-only)* | `5` | Total attempts (including the first) before a throttled or timed-out call gives up. |
+| `PLA_RETRY_BASE_BACKOFF_SEC` | *(env-only)* | `1.0` | Base delay in seconds for the first backoff. |
+| `PLA_RETRY_BACKOFF_FACTOR` | *(env-only)* | `2.0` | Multiplier applied to the delay after each failed attempt (exponential growth). |
+| `PLA_RETRY_MAX_BACKOFF_SEC` | *(env-only)* | `60.0` | Ceiling in seconds on any single backoff delay, so growth never runs away. |
+| `PLA_RETRY_JITTER_FRAC` | *(env-only)* | `0.1` | Fractional random jitter (a fraction between 0 and 1) added to each delay to de-synchronize retries. |
+
+For example, to make an unattended run more patient against a throttling API:
+
+```bash
+export PLA_RETRY_MAX_ATTEMPTS=8
+export PLA_RETRY_BASE_BACKOFF_SEC=30
+pla run --workspace .
+```
+
 ## How the offline scripted provider works
 
 Everything talks to models through one seam: `LLMClient.complete(system, prompt,
