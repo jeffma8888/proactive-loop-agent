@@ -648,7 +648,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
   - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown,csv,html}]
-    [--top N]` —
+    [--top N] [--collector NAME ...]` —
     collect → synthesize → gate → render the ranked slate + gate decisions to
     stdout; write slate JSON. `--format` (default `table`, backward compatible)
     selects stdout rendering ONLY and never changes the persisted slate file:
@@ -685,7 +685,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     document (shortened data rows only), all three with no note/trailer and no count
     key/row added. A
     non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage
-    error (exit 2) at PARSE time, before any client/collect/slate-write. A missing
+    error (exit 2) at PARSE time, before any client/collect/slate-write. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors feed synthesis (the perception-input knob, complementing `--top`/`--format` which shape the output view): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any client/collect/slate-write, absent (the default) runs all collectors byte-identically, and it is `scan`-only (`run`/`signals`/`watch` do not accept it). A missing
     or non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr and exit 2 (before any
     client/collect, regardless of `--format`), rather than degrading to an empty

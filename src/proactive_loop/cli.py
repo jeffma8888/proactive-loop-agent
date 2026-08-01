@@ -307,6 +307,29 @@ def build_parser() -> argparse.ArgumentParser:
             "(exit 2). Default (absent) shows all goals."
         ),
     )
+    # An UPSTREAM allowlist on WHICH collectors feed synthesis -- the perception
+    # INPUT knob, complementing --top/--format (which shape the OUTPUT view only).
+    # Repeatable (action="append"); absent (default None) = all collectors, so a
+    # bare scan is byte-identical to no flag. choices are derived from the LIVE
+    # registry via all_collectors() (NOT a hardcoded literal) so the allowlist can
+    # never drift from the collector set; an unknown name is a PARSE-time usage
+    # error (exit 2) naming the bad choice and listing valid ones -- no client
+    # built, no collection run, no slate written -- mirroring the --format/--top
+    # fail-fast discipline. scan-only (run/signals/watch are unchanged).
+    p_scan.add_argument(
+        "--collector",
+        action="append",
+        default=None,
+        choices=sorted(c.name for c in all_collectors()),
+        dest="collector",
+        metavar="NAME",
+        help=(
+            "Restrict synthesis to only the named collector(s); repeatable "
+            "(--collector todos --collector git_state). Accepted values are the "
+            "live collector names; an unknown name is a usage error (exit 2). "
+            "Default (absent) runs all collectors."
+        ),
+    )
     p_scan.set_defaults(func=_cmd_scan)
 
     p_dispatch = sub.add_parser(
@@ -665,7 +688,7 @@ def _load_slate(path: Path) -> GoalSlate:
         raise ValueError(sanitize_validation_error("slate", path, exc)) from None
 
 
-def _collect(workspace: Path) -> WorkspaceSnapshot:
+def _collect(workspace: Path, only: set[str] | None = None) -> WorkspaceSnapshot:
     """Run every collector over *workspace* into one snapshot.
 
     The §4.1 contract is that collectors never raise (they degrade to ``[]``).
@@ -675,9 +698,21 @@ def _collect(workspace: Path) -> WorkspaceSnapshot:
     raises is logged at WARNING and contributes ``[]``, leaving the surviving
     collectors' signals intact instead of aborting the whole scan. A missing dir
     or absent git therefore still simply yields fewer signals.
+
+    ``only`` is an optional UPSTREAM allowlist of collector names (from
+    ``scan --collector``): when not ``None``, a collector whose ``.name`` is not
+    in the set is skipped entirely (its ``collect()`` never runs), so the caller
+    can focus the scout on a subset of the perception surface. ``None`` (the
+    default, and what ``run``/``signals``/``watch`` pass) runs every collector,
+    byte-identical to before this knob existed; an empty set runs none. The
+    filter is applied BEFORE the isolation try/except, so it changes only WHICH
+    collectors run, never the never-raise / registry-order semantics of the
+    ones that do.
     """
     signals = []
     for collector in all_collectors():
+        if only is not None and collector.name not in only:
+            continue
         try:
             signals.extend(collector.collect(workspace))
         except Exception as exc:  # noqa: BLE001 - deliberate: contain a buggy collector
@@ -1900,7 +1935,13 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         return 2
     client = create_client(settings)
 
-    snapshot = _collect(workspace)
+    # --collector is a repeatable allowlist (argparse action="append" -> a list or
+    # None). Fold it into the OPTIONAL _collect filter: a non-empty list restricts
+    # synthesis to those collectors; absent (None or []) => None => all collectors,
+    # keeping a bare scan byte-identical. Only scan threads this; the shared
+    # _collect seam under run/signals/watch still calls _collect(workspace).
+    only = set(args.collector) if args.collector else None
+    snapshot = _collect(workspace, only=only)
     slate = GoalSynthesizer(client, settings).synthesize(snapshot)
     decisions = gate_slate(slate, settings)
 

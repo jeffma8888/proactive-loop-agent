@@ -89,7 +89,7 @@ automatically.
 
 | Command   | What it does                                                              |
 |-----------|---------------------------------------------------------------------------|
-| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete), write slate JSON.|
+| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete; `--collector NAME` repeatable, restricts which collectors feed synthesis), write slate JSON.|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--yes` confirms approval).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal.          |
 | `resume`  | Load a checkpoint from a run dir and continue the loop.                   |
@@ -186,6 +186,17 @@ row set (no note, no trailer, no count key). A bare
 `scan` — or `--top N` with `N ≥ M` — is byte-identical to the pre-flag output. A
 non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage error
 (exit 2), rejected before any collection runs or slate is written.
+
+`scan --collector NAME` is the UPSTREAM twin of `--top`/`--format`: where those
+shape the OUTPUT view, `--collector` restricts the perception INPUT — WHICH
+collectors feed synthesis. It is repeatable
+(`--collector git_state --collector todos`) and its accepted values are exactly
+the live collector names (derived from the registry, so the allowlist can never
+drift from it); an unknown name is an argparse usage error (exit 2), rejected
+before any collection runs. Absent (the default) every collector runs, so a bare
+`scan` is byte-identical to before. Use it to focus the scout ("only look at git
+state, ignore TODOs and large files"), which shrinks the synthesis prompt and
+narrows the proposed goals. `--collector` applies to `scan` only.
 
 ## Configuration (environment variables)
 
