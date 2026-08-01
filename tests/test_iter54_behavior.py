@@ -26,7 +26,7 @@ public contract) + this iteration's PM spec ONLY. They drive the PUBLIC surface
 prompt-advertisement check, and the ``pla`` CLI via
 ``proactive_loop.cli.main(argv) -> int``) and assert observable output / exit codes
 / on-disk artifacts. **No file under ``src/`` was read, no engineer/reviewer note
-was read, and no ``git diff`` was consulted.** The twelve canonical tool names and
+was read, and no ``git diff`` was consulted.** The thirteen canonical tool names and
 the access mapping are encoded here as the spec-declared ground facts, NOT imported
 from the implementation. Conventions (``tmp_path`` fixtures, scripted offline
 provider, symlink-skip idiom, no network / no API keys) mirror
@@ -55,7 +55,7 @@ ML_ERR = "error: tail_file 'max_lines' must be a positive integer"
 PATH_ERR = "error: tail_file requires a non-empty 'path'"
 NOT_FOUND = "error: file not found under artifacts or workspace: {p!r}"
 
-# The twelve canonical tool names (order-independent; compared as a set).
+# The thirteen canonical tool names (order-independent; compared as a set).
 CANONICAL_TOOLS = {
     "write_file",
     "read_file",
@@ -69,6 +69,7 @@ CANONICAL_TOOLS = {
     "move_file",
     "tail_file",
     "diff_files",
+    "replace_in_file",
 }
 
 
@@ -130,14 +131,14 @@ def _tools_json(capsys) -> dict:
 
 
 # ===========================================================================
-# EB1 --- Registered and dispatchable (12 names incl. tail_file)
+# EB1 --- Registered and dispatchable (13 names incl. tail_file)
 # ===========================================================================
 
 
 def test_eb01_registered_and_dispatchable(tmp_path: Path) -> None:
     names = ToolRegistry.tool_names()
-    # Exactly 12 names, including tail_file.
-    assert len(names) == 12, f"tool_names() must return 12 names; got {len(names)}: {names}"
+    # Exactly 13 names, including tail_file.
+    assert len(names) == 13, f"tool_names() must return 13 names; got {len(names)}: {names}"
     assert set(names) == CANONICAL_TOOLS, f"names must be exactly canonical set; got {sorted(names)}"
     assert "tail_file" in names, names
 
@@ -479,8 +480,8 @@ def test_eb13_pla_tools_json_tail_file_object(capsys) -> None:
     obj = _tools_json(capsys)
     tools = obj["tools"]
 
-    # 12 tools total in the --json array.
-    assert len(tools) == 12, f"--json tools array must have 12 elements; got {len(tools)}"
+    # 13 tools total in the --json array.
+    assert len(tools) == 13, f"--json tools array must have 13 elements; got {len(tools)}"
 
     by_name = {t["name"]: t for t in tools}
     assert "tail_file" in by_name, f"--json catalog must include tail_file; got {sorted(by_name)}"
@@ -500,7 +501,7 @@ def test_eb13_pla_tools_json_tail_file_object(capsys) -> None:
     assert catalog_names == CANONICAL_TOOLS, sorted(catalog_names)
 
 
-def test_eb13_pla_tools_human_lists_all_twelve(capsys) -> None:
+def test_eb13_pla_tools_human_lists_all_thirteen(capsys) -> None:
     rc = main(["tools"])
     out = capsys.readouterr().out
     assert rc == 0, "`pla tools` must exit 0"

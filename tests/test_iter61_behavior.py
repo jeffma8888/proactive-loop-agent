@@ -24,7 +24,7 @@ surface --- ``ToolRegistry.execute(...)`` / ``ToolRegistry.tool_names()`` /
 prompt-advertisement check, and the ``pla`` CLI via ``proactive_loop.cli.main(argv)
 -> int`` --- and assert observable output / exit codes / on-disk artifacts. **No file
 under ``src/`` was read, no engineer/reviewer note was read, and no ``git diff`` was
-consulted.** The twelve canonical tool names are encoded here as the spec-declared
+consulted.** The thirteen canonical tool names are encoded here as the spec-declared
 ground facts, NOT imported from the implementation. Conventions (``tmp_path``
 fixtures, scripted offline provider, symlink-skip idiom, no network / no API keys)
 mirror ``tests/test_iter54_behavior.py`` (tail_file).
@@ -53,7 +53,7 @@ ABSOLUTE_ERR = "error: absolute paths are not allowed: {p!r}"
 NOT_FOUND = "error: file not found under artifacts or workspace: {p!r}"
 TRUNC_TRAILER = "... (diff truncated at 200 lines)"
 
-# The twelve canonical tool names (order-independent; compared as a set).
+# The thirteen canonical tool names (order-independent; compared as a set).
 CANONICAL_TOOLS = {
     "write_file",
     "read_file",
@@ -67,6 +67,7 @@ CANONICAL_TOOLS = {
     "move_file",
     "tail_file",
     "diff_files",
+    "replace_in_file",
 }
 
 
@@ -135,13 +136,13 @@ def _all_different(n: int) -> tuple[str, str]:
 
 
 # ===========================================================================
-# EB1 --- Registered & dispatchable (exactly 12 names incl. diff_files)
+# EB1 --- Registered & dispatchable (exactly 13 names incl. diff_files)
 # ===========================================================================
 
 
 def test_eb01_registered_and_dispatchable(tmp_path: Path) -> None:
     names = ToolRegistry.tool_names()
-    assert len(names) == 12, f"tool_names() must return 12 names; got {len(names)}: {names}"
+    assert len(names) == 13, f"tool_names() must return 13 names; got {len(names)}: {names}"
     assert "diff_files" in names, names
     assert set(names) == CANONICAL_TOOLS, f"names must be exactly the canonical set; got {sorted(names)}"
 
@@ -431,7 +432,7 @@ def test_eb10_pla_tools_json_diff_files_object(capsys) -> None:
     obj = _tools_json(capsys)
     tools = obj["tools"]
 
-    assert len(tools) == 12, f"--json tools array must have 12 elements; got {len(tools)}"
+    assert len(tools) == 13, f"--json tools array must have 13 elements; got {len(tools)}"
 
     by_name = {t["name"]: t for t in tools}
     assert "diff_files" in by_name, f"--json catalog must include diff_files; got {sorted(by_name)}"
@@ -450,7 +451,7 @@ def test_eb10_pla_tools_json_diff_files_object(capsys) -> None:
     assert catalog_names == CANONICAL_TOOLS, sorted(catalog_names)
 
 
-def test_eb10_pla_tools_human_lists_all_twelve(capsys) -> None:
+def test_eb10_pla_tools_human_lists_all_thirteen(capsys) -> None:
     rc = main(["tools"])
     out = capsys.readouterr().out
     assert rc == 0, "`pla tools` must exit 0"

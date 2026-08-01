@@ -61,6 +61,7 @@ _TOOL_NAMES: tuple[str, ...] = (
     "move_file",
     "tail_file",
     "diff_files",
+    "replace_in_file",
 )
 
 
@@ -813,6 +814,84 @@ class ToolRegistry:
                 body += "\n"
             return f"{body}... (diff truncated at {_DIFF_MAX_LINES} lines)"
         return "".join(diff)
+
+    def _replace_in_file(self, args: dict) -> str:
+        """Replace every literal occurrence of *old* with *new* in ONE artifact
+        -- the surgical in-place EDIT primitive, completing the write-side
+        mutation family create (``write_file``) / append (``append_file``) /
+        **edit** / move (``move_file``) / delete (``remove_file``).
+
+        WHY a dedicated edit verb: the sandbox could create, extend, move, and
+        delete an artifact, but had NO way to change one substring in place. To
+        edit a single line a dispatched goal had to ``read_file`` the WHOLE file
+        into the model's scarce context, then ``write_file`` the entire file
+        back -- two calls plus a full-file context cost for a one-token change.
+        ``replace_in_file`` is the standard agent-loop ``str_replace`` verb and
+        the natural CHECK-loop partner of ``diff_files`` (iter-61): edit, then
+        diff the artifact against a reference to verify WHAT CHANGED. Literal
+        substring only (regex / anchored / nth-occurrence matching is out of
+        scope); it replaces ALL non-overlapping occurrences deterministically
+        (no ambiguous-match failure mode) and reports an accurate count --
+        ``str.count(old)``, which matches ``str.replace``'s non-overlapping
+        replacement count exactly. An empty ``new`` (or an omitted ``new`` key)
+        deletes the matched substring.
+
+        Guard order is load-bearing for a mutation and mirrors ``write_file`` /
+        ``move_file``: the shared ``_reject_unsafe`` FIRST (empty/``..``/absolute
+        -- so an empty path yields the generic ``error: empty path is not
+        allowed``, NOT a tool-specific message), THEN the non-empty-``old`` arg
+        check (reported AFTER path-safety), THEN the *resolved* ``_within`` gate
+        BEFORE any read/write (so a symlink escaping the sandbox can never edit
+        through the link), THEN existence and directory checks, and only THEN the
+        substitution. It resolves ONLY against ``artifacts_dir`` -- never the
+        read-only ``workspace_root`` (a workspace-only path degrades to ``no such
+        artifact`` and is never written through) -- reads with ``read_text`` and
+        writes with plain ``write_text`` (mirroring ``write_file``, NOT
+        tmp+``os.replace``), and records the edited relpath in ``artifacts()``
+        when absent (an on-disk artifact not written this run is added, exactly
+        once). Never raises: an unsafe/empty path, empty ``old``, missing target,
+        directory, or text-not-found degrades to an ``"error: ..."`` observation,
+        and a binary/undecodable file surfaces as an ``"error:"`` via
+        ``execute()``'s never-raise wrapper (mirroring ``read_file``).
+        """
+        path = str(args.get("path", ""))
+        old = str(args.get("old", ""))
+        new = str(args.get("new", ""))
+        # Path-safety FIRST (shared _reject_unsafe: empty/``..``/absolute), so an
+        # unsafe path yields the generic write-family message, never a
+        # tool-specific one -- mirrors write_file/move_file.
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+        # A non-empty ``old`` is required, checked AFTER path-safety: an empty
+        # search string has no well-defined substitution (str.replace("") would
+        # splice ``new`` between every character), so it is a caller error.
+        if not old:
+            return "error: replace_in_file 'old' must be non-empty"
+        target = self.artifacts_dir / path
+        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
+        # target is inside the sandbox BEFORE any read/write (load-bearing for a
+        # mutation -- must fire before touching disk).
+        if not self._within(target, self.artifacts_dir):
+            return f"error: refusing to edit outside artifacts dir: {path!r}"
+        if not target.exists():
+            return f"error: no such artifact: {path!r}"
+        if target.is_dir():
+            return f"error: refusing to edit a directory: {path!r}"
+        rel = str(target.relative_to(self.artifacts_dir))
+        # read_text() may raise on an undecodable (binary) file; the exception
+        # propagates to execute()'s never-raise wrapper as an "error:" obs.
+        content = target.read_text()
+        count = content.count(old)
+        if count == 0:
+            return f"error: text not found in artifacts/{rel}: {old!r}"
+        # Plain write_text (mirroring write_file), NOT tmp+os.replace. str.replace
+        # substitutes ALL non-overlapping occurrences; str.count matched that
+        # exact count above.
+        target.write_text(content.replace(old, new))
+        if rel not in self._artifacts:
+            self._artifacts.append(rel)
+        return f"replaced {count} occurrence(s) in artifacts/{rel}"
 
     # --- sandbox helpers ------------------------------------------------
 

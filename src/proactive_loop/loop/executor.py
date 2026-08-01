@@ -252,7 +252,8 @@ class GoalLoop:
             "tail_file(path, max_lines) [last N lines of a file; N default 40], "
             "remove_file(path) [deletes a file under artifacts/], "
             "move_file(src, dst) [rename/relocate a file under artifacts/], "
-            "diff_files(path_a, path_b) [unified diff of two files; read-only]\n\n"
+            "diff_files(path_a, path_b) [unified diff of two files; read-only], "
+            "replace_in_file(path, old, new) [replace a literal substring in a file under artifacts/]\n\n"
             f"{self._transcript(state)}\n"
             'Reply with JSON: {"thought": "...", '
             '"action": {"tool": "...", "args": {...}}}'

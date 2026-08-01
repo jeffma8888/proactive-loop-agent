@@ -1652,6 +1652,7 @@ _TOOL_CATALOG: dict[str, tuple[str, str]] = {
     # create-update -- the write side
     "write_file": (_ACCESS_CREATE_UPDATE, "Create or overwrite a file under the artifacts dir."),
     "append_file": (_ACCESS_CREATE_UPDATE, "Extend a file under the artifacts dir, creating it if absent."),
+    "replace_in_file": (_ACCESS_CREATE_UPDATE, "Replace all occurrences of a literal substring in a file under the artifacts dir."),
     # read-only -- the read/discovery side
     "read_file": (_ACCESS_READ_ONLY, "Return the whole contents of a file from the sandbox."),
     "head_file": (_ACCESS_READ_ONLY, "Return the first N lines of a file (a bounded top-of-file peek)."),
@@ -1725,7 +1726,10 @@ def _render_tools() -> str:
         "tools (name / access / description):",
     ]
     for name, (access, description) in sorted(_TOOL_CATALOG.items()):
-        lines.append(f"  {name:<13}{access:<15}{description}")
+        # Name column is (longest tool name + 1) wide so name and access never
+        # collide: "replace_in_file" (iter-66) is 15 chars, so a 16-wide column
+        # keeps a >=1-space gap the whitespace-split parsers rely on.
+        lines.append(f"  {name:<16}{access:<15}{description}")
     return "\n".join(lines)
 
 
