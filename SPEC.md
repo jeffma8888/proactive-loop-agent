@@ -715,7 +715,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json]` — read-only, LLM-free lister of past dispatched runs
     under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,
-    artifact count, goal title, workspace), id-sorted and deterministic; a run
+    artifact count, goal title, workspace, plus the two persisted resilience
+    counters retries and parse errors), id-sorted and deterministic; a run
     dir with no loadable checkpoint degrades to a `(no checkpoint)` row rather
     than aborting. Makes `resume --run-dir DIR`'s argument discoverable. `--json`
     emits a parseable array (`[]` when empty). Builds no `LLMClient`.

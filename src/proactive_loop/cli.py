@@ -1118,6 +1118,16 @@ def _run_row(run_dir: Path) -> dict:
         "iterations": iterations,
         "artifacts": _count_artifacts(run_dir),
         "workspace": meta.get("workspace_root", ""),
+        # Surface the two persisted resilience counters (ROADMAP #72) so a CI /
+        # monitoring script can flag throttle- or garbage-pressured runs across a
+        # whole fleet in one ``runs --json`` call, instead of shelling into each
+        # run's human ``trace`` header. A degraded row (no/corrupt checkpoint ->
+        # state is None) reports 0 for both, mirroring its ``"iterations": 0``.
+        # ``_render_runs`` reads only its five named keys, so the human table
+        # stays byte-identical; the additive keys are contract-compatible (the
+        # runs --json test asserts ``issubset``, not an exact key set).
+        "retries": state.retries if state is not None else 0,
+        "parse_errors": state.parse_errors if state is not None else 0,
     }
 
 

@@ -661,10 +661,19 @@ def test_eb11_trace_json_step_schema_gains_no_parse_errors(tmp_path, capsys):
         assert "parse_errors" not in elem, "parse_errors must never leak into a trace --json step object"
 
 
-def test_eb11_runs_json_rows_gain_no_parse_errors(tmp_path, capsys):
-    """`pla runs --json` rows keep their exact key set --- no `parse_errors`."""
+def test_eb11_runs_json_rows_gain_retries_and_parse_errors(tmp_path, capsys):
+    """`pla runs --json` rows now DO surface both persisted resilience counters.
+
+    iter-71 lands ROADMAP #72, deliberately INVERTING this guard: iter-69 pinned
+    ``parse_errors not in row`` here purely as an explicit "JSON exposure deferred
+    to #72" placeholder. Now that #72 has shipped, the row must carry the two
+    counters with their real values (a sanctioned reversal of a self-imposed
+    scope marker, NOT a broken public contract --- the runs --json row contract
+    tolerates added keys). The sibling ``trace --json`` guard above stays
+    UNCHANGED (that scope boundary holds --- counters never enter the bare step
+    array)."""
     state_dir = tmp_path / "state"
-    # Two persisted runs under the state dir, one with a nonzero parse_errors.
+    # Two persisted runs under the state dir, one with nonzero counters.
     _persist_run(state_dir / "run-alpha", parse_errors=3, retries=1)
     _persist_run(state_dir / "run-beta", parse_errors=0, retries=0)
 
@@ -674,9 +683,15 @@ def test_eb11_runs_json_rows_gain_no_parse_errors(tmp_path, capsys):
     rows = json.loads(out)  # the ENTIRE stdout must parse as one JSON array
     assert isinstance(rows, list) and len(rows) == 2
     for row in rows:
-        assert "parse_errors" not in row, (
-            f"parse_errors must never appear in a runs --json row; got keys {set(row.keys())}"
+        assert "retries" in row and "parse_errors" in row, (
+            "runs --json rows must now surface both resilience counters; "
+            f"got keys {set(row.keys())}"
         )
+    by_id = {row["run_id"]: row for row in rows}
+    assert by_id["run-alpha"]["retries"] == 1
+    assert by_id["run-alpha"]["parse_errors"] == 3
+    assert by_id["run-beta"]["retries"] == 0
+    assert by_id["run-beta"]["parse_errors"] == 0
 
 
 # ===========================================================================
