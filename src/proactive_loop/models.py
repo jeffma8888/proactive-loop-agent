@@ -154,6 +154,17 @@ class RunState(BaseModel):
     # instead of invisible. Defaulted to 0 so pre-iter-08 checkpoints (which lack
     # the key) still deserialize cleanly as a no-op; ge=0 since it only ever grows.
     retries: int = Field(default=0, ge=0)
+    # L1 self-healing counter: incremented once per malformed PLAN/CHECK the
+    # executor's fail-safe ABSORBS (keyed on the parse-failure flag, never on a
+    # well-formed `done: false`). WHY it lives on the run: it is the persisted,
+    # after-the-fact twin of the iter-68 live `L1 degraded ` WARNING -- a finished
+    # BUDGET_EXHAUSTED checkpoint records `retries` (throttle pressure) but, without
+    # this, says nothing about how many iterations the model burned emitting garbage,
+    # so a post-mortem cannot tell "provider throttled me" from "model returned junk"
+    # without re-reading a WARNING stream. Defaulted to 0 so pre-iter-69 checkpoints
+    # (which lack the key) still deserialize cleanly as a no-op; ge=0 since it only
+    # ever grows.
+    parse_errors: int = Field(default=0, ge=0)
     artifacts_dir: str = ""
     created_at: datetime = Field(default_factory=_now)
 

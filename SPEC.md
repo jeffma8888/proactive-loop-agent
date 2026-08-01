@@ -102,6 +102,14 @@ Key invariants the other layers rely on:
   backoff-retries the L1 executor recovered from during a run. Defaulted so a
   pre-existing checkpoint written without the key still deserializes cleanly as
   `retries == 0` (a non-breaking, non-versioned foundation-contract addition).
+- `RunState.parse_errors` is a non-negative int counter (default `0`) of the
+  malformed PLAN/CHECK replies the L1 executor's fail-safe ABSORBED during a run
+  — the persisted, after-the-fact twin of the live `L1 degraded ` WARNING
+  (keyed on the same parse-failure flag, so a well-formed `done: false` is never
+  counted). It lets a finished checkpoint distinguish throttle pressure
+  (`retries`) from model garbage (`parse_errors`). Defaulted so a pre-iter-69
+  checkpoint written without the key still deserializes cleanly as
+  `parse_errors == 0` (a non-breaking, non-versioned foundation-contract addition).
 - `Settings.auto_dispatch_min_score` is a non-negative float (`Field(ge=0.0)`,
   default `4.0`); a negative threshold is rejected at construction to prevent a
   silent whole-slate auto-dispatch (all score operands are bounded `>= 0`, so a
@@ -598,13 +606,17 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   call site). Append `LoopStep`s to `RunState`, checkpoint after every step. Stop: done=True → DONE;
   `iterations_used >= settings.max_iterations` or llm call budget hit →
   BUDGET_EXHAUSTED; unparseable PLAN/CHECK JSON → feed error observation back, count
-  iteration, continue — AND emit one live `WARNING` per absorbed parse
+  iteration, continue — AND (a) emit one live `WARNING` per absorbed parse
   failure on the executor module logger `proactive_loop.loop.executor`, message
-  prefix `L1 degraded ` carrying the 1-based iteration index (the `CHECK` case
-  fires ONLY on a genuine parse failure, never on a well-formed `done: false`).
-  This is the degradation twin of the iter-25 `L0 retry ` INFO record and is a
-  behaviour-preserving, non-versioned observability add (no schema / stdout /
-  exit-code / control-flow change; prefix disjoint from `L0 retry `).
+  prefix `L1 degraded ` carrying the 1-based iteration index, AND (b) increment
+  `RunState.parse_errors` once per absorbed parse failure in those same two
+  fail-safe branches (the `CHECK` case fires ONLY on a genuine parse failure,
+  never on a well-formed `done: false` — the counter is keyed on the same
+  parse-failure flag as the WARNING). The WARNING is the degradation twin of the
+  iter-25 `L0 retry ` INFO record and the counter is the persisted twin of that
+  WARNING (mirroring how `RunState.retries` persists the `L0 retry ` INFO);
+  together a behaviour-preserving, non-versioned observability add (no schema /
+  stdout / exit-code / control-flow change; prefix disjoint from `L0 retry `).
   `resume` continues from a loaded RunState.
 - Tests: `tests/test_loop.py` — 2-iteration scripted run reaches DONE with artifact
   written; sandbox rejects `../evil`; throttle-twice-then-succeed asserts backoff
@@ -667,7 +679,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     structural typing only, no write-permission pre-detection).
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
-    iteration/llm-call budget use, and the run's retry count) + artifact paths.
+    iteration/llm-call budget use, and the run's retry count and parse-error
+    count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
   - `pla run --workspace W [--dry-run]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
@@ -705,7 +718,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
     `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,
     goal title+id, status, step/iteration/llm-call counts, and the run's retry
-    count) then one single-line entry per step — `[index] kind …output…` with `done=true`/`done=false`
+    count and parse-error count, rendered inline as
+    `retries: {R}    parse errors: {P}`) then one single-line entry per step — `[index] kind …output…` with `done=true`/`done=false`
     appended on `check` steps — collapsing embedded newlines and width-truncating
     long output so the block never breaks; empty `steps` degrade to a
     `(no steps recorded)` line. `--json` emits a parseable array (one object per

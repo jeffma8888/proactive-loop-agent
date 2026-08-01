@@ -104,6 +104,10 @@ class GoalLoop:
                     state.iterations_used + 1,
                 )
                 self._record(state, StepKind.ACT, _PLAN_PARSE_ERROR)
+                # Persist the absorbed parse failure (the after-the-fact twin of
+                # the WARNING above) so a finished checkpoint records how many
+                # iterations the model burned on garbage PLANs, not just retries.
+                state.parse_errors += 1
                 state.iterations_used += 1
                 self._save(state)
                 continue
@@ -128,6 +132,11 @@ class GoalLoop:
                     "not-done and continued",
                     state.iterations_used + 1,
                 )
+                # Persist this absorbed CHECK parse failure too. Guarded by the
+                # SAME `check_parsed` flag as the WARNING (never by `done is
+                # False`), so an honest well-formed `done: false` verdict is
+                # never counted.
+                state.parse_errors += 1
             self._record(state, StepKind.CHECK, reason, done=done)
 
             state.iterations_used += 1

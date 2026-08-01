@@ -1023,14 +1023,17 @@ def _render_run_summary(
 
     The ``retries`` line makes the product's headline "resilient by design"
     observable: it reports how many transient throttle/timeout blips the L0 layer
-    silently recovered from during the run (0 for a clean run).
+    silently recovered from during the run (0 for a clean run). The same line
+    also reports ``parse errors`` -- how many malformed PLAN/CHECK replies the L1
+    fail-safe absorbed -- so a post-mortem can tell throttle pressure apart from
+    model garbage without re-reading the live ``L1 degraded `` WARNING stream.
     """
     lines = [
         "",
         f"dispatched : {goal.title}  (id={goal.id})",
         f"status     : {state.status.value}",
         f"iterations : {state.iterations_used}    llm calls: {state.llm_calls_used}",
-        f"retries    : {state.retries}",
+        f"retries    : {state.retries}    parse errors: {state.parse_errors}",
         f"run dir    : {run_dir}",
     ]
     artifacts = tools.artifacts()
@@ -1231,7 +1234,8 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
         f"goal       : {state.goal.title}  (id={state.goal.id})",
         f"status     : {state.status.value}",
         f"steps      : {len(state.steps)}    iterations: {state.iterations_used}"
-        f"    llm calls: {state.llm_calls_used}    retries: {state.retries}",
+        f"    llm calls: {state.llm_calls_used}    retries: {state.retries}"
+        f"    parse errors: {state.parse_errors}",
     ]
     if not state.steps:
         return "\n".join([*header, "(no steps recorded)"])
