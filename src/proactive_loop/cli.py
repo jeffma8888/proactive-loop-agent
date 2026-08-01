@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import html
 import io
 import json
 import logging
@@ -281,12 +282,13 @@ def build_parser() -> argparse.ArgumentParser:
     # table keeps every existing scan invocation byte-for-byte unchanged.
     p_scan.add_argument(
         "--format",
-        choices=["table", "json", "markdown", "csv"],
+        choices=["table", "json", "markdown", "csv", "html"],
         default="table",
         help=(
             "stdout rendering: table (default, human) | json (one JSON object, no "
             "trailer, pipes cleanly into jq) | markdown (paste-ready GFM table + trailer) "
-            "| csv (RFC-4180 data stream, no trailer, opens in Excel / pandas.read_csv)."
+            "| csv (RFC-4180 data stream, no trailer, opens in Excel / pandas.read_csv) "
+            "| html (self-contained escaped HTML table, no trailer, opens in a browser)."
         ),
     )
     # A stdout-view cap on the number of ranked goals printed; the persisted slate
@@ -878,6 +880,103 @@ def _render_csv(
             ]
         )
     return buffer.getvalue()
+
+
+# Inline CSS for the ``html`` format. Kept intentionally tiny and self-contained
+# (no @font-face, no url(...), no external anything) so the rendered document
+# opens offline with zero network -- the whole point of a shareable artifact. It
+# must never contain the substrings ``http://``/``https://``/``<link``/``<script``
+# (behavior 2 asserts their absence), so the style stays plain declarations only.
+_HTML_STYLE = (
+    "body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; "
+    "margin: 2rem; color: #1a1a1a; }\n"
+    "h1 { font-size: 1.25rem; margin-bottom: 1rem; }\n"
+    "table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }\n"
+    "th, td { border: 1px solid #cccccc; padding: 0.4rem 0.6rem; "
+    "text-align: left; vertical-align: top; }\n"
+    "th { background: #f2f2f2; }\n"
+    "tr:nth-child(even) td { background: #fafafa; }"
+)
+
+
+def _render_html(
+    slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
+) -> str:
+    """Render the ranked slate + gate outcome as one self-contained HTML document.
+
+    A pure, disk-free function of ``(slate, decisions)`` -- like ``_render_table`` /
+    ``_render_markdown`` / ``_scan_json_payload`` / ``_render_csv`` it consumes the
+    SAME ``zip(slate.ranked(), decisions)``, so the HTML can never disagree with the
+    other four formats on order, score, or gate outcome. Fixed 5-column shape
+    (``#, decision, score, category, title``) matching every other format -- an
+    ``id`` column is deliberately out of scope for cross-format consistency.
+
+    WHY inline ``<style>`` + stdlib ``html.escape`` ONLY: the point of the ``html``
+    format is a *shareable* artifact a non-terminal stakeholder can open in a browser
+    or paste into a wiki/PR, so the document must be SELF-CONTAINED -- no external
+    stylesheet/font/CDN/script (it opens offline) and no markup injection. Every
+    dynamic cell (title, decision/category ``.value``) is routed through
+    ``html.escape`` (default ``quote=True``, so a ``\"`` in a title becomes ``&quot;``);
+    any synthesizer-produced title round-trips as visible text and can never break
+    the table or smuggle a tag. ``html`` is stdlib, so the pydantic-v2-only runtime
+    dependency rule is honored.
+
+    An empty slate degrades to a well-formed document with the header table plus a
+    single ``(no candidate goals)`` row (mirroring ``_render_table`` /
+    ``_render_markdown``, NOT the bare data stream of ``csv`` / ``json`` -- ``html``
+    is a rendered presentation format). Like those two the marker keys off the FULL
+    ``slate.goals``, so it fires iff the WHOLE slate is empty, independent of ``top``.
+
+    ``top`` caps the emitted DATA rows to the first N ranked pairs (identical slice
+    discipline to the other renderers); ``None`` shows all. The persisted slate file
+    is ALWAYS the complete record regardless of ``top`` (that write is ``_cmd_scan``'s
+    job, not this pure renderer's). Returns the document with NO trailing newline; the
+    caller ``print``s it, so stdout ends with exactly one ``\n`` after ``</html>``.
+    """
+    pairs = list(zip(slate.ranked(), decisions))
+    if top is not None:
+        pairs = pairs[:top]
+    body_rows = [
+        "    <tr>"
+        f"<td>{rank}</td>"
+        f"<td>{html.escape(decision.decision.value)}</td>"
+        f"<td>{goal.score:.2f}</td>"
+        f"<td>{html.escape(goal.category.value)}</td>"
+        f"<td>{html.escape(goal.title)}</td>"
+        "</tr>"
+        for rank, (goal, decision) in enumerate(pairs, start=1)
+    ]
+    if not slate.goals:
+        # Empty-slate marker: one row spanning all five columns whose text content is
+        # exactly ``(no candidate goals)`` (behavior 9), mirroring table/markdown. It
+        # keys off the FULL slate, so an empty slate always shows it regardless of top.
+        body_rows = ['    <tr><td colspan="5">(no candidate goals)</td></tr>']
+    return "\n".join(
+        [
+            "<!DOCTYPE html>",
+            '<html lang="en">',
+            "<head>",
+            '<meta charset="utf-8">',
+            "<title>Proactive goal slate</title>",
+            "<style>",
+            _HTML_STYLE,
+            "</style>",
+            "</head>",
+            "<body>",
+            "<h1>Proactive goal slate</h1>",
+            "<table>",
+            "  <thead>",
+            "    <tr><th>#</th><th>decision</th><th>score</th>"
+            "<th>category</th><th>title</th></tr>",
+            "  </thead>",
+            "  <tbody>",
+            *body_rows,
+            "  </tbody>",
+            "</table>",
+            "</body>",
+            "</html>",
+        ]
+    )
 
 
 def _render_run_summary(
@@ -1622,16 +1721,17 @@ def _dispatch_goal(
 
 
 def _cmd_scan(args: argparse.Namespace) -> int:
-    """scan: collect -> synthesize -> gate -> render (table|json|markdown|csv) -> write slate JSON.
+    """scan: collect -> synthesize -> gate -> render (table|json|markdown|csv|html) -> write slate JSON.
 
     ``--format`` selects the STDOUT rendering only; every format writes the
     identical slate file to ``--out`` (behavior 10), so a later
     ``dispatch``/``explain``/``trace`` behaves the same regardless of which format
-    printed it. ``json`` and ``csv`` are the pure data-stream formats that suppress
-    the ``slate written:`` trailer (and the ``--top`` truncation note) so their whole
-    stdout is a single machine-parseable document -- ``json`` pipes cleanly into
-    ``jq``, ``csv`` loads with ``pandas.read_csv`` / a spreadsheet; ``table`` (the
-    default) and ``markdown`` keep the human trailer. The ``table`` branch is the
+    printed it. ``json``, ``csv``, and ``html`` are the pure-document formats that
+    suppress the ``slate written:`` trailer (and the ``--top`` truncation note) so
+    their whole stdout is a single self-contained document -- ``json`` pipes cleanly
+    into ``jq``, ``csv`` loads with ``pandas.read_csv`` / a spreadsheet, ``html`` opens
+    in a browser (or pastes into a wiki/PR); ``table`` (the default) and ``markdown``
+    keep the human trailer. The ``table`` branch is the
     pre-existing code path verbatim, so a bare ``scan`` and ``scan --format table``
     are byte-for-byte identical (behaviors 1-2).
     """
@@ -1684,6 +1784,17 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         # row that `csv.reader` might surface. `--top` caps the emitted rows while
         # `_write_slate` still persists the COMPLETE slate (behaviors 5, 6).
         sys.stdout.write(_render_csv(slate, decisions, top=args.top))
+        _write_slate(slate, out)
+        return 0
+    if args.format == "html":
+        # A self-contained, dependency-free HTML document (json/csv-style purity):
+        # NO `slate written:` trailer and NO `... showing top N of M` note, so the
+        # ENTIRE stdout is one standalone .html file a non-terminal stakeholder can
+        # open in a browser or paste into a wiki/PR. `print` appends exactly one
+        # trailing newline after `</html>` (behavior 2 permits it) so the redirected
+        # file is well-formed. `--top` caps the shown rows while `_write_slate` still
+        # persists the COMPLETE slate (behaviors 6, 8).
+        print(_render_html(slate, decisions, top=args.top))
         _write_slate(slate, out)
         return 0
     # table (default) and markdown share the human trailer; only the renderer

@@ -73,7 +73,7 @@ automatically.
 
 | Command   | What it does                                                              |
 |-----------|---------------------------------------------------------------------------|
-| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv`; `--top N` caps the printed rows, the written slate stays complete), write slate JSON.|
+| `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete), write slate JSON.|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--yes` confirms approval).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal.          |
 | `resume`  | Load a checkpoint from a run dir and continue the loop.                   |
@@ -144,11 +144,19 @@ printed it):
   title, so a consumer recovers it exactly (unlike `markdown`, which collapses
   whitespace); an empty slate emits the header row only. Sort by score, filter to
   `needs_approval`, or pivot a slate by category in one `read_csv`.
+- `html` — one self-contained, dependency-free HTML document (inline `<style>`
+  only; no external stylesheet/font/script) for a stakeholder who is not at a
+  shell: `pla scan --workspace W --format html > slate.html` opens directly in a
+  browser or pastes into a wiki/PR. Same fixed 5-column table (`#`, `decision`,
+  `score`, `category`, `title`), one row per ranked goal, every cell escaped via
+  stdlib `html.escape` so a title's markup renders as text (never injects). Like
+  `csv`/`json` it is a pure document (no trailer/note); like `table`/`markdown` an
+  empty slate shows a single `(no candidate goals)` row.
 
 An invalid `--format` value is rejected by argparse as a usage error (exit 2).
 
 `scan --top N` caps the STDOUT rendering to the N highest-ranked goals (across
-all four `--format` values), while the slate file it writes always stays the
+all five `--format` values), while the slate file it writes always stays the
 **complete** record — stdout is a view, the file is the record, so
 `dispatch`/`explain`/`diff`/`runs` still operate on every goal. `--top` slices
 the existing ranked order (it never re-orders): `table`/`markdown` print a
