@@ -48,6 +48,7 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
 uv sync        # install the locked dependency set (pydantic + pytest)
 make demo      # scan the fixture workspace and auto-dispatch the top goal
 make test      # run the full offline test suite
+make cov       # run the suite with a coverage report (term-missing)
 ```
 
 `make demo` runs:
