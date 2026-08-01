@@ -24,7 +24,8 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
 
 - **L2 scout** turns raw context (recent files, git activity, uncommitted &
   unpushed working-tree changes, interrupted git operations (merge / rebase /
-  cherry-pick / revert, detached HEAD), `TODO`/`FIXME` comments, notes,
+  cherry-pick / revert, detached HEAD), forgotten `git stash` entries,
+  `TODO`/`FIXME` comments, notes,
   dependency manifests, untested source directories, leftover merge-conflict
   markers in committed files, large files past a size threshold,
   secret-shaped files (`.env`, private keys, credentials)) into a ranked list of

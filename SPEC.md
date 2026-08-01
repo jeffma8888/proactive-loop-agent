@@ -187,6 +187,29 @@ class Collector(Protocol):
   to propose finishing or aborting the operation. (Additive collector, exactly
   like iters 09/11/16 — a new `kind` flows into synthesis via `by_kind()` with
   zero synthesizer change, so no version bump.)
+- `git_stash.py: GitStashCollector(name="git_stash", max_items=30)` —
+  shelved-work git companion completing the git-perception family alongside
+  `git_activity` (committed past), `working_tree` (present diff/unpushed), and
+  `git_state` (interrupted operations). Reads the stash reflog marker file
+  **`.git/logs/refs/stash` with `pathlib` only** (same discipline as
+  `git_state` — NO `subprocess`, NO `git stash list`, NO network) for `root`
+  and each direct child dir whose `.git` is a directory, surfacing changes the
+  user deliberately stashed and forgot (invisible to `git status`/`git log`).
+  A repo with N (>=1) non-blank reflog lines emits ONE `kind="git_stash"`
+  signal with `weight=0.6`, `path=None`, `timestamp=None`, summary
+  `"<repo>: N stash entr{y|ies} (latest: <newest-message>)"` and `detail` the
+  messages newest-first (reflog is chronological, so the last line is the
+  newest = `stash@{0}`), capped at `max_items`. Each stash message is the text
+  after the first tab of its reflog line, kept verbatim (a tab-less line
+  degrades to the whole line). A repo with no reflog / an empty or
+  whitespace-only reflog emits nothing; a `.git` that is a *file*
+  (worktree/submodule pointer) is skipped, not followed; decode uses
+  `errors="replace"` so non-UTF-8 bytes degrade gracefully. Output is sorted
+  by `summary` ascending and the signal count is capped at `max_items`. Never
+  raises -> `[]`. Reports facts only (count + messages); the synthesizer judges
+  whether to propose reviewing or dropping a stale stash. (Additive collector,
+  exactly like iters 09/11/16/28/37/42 — a new `kind` flows into synthesis via
+  `by_kind()` with zero synthesizer change, so no version bump.)
 - `test_posture.py: TestPostureCollector(name="test_posture", max_items=20)` —
   walk `root` (same skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/
   `_is_hidden`) and emit one `kind="test_posture"` signal per top-level project
