@@ -327,6 +327,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Scan then auto-dispatch only the single top AUTO_DISPATCH goal.",
     )
     p_run.add_argument("--workspace", required=True, help="Workspace root to scan.")
+    p_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Preview only: scan + gate + write the slate, print the single goal "
+            "`run` WOULD auto-dispatch (with a paste-ready `pla dispatch` command), "
+            "then STOP before executing the loop -- no run dir, no loop iteration."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -2017,6 +2026,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     if top is None:
         print("\nno auto-dispatchable goal in this slate; nothing to run.")
+        return 0
+
+    # --dry-run is the confirm-before-you-act preview twin of this sole
+    # autonomous verb: it has already done the identical scan+gate+render+write
+    # (and the needs-approval listing above), so the ONLY thing it skips is the
+    # dispatch itself. Print the goal `run` WOULD auto-dispatch plus a paste-ready
+    # command, then return 0 WITHOUT building a GoalLoop, a run dir, or spending a
+    # loop iteration -- the core safety property this flag exists to provide.
+    if args.dry_run:
+        print(f"\n[dry-run] would auto-dispatch top goal: {top.title}")
+        print(f"  pla dispatch --slate {slate_path} --goal-id {top.id}")
         return 0
 
     print(f"\nauto-dispatching top goal: {top.title}")

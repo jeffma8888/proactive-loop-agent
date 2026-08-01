@@ -621,10 +621,16 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count) + artifact paths.
-  - `pla run --workspace W` — scan then auto-dispatch the top AUTO_DISPATCH goal
-    (approval-gated goals are listed but never auto-run). Same `--workspace`
-    guard as `scan`: a missing/non-directory path -> `error: workspace not found: <path>`
-    on stderr + exit 2 (no slate written, no run dir created).
+  - `pla run --workspace W [--dry-run]` — scan then auto-dispatch the top
+    AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
+    `--workspace` guard as `scan`: a missing/non-directory path ->
+    `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
+    run dir created). `--dry-run` (optional, default off) is the preview twin: it
+    runs the identical scan+gate+render+write path (the slate IS written) but,
+    instead of dispatching, prints the single goal it WOULD auto-dispatch plus a
+    paste-ready `pla dispatch` command and returns 0 — building no GoalLoop, no run
+    dir, and spending no loop iteration (the one synthesize LLM call still occurs;
+    "dry" means no plan/act/check loop, not zero LLM calls).
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json]` — read-only, LLM-free lister of past dispatched runs
     under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,
