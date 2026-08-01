@@ -326,6 +326,27 @@ class Collector(Protocol):
   synthesizer judges whether to propose wiring up CI. (Additive collector,
   exactly like iters 09/11/16/20/28/37/42/53 — a new `kind` flows into synthesis
   via `by_kind()` with zero synthesizer change, so no version bump.)
+- `lockfile_drift.py: LockfileDriftCollector(name="lockfile_drift", max_items=30)` —
+  the first *relational* collector: it PAIRS each dependency manifest with its
+  sibling lockfile (checked in the SAME directory as the manifest) and emits one
+  `kind="lockfile_drift"` signal per manifest whose lockfile is **missing** or
+  **stale**. Recognized manifest → first-present-wins lockfile candidates:
+  `pyproject.toml` → `uv.lock`/`poetry.lock`/`Pipfile.lock`; `package.json` →
+  `package-lock.json`/`pnpm-lock.yaml`/`yarn.lock` (`requirements.txt` is NOT paired
+  — it is itself the pin). "missing" = no candidate lock beside the manifest →
+  `summary="<rel>: manifest has no lockfile"`; "stale" = strictly
+  `manifest.st_mtime > lock.st_mtime` (equal counts as fresh, so a freshly-regenerated
+  lock is never nagged) → `summary="<rel>: manifest newer than <lockrel>"`. Every
+  signal: `weight=0.6`, `detail=""`, `path=str(manifest)`, `timestamp=None`; `<rel>`/
+  `<lockrel>` are forward-slashed paths relative to `root`. Same `_SKIP_DIRS`/
+  `_is_hidden` dir-prune as the sibling filesystem collectors; output sorted by `<rel>`
+  ascending and capped at `max_items`. **Presence + mtime only — NEVER opens manifest
+  or lockfile CONTENT** (no hash/version comparison), so it cannot raise on binary
+  bytes and no file contents can leak into a signal. Pure stdlib (`os`/`pathlib`),
+  never raises → `[]`. Reports facts only; the synthesizer judges whether to propose
+  regenerating the lock. (Additive collector, exactly like iters 09/11/16/20/28/37/42/53/63
+  — a new `kind` flows into synthesis via `by_kind()` with zero synthesizer change, so
+  no version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
@@ -873,7 +894,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     Human form lists every collector name-ascending, one per line as
     `name  description`. `--json` emits one object of EXACTLY one top-level key
     `{collectors}` — an explicit allowlist (never `model_dump`; the iter-08
-    schema-leak discipline): `collectors` is a name-ascending array of 13
+    schema-leak discipline): `collectors` is a name-ascending array of 14
     `{name, description}` objects (exactly those two keys each). The catalog
     (`name → description`) is a hand-maintained map (mirroring `_TOOL_CATALOG` for
     `tools`); a test drift-guards its key set to equal `{c.name for c in

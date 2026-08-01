@@ -14,6 +14,7 @@ from proactive_loop.collectors.git_activity import GitActivityCollector
 from proactive_loop.collectors.git_state import GitStateCollector
 from proactive_loop.collectors.git_stash import GitStashCollector
 from proactive_loop.collectors.large_file import LargeFileCollector
+from proactive_loop.collectors.lockfile_drift import LockfileDriftCollector
 from proactive_loop.collectors.merge_conflict import MergeConflictCollector
 from proactive_loop.collectors.notes import NotesCollector
 from proactive_loop.collectors.secret_file import SecretFileCollector
@@ -43,6 +44,7 @@ def all_collectors() -> list[Collector]:
         LargeFileCollector(),
         SecretFileCollector(),
         CiConfigCollector(),
+        LockfileDriftCollector(),
     ]
 
 
@@ -61,5 +63,6 @@ __all__ = [
     "LargeFileCollector",
     "SecretFileCollector",
     "CiConfigCollector",
+    "LockfileDriftCollector",
     "all_collectors",
 ]

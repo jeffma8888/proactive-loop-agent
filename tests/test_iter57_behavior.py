@@ -16,7 +16,7 @@ observable stdout / stderr / exit code), the public registry API
 ``proactive_loop.collectors.all_collectors()``, and the public
 ``proactive_loop.__version__`` string. **No file under ``src/`` was read, no
 engineer/reviewer notes were read, and no ``git diff`` was consulted.** The
-thirteen canonical collector names are encoded here as the spec-declared "Tester's
+fourteen canonical collector names are encoded here as the spec-declared "Tester's
 ground facts" (pm.md), NOT imported from any private catalog, so the tests
 encode the CONTRACT and would catch an implementation that silently drifts.
 Every test is fully offline: zero network, zero API keys, no live provider.
@@ -40,6 +40,7 @@ from proactive_loop.collectors import all_collectors
 
 CANONICAL_COLLECTORS = {
     "ci_config",
+    "lockfile_drift",
     "dependencies",
     "git_activity",
     "git_stash",
@@ -228,10 +229,10 @@ def test_b05_json_names_equal_sorted_canonical(capsys):
     obj = _collectors_json(capsys)
     names = [c["name"] for c in obj["collectors"]]
     assert names == sorted(CANONICAL_COLLECTORS), (
-        f"json names must equal sorted canonical 13 (no dups/extras, ascending); "
+        f"json names must equal sorted canonical 14 (no dups/extras, ascending); "
         f"got {names}"
     )
-    assert len(names) == 13
+    assert len(names) == 14
 
 
 # ==========================================================================
@@ -343,8 +344,8 @@ def test_b10_version_unchanged():
     )
 
 
-def test_b10_registry_unchanged_thirteen_collectors():
-    assert len(all_collectors()) == 13, "the collector registry must still have 13 entries"
+def test_b10_registry_unchanged_fourteen_collectors():
+    assert len(all_collectors()) == 14, "the collector registry must still have 14 entries"
     assert {c.name for c in all_collectors()} == CANONICAL_COLLECTORS, (
         "the collector registry name set must be unchanged (verb adds no collector)"
     )

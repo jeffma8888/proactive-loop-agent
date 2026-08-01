@@ -1757,6 +1757,7 @@ _COLLECTOR_CATALOG: dict[str, str] = {
     "git_stash": "Forgotten entries sitting in the git stash reflog.",
     "git_state": "Interrupted or dangling git operations read from .git markers.",
     "large_file": "Files at or above a byte-size threshold worth a second look.",
+    "lockfile_drift": "Manifest/lockfile drift: a manifest whose lockfile is missing or older than it.",
     "merge_conflict": "Files still carrying unresolved conflict markers.",
     "notes": "Heading-and-paragraph blocks found in notes directories.",
     "recent_files": "Files modified most recently under the workspace.",
@@ -2364,7 +2365,7 @@ def _cmd_collectors(args: argparse.Namespace) -> int:
     """collectors: print the L2 perception surface (read-only, LLM-free, zero-input).
 
     WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
-    the collector SET is STATIC (the thirteen registered collectors and their
+    the collector SET is STATIC (the fourteen registered collectors and their
     curated descriptions do not depend on any env override, workspace, signal, or
     LLM). So this handler resolves no settings, builds no ``create_client`` (an
     inert/bad ``--scripted-responses`` path is simply never opened -- exit 0, not

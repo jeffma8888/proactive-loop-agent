@@ -36,7 +36,8 @@ from proactive_loop.collectors import all_collectors
 from proactive_loop.loop.tools import ToolRegistry
 
 # --- spec-declared ground facts (encoded here, NOT imported from any private catalog) ---
-EXPECTED_COUNT = 13
+EXPECTED_COUNT = 13  # TOOLS count (pla tools --json / SPEC tools shape)
+EXPECTED_COLLECTOR_COUNT = 14  # COLLECTORS count; decoupled once a collector was added without a tool
 
 CANONICAL_TOOLS = {
     "write_file",
@@ -56,6 +57,7 @@ CANONICAL_TOOLS = {
 
 CANONICAL_COLLECTORS = {
     "ci_config",
+    "lockfile_drift",
     "dependencies",
     "git_activity",
     "git_stash",
@@ -143,18 +145,18 @@ def test_eb1_tools_json_emits_thirteen_objects(capsys) -> None:
 
 
 # ===========================================================================
-# Behavior 2 --- `pla collectors --json` emits exactly 13 collector objects (shape)
+# Behavior 2 --- `pla collectors --json` emits exactly 14 collector objects (shape)
 # ===========================================================================
 
 
-def test_eb2_collectors_json_emits_thirteen_objects(capsys) -> None:
+def test_eb2_collectors_json_emits_fourteen_objects(capsys) -> None:
     obj = _collectors_json(capsys)
     assert set(obj.keys()) == {"collectors"}, obj.keys()
 
     collectors = obj["collectors"]
     assert isinstance(collectors, list), type(collectors)
-    assert len(collectors) == EXPECTED_COUNT, (
-        f"`pla collectors --json` must emit {EXPECTED_COUNT} objects; got {len(collectors)}"
+    assert len(collectors) == EXPECTED_COLLECTOR_COUNT, (
+        f"`pla collectors --json` must emit {EXPECTED_COLLECTOR_COUNT} objects; got {len(collectors)}"
     )
 
     # Each object keeps EXACTLY {name, description}.
@@ -221,8 +223,8 @@ def test_eb4_spec_collector_count_matches_live_registry(capsys) -> None:
     )
     n = int(matches[0])
 
-    assert n == EXPECTED_COUNT, (
-        f"SPEC collectors-catalog-shape count is {n}; expected {EXPECTED_COUNT} "
+    assert n == EXPECTED_COLLECTOR_COUNT, (
+        f"SPEC collectors-catalog-shape count is {n}; expected {EXPECTED_COLLECTOR_COUNT} "
         f"(SPEC prose drifted from the code)"
     )
     assert n == len(all_collectors()), (

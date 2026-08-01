@@ -29,9 +29,9 @@ class TestCatalogDriftGuard:
         # ToolRegistry.tool_names()). This is the load-bearing correctness claim.
         assert set(_COLLECTOR_CATALOG) == {c.name for c in all_collectors()}
 
-    def test_catalog_has_thirteen_entries(self) -> None:
-        assert len(_COLLECTOR_CATALOG) == 13
-        assert len(all_collectors()) == 13
+    def test_catalog_has_fourteen_entries(self) -> None:
+        assert len(_COLLECTOR_CATALOG) == 14
+        assert len(all_collectors()) == 14
 
     def test_every_description_is_a_non_empty_string(self) -> None:
         for name, description in _COLLECTOR_CATALOG.items():
