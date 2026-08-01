@@ -720,22 +720,34 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     dir with no loadable checkpoint degrades to a `(no checkpoint)` row rather
     than aborting. Makes `resume --run-dir DIR`'s argument discoverable. `--json`
     emits a parseable array (`[]` when empty). Builds no `LLMClient`.
-  - `pla explain --slate slate.json --goal-id ID` — read-only, LLM-free auditor
-    of ONE goal in a saved slate: prints its score arithmetic
+  - `pla explain --slate slate.json [--goal-id ID]` — read-only, LLM-free auditor
+    of a saved slate. `--goal-id` is **optional**: given, it audits ONE goal;
+    omitted, it audits the WHOLE slate in `ranked()` order in one pass (so a
+    script/CI can ask the slate-level safety question — "did ANY sensitive goal
+    resolve AUTO_DISPATCH?" — without shelling out per id). For each audited goal
+    it prints its score arithmetic
     (`impact * urgency * confidence / effort_weight = score`, echoing the model's
     computed `score`), the live `gate(goal, settings)` decision + the rule that
     fired + the auto-dispatch threshold it was compared against (so `explain` and
-    a later `dispatch` agree), and the goal's rationale/sources/first-steps.
-    `--json` emits one object of exactly the 12 keys `id, title, category, score,
-    score_components{impact,urgency,confidence,effort_weight}, auto_dispatch_threshold,
-    decision, reason, appropriate_now, rationale, sources, suggested_first_steps` —
-    built from an explicit allowlist (never `model_dump`; the iter-08 schema-leak
-    discipline), with `category`/`decision` as their str-Enum `.value`, `score`
-    echoing the computed field, and `sources`/`suggested_first_steps` as JSON arrays
-    (`[]` when empty, not the human `(none)` marker), so it pipes cleanly into `jq`.
-    Missing slate or unknown id → exit 2; a corrupt slate → exit 1 via the
-    `main()` boundary (all before any rendering, so the exit contract is
-    `--json`-independent). Builds no `LLMClient`.
+    a later `dispatch` agree), and the goal's rationale/sources/first-steps. In
+    whole-slate human form the per-goal blocks are joined by a single blank line
+    (an empty slate prints exactly `(no goals in slate)`).
+    `--json` emits, for a single goal, one object of exactly the 12 keys `id, title,
+    category, score, score_components{impact,urgency,confidence,effort_weight},
+    auto_dispatch_threshold, decision, reason, appropriate_now, rationale, sources,
+    suggested_first_steps`; for the whole slate it emits a JSON **array** of those
+    same 12-key objects in `ranked()` order (`[]` when empty). The object-vs-array
+    distinction is load-bearing (a `jq`/CI consumer keys on it): single-goal =
+    object, whole-slate = array. Each object is built from an explicit allowlist
+    (never `model_dump`; the iter-08 schema-leak discipline), with
+    `category`/`decision` as their str-Enum `.value`, `score` echoing the computed
+    field, and `sources`/`suggested_first_steps` as JSON arrays (`[]` when empty,
+    not the human `(none)` marker), so it pipes cleanly into `jq`. Missing slate
+    file → exit 2 (via the handler guard, on both scopes); an unknown `--goal-id`
+    → exit 2 (single-goal only; the whole-slate path names no id, so it has no
+    unknown-id case); a corrupt slate → exit 1 via the `main()` boundary (all
+    before any rendering, so the exit contract is `--json`-independent). `--slate`
+    stays required. Builds no `LLMClient`.
   - `pla trace --run-dir DIR [--json]` — read-only, LLM-free renderer of ONE
     dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
     `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,

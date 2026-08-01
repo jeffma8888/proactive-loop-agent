@@ -129,17 +129,22 @@ def test_behavior1b_explain_help_exits_zero_documents_required_options(capsys):
     assert "--goal-id" in out, f"explain --help must document --goal-id; got:\n{out}"
 
 
-def test_behavior1c_missing_goal_id_is_argparse_usage_error(capsys):
-    # --slate present, --goal-id absent -> argparse "required argument" error:
-    # a nonzero SystemExit with usage on stderr, NOT a traceback.
-    with pytest.raises(SystemExit) as excinfo:
-        main(["explain", "--slate", "/whatever.json"])
-    assert excinfo.value.code not in (0, None), (
-        f"missing --goal-id must be a nonzero usage error, got {excinfo.value.code!r}"
-    )
+def test_behavior1c_missing_goal_id_reaches_handler_not_argparse(tmp_path, capsys):
+    # CONTRACT CHANGE (iter-72, behavior 6): --goal-id is now OPTIONAL, so omitting
+    # it with --slate present is NO LONGER an argparse usage error. It reaches the
+    # _cmd_explain missing-file guard, which returns exit 2 with a legible
+    # `error: slate file not found: <path>` line -- NOT a parse-time usage error and
+    # NOT a traceback. (This intentionally supersedes the old "omitting --goal-id is
+    # an argparse usage error" contract; --slate stays required -- see behavior 7.)
+    missing = tmp_path / "does-not-exist.json"
+    rc = main(["explain", "--slate", str(missing)])
+    assert rc == 2, f"missing slate file with no --goal-id must exit 2 (handler guard), got {rc}"
     err = capsys.readouterr().err
-    assert "usage:" in err, f"missing --goal-id must print usage to stderr; got:\n{err}"
-    assert _TRACEBACK not in err, f"argparse error must not traceback; got:\n{err}"
+    assert f"error: slate file not found: {missing}" in err, (
+        f"must be the handler's not-found line, not an argparse usage error; got:\n{err}"
+    )
+    assert "usage:" not in err, f"must NOT be an argparse usage error; got:\n{err}"
+    assert _TRACEBACK not in err, f"handler guard must not traceback; got:\n{err}"
 
 
 def test_behavior1d_missing_slate_is_argparse_usage_error(capsys):
