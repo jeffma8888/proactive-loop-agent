@@ -840,6 +840,10 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     fails fast with `error: workspace not found: <path>` on stderr + exit 2 (the
     verbatim iter-10 guard, before any client/collect and before consuming a
     scripted response). Explicitly returns 0 (never `run_periodic`'s scan count).
+    Resilient by design: a single scan that raises (an exhausted L0 retry or a
+    non-retryable model fault) is caught via `run_periodic`'s `on_error` hook,
+    logged to stderr as `scan <n> failed: <exc>`, and the watch continues to the
+    next tick — a transient outage on one scan never kills the long-lived watcher.
     No `--out`/`--format`; no slate-file writing (that is `scan`'s job).
   - `pla diff --old A.json --new B.json [--json]` — read-only, LLM-free
     slate-delta inspector: the comparative companion to `watch`, turning a stream
@@ -1008,8 +1012,12 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     collector that raises is logged at WARNING (naming its `name`) and contributes
     `[]` while the surviving collectors' signals are preserved — a buggy collector
     degrades the scan, never aborts it.
-- `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep)`
+- `scheduler.py`: `run_periodic(scan_fn, interval_sec, *, iterations=None, sleep=time.sleep, on_error=None)`
   — calls scan_fn every interval; iterations=None → forever; injectable for tests.
+  `on_error(scan_number, exc)` (default `None` = propagate, backward compatible)
+  isolates a single failing scan in a `try/except Exception` (never `BaseException`,
+  so Ctrl-C/`SystemExit` still stop the loop; wraps only `scan_fn()`, never
+  `sleep()`) and continues to the next tick — resilient by design.
 - `examples/fixture_workspace/`: `projects/ai-experiments/{agent.py,eval_harness.py}`
   (realistic code w/ TODO/FIXME), `projects/api-gateway/server.py`, `notes/journal.md`
   (AI-learning + job-search-flavored entries, personal-project voice, NO real names/

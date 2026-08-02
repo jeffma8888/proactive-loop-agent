@@ -20,6 +20,7 @@ def run_periodic(
     *,
     iterations: int | None = None,
     sleep: Callable[[float], object] = time.sleep,
+    on_error: Callable[[int, Exception], None] | None = None,
 ) -> int:
     """Call *scan_fn* every *interval_sec* seconds, returning the number of scans.
 
@@ -31,11 +32,34 @@ def run_periodic(
     The wait is placed BETWEEN scans, never after the final one: a bounded run of
     N iterations sleeps N-1 times, so it returns promptly instead of idling for a
     last, pointless interval.
+
+    *on_error* makes the loop resilient by design (the product's L0 promise): when
+    it is ``None`` (the default) any exception ``scan_fn`` raises PROPAGATES -- the
+    exact prior contract, so every existing caller is unchanged. When provided, a
+    single failing scan is isolated: ``on_error(scan_number, exc)`` is called with
+    the 1-based number of the scan that raised and the exception instance, then the
+    loop CONTINUES to the next tick, so one transient scan failure (e.g. an
+    exhausted retry inside a long-lived watcher) can never tear down the whole run.
+    Only ``Exception`` is caught, never ``BaseException``, so a
+    ``KeyboardInterrupt``/``SystemExit`` still stops even a resilient loop; and the
+    guard wraps ONLY ``scan_fn()``, never ``sleep()``, so a raising injected
+    ``sleep`` can still break an otherwise-infinite loop.
     """
     count = 0
     while iterations is None or count < iterations:
-        scan_fn()
+        # Increment BEFORE the scan so a failing scan still counts as an attempt,
+        # and the number handed to on_error matches the scan that raised.
         count += 1
+        try:
+            scan_fn()
+        except Exception as exc:  # noqa: BLE001 - deliberate: isolate one failing scan
+            # Resilient by design: with on_error set, one bad scan degrades the run
+            # (surfaced via the hook) but never aborts a long-lived watcher; with no
+            # hook the exact prior propagate contract is preserved. Exception, NOT
+            # BaseException, so Ctrl-C / SystemExit still stop the loop.
+            if on_error is None:
+                raise
+            on_error(count, exc)
         if iterations is not None and count >= iterations:
             break
         sleep(interval_sec)

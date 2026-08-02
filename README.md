@@ -118,7 +118,9 @@ like `--top`: `--interval` must be a finite non-negative number (`>= 0`; `0` is 
 runs need no real wait) and `--max-scans` must be a positive integer, so a bad
 value fails fast with an exit-2 usage error before any scan runs. It is a live
 monitor — unlike `scan` it writes no slate file and prints no `slate written:`
-trailer.
+trailer. A single failed scan (an exhausted retry or a non-retryable model fault)
+is logged to stderr as `scan <n> failed: …` and the watch rides on to the next
+tick, so a transient outage never kills the long-lived loop.
 
 `diff` is the comparative companion to `watch`: hand it two saved slates (`--old`/`--new`) and it classifies goals as added / removed / changed (the score moved past `1e-9` or the gate decision flipped) / unchanged, matched by normalized title (`title.strip().lower()`) rather than the random per-scan id — turning a stream of point-in-time slates into a change feed. It re-gates each side live, so a goal that crossed the autonomy threshold shows up in `changed`. `--json` emits one `{old, new, added, removed, changed, unchanged_count}` object. Like the other inspectors it builds no `LLMClient`, runs nothing, and writes no file.
 

@@ -2432,6 +2432,11 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     and NOT ``run_periodic``'s scan count -- returning the count would wrongly
     surface as a nonzero exit code (e.g. 2 for a 2-scan run) through ``main()``'s
     ``int()`` cast.
+
+    Resilient by design: a single scan that raises (an exhausted L0 retry or a
+    non-retryable model fault) is caught by ``run_periodic``'s ``on_error`` hook,
+    logged to stderr as ``scan <n> failed: <exc>``, and the watch continues to the
+    next tick -- a transient outage on one scan never kills the long-lived watcher.
     """
     workspace = Path(args.workspace)
     # Same front-door guard as scan/run/signals (verbatim iter-10): reject a
@@ -2459,7 +2464,17 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         decisions = gate_slate(slate, settings)
         print(_render_table(slate, decisions))
 
-    run_periodic(scan_once, args.interval, iterations=args.max_scans)
+    def _on_scan_error(scan_number: int, exc: Exception) -> None:
+        # Resilient by design (SPEC L0): a scan whose synthesize() exhausts the L0
+        # retry budget or hits a non-retryable model fault must not kill a
+        # long-lived watcher. Log it and let run_periodic continue to the next tick.
+        # NOT the `error:` prefix (reserved for the fatal exit-1 boundary in
+        # main()); a failed scan is transient, so this is a plain per-tick note.
+        print(f"scan {scan_number} failed: {exc}", file=sys.stderr)
+
+    run_periodic(
+        scan_once, args.interval, iterations=args.max_scans, on_error=_on_scan_error
+    )
     return 0
 
 
