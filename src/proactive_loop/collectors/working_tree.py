@@ -177,8 +177,13 @@ class WorkingTreeCollector:
         all of them (identical strategy to GitActivityCollector).
         """
         dirs: list[Path] = [root]
+        # Scan child repos in ascending name order (`sorted`) so a multi-repo
+        # workspace's cross-repo unpushed-summary signal order is deterministic
+        # (filesystem iterdir order is arbitrary); the `sorted()` stays INSIDE
+        # the try/except so an OSError raised while it eagerly consumes the
+        # iterator degrades to root-only exactly as before.
         try:
-            for child in root.iterdir():
+            for child in sorted(root.iterdir()):
                 if (
                     child.is_dir()
                     and (child / ".git").exists()

@@ -186,8 +186,10 @@ class Collector(Protocol):
   facts (ecosystem, manifest, declared-dep count) only; the synthesizer judges.
 - `working_tree.py: WorkingTreeCollector(name="working_tree", max_items=30)` —
   present-state git companion to `git_activity` (which sees only the committed
-  past). `git -C <dir> status --porcelain` via subprocess for `root` and each
-  direct child dir that has `.git`; emits one `kind="working_tree"` signal per
+  past). `git -C <dir> status --porcelain` via subprocess for `root` (scanned
+  first) and each direct child dir that has `.git`, the children scanned in
+  ascending name order (`sorted`) so cross-repo signal order is deterministic;
+  emits one `kind="working_tree"` signal per
   changed path (tracked change or untracked file; per-path signals capped at
   `max_items`) plus at most one summary signal counting unpushed local commits.
   Unpushed detection reads ONLY the local tracking ref (`git rev-list --count
