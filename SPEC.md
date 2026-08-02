@@ -165,7 +165,8 @@ class Collector(Protocol):
   dir/tool — degrade to `[]`.
 - `filesystem.py: RecentFilesCollector(name="recent_files", max_files=20, within_days=14)`
   — walk `root`, skip hidden dirs / `node_modules` / `.venv` / `__pycache__`,
-  emit one signal per recently-modified file, `kind="recent_file"`, weight by recency.
+  emit one signal per recently-modified file, `kind="recent_file"`, weight by recency
+  (clamped to `[0, 1]`, so a future `mtime` from clock skew cannot exceed 1.0).
 - `git_activity.py: GitActivityCollector(name="git_activity", max_commits=15)` —
   `git -C <dir> log --pretty=...` via subprocess for `root` and each direct child dir
   that has `.git`; `kind="git_commit"`; return `[]` if git missing/not a repo.

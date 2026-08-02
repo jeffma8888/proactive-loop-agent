@@ -78,8 +78,10 @@ class RecentFilesCollector:
         signals: list[ContextSignal] = []
         for mtime, path in candidates:
             age_days = (now - mtime) / 86_400
-            # Weight decays linearly from 1.0 (just modified) to ~0.07 at within_days.
-            weight = max(0.0, 1.0 - age_days / max(self.within_days, 1))
+            # Weight decays linearly from 1.0 (just modified) to ~0.07 at within_days,
+            # clamped to [0, 1] so a future mtime (clock skew / archive extraction)
+            # cannot push the weight above 1.0 and over-rank the file.
+            weight = min(1.0, max(0.0, 1.0 - age_days / max(self.within_days, 1)))
             try:
                 rel = path.relative_to(root)
             except ValueError:
