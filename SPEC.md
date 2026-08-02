@@ -68,7 +68,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy / tools / collectors
+│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy / tools / collectors / providers
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -919,6 +919,48 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     perceivers exist) → signals (raw output for a workspace) → scan (proposals) →
     explain (why THIS goal) → trace (what a run did). Additive verb (iter-57) — no
     existing verb behavior changes, so **no version bump**.
+  - `pla providers [--json]` — read-only, LLM-free, zero-input catalog of the L0
+    LLM-BACKEND surface: every accepted provider (`VALID_PROVIDERS`) + its
+    offline/cloud kind + the pip package that fulfils it (or `null` for the
+    built-in `scripted` client) + a one-line description, so a reader of this
+    public repo can answer "what can I run against, and what do I `pip install` for
+    each?" WITHOUT running anything. It is the L0 / provider-abstraction analogue of
+    `policy` (L2 autonomy rules), `collectors` (L2 perception), and `tools` (L1
+    action surface): the FOURTH architectural seam, until now the only one with no
+    catalog window (the provider surface was discoverable only by reading this
+    section or by picking a provider and hitting the reactive missing-SDK error).
+    Takes NO `--workspace` and no positional argument (the provider surface is
+    static and context-free); inherits the shared `globals_` parent so
+    `--provider`/`--scripted-responses`/`--state-dir` are ACCEPTED but INERT — it
+    builds no `LLMClient` (so a bad `--provider` is never validated and an
+    inert/nonexistent `--scripted-responses` is never opened → exit 0, unlike a
+    client-building verb's eager-load exit 1), resolves no settings, runs no
+    collector, and touches no filesystem, so it structurally cannot regress any
+    existing behavior (the same envelope as `policy`/`tools`/`collectors`). Human
+    form lists every provider name-ascending, one per line, each line carrying its
+    `kind` token (`offline`/`cloud`) and its install target (`pip install <pkg>`, or
+    `(built-in)` for `scripted`) — the `bedrock` line names `boto3` (the pip
+    package differs from the provider label). `kind` is the offline-vs-cloud split:
+    `scripted` and `ollama` are `offline` (local, no API key, no network egress),
+    while `anthropic`/`openai`/`bedrock`/`groq`/`together` are `cloud`. `package` is
+    the pip install target: `scripted` → `null` (built-in, no SDK); `anthropic` →
+    `anthropic`; `openai` → `openai`; `bedrock` → `boto3` (NOT `bedrock`); `ollama`
+    → `ollama`; `groq` → `groq`; `together` → `together` — matching the module each
+    live provider's `_require(module, provider)` call names. `--json` emits one
+    object of EXACTLY one top-level key `{providers}` — an explicit allowlist
+    (never `model_dump`; the iter-08 schema-leak discipline): `providers` is a
+    name-ascending array of 7 `{name, kind, package, description}` objects (exactly
+    those four keys each; `package` is a string OR `null`). The catalog
+    (`name → (kind, package, description)`) is a hand-maintained module-level map
+    (mirroring `_TOOL_CATALOG` for `tools`); a test drift-guards its key set to
+    equal `set(VALID_PROVIDERS)`, so a provider added to (or dropped from) the
+    registry without a matching catalog edit turns that guard RED, and the stated
+    array count `7` equals `len(VALID_PROVIDERS)` (the same SPEC-count guard `tools`
+    and `collectors` carry). Always exits 0 (no input to fail on). It closes the
+    transparency arc across all four architectural seams: policy (L2 autonomy
+    rules) → collectors (L2 perception) → tools (L1 action surface) → **providers**
+    (L0 LLM backend). Additive verb (iter-75) — no existing verb behavior changes,
+    so **no version bump**.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
     (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
     `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,

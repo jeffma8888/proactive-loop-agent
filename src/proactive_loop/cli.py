@@ -2,12 +2,13 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into thirteen verbs a person actually runs -- scan, dispatch, run, resume, the
+into fourteen verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
 transcript renderer, the read-only signals perception inspector, the periodic
 watch loop, the read-only diff slate-delta inspector, the read-only policy
-autonomy-contract catalog, the read-only tools sandbox-surface catalog, and the
-read-only collectors L2-perception catalog --
+autonomy-contract catalog, the read-only tools sandbox-surface catalog, the
+read-only collectors L2-perception catalog, and the read-only providers
+LLM-backend catalog --
 and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
@@ -601,6 +602,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the collector catalog as one JSON object instead of the human catalog.",
     )
     p_collectors.set_defaults(func=_cmd_collectors)
+
+    # `providers` prints the L0 LLM-BACKEND surface -- every accepted provider
+    # (`VALID_PROVIDERS`), its offline/cloud kind, the pip package that fulfils it
+    # (or none for the built-in `scripted` client), and a one-line description --
+    # with zero input: no --workspace, no slate, no LLM. It is the L0 /
+    # provider-abstraction analogue of `policy` (L2 autonomy rules), `collectors`
+    # (L2 perception), and `tools` (L1 action surface): the FOURTH architectural
+    # seam, until now the only one with no catalog window (the provider surface was
+    # discoverable only by reading SPEC or by picking a provider and hitting the
+    # reactive missing-SDK error). It inherits the globals so --provider/
+    # --scripted-responses/--state-dir are ACCEPTED but INERT (the handler builds no
+    # LLMClient -- so a bad --provider is never validated and an inert/nonexistent
+    # --scripted-responses is never opened, exit 0 not the eager-load exit 1 --
+    # resolves no settings, runs no collector, and opens no file), so a reviewer of
+    # this public repo can answer "what can I run against, and what do I pip install
+    # for each?" WITHOUT running anything. --json swaps the human catalog for one
+    # explicit-allowlist object. Deliberately NO --workspace and no positional arg.
+    p_providers = sub.add_parser(
+        "providers",
+        parents=[globals_],
+        help="Print the LLM provider backends: every accepted provider, its offline/cloud kind, and the pip package to install (read-only, LLM-free, no workspace).",
+    )
+    p_providers.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the provider catalog as one JSON object instead of the human catalog.",
+    )
+    p_providers.set_defaults(func=_cmd_providers)
 
     return parser
 
@@ -1865,6 +1894,87 @@ def _render_collectors() -> str:
     return "\n".join(lines)
 
 
+# The hand-maintained catalog of the L0 LLM-BACKEND surface: provider name -> a
+# (kind, package, description) triple. This is the ONE deliberate, acknowledged
+# doc-vs-code coupling of the `providers` verb (mirroring `_TOOL_CATALOG` for
+# `tools` and `_COLLECTOR_CATALOG` for `collectors`): the curated prose lives
+# here, NOT reflected out of the provider factory at runtime. What IS
+# source-driven is the completeness guard -- a test asserts this map's KEY SET
+# equals `set(VALID_PROVIDERS)`, so a provider added to (or dropped from) the
+# registry without a matching catalog edit turns that guard RED (the same
+# anti-rot discipline `_TOOL_CATALOG`/`_COLLECTOR_CATALOG` use). `kind` is the
+# offline/cloud split; `package` is the pip install target (str) or None for the
+# built-in `scripted` client -- and each `package` matches the module name the
+# live provider's `_require(module, provider)` call names, so the confusing
+# `bedrock` -> `boto3` label-vs-package divergence is surfaced honestly. Ordering
+# here is irrelevant -- both the JSON payload and the human render sort by name.
+_PROVIDER_CATALOG: dict[str, tuple[str, str | None, str]] = {
+    "scripted": ("offline", None, "Built-in offline test double: replays a recorded JSON script (no SDK, no key, no network)."),
+    "anthropic": ("cloud", "anthropic", "Anthropic Claude models via the official anthropic SDK."),
+    "openai": ("cloud", "openai", "OpenAI GPT models via the official openai SDK."),
+    "bedrock": ("cloud", "boto3", "AWS Bedrock-hosted models via boto3 (the pip package name differs from the provider label)."),
+    "ollama": ("offline", "ollama", "Locally-served open models on localhost via ollama (no API key, no network egress)."),
+    "groq": ("cloud", "groq", "Groq LPU-hosted open models (Llama/Mixtral) via the groq SDK."),
+    "together": ("cloud", "together", "Together AI-hosted open models (Llama/Mixtral) via the together SDK."),
+}
+
+
+def _providers_json_payload() -> dict:
+    """Build the ``providers --json`` document -- a pure, input-free function.
+
+    One object of EXACTLY one top-level key ``{providers}``, built from an
+    EXPLICIT allowlist (never ``model_dump``; the iter-08 schema-leak discipline):
+    ``providers`` is the ``_PROVIDER_CATALOG`` projected to a list of
+    ``{name, kind, package, description}`` objects with EXACTLY those four keys
+    each, ordered by ``name`` ascending (``sorted`` on the catalog items).
+    ``package`` is a ``str`` or JSON ``null`` (``scripted`` has no SDK to install).
+    The catalog is the single source for the emitted set, and a test drift-guards
+    its key set against ``set(VALID_PROVIDERS)`` so the wire set can never diverge
+    from the live provider registry. Disk-free and client-free -- the provider
+    surface is static, so no workspace / slate / ``LLMClient`` is consulted.
+    """
+    return {
+        "providers": [
+            {
+                "name": name,
+                "kind": kind,
+                "package": package,
+                "description": description,
+            }
+            for name, (kind, package, description) in sorted(_PROVIDER_CATALOG.items())
+        ],
+    }
+
+
+def _render_providers() -> str:
+    """Render the L0 LLM-backend surface as plain text (read-only, LLM-free).
+
+    A pure, disk-free, deterministic function -- like ``_render_tools`` it opens
+    no file and builds no client, so the exact human view is reproducible from the
+    module catalog alone. It lists every accepted provider name-ascending, one per
+    line, each line carrying its ``kind`` token (``offline``/``cloud``), its pip
+    install target (``pip install <pkg>``, or ``(built-in)`` for the SDK-less
+    ``scripted`` client -- so the ``bedrock`` line names ``boto3``, not its
+    label), and a one-line description, so a reader can answer "what can I run
+    against, and what do I ``pip install`` for each?" with no workspace and no LLM
+    call.
+    """
+    lines = [
+        "LLM provider backends (L0 / provider abstraction)",
+        "",
+        "the default backend is offline and built-in (no SDK, no API key, no",
+        "network); point at a live model with `--provider NAME`. a cloud backend",
+        "needs the named pip package installed and an API key; an offline backend",
+        "needs no key and sends nothing off the machine.",
+        "",
+        "providers (name / kind / install / description):",
+    ]
+    for name, (kind, package, description) in sorted(_PROVIDER_CATALOG.items()):
+        install = "(built-in)" if package is None else f"pip install {package}"
+        lines.append(f"  {name:<11}{kind:<9}{install:<24}{description}")
+    return "\n".join(lines)
+
+
 def _dispatch_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client
 ) -> int:
@@ -2471,6 +2581,32 @@ def _cmd_collectors(args: argparse.Namespace) -> int:
         print(json.dumps(_collectors_json_payload(), indent=2))
     else:
         print(_render_collectors())
+    return 0
+
+
+def _cmd_providers(args: argparse.Namespace) -> int:
+    """providers: print the L0 LLM-backend surface (read-only, LLM-free, zero-input).
+
+    WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
+    the provider surface is STATIC (the accepted providers, their offline/cloud
+    kind, and the pip package each needs do not depend on any env override,
+    workspace, slate, or LLM). So this handler resolves no settings, builds no
+    ``create_client`` (so a bad ``--provider`` is never validated and an
+    inert/nonexistent ``--scripted-responses`` path is never opened -- exit 0, not
+    the eager-load exit 1 a client-building verb would give), runs no collector,
+    and touches no filesystem. It structurally cannot regress any existing behavior
+    -- the same envelope that made ``policy``/``tools``/``collectors`` a clean ship.
+    It always returns 0; ``--json`` swaps the human catalog for one
+    explicit-allowlist object (rendering selection only -- there is no input to fail
+    on). It closes the transparency arc across all four architectural seams: policy
+    (L2 autonomy rules) -> collectors (L2 perception) -> tools (L1 action surface)
+    -> providers (L0 LLM backend).
+    """
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer.
+        print(json.dumps(_providers_json_payload(), indent=2))
+    else:
+        print(_render_providers())
     return 0
 
 

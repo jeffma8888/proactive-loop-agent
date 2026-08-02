@@ -102,6 +102,7 @@ automatically.
 | `policy`  | Print the standing autonomy contract: the four ordered gate rules, the auto-dispatch threshold, and every category tagged sensitive/auto-eligible (`--json` for a JSON object; read-only, LLM-free, no workspace).|
 | `tools`   | Print the L1 sandbox tool surface: every registered tool, its access class (`read-only`/`create-update`/`move`/`delete`), and the sandbox read/write invariant (`--json` for a JSON object; read-only, LLM-free, no workspace).|
 | `collectors`| Print the L2 perception surface: every registered context collector and a one-line description of what it perceives (`--json` for a JSON object; read-only, LLM-free, no workspace).|
+| `providers`| Print the LLM provider backends: every accepted provider, its `offline`/`cloud` kind, and the pip package to install (`bedrock` ships in `boto3`) (`--json` for a JSON object of `{name, kind, package, description}`; read-only, LLM-free, no workspace).|
 
 Together these verbs form a transparency arc across the pipeline —
 `signals` (what the collectors *see*) → `scan` (what the scout *proposes*) →
