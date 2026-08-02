@@ -119,6 +119,19 @@ Key invariants the other layers rely on:
   silently *suppresses* the whole slate (every finite score is `< inf`, so the gate
   never resolves AUTO_DISPATCH while `pla run` still exits `0`). No upper bound is
   added — a large finite threshold merely approves less.
+- `Settings.sensitive_categories` (the always-approve gate set, default
+  `{HEALTH_ADMIN, FINANCE_LEGAL}`) is env-overridable via
+  `PLA_SENSITIVE_CATEGORIES` -- a comma-separated list of `GoalCategory`
+  values. It REPLACES the set (no merge), so an operator can broaden OR narrow
+  the gate; each token is `.strip().lower()`-matched and empty tokens
+  (trailing/doubled commas) are skipped. A blank or whitespace-comma-only value
+  yields NO override (fail-safe: the environment can never silently empty the
+  gate, which would disable the headline safety guarantee); an unknown token
+  raises a plain `ValueError` naming the var + token, so no partial set is
+  applied (composes with `main()`'s boundary -> one `error:` line, exit 1).
+  This is NOT routed through the numeric `_coerce_env` path (it is a string
+  list); it completes the "everything overridable via `PLA_*`" contract as the
+  one `Settings` field `from_env` previously did not read.
 - The three upward-unbounded `RetryPolicy` floats (`base_backoff_sec`,
   `backoff_factor`, `max_backoff_sec`) likewise reject non-finite values at
   construction, since an `inf` backoff makes `_backoff_delay` compute `min(raw, inf)

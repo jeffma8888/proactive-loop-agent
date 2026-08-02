@@ -205,7 +205,7 @@ Every runtime knob is overridable from the environment with the `PLA_` prefix,
 so the CLI, the test suite, and any embedding host can tune behavior without a
 code change. Four settings also have a direct CLI flag (`--provider`,
 `--scripted-responses`, `--state-dir`, and `--workspace`) and can be set either
-way; the remaining nine are environment-only. **Precedence: an explicit CLI flag
+way; the remaining ten are environment-only. **Precedence: an explicit CLI flag
 (or `Settings.from_env(...)` override) always wins over the corresponding
 environment variable, which in turn wins over the built-in default.** Every
 default listed below is the single source of truth (the field default on
@@ -227,6 +227,7 @@ identical to a bare `Settings()`.
 | Variable | Flag equivalent | Default | Meaning |
 |----------|-----------------|---------|---------|
 | `PLA_AUTO_DISPATCH_MIN_SCORE` | *(env-only)* | `4.0` | Gate threshold: a non-sensitive, appropriate goal scoring at or above this auto-dispatches; below it needs approval. |
+| `PLA_SENSITIVE_CATEGORIES` | *(env-only)* | `health_admin,finance_legal` | Comma-separated `GoalCategory` values whose goals ALWAYS need human approval. REPLACES the default set (does not merge), so it can also narrow the gate. A blank or empty value keeps the default (the always-approve set can never be emptied via the environment). |
 | `PLA_MAX_ITERATIONS` | *(env-only)* | `8` | Maximum PLAN/ACT/CHECK iterations for a single dispatched goal loop. |
 | `PLA_MAX_LLM_CALLS` | *(env-only)* | `24` | Hard cap on total LLM calls per session, a backstop budget across the whole run. |
 

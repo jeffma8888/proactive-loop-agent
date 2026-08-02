@@ -93,6 +93,50 @@ def _coerce_env(suffix: str, value: str, coerce: Callable[[str], object]) -> obj
         ) from None
 
 
+def _parse_sensitive_categories(value: str) -> set[GoalCategory] | None:
+    """Parse ``PLA_SENSITIVE_CATEGORIES`` into an always-approve category set.
+
+    Why: SPEC section 4.3's headline safety claim is that goals whose category is
+    in ``settings.sensitive_categories`` ALWAYS need human approval, and this
+    module promises every knob is env-overridable -- yet this was the one
+    ``Settings`` field ``from_env`` never read. Wiring it lets an operator broaden
+    or narrow the always-approve gate on an unattended deployment (e.g. also gate
+    ``career``) without editing source, completing the "everything overridable"
+    contract on the safety-first thesis.
+
+    Semantics (each a deliberate safety choice):
+
+    - REPLACE, not merge: an explicit non-empty list becomes the whole new set, so
+      an operator can also NARROW the gate, not only widen it.
+    - FAIL-SAFE on empty: a blank / whitespace-comma-only value yields zero tokens
+      and returns ``None`` (no override -> default set retained), so a stray or
+      empty env var can NEVER silently empty the autonomy gate. The set is only
+      ever replaced by an explicit, non-empty, valid list.
+    - ALL-OR-NOTHING on error: an unknown token raises a plain ``ValueError``
+      (not a subclass) naming the var, the offending token, and the valid options,
+      so no partial set is applied. Plain ``ValueError`` composes with iter-02's
+      ``main()`` boundary (``except (LLMError, ValueError, OSError)``) -> one clean
+      ``error:`` line + exit 1.
+    """
+    by_value = {c.value: c for c in GoalCategory}
+    result: set[GoalCategory] = set()
+    for raw in value.split(","):
+        token = raw.strip().lower()
+        if not token:
+            continue  # lenient: skip empty tokens from doubled/trailing commas
+        try:
+            result.add(by_value[token])
+        except KeyError:
+            valid = ", ".join(sorted(by_value))
+            raise ValueError(
+                f"{ENV_PREFIX}SENSITIVE_CATEGORIES has unknown category "
+                f"{token!r}; valid: {valid}"
+            ) from None
+    # An empty result (zero non-empty tokens) means "no override" -- never an
+    # empty gate; the caller leaves ``sensitive_categories`` at its default.
+    return result or None
+
+
 class RetryPolicy(BaseModel):
     """Exponential backoff parameters for throttle/timeout retries.
 
@@ -182,6 +226,14 @@ class Settings(BaseModel):
             env_values["max_iterations"] = _coerce_env("MAX_ITERATIONS", v, int)
         if (v := _get("MAX_LLM_CALLS")) is not None:
             env_values["max_llm_calls"] = _coerce_env("MAX_LLM_CALLS", v, int)
+        # PLA_SENSITIVE_CATEGORIES REPLACES the always-approve gate set (comma-
+        # separated GoalCategory values). Parsed via its own helper -- not the
+        # numeric _coerce_env path -- because it is a string list, not an int/float.
+        # A blank / whitespace-comma-only value yields no override (fail-safe: the
+        # environment can never silently empty the gate); an unknown token raises.
+        if (v := _get("SENSITIVE_CATEGORIES")) is not None:
+            if (cats := _parse_sensitive_categories(v)) is not None:
+                env_values["sensitive_categories"] = cats
 
         # Merge present-only PLA_RETRY_* overrides onto RetryPolicy() defaults.
         # Building from only the vars that are set (rather than a fully specified
