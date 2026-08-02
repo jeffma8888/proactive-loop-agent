@@ -173,7 +173,8 @@ class Collector(Protocol):
   for `TODO|FIXME|XXX` comments and markdown `- [ ]` checkboxes; `kind="todo"`.
 - `notes.py: NotesCollector(name="notes", max_items=20)` — scan `*.md` under dirs
   named `notes|journal|docs`; emit heading (`# ...`) + first paragraph signals,
-  `kind="note"`.
+  `kind="note"`; ATX headings inside fenced code blocks (```` ``` ````/`~~~`) are
+  ignored.
 - `dependencies.py: DependencyCollector(name="dependencies", max_manifests=20)` —
   walk `root` (same skip rules as `RecentFilesCollector`) and emit one signal per
   `pyproject.toml` / `requirements.txt` / `package.json`, `kind="dependency"`;
