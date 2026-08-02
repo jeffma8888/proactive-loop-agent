@@ -86,7 +86,10 @@ proactive-loop-agent/
 Key invariants the other layers rely on:
 
 - `CandidateGoal.score` = computed field = `impact * urgency * confidence / effort_weight`.
-- `GoalSlate.ranked()` sorts by `(appropriate_now desc, score desc)`.
+- `GoalSlate.ranked()` sorts by `(appropriate_now desc, score desc, id asc)`; the
+  ascending-`id` key is a deterministic tie-break so goals sharing an
+  `(appropriate_now, score)` pair order by stable identity rather than by their
+  arbitrary input list order (total, input-order-independent ranking).
 - `ScriptedLLMClient` matches on `tag` (exact match, else entries with tag `""`
   match anything), consumes entries in order, supports scripted failures via
   `{"raise": "throttle"|"timeout"}`, raises `ScriptExhaustedError` when empty.

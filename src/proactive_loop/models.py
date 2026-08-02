@@ -113,8 +113,15 @@ class GoalSlate(BaseModel):
     goals: list[CandidateGoal] = Field(default_factory=list)
 
     def ranked(self) -> list[CandidateGoal]:
-        """Appropriate-now goals always rank above deferred ones; then by score."""
-        return sorted(self.goals, key=lambda g: (g.appropriate_now, g.score), reverse=True)
+        """Rank goals by (appropriate_now desc, score desc, id asc).
+
+        Appropriate-now goals always rank above deferred ones, then by score.
+        """
+        # WHY: `id` (ascending) is a total tie-break so goals sharing the same
+        # (appropriate_now, score) pair order deterministically by identity rather
+        # than by the synthesizer's arbitrary emission order -- this makes the top
+        # auto-dispatched goal a function of slate CONTENT, not slate LIST ORDER.
+        return sorted(self.goals, key=lambda g: (not g.appropriate_now, -g.score, g.id))
 
     def get(self, goal_id: str) -> CandidateGoal | None:
         return next((g for g in self.goals if g.id == goal_id), None)
