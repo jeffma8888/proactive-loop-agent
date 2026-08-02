@@ -104,9 +104,12 @@ class GitActivityCollector:
         # Always try root (it may or may not be a repo — git will say).
         dirs_to_scan.append(root)
 
-        # Also check direct child directories.
+        # Also check direct child directories. Scan them in ascending name order
+        # (sorted) so a multi-repo workspace's cross-repo signal order is
+        # deterministic (filesystem iterdir order is arbitrary); per-repo commit
+        # order stays newest-first because we sort the directories, not the signals.
         try:
-            for child in root.iterdir():
+            for child in sorted(root.iterdir()):
                 if child.is_dir() and (child / ".git").exists():
                     if child not in dirs_to_scan:
                         dirs_to_scan.append(child)
