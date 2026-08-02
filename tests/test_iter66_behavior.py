@@ -21,7 +21,7 @@ surface --- ``ToolRegistry.execute(...)`` / ``ToolRegistry.tool_names()`` /
 prompt-advertisement check, and the ``pla`` CLI via ``proactive_loop.cli.main(argv)
 -> int`` --- and assert observable output / exit codes / on-disk artifacts. **No file
 under ``src/`` was read, no engineer/reviewer note was read, and no ``git diff`` was
-consulted.** The thirteen canonical tool names are encoded here as the spec-declared
+consulted.** The fourteen canonical tool names are encoded here as the spec-declared
 ground facts, NOT imported from the implementation. Conventions (``tmp_path``
 fixtures, scripted offline provider, symlink-skip idiom, no network / no API keys)
 mirror ``tests/test_iter61_behavior.py`` (diff_files) and ``tests/test_iter35_behavior.py``
@@ -65,7 +65,7 @@ PRIOR_TOOLS = {
     "tail_file",
     "diff_files",
 }
-CANONICAL_TOOLS = PRIOR_TOOLS | {"replace_in_file"}
+CANONICAL_TOOLS = PRIOR_TOOLS | {"replace_in_file", "read_lines"}
 
 
 # ---------------------------------------------------------------------------
@@ -135,13 +135,13 @@ _requires_symlink = pytest.mark.skipif(
 
 
 # ===========================================================================
-# EB1 --- Registered in the tool surface (exactly 13 names)
+# EB1 --- Registered in the tool surface (exactly 14 names)
 # ===========================================================================
 
 
 def test_eb01_registered_in_tool_surface(tmp_path: Path) -> None:
     names = ToolRegistry.tool_names()
-    assert len(names) == 13, f"tool_names() must return 13 names; got {len(names)}: {names}"
+    assert len(names) == 14, f"tool_names() must return 14 names; got {len(names)}: {names}"
     assert "replace_in_file" in names, names
     # All 12 prior names survive.
     for prior in PRIOR_TOOLS:
@@ -169,7 +169,7 @@ def test_eb02_pla_tools_json_replace_in_file_object(capsys) -> None:
     obj = _tools_json(capsys)
     tools = obj["tools"]
 
-    assert len(tools) == 13, f"--json tools array must have 13 elements; got {len(tools)}"
+    assert len(tools) == 14, f"--json tools array must have 14 elements; got {len(tools)}"
 
     by_name = {t["name"]: t for t in tools}
     assert "replace_in_file" in by_name, f"--json catalog must include replace_in_file; got {sorted(by_name)}"

@@ -1742,6 +1742,7 @@ _TOOL_CATALOG: dict[str, tuple[str, str]] = {
     "read_file": (_ACCESS_READ_ONLY, "Return the whole contents of a file from the sandbox."),
     "head_file": (_ACCESS_READ_ONLY, "Return the first N lines of a file (a bounded top-of-file peek)."),
     "tail_file": (_ACCESS_READ_ONLY, "Return the last N lines of a file (a bounded bottom-of-file peek)."),
+    "read_lines": (_ACCESS_READ_ONLY, "Return an inclusive 1-based line range [start, end] of a file (a bounded interior window)."),
     "list_files": (_ACCESS_READ_ONLY, "List the entries of one directory in the sandbox."),
     "stat_file": (_ACCESS_READ_ONLY, "Describe one path in a line: type, byte size, line count, extension."),
     "search_files": (_ACCESS_READ_ONLY, "Grep file contents for a substring across a sandbox directory."),

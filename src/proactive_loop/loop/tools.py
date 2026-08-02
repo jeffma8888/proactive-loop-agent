@@ -62,6 +62,7 @@ _TOOL_NAMES: tuple[str, ...] = (
     "tail_file",
     "diff_files",
     "replace_in_file",
+    "read_lines",
 )
 
 
@@ -461,6 +462,104 @@ class ToolRegistry:
                 # keeps its own terminator (or stays unterminated when the file
                 # had no trailing newline).
                 return f"... (showing last {max_lines} of {total} lines)\n{tail}"
+        return f"error: file not found under artifacts or workspace: {path!r}"
+
+    def _read_lines(self, args: dict) -> str:
+        """Return the 1-based INCLUSIVE line range ``[start, end]`` of *path* --
+        a FREE-anchor interior window, the fourth and final reader anchor that
+        completes the sandbox reader family as full (``read_file``) / top
+        (``head_file``) / bottom (``tail_file``) / WINDOW (``read_lines``).
+
+        WHY this tool exists: ``search_files`` emits 1-based line numbers
+        (``rel:lineno: line``), yet NO tool could read BY line number --
+        ``read_file`` pulls the WHOLE file (floods the model context, the exact
+        hazard ``head_file``/``stat_file`` were built to avoid), ``head_file``
+        peeks the TOP, ``tail_file`` the BOTTOM. To read the context AROUND a
+        grep hit at line 250 a dispatched loop had no bounded option;
+        ``read_lines(path, 240, 260)`` is precisely that window -- the "grep ->
+        read the hit's context" completion of the discovery workflow, and the
+        ONLY reader that consumes ``search_files``' emitted line numbers.
+
+        Unlike ``head_file``/``tail_file`` (FIXED-anchor peeks that emit a
+        truncation TRAILER), ``read_lines`` is a FREE-anchor slice with NO
+        trailer and NO decoration: the return is a pure, byte-clean window
+        ``"".join(text.splitlines(keepends=True)[start - 1:end])`` that
+        round-trips the file's own line terminators verbatim (no added or
+        stripped newline). That trailer-free purity is the load-bearing
+        distinction from ``head``/``tail``.
+
+        Resolution precedence is ``artifacts_dir`` FIRST then ``workspace_root``
+        -- IDENTICAL to ``read_file``/``head_file``/``tail_file``/``stat_file``
+        -- so ``read_lines(x)`` reads the SAME copy ``read_file(x)`` does.
+
+        ``start`` and ``end`` are 1-based inclusive positive integers (an int or
+        an integer-valued string, mirroring ``head_file``'s ``max_lines``);
+        ``start`` is validated BEFORE ``end`` for a deterministic error order.
+        A ``start`` past EOF (``start > total``) is an error and nothing is read,
+        so the caller learns the file is shorter than the requested window start;
+        an ``end`` beyond EOF is leniently CLAMPED like a Python slice (lines
+        ``start..last``, no error, no trailer).
+
+        Check order (path safety FIRST, mirroring ``head_file``/``tail_file``):
+        empty path -> ``_reject_unsafe`` (traversal/absolute) -> ``start``
+        positive-int -> ``end`` positive-int -> ``start <= end`` -> file
+        resolution -> ``start > total`` -> slice.
+
+        Read-only by construction (reads but never writes, so ``artifacts()`` is
+        unaffected). Never raises -- an unsafe/empty/bad-arg/missing path
+        degrades to an ``"error: ..."`` observation, and an undecodable (binary)
+        file surfaces as an ``"error:"`` via ``execute()``'s never-raise wrapper
+        (mirroring ``read_file``'s decode behavior).
+        """
+        path = str(args.get("path", ""))
+        # Tool-specific empty/missing-path error BEFORE _reject_unsafe (mirroring
+        # head_file/tail_file), and path-safety BEFORE numeric validation so an
+        # unsafe path is still reported even alongside a bad start/end.
+        if not path:
+            return "error: read_lines requires a non-empty 'path'"
+        rejection = self._reject_unsafe(path)
+        if rejection is not None:
+            return rejection
+        # start THEN end (deterministic ordering): each must be a positive
+        # integer (int or integer-valued string); a bool/float/None/non-numeric
+        # string is rejected and NOTHING is read.
+        start = self._coerce_positive_int(args.get("start"))
+        if start is None:
+            return "error: read_lines 'start' must be a positive integer"
+        end = self._coerce_positive_int(args.get("end"))
+        if end is None:
+            return "error: read_lines 'end' must be a positive integer"
+        # Reject an inverted range BEFORE touching disk (no reverse ranges).
+        if start > end:
+            return (
+                f"error: read_lines 'start' ({start}) must be <= 'end' ({end})"
+            )
+        # Precedence: artifacts_dir FIRST, then workspace_root -- identical to
+        # read_file/head_file/tail_file, so all read the SAME copy. A symlink
+        # escaping both roots fails _within and is never read (falls through to
+        # "not found").
+        for root in (self.artifacts_dir, self.workspace_root):
+            candidate = root / path
+            if self._within(candidate, root) and candidate.is_file():
+                # read_text() (NOT read_bytes) so decoding matches read_file; an
+                # undecodable file raises here and execute()'s wrapper turns it
+                # into an "error:" observation.
+                text = candidate.read_text()
+                # splitlines(keepends=True) preserves each line's terminator and
+                # round-trips exactly ("".join(lines) == text).
+                lines = text.splitlines(keepends=True)
+                total = len(lines)
+                # start past EOF is an error (unlike the lenient end-clamp) so
+                # the caller learns the file is shorter than the window start.
+                if start > total:
+                    return (
+                        f"error: read_lines 'start' ({start}) is past end of "
+                        f"file ({total} lines): {path!r}"
+                    )
+                # 1-based inclusive [start, end] -> 0-based slice [start-1:end];
+                # end is leniently clamped by the slice (end > total yields lines
+                # start..last), matching Python slice semantics -- NO trailer.
+                return "".join(lines[start - 1 : end])
         return f"error: file not found under artifacts or workspace: {path!r}"
 
     def _list_files(self, args: dict) -> str:

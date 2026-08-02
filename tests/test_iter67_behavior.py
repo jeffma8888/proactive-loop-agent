@@ -17,7 +17,7 @@ PUBLIC surface --- the ``pla`` CLI via ``proactive_loop.cli.main(argv) -> int`` 
 stdout / exit codes) plus the public ``ToolRegistry.tool_names()`` and
 ``proactive_loop.collectors.all_collectors()`` seams. **No file under ``src/`` was read,
 no engineer/reviewer note was read, and no ``git diff`` was consulted.** The expected
-count (13) and the canonical tool/collector name sets are encoded here as the
+count (14) and the canonical tool/collector name sets are encoded here as the
 spec-declared ground facts, cross-checked against the live public API. Conventions
 (``capsys``, JSON stdout parsing, offline / no-network / no-API-key) mirror
 ``tests/test_iter66_behavior.py`` (tools) and ``tests/test_iter57_behavior.py``
@@ -36,7 +36,7 @@ from proactive_loop.collectors import all_collectors
 from proactive_loop.loop.tools import ToolRegistry
 
 # --- spec-declared ground facts (encoded here, NOT imported from any private catalog) ---
-EXPECTED_COUNT = 13  # TOOLS count (pla tools --json / SPEC tools shape)
+EXPECTED_COUNT = 14  # TOOLS count (pla tools --json / SPEC tools shape)
 EXPECTED_COLLECTOR_COUNT = 14  # COLLECTORS count; decoupled once a collector was added without a tool
 
 CANONICAL_TOOLS = {
@@ -53,6 +53,7 @@ CANONICAL_TOOLS = {
     "diff_files",
     "move_file",
     "remove_file",
+    "read_lines",
 }
 
 CANONICAL_COLLECTORS = {
@@ -113,11 +114,11 @@ def _collectors_json(capsys) -> dict:
 
 
 # ===========================================================================
-# Behavior 1 --- `pla tools --json` emits exactly 13 tool objects (unchanged shape)
+# Behavior 1 --- `pla tools --json` emits exactly 14 tool objects (unchanged shape)
 # ===========================================================================
 
 
-def test_eb1_tools_json_emits_thirteen_objects(capsys) -> None:
+def test_eb1_tools_json_emits_fourteen_objects(capsys) -> None:
     obj = _tools_json(capsys)
     assert set(obj.keys()) == {"sandbox", "tools"}, obj.keys()
 
