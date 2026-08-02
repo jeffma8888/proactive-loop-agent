@@ -1,8 +1,9 @@
 """TodoCollector: surfaces TODO/FIXME/XXX comments and Markdown checkboxes.
 
 Scans source files (*.py, *.ts, *.js, *.md) for actionable items.
-WHY include markdown checkboxes: project notes often use `- [ ]` to track
-tasks; surfacing them gives the synthesizer richer intent signals.
+WHY include markdown checkboxes: project notes often use `- [ ]`, `* [ ]`,
+or `+ [ ]` to track tasks; surfacing them gives the synthesizer richer
+intent signals. All three GFM unordered-list bullets are treated alike.
 """
 
 from __future__ import annotations
@@ -17,8 +18,10 @@ from proactive_loop.models import ContextSignal
 # Matches TODO / FIXME / XXX anywhere in a line (case-insensitive).
 _INLINE_TAG_RE = re.compile(r"\b(TODO|FIXME|XXX)\b[:\s]*(.*)", re.IGNORECASE)
 
-# Matches Markdown unchecked checkbox `- [ ] text`.
-_CHECKBOX_RE = re.compile(r"^\s*-\s+\[\s\]\s+(.*)")
+# Matches a Markdown unchecked task item. GitHub-Flavored Markdown treats
+# `-`, `*`, and `+` as interchangeable unordered-list bullets, so accept any
+# of them before the `[ ]` box: `- [ ] text`, `* [ ] text`, `+ [ ] text`.
+_CHECKBOX_RE = re.compile(r"^\s*[-*+]\s+\[\s\]\s+(.*)")
 
 _SCAN_EXTENSIONS: frozenset[str] = frozenset({".py", ".ts", ".js", ".md"})
 

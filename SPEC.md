@@ -171,7 +171,7 @@ class Collector(Protocol):
   `git -C <dir> log --pretty=...` via subprocess for `root` and each direct child dir
   that has `.git`; `kind="git_commit"`; return `[]` if git missing/not a repo.
 - `todos.py: TodoCollector(name="todos", max_items=30)` — scan `*.py,*.ts,*.js,*.md`
-  for `TODO|FIXME|XXX` comments and markdown `- [ ]` checkboxes; `kind="todo"`.
+  for `TODO|FIXME|XXX` comments and markdown `- [ ]`/`* [ ]`/`+ [ ]` checkboxes; `kind="todo"`.
 - `notes.py: NotesCollector(name="notes", max_items=20)` — scan `*.md` under dirs
   named `notes|journal|docs`; emit heading (`# ...`) + first paragraph signals,
   `kind="note"`; ATX headings inside fenced code blocks (```` ``` ````/`~~~`) are
