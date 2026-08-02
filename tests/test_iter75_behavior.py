@@ -461,9 +461,10 @@ def test_b11_spec_count_equals_registry_and_emitted(capsys):
 
 # ==========================================================================
 # Behavior 12 --- Verb-count doc updated + no other-count regression. The cli.py
-# module docstring reads "fourteen verbs" (was "thirteen"); collector count == 14
-# is UNCHANGED (the providers verb adds no collector). Tool count is now 14 (the
-# read_lines tool shipped later, factory iter 76; the providers verb added no tool).
+# module docstring reads "fourteen verbs" (was "thirteen"); the collector count is
+# now 15 (later iters added syntax_error; the providers verb itself added no
+# collector). Tool count is now 14 (the read_lines tool shipped later, factory
+# iter 76; the providers verb added no tool).
 # Version unchanged; --help discoverability.
 # ==========================================================================
 
@@ -481,9 +482,9 @@ def test_b12_cli_docstring_says_fourteen_verbs():
     )
 
 
-def test_b12_collector_count_unchanged_fourteen():
-    assert len(all_collectors()) == 14, (
-        "the collector registry must still have 14 entries (verb adds no collector)"
+def test_b12_collector_count_fifteen():
+    assert len(all_collectors()) == 15, (
+        "the collector registry must have 15 entries (later iters added syntax_error)"
     )
 
 

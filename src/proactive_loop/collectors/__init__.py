@@ -18,6 +18,7 @@ from proactive_loop.collectors.lockfile_drift import LockfileDriftCollector
 from proactive_loop.collectors.merge_conflict import MergeConflictCollector
 from proactive_loop.collectors.notes import NotesCollector
 from proactive_loop.collectors.secret_file import SecretFileCollector
+from proactive_loop.collectors.syntax_error import SyntaxErrorCollector
 from proactive_loop.collectors.test_posture import TestPostureCollector
 from proactive_loop.collectors.todos import TodoCollector
 from proactive_loop.collectors.working_tree import WorkingTreeCollector
@@ -45,6 +46,7 @@ def all_collectors() -> list[Collector]:
         SecretFileCollector(),
         CiConfigCollector(),
         LockfileDriftCollector(),
+        SyntaxErrorCollector(),
     ]
 
 
@@ -64,5 +66,6 @@ __all__ = [
     "SecretFileCollector",
     "CiConfigCollector",
     "LockfileDriftCollector",
+    "SyntaxErrorCollector",
     "all_collectors",
 ]

@@ -347,6 +347,28 @@ class Collector(Protocol):
   regenerating the lock. (Additive collector, exactly like iters 09/11/16/20/28/37/42/53/63
   — a new `kind` flows into synthesis via `by_kind()` with zero synthesizer change, so
   no version bump.)
+- `syntax_error.py: SyntaxErrorCollector(name="syntax_error", max_items=30)` — the first
+  code-PARSING collector: it runs the stdlib parser `compile(text, str(full), "exec")` on
+  every `*.py` file under `root` (same skip rules as `RecentFilesCollector`, reusing
+  `_SKIP_DIRS`/`_is_hidden`; scans `.py` ONLY, case-insensitive; `.pyi` stubs excluded) and
+  emits one `kind="syntax_error"` signal per file that raises a `SyntaxError`. **Parse-only
+  is the load-bearing safety property**: `compile(..., "exec")` builds a code object but
+  NEVER runs the user's code (no `exec`/`eval`/`import`/subprocess), so scanning a workspace
+  can never trigger a side effect from the code being scanned. A `SyntaxError` is
+  DETERMINISTIC (the parser accepts the source or it does not), so this carries ZERO false
+  positives and stays SILENT on a healthy repo — unlike a regex secret/style scan. **No
+  content leak**: summary `"<relpath>: syntax error at line <N>"` (relpath forward-slashed
+  relative to `root`; `N` = the error's 1-based line number, `e.lineno or 0`); `detail` =
+  the parser's short `SyntaxError.msg` ONLY (e.g. "invalid syntax") — the offending source
+  line `SyntaxError.text` is DELIBERATELY omitted, so no file content reaches the slate.
+  `weight=0.9`, `path=<relpath>`, `timestamp=None`. Reads STRICT UTF-8 (a non-UTF-8 file
+  degrades to skipped, not a crash); a NUL-byte or pathological source is skipped
+  (`ValueError`/`MemoryError`/`RecursionError` and a NUL-byte pre-guard), never a false
+  signal. Output sorted by relpath ascending and capped at `max_items`. Pure stdlib
+  (`os`/`pathlib`/builtin `compile`), never raises → `[]`. Reports facts only (which file,
+  which line); the synthesizer judges whether to propose fixing it. (Additive collector,
+  exactly like iters 09/11/16/20/28/37/42/53/63/70 — a new `kind` flows into synthesis via
+  `by_kind()` with zero synthesizer change, so no version bump.)
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
@@ -907,7 +929,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     Human form lists every collector name-ascending, one per line as
     `name  description`. `--json` emits one object of EXACTLY one top-level key
     `{collectors}` — an explicit allowlist (never `model_dump`; the iter-08
-    schema-leak discipline): `collectors` is a name-ascending array of 14
+    schema-leak discipline): `collectors` is a name-ascending array of 15
     `{name, description}` objects (exactly those two keys each). The catalog
     (`name → description`) is a hand-maintained map (mirroring `_TOOL_CATALOG` for
     `tools`); a test drift-guards its key set to equal `{c.name for c in

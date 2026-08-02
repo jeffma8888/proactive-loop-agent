@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "examples" / "scripted_responses.json"
 _CLI_LOGGER = "proactive_loop.cli"
 
-# The 14 live collector names (spec-pinned). Used ONLY to sanity-check the
+# The 15 live collector names (spec-pinned). Used ONLY to sanity-check the
 # registry premise; the argparse *choices* assertion derives from the live
 # ``all_collectors()`` so it cannot drift from a hardcoded literal.
 _LIVE_NAMES = frozenset(
@@ -42,7 +42,7 @@ _LIVE_NAMES = frozenset(
         "recent_files", "git_activity", "git_state", "git_stash", "todos",
         "notes", "dependencies", "working_tree", "test_posture",
         "merge_conflict", "large_file", "secret_file", "ci_config",
-        "lockfile_drift",
+        "lockfile_drift", "syntax_error",
     }
 )
 
@@ -161,7 +161,7 @@ def test_b01_default_equals_only_none_and_positional_call(tmp_path):
     assert _proj(snap_pos.signals) == _proj(snap_none.signals)
     # Both equal the registry-order concatenation of ALL collectors' output.
     assert _proj(snap_pos.signals) == _expected_signals(ws, None)
-    # Premise: the live registry is exactly the 14 documented collectors.
+    # Premise: the live registry is exactly the 15 documented collectors.
     assert {c.name for c in cli.all_collectors()} == _LIVE_NAMES
 
 
@@ -345,7 +345,7 @@ def test_b06_scan_passes_only_from_the_flag(tmp_path, monkeypatch):
     rc2, _ = _run(_scan_argv(ws, tmp_path / "b.json", tmp_path / "st"))
 
     assert rc1 == 0 and rc2 == 0
-    # --collector todos -> only={"todos"}; bare scan -> only=None (all 14).
+    # --collector todos -> only={"todos"}; bare scan -> only=None (all 15).
     assert calls == [{"todos"}, None], calls
 
 

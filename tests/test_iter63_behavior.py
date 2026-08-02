@@ -390,7 +390,7 @@ def test_b12_cli_signals_json_configured_ci(tmp_path: Path, capsys) -> None:
 
 # ===========================================================================
 # Behavior 13 -- `pla collectors` catalogs ci_config; catalog stays in lockstep
-#   with the live registry (now 14 collectors).
+#   with the live registry (now 15 collectors).
 # ===========================================================================
 
 
@@ -420,7 +420,7 @@ def test_b13_collectors_json_lists_ci_config_and_matches_registry(capsys) -> Non
     assert names == registry_names, (
         f"catalog names must equal registry names; catalog={names} registry={registry_names}"
     )
-    assert len(registry_names) == 14, f"registry must now list 14 collectors; got {len(registry_names)}"
+    assert len(registry_names) == 15, f"registry must now list 15 collectors; got {len(registry_names)}"
 
 
 def test_b13_collectors_human_lists_ci_config(capsys) -> None:

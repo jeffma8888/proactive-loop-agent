@@ -37,7 +37,7 @@ from proactive_loop.loop.tools import ToolRegistry
 
 # --- spec-declared ground facts (encoded here, NOT imported from any private catalog) ---
 EXPECTED_COUNT = 14  # TOOLS count (pla tools --json / SPEC tools shape)
-EXPECTED_COLLECTOR_COUNT = 14  # COLLECTORS count; decoupled once a collector was added without a tool
+EXPECTED_COLLECTOR_COUNT = 15  # COLLECTORS count; decoupled once a collector was added without a tool
 
 CANONICAL_TOOLS = {
     "write_file",
@@ -68,6 +68,7 @@ CANONICAL_COLLECTORS = {
     "notes",
     "recent_files",
     "secret_file",
+    "syntax_error",
     "test_posture",
     "todos",
     "working_tree",
@@ -146,11 +147,11 @@ def test_eb1_tools_json_emits_fourteen_objects(capsys) -> None:
 
 
 # ===========================================================================
-# Behavior 2 --- `pla collectors --json` emits exactly 14 collector objects (shape)
+# Behavior 2 --- `pla collectors --json` emits exactly 15 collector objects (shape)
 # ===========================================================================
 
 
-def test_eb2_collectors_json_emits_fourteen_objects(capsys) -> None:
+def test_eb2_collectors_json_emits_fifteen_objects(capsys) -> None:
     obj = _collectors_json(capsys)
     assert set(obj.keys()) == {"collectors"}, obj.keys()
 

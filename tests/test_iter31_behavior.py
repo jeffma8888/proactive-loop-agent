@@ -40,7 +40,7 @@ from proactive_loop.collectors import all_collectors
 _ALL_COLLECTORS = all_collectors()
 _COLLECTOR_PARAMS = [pytest.param(c, id=c.name) for c in _ALL_COLLECTORS]
 
-# The 14 collectors documented in SPEC §4.1 (the public contract). Asserting the
+# The 15 collectors documented in SPEC §4.1 (the public contract). Asserting the
 # full name-SET -- not a subset, not a bare count -- catches BOTH a collector
 # silently dropped from the registry AND a documented collector missing from it.
 _DOCUMENTED_COLLECTOR_NAMES = frozenset(
@@ -59,6 +59,7 @@ _DOCUMENTED_COLLECTOR_NAMES = frozenset(
         "large_file",
         "secret_file",
         "git_stash",
+        "syntax_error",
     }
 )
 
@@ -95,11 +96,11 @@ def _build_hostile_tree(root: Path) -> None:
 
 
 class TestRegistryCompleteness:
-    """EB1: all_collectors() exposes EXACTLY the 14 documented collectors, each a
+    """EB1: all_collectors() exposes EXACTLY the 15 documented collectors, each a
     unique, non-empty-named instance that satisfies the Collector protocol."""
 
-    def test_name_set_is_exactly_the_fourteen_documented(self) -> None:
-        """The set of .name values equals the 14 SPEC §4.1 names -- no more, no less.
+    def test_name_set_is_exactly_the_fifteen_documented(self) -> None:
+        """The set of .name values equals the 15 SPEC §4.1 names -- no more, no less.
 
         A full-SET check (not a subset, not a count) catches a collector dropped
         from the registry AND a documented collector missing from it.
