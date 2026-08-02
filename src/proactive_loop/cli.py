@@ -212,7 +212,7 @@ def _non_negative_float(raw: str) -> float:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with eleven subcommands and shared globals.
+    """Assemble the ``pla`` parser with fourteen subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -2540,7 +2540,7 @@ def _cmd_tools(args: argparse.Namespace) -> int:
     """tools: print the L1 ACT sandbox tool surface (read-only, LLM-free, zero-input).
 
     WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
-    the sandbox tool surface is STATIC (the ten registered tools, their access
+    the sandbox tool surface is STATIC (the fourteen registered tools, their access
     classes, and the artifacts-dir/workspace-root invariant do not depend on any
     env override, workspace, slate, or LLM). So this handler resolves no settings,
     builds no ``create_client`` (an inert/bad ``--scripted-responses`` path is
