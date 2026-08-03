@@ -55,7 +55,9 @@ class TodoCollector:
         if not root.is_dir():
             return []
 
-        signals: list[ContextSignal] = []
+        # Accumulate (relpath, lineno, signal) so we can order deterministically
+        # regardless of os.walk traversal order across platforms.
+        found: list[tuple[str, int, ContextSignal]] = []
 
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [
@@ -72,12 +74,13 @@ class TodoCollector:
                     text = full.read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     continue
-                for sig in _extract_todos(text, full, root, self.name):
-                    signals.append(sig)
-                    if len(signals) >= self.max_items:
-                        return signals
+                found.extend(_extract_todos(text, full, root, self.name))
 
-        return signals
+        # Deterministic: sort by (relpath, lineno) ascending, then cap -- so which
+        # todos survive the cap and their order are a total, os.walk-order-independent
+        # function of the filesystem, matching the sibling file-scanning collectors.
+        found.sort(key=lambda item: (item[0], item[1]))
+        return [signal for _, _, signal in found[: self.max_items]]
 
 
 def _extract_todos(
@@ -85,9 +88,16 @@ def _extract_todos(
     file_path: Path,
     root: Path,
     source_name: str,
-) -> list[ContextSignal]:
-    """Return all actionable signals found in *text*."""
-    signals: list[ContextSignal] = []
+) -> list[tuple[str, int, ContextSignal]]:
+    """Return actionable items in *text* as ``(relpath, lineno, signal)`` tuples.
+
+    WHY the (relpath, lineno) prefix: it is the deterministic sort key
+    ``_collect`` uses to order and cap. Two todos can never share BOTH a relpath
+    AND a line number (one signal per matched source line), so ``(relpath,
+    lineno)`` is a genuine total order within one scan. The emitted
+    ``ContextSignal`` fields are byte-unchanged from before.
+    """
+    found: list[tuple[str, int, ContextSignal]] = []
     try:
         rel = str(file_path.relative_to(root))
     except ValueError:
@@ -100,14 +110,18 @@ def _extract_todos(
             tag = m.group(1).upper()
             description = m.group(2).strip()
             summary = f"{tag}: {description}" if description else tag
-            signals.append(
-                ContextSignal(
-                    source=source_name,
-                    kind="todo",
-                    summary=summary,
-                    detail=line.strip(),
-                    path=f"{rel}:{lineno}",
-                    weight=1.0,
+            found.append(
+                (
+                    rel,
+                    lineno,
+                    ContextSignal(
+                        source=source_name,
+                        kind="todo",
+                        summary=summary,
+                        detail=line.strip(),
+                        path=f"{rel}:{lineno}",
+                        weight=1.0,
+                    ),
                 )
             )
             continue  # Don't double-count a line that is also a checkbox.
@@ -116,15 +130,19 @@ def _extract_todos(
         m2 = _CHECKBOX_RE.match(line)
         if m2:
             task_text = m2.group(1).strip()
-            signals.append(
-                ContextSignal(
-                    source=source_name,
-                    kind="todo",
-                    summary=f"TODO: {task_text}",
-                    detail=line.strip(),
-                    path=f"{rel}:{lineno}",
-                    weight=0.8,
+            found.append(
+                (
+                    rel,
+                    lineno,
+                    ContextSignal(
+                        source=source_name,
+                        kind="todo",
+                        summary=f"TODO: {task_text}",
+                        detail=line.strip(),
+                        path=f"{rel}:{lineno}",
+                        weight=0.8,
+                    ),
                 )
             )
 
-    return signals
+    return found

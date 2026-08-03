@@ -182,6 +182,11 @@ class Collector(Protocol):
   return `[]` if git missing/not a repo.
 - `todos.py: TodoCollector(name="todos", max_items=30)` — scan `*.py,*.ts,*.js,*.md`
   for `TODO|FIXME|XXX` comments and markdown `- [ ]`/`* [ ]`/`+ [ ]` checkboxes; `kind="todo"`.
+  Emitted ordered by ascending relpath then line number, then capped at `max_items` (sort
+  key `(relpath, lineno)` — an INTEGER line number, so `a.py:2` precedes `a.py:10`), so
+  which todos survive the cap and their order are a total, `os.walk`-order-independent
+  function of the filesystem — mirroring the sibling file-scanning collectors' documented
+  "sort by relpath ascending, then cap at `max_items`".
 - `notes.py: NotesCollector(name="notes", max_items=20)` — scan `*.md` under dirs
   named `notes|journal|docs`; emit heading (`# ...`) + first paragraph signals,
   `kind="note"`; ATX headings inside fenced code blocks (```` ``` ````/`~~~`) are
