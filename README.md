@@ -3,20 +3,20 @@
 > **A proactivity layer for AI agents.** Most agents wait for a human to hand them a goal. This one scans your working context, decides what's worth doing, gates it for safety, and executes it — fully offline, fully tested, fully auditable.
 
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
-![Tests](https://img.shields.io/badge/tests-1264%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1872%20passing-brightgreen)
 ![Offline](https://img.shields.io/badge/runtime-offline--first-success)
 ![Typed](https://img.shields.io/badge/typing-PEP%20561-informational)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 Most agentic systems are **reactive**: they sit idle until prompted, run the task, and stop. `proactive-loop-agent` inverts that. It is a reference implementation of a three-layer **proactivity stack** that turns raw working context into a *ranked slate of candidate goals*, gates each one through an **autonomy contract**, and dispatches only the approved goals into a resilient, sandboxed **plan → act → check** execution loop.
 
-The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **1,264 tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
+The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **1,872 tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
 
 ### What this project demonstrates
 
 - **A 0→1 idea, not a prompt trick** — proactivity modeled as an explicit architectural layer (perceive → propose → gate → execute), with clear seams between deciding *what* to do and *how* to do it.
 - **Safety by construction** — the autonomy gate is a hard rule engine: sensitive categories (finance, legal, health) *always* require human approval, no matter how high a goal scores. Autonomy comes from a sandbox, not from trust; the execution loop can only write inside a scratch directory through path-guarded tools.
-- **Production-grade rigor on a portfolio codebase** — **1,264 passing tests**, fully type-hinted (ships a PEP 561 `py.typed` marker), 12 context collectors, 13 CLI verbs, deterministic and offline end to end.
+- **Production-grade rigor on a portfolio codebase** — **1,872 passing tests**, fully type-hinted (ships a PEP 561 `py.typed` marker), 15 context collectors, 14 CLI verbs, deterministic and offline end to end.
 - **Auditability as a first-class feature** — a transparency arc of read-only, LLM-free inspector commands: see what the collectors *perceive* → what the scout *proposed* → *why* the gate ruled → exactly what a run *did*.
 
 <!-- ============================================================================
