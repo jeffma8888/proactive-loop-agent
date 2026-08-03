@@ -211,6 +211,38 @@ def _non_negative_float(raw: str) -> float:
     return value
 
 
+def _finite_float(raw: str) -> float:
+    """argparse ``type=`` validator: parse a FINITE float (any sign, any magnitude).
+
+    Guards the ``--min-weight`` argument of the ``signals`` verb -- the LAST numeric
+    CLI arg still declared with a bare ``type=float``. Like its siblings
+    (``_positive_int``, ``_non_negative_float``) it fires at PARSE time -- BEFORE any
+    collector runs -- so a bad value is a ``SystemExit(2)`` usage error with zero
+    side effects. ``float(raw)`` lets a non-number (e.g. ``abc``) raise
+    ``ValueError``, which argparse converts into the exit-2 usage error; a NON-finite
+    value (``nan``/``inf``/``-inf``) raises ``ArgumentTypeError``.
+
+    WHY reject non-finite (the CLI twin of the iter-40 ``--interval`` guard): every
+    signal-weight comparison ``s.weight >= float("nan")`` and ``>= float("inf")`` is
+    ``False``, so a fat-fingered ``--min-weight nan``/``inf`` silently filtered OUT
+    every signal and printed ``(no signals collected)`` at exit 0 -- a degenerate
+    empty result masquerading as success on a workspace that HAS signals. Rejecting
+    non-finite at parse time turns that silent no-op into an honest usage error.
+
+    WHY finite-ONLY and NOT range-guarded (contrast ``_non_negative_float``): unlike
+    ``--interval`` (a negative sleep is nonsensical), a finite NEGATIVE
+    ``--min-weight`` is a legitimate loose lower bound (a "show all" threshold) and a
+    finite ``> 1.0`` value is a legitimate impossibly-high bound (an intentionally
+    empty view), both accepted per SPEC §4.5. So this returns EVERY finite float
+    unchanged -- negatives and large values included -- rejecting only the
+    non-finite trio.
+    """
+    value = float(raw)
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError(f"must be a finite number, got {value}")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Assemble the ``pla`` parser with fourteen subcommands and shared globals.
 
@@ -459,12 +491,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_signals.add_argument(
         "--min-weight",
-        type=float,
+        type=_finite_float,
         default=None,
         help=(
             "Show only signals whose relevance weight is >= this value (inclusive "
             "lower bound). Composes with --kind as a logical AND; omit for no "
-            "threshold. A non-numeric value is an argparse usage error (exit 2)."
+            "threshold. The value must be FINITE: nan/inf/-inf are a usage error "
+            "(exit 2), but a finite negative or > 1.0 value is accepted. A "
+            "non-numeric value is also an argparse usage error (exit 2)."
         ),
     )
     p_signals.set_defaults(func=_cmd_signals)
@@ -2434,8 +2468,9 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     an error -- kinds are dynamic, so there is no fixed enum to validate against);
     ``--min-weight`` keeps only signals whose ``weight >= min_weight`` (an
     inclusive relevance lower bound, AND-composed with ``--kind``) -- a non-numeric
-    value is rejected by argparse (exit 2) BEFORE this handler runs, and an
-    impossibly high value simply empties the view (no error).
+    OR non-finite (``nan``/``inf``/``-inf``) value is rejected by argparse (exit 2)
+    BEFORE this handler runs, while a finite negative or ``> 1.0`` value is accepted
+    and an impossibly high finite value simply empties the view (no error).
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():

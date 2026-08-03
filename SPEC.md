@@ -840,9 +840,10 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     against a fixed enum — an unknown kind is just an empty selection).
     `--min-weight FLOAT` keeps only signals whose relevance `weight >= min_weight`
     (an INCLUSIVE lower bound), AND-composed with `--kind`; omitted (the default)
-    leaves the view unfiltered and byte-identical to before; the float is
-    unbounded (negative or `> 1.0` accepted), so an impossibly high value simply
-    empties the view rather than erroring, while a non-numeric value is an
+    leaves the view unfiltered and byte-identical to before; the float must be
+    FINITE but is otherwise unbounded (negative or `> 1.0` accepted), so an
+    impossibly high finite value simply empties the view rather than erroring,
+    while a non-finite (`nan`/`inf`/`-inf`) or non-numeric value is an
     argparse usage error (exit 2) at PARSE time before any collection. A
     missing/non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr + exit 2 (the verbatim iter-10
