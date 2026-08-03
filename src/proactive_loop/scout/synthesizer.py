@@ -75,8 +75,18 @@ def _build_prompt(snapshot: WorkspaceSnapshot) -> str:
     if not grouped:
         lines.append("(no signals collected)")
     for kind, signals in grouped.items():
+        # WHY sort before the cap: the [:_MAX_SIGNALS_PER_KIND] slice decides
+        # WHICH signals reach the model, and by_kind() preserves raw collector-
+        # emission order (several collectors sort by summary/relpath, not by
+        # weight), so a kind's single most-relevant signal could be silently
+        # dropped by the cap. Order by descending collector-assigned weight,
+        # ties broken by ascending summary -- a TOTAL order, so the surviving
+        # set is input-order-independent (deterministic). The header count and
+        # "(+N more)" remainder stay derived from the FULL pre-cap group, so
+        # the fix changes which signals survive/their order, never the counts.
+        ranked = sorted(signals, key=lambda s: (-s.weight, s.summary))
         lines.append(f"## {kind} ({len(signals)} signal(s))")
-        for signal in signals[:_MAX_SIGNALS_PER_KIND]:
+        for signal in ranked[:_MAX_SIGNALS_PER_KIND]:
             summary = signal.summary.strip()[:_MAX_SUMMARY_CHARS]
             lines.append(f"- {summary}")
         extra = len(signals) - _MAX_SIGNALS_PER_KIND

@@ -470,7 +470,10 @@ class GoalSynthesizer:
 SYNTHESIZE_TAG = "synthesize"
 ```
 
-- Builds a compact prompt from signals (grouped by kind, capped length), calls
+- Builds a compact prompt from signals (grouped by kind, capped length; within
+  each kind, signals are shown highest-weight-first with an ascending-summary
+  tie-break BEFORE the per-kind cap, so the cap keeps the most relevant signals
+  and the shown set is deterministic), calls
   `client.complete(system=..., prompt=..., tag=SYNTHESIZE_TAG)`, parses a JSON array
   of goal dicts via `parse_json_block`, validates into `CandidateGoal`
   (invalid entries are skipped, not fatal), **re-computes nothing** (score is a
