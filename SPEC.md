@@ -189,7 +189,12 @@ class Collector(Protocol):
   "sort by relpath ascending, then cap at `max_items`".
 - `notes.py: NotesCollector(name="notes", max_items=20)` — scan `*.md` under dirs
   named `notes|journal|docs`; emit heading (`# ...`) + first paragraph signals,
-  `kind="note"`; ATX headings inside fenced code blocks (```` ``` ````/`~~~`) are
+  `kind="note"`; the notes-style directories are scanned in ascending path
+  order (`sorted` by path string) so both the emission order and which headings
+  survive the `max_items` cap are a total, `os.walk`-order-independent function
+  of the filesystem (the directories are sorted, not the signals, so within-file
+  heading source order is preserved), mirroring the sibling file-scanning
+  collectors' directory-sort discipline; ATX headings inside fenced code blocks (```` ``` ````/`~~~`) are
   ignored.
 - `dependencies.py: DependencyCollector(name="dependencies", max_manifests=20)` —
   walk `root` (same skip rules as `RecentFilesCollector`) and emit one signal per

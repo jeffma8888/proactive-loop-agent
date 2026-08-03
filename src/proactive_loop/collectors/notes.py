@@ -104,6 +104,14 @@ class NotesCollector:
                 if not _is_hidden(d) and d not in _SKIP_DIRS
             ]
 
+        # Deterministic: scan the notes-style directories in ascending path
+        # order. WHY: os.walk yields sub-directories in arbitrary,
+        # filesystem-dependent order; sorting the DIRECTORIES (not the emitted
+        # signals -- within-file heading source order must be preserved) makes
+        # both the emission order AND which headings survive the max_items cap a
+        # total, os.walk-order-independent function of the filesystem.
+        notes_dirs.sort(key=lambda p: p.as_posix())
+
         for notes_dir in notes_dirs:
             for fpath in sorted(notes_dir.rglob("*.md")):
                 if _is_hidden(fpath.name):
