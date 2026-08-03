@@ -70,8 +70,17 @@ class RecentFilesCollector:
                 if mtime >= cutoff_sec:
                     candidates.append((mtime, full))
 
-        # Sort newest first, then cap.
-        candidates.sort(key=lambda t: t[0], reverse=True)
+        # Sort newest first, ties broken by ascending path, then cap. WHY the
+        # negation form over reverse=True: mtime is genuinely tie-able (files
+        # written/copied/checked-out/extracted in one op, or coarse-resolution
+        # filesystems, share an st_mtime), and reverse=True on a stable sort would
+        # then leave equal-mtime files in arbitrary os.walk order -- so WHICH files
+        # survive the max_files cap (and their emission order) would depend on
+        # filesystem-entry order, not content. Keying on (-mtime, path) makes
+        # collect(root) a total, os.walk-order-independent function of the
+        # filesystem, matching LargeFileCollector's documented ascending-relpath
+        # tie-break.
+        candidates.sort(key=lambda t: (-t[0], str(t[1])))
         candidates = candidates[: self.max_files]
 
         now = time.time()

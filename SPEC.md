@@ -169,7 +169,11 @@ class Collector(Protocol):
 - `filesystem.py: RecentFilesCollector(name="recent_files", max_files=20, within_days=14)`
   — walk `root`, skip hidden dirs / `node_modules` / `.venv` / `__pycache__`,
   emit one signal per recently-modified file, `kind="recent_file"`, weight by recency
-  (clamped to `[0, 1]`, so a future `mtime` from clock skew cannot exceed 1.0).
+  (clamped to `[0, 1]`, so a future `mtime` from clock skew cannot exceed 1.0). Emitted
+  newest-first with an ascending-path tie-break (sort key `(-mtime, path)`, no `reverse=`),
+  so equal-`mtime` files order — and survive the `max_files` cap — by a total,
+  `os.walk`-order-independent rule (mirroring `LargeFileCollector`'s documented "ties
+  broken by ascending relpath").
 - `git_activity.py: GitActivityCollector(name="git_activity", max_commits=15)` —
   `git -C <dir> log --pretty=...` via subprocess for `root` (scanned first) and each
   direct child dir that has `.git`, the children scanned in ascending name order
