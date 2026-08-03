@@ -812,7 +812,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `resume`); a corrupt checkpoint → exit 1 via the `main()` boundary. Builds
     no `LLMClient`. Completes the run-lifecycle triad runs (find) → trace
     (inspect) → resume (continue).
-  - `pla signals --workspace W [--json] [--kind K]` — read-only, LLM-free
+  - `pla signals --workspace W [--json] [--kind K] [--min-weight FLOAT]` — read-only, LLM-free
     inspector of the FIRST pipeline stage: the raw `ContextSignal`s the collectors
     perceive for a workspace, printed WITHOUT synthesizing (builds no `LLMClient`),
     so `scan`'s question "what does the scout actually see?" is answerable with
@@ -828,7 +828,13 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     ordered by `(kind, source, summary, path or "")`, degrading to `[]` (not the
     human marker) when a `--kind` matches nothing, so it pipes cleanly into `jq`.
     `--kind K` narrows to one collector-defined kind (dynamic; not validated
-    against a fixed enum — an unknown kind is just an empty selection). A
+    against a fixed enum — an unknown kind is just an empty selection).
+    `--min-weight FLOAT` keeps only signals whose relevance `weight >= min_weight`
+    (an INCLUSIVE lower bound), AND-composed with `--kind`; omitted (the default)
+    leaves the view unfiltered and byte-identical to before; the float is
+    unbounded (negative or `> 1.0` accepted), so an impossibly high value simply
+    empties the view rather than erroring, while a non-numeric value is an
+    argparse usage error (exit 2) at PARSE time before any collection. A
     missing/non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr + exit 2 (the verbatim iter-10
     guard, before any collection), regardless of `--json`/`--kind`. Completes the

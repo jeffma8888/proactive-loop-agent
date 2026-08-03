@@ -457,6 +457,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Show only signals of this collector-defined kind (e.g. todo|note|git_commit).",
     )
+    p_signals.add_argument(
+        "--min-weight",
+        type=float,
+        default=None,
+        help=(
+            "Show only signals whose relevance weight is >= this value (inclusive "
+            "lower bound). Composes with --kind as a logical AND; omit for no "
+            "threshold. A non-numeric value is an argparse usage error (exit 2)."
+        ),
+    )
     p_signals.set_defaults(func=_cmd_signals)
 
     # `watch` wires scheduler.run_periodic into a user-facing verb: it re-runs the
@@ -1323,24 +1333,37 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
     return "\n".join([*header, *(_trace_step_line(step) for step in state.steps)])
 
 
-def _render_signals(snapshot: WorkspaceSnapshot, kind: str | None = None) -> str:
+def _render_signals(
+    snapshot: WorkspaceSnapshot,
+    kind: str | None = None,
+    min_weight: float | None = None,
+) -> str:
     """Render the raw collector signals grouped by kind as plain text.
 
-    A pure, disk-free, deterministic function of ``(snapshot, kind)`` -- like
+    A pure, disk-free, deterministic function of ``(snapshot, kind, min_weight)`` -- like
     ``_render_runs`` / ``_render_trace`` it opens no files and builds no client, so
     the exact human view is reproducible from a synthetic snapshot alone. The
-    optional ``kind`` narrows the view to one collector-defined kind; an empty
-    selection (zero signals, or a ``kind`` matching none) degrades to a single
-    ``(no signals collected)`` marker rather than a bare or blank block. Kind
-    headers ``## <kind> (<count>)`` appear in ascending lexicographic order, and
-    within each section signals are ordered by ``(source, summary, path or "")``
+    optional ``kind`` narrows the view to one collector-defined kind, and the
+    optional ``min_weight`` keeps only signals whose ``weight >= min_weight``
+    (an INCLUSIVE relevance lower bound); the two filters compose as a logical
+    AND over the same ``selected`` list that drives grouping/counts/ordering, so
+    a threshold that excludes every signal (or a ``kind`` matching none) degrades
+    to a single ``(no signals collected)`` marker rather than a bare or blank
+    block. Kind headers ``## <kind> (<count>)`` appear in ascending lexicographic
+    order, and within each section signals are ordered by
+    ``(source, summary, path or "")``
     so two renders of the same snapshot are byte-identical. ``weight`` is shown as
     ``w<value:.2f>`` (the JSON view keeps it a raw number); a signal's ``path`` is
     echoed verbatim after `` -> `` ONLY when present, so a path-less note carries
     no arrow. Header lines start with ``## `` and signal lines with two spaces, so
     the two are unambiguously distinguishable (a caller can count kinds by ``## ``).
     """
-    selected = [s for s in snapshot.signals if kind is None or s.kind == kind]
+    selected = [
+        s
+        for s in snapshot.signals
+        if (kind is None or s.kind == kind)
+        and (min_weight is None or s.weight >= min_weight)
+    ]
     if not selected:
         return "(no signals collected)"
     grouped: dict[str, list[ContextSignal]] = {}
@@ -1358,7 +1381,11 @@ def _render_signals(snapshot: WorkspaceSnapshot, kind: str | None = None) -> str
     return "\n".join(lines)
 
 
-def _signals_json_payload(snapshot: WorkspaceSnapshot, kind: str | None = None) -> dict:
+def _signals_json_payload(
+    snapshot: WorkspaceSnapshot,
+    kind: str | None = None,
+    min_weight: float | None = None,
+) -> dict:
     """Build the ``signals --json`` document as a pure function of inputs.
 
     Exactly two top-level keys -- ``workspace_root`` (== ``snapshot.root``) and
@@ -1369,13 +1396,20 @@ def _signals_json_payload(snapshot: WorkspaceSnapshot, kind: str | None = None) 
     deliberately excluded so the wire schema stays a small, stable contract a
     ``jq`` pipeline can rely on. ``path`` is echoed as-is (JSON ``null`` when
     ``None``); ``weight`` stays a raw JSON number (the human view renders it
-    ``w<value:.2f>``). A ``kind`` matching nothing degrades to ``signals == []``
-    (NOT the human ``(no signals collected)`` marker), so the JSON is always one
-    object -- an empty array, never prose. Mirrors the ``_scan_json_payload`` /
+    ``w<value:.2f>``). The optional ``kind`` (exact match) and ``min_weight``
+    (inclusive ``weight >= min_weight`` lower bound) compose as a logical AND over
+    the same ``selected`` list. A filter matching nothing degrades to
+    ``signals == []`` (NOT the human ``(no signals collected)`` marker), so the
+    JSON is always one object -- an empty array, never prose. Mirrors the ``_scan_json_payload`` /
     ``_run_row`` explicit-dict convention; kept pure/disk-free so it is
     unit-testable without touching a workspace or a client.
     """
-    selected = [s for s in snapshot.signals if kind is None or s.kind == kind]
+    selected = [
+        s
+        for s in snapshot.signals
+        if (kind is None or s.kind == kind)
+        and (min_weight is None or s.weight >= min_weight)
+    ]
     selected.sort(key=lambda s: (s.kind, s.source, s.summary, s.path or ""))
     return {
         "workspace_root": snapshot.root,
@@ -2397,7 +2431,11 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     scan/run/resume/runs/trace's missing-input contract. ``--json`` swaps the
     grouped human view for one machine-parseable object; ``--kind`` narrows to one
     collector-defined kind (an unrecognized kind is simply an empty selection, not
-    an error -- kinds are dynamic, so there is no fixed enum to validate against).
+    an error -- kinds are dynamic, so there is no fixed enum to validate against);
+    ``--min-weight`` keeps only signals whose ``weight >= min_weight`` (an
+    inclusive relevance lower bound, AND-composed with ``--kind``) -- a non-numeric
+    value is rejected by argparse (exit 2) BEFORE this handler runs, and an
+    impossibly high value simply empties the view (no error).
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():
@@ -2405,11 +2443,12 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         return 2
     snapshot = _collect(workspace)
     kind = getattr(args, "kind", None)
+    min_weight = getattr(args, "min_weight", None)
     if args.json:
         # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_signals_json_payload(snapshot, kind), indent=2))
+        print(json.dumps(_signals_json_payload(snapshot, kind, min_weight), indent=2))
     else:
-        print(_render_signals(snapshot, kind))
+        print(_render_signals(snapshot, kind, min_weight))
     return 0
 
 
