@@ -693,9 +693,13 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   failure on the executor module logger `proactive_loop.loop.executor`, message
   prefix `L1 degraded ` carrying the 1-based iteration index, AND (b) increment
   `RunState.parse_errors` once per absorbed parse failure in those same two
-  fail-safe branches (the `CHECK` case fires ONLY on a genuine parse failure,
-  never on a well-formed `done: false` — the counter is keyed on the same
-  parse-failure flag as the WARNING). The WARNING is the degradation twin of the
+  fail-safe branches (the `CHECK` case fires on a genuine parse failure OR a
+  PRESENT-but-non-boolean `done` — a quoted `"false"`/`"no"` string, an int, or
+  `null` — which is a garbled verdict routed through the SAME fail-safe path as
+  unparseable JSON but with a DISTINCT corrective observation, so it never
+  falsely completes the run; it fires NEITHER on a well-formed `done: false` NOR
+  on an absent `done`, both of which stay an honest not-yet non-degradation —
+  the counter is keyed on the same parse-failure flag as the WARNING). The WARNING is the degradation twin of the
   iter-25 `L0 retry ` INFO record and the counter is the persisted twin of that
   WARNING (mirroring how `RunState.retries` persists the `L0 retry ` INFO);
   together a behaviour-preserving, non-versioned observability add (no schema /

@@ -35,6 +35,15 @@ _PLAN_PARSE_ERROR = (
 _CHECK_PARSE_ERROR = (
     "error: your last CHECK was not valid JSON; treating the goal as not done"
 )
+# Observation substituted when a CHECK parses as an object but its `done` is a
+# PRESENT non-boolean (a quoted "false"/"no" string, an int, null). WHY a distinct
+# string from _CHECK_PARSE_ERROR: it is a different corrective signal -- the JSON
+# was well-formed but the `done` verdict is garbled, so the fed-back nudge names the
+# exact contract (`done` must be a JSON boolean) rather than "not valid JSON".
+_CHECK_BAD_DONE = (
+    'error: your last CHECK had a non-boolean "done"; it must be a JSON boolean '
+    "(true or false), not a string/number/null; treating the goal as not done"
+)
 
 # Module logger (name resolves to "proactive_loop.loop.executor"). WHY only
 # obtain a logger, never configure it: this layer just EMITS the resilience
@@ -261,7 +270,13 @@ class GoalLoop:
         progress) out of that channel -- the two are indistinguishable by
         ``done``/``reason`` alone. An unparseable CHECK is still deliberately
         read as *not done* with an error reason, so a garbled verdict never
-        falsely completes the run.
+        falsely completes the run. A PRESENT ``done`` that is not a genuine
+        JSON boolean (a quoted ``"false"``/``"no"`` string, an int, ``null``)
+        is treated the SAME way -- a garbled verdict read as *not done* with a
+        distinct ``_CHECK_BAD_DONE`` observation and ``parsed_ok=False`` -- so a
+        coerced truthy non-boolean can never falsely complete the run. An ABSENT
+        ``done`` defaults to the genuine boolean ``False`` and stays an honest
+        not-yet (non-degradation).
         """
         try:
             data = parse_json_block(check_raw)
@@ -269,7 +284,18 @@ class GoalLoop:
             return False, _CHECK_PARSE_ERROR, False
         if not isinstance(data, dict):
             return False, _CHECK_PARSE_ERROR, False
-        return bool(data.get("done", False)), str(data.get("reason", "")), True
+        # A present ``done`` MUST be a genuine JSON boolean. ``bool()`` would
+        # coerce any truthy non-boolean (a quoted "false"/"no" string, a nonzero
+        # int) to True and FALSELY complete the run, so a present-but-non-boolean
+        # ``done`` is a garbled verdict routed through the SAME fail-safe path as
+        # unparseable JSON. WHY isinstance-bool not -int: ``bool`` subclasses
+        # ``int``, so this rejects a bare int 1/0 while accepting a genuine
+        # true/false; an ABSENT ``done`` defaults to the genuine bool ``False``
+        # and stays an honest not-yet (non-degradation).
+        done_val = data.get("done", False)
+        if not isinstance(done_val, bool):
+            return False, _CHECK_BAD_DONE, False
+        return done_val, str(data.get("reason", "")), True
 
     # --- prompt rendering -----------------------------------------------
 
