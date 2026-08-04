@@ -134,3 +134,21 @@ def test_ci_workflow_runs_the_commands_the_project_documents() -> None:
     # The floor of requires-python must actually be exercised, or "3.12+" is
     # an untested claim.
     assert '"3.12"' in text, "CI must test the requires-python floor (3.12)"
+
+
+def test_ci_checks_out_full_git_history() -> None:
+    """CI must NOT use the default depth-1 checkout.
+
+    This repo tests its own git history: ``GitActivityCollector`` shells out to
+    ``git log -n15`` and the fixture behavior tests assert the exact header
+    ``## git_commit (15)``. Under a shallow clone only one commit is reachable,
+    so those tests fail in CI while passing on every developer machine -- which
+    is exactly what happened on 2026-08-04 (three failures across four
+    consecutive red builds). Pin the requirement so it cannot silently regress.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "fetch-depth: 0" in text, (
+        "CI must check out FULL git history (fetch-depth: 0). The default "
+        "depth-1 checkout makes GitActivityCollector see 1 commit instead of "
+        "15, breaking the fixture tests in CI only."
+    )

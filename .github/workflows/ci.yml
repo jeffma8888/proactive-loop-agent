@@ -30,8 +30,16 @@ jobs:
         # requires-python = ">=3.12"; prove both the floor and the next release.
         python-version: ["3.12", "3.13"]
     steps:
-      - name: Check out the repository
+      # fetch-depth: 0 is REQUIRED, not tidiness. `actions/checkout` defaults to a
+      # depth-1 clone, but this repo TESTS ITS OWN GIT HISTORY: GitActivityCollector
+      # runs `git log -n15` against examples/fixture_workspace, and the fixture
+      # behavior tests assert the exact header `## git_commit (15)`. Under a shallow
+      # clone only ONE commit is reachable, so those tests fail in CI while passing
+      # on every developer machine. Full history makes CI match a real clone.
+      - name: Check out the repository (full history)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install uv and Python ${{ matrix.python-version }}
         uses: astral-sh/setup-uv@v6
