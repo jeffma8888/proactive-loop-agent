@@ -414,6 +414,19 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the run list as a JSON array instead of the human table.",
     )
+    p_runs.add_argument(
+        "--status",
+        default=None,
+        dest="status",
+        metavar="STATUS",
+        # Choices are derived from the LIVE RunStatus enum (not a hardcoded
+        # literal) so they can never drift from the statuses runs actually persist.
+        choices=sorted(s.value for s in RunStatus),
+        help=(
+            "Narrow the listing to runs whose persisted status equals STATUS "
+            "(one of the RunStatus values). Composes with --json."
+        ),
+    )
     p_runs.set_defaults(func=_cmd_runs)
 
     # `explain` mirrors `dispatch`'s slate input but runs nothing: it inherits the
@@ -2353,6 +2366,14 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     """
     settings = _settings(args)
     rows = [_run_row(d) for d in _iter_run_dirs(settings.state_dir)]
+    # Optional post-mapping status filter (ROADMAP #98). Applied AFTER building
+    # rows so the default path (args.status is None) stays byte-identical, and a
+    # degraded "(no checkpoint)" row -- whose marker matches no RunStatus value --
+    # is naturally excluded by any filter. The filtered rows feed the SAME
+    # _render_runs / json.dumps paths, so the empty result reuses the existing
+    # "no runs" line (human) or "[]" (--json) verbatim.
+    if args.status is not None:
+        rows = [r for r in rows if r["status"] == args.status]
     if args.json:
         # The ENTIRE stdout must parse as one JSON array (empty -> []); no prose.
         print(json.dumps(rows, indent=2))

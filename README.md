@@ -98,7 +98,7 @@ automatically.
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--yes` confirms approval).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal.          |
 | `resume`  | Load a checkpoint from a run dir and continue the loop.                   |
-| `runs`    | List past dispatched runs under the state dir (`--json` for a JSON array).|
+| `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array).|
 | `explain` | Audit gate decisions from a saved slate — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--json` for a full array; read-only).|
 | `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters; read-only, LLM-free).|
