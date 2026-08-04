@@ -1,0 +1,58 @@
+# Continuous integration for proactive-loop-agent.
+#
+# The product's core claim is that the whole L2 -> L1 -> L0 stack runs fully
+# offline and deterministically. CI therefore asserts BOTH halves of that claim
+# on every push: the test suite passes, AND the end-to-end demo still completes
+# with no API key and no live model. Network access is used only to install the
+# locked dependency set.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python = ">=3.12"; prove both the floor and the next release.
+        python-version: ["3.12", "3.13"]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      # --locked fails the build if uv.lock has drifted from pyproject.toml, so
+      # a dependency change can never land without a regenerated lockfile.
+      - name: Install the locked dependency set
+        run: uv sync --locked
+
+      - name: Run the test suite (offline)
+        run: uv run pytest
+
+      # A green suite with a broken demo is still a broken product: the suite
+      # exercises units and CLI surfaces, the demo exercises the whole stack.
+      - name: Run the end-to-end demo (offline)
+        run: make demo
+
+      - name: Assert the demo produced a slate and artifacts
+        run: |
+          test -f .pla_runs/slate.json
+          ls .pla_runs/run-*/artifacts/*.md > /dev/null
