@@ -602,16 +602,20 @@ class ToolRegistry:
         # primary discovery target is the read-only workspace. Only the first
         # root under which *path* is an existing directory is searched (no
         # cross-root merging, mirroring list_files).
-        search_root: Path | None = None
-        base_root: Path | None = None
+        # Derive both roots from ONE Optional so the None-guard narrows BOTH
+        # together: the escape guard ``_within(full, base_root)`` below must not
+        # rely on an invisible "search_root and base_root were assigned in the
+        # same loop iteration" coupling between two separate Optionals -- a
+        # security guard must be self-evidently correct to reader and checker.
+        resolved: tuple[Path, Path] | None = None  # (search_root, base_root)
         for root in (self.workspace_root, self.artifacts_dir):
             candidate = root / path
             if self._within(candidate, root) and candidate.is_dir():
-                base_root = root
-                search_root = candidate
+                resolved = (candidate, root)
                 break
-        if search_root is None:
+        if resolved is None:
             return f"error: directory not found: {path!r}"
+        search_root, base_root = resolved
 
         query_lower = query.lower()
         hits: list[tuple[str, int, str]] = []
@@ -693,16 +697,20 @@ class ToolRegistry:
         # Resolve against workspace_root FIRST, then artifacts_dir -- identical
         # precedence to _list_files/_search_files. Only the first root under
         # which *path* is an existing directory is walked (no cross-root merge).
-        search_root: Path | None = None
-        base_root: Path | None = None
+        # Derive both roots from ONE Optional so the None-guard narrows BOTH
+        # together: the escape guard ``_within(full, base_root)`` below must not
+        # rely on an invisible "search_root and base_root were assigned in the
+        # same loop iteration" coupling between two separate Optionals -- a
+        # security guard must be self-evidently correct to reader and checker.
+        resolved: tuple[Path, Path] | None = None  # (search_root, base_root)
         for root in (self.workspace_root, self.artifacts_dir):
             candidate = root / path
             if self._within(candidate, root) and candidate.is_dir():
-                base_root = root
-                search_root = candidate
+                resolved = (candidate, root)
                 break
-        if search_root is None:
+        if resolved is None:
             return f"error: directory not found: {path!r}"
+        search_root, base_root = resolved
 
         pattern_lower = pattern.lower()
         relpaths: list[str] = []
