@@ -501,6 +501,30 @@ def build_parser() -> argparse.ArgumentParser:
             "non-numeric value is also an argparse usage error (exit 2)."
         ),
     )
+    # An UPSTREAM allowlist on WHICH collectors are inspected -- the perception
+    # INPUT knob, complementing --kind/--min-weight (which narrow the OUTPUT view).
+    # Repeatable (action="append"); absent (default None) = all collectors, so a
+    # bare `signals` is byte-identical to no flag. choices are derived from the LIVE
+    # registry via all_collectors() (NOT a hardcoded literal) so the allowlist can
+    # never drift from the collector set; an unknown name is a PARSE-time usage
+    # error (exit 2) naming the bad choice and listing valid ones -- no collection
+    # runs. Verbatim structure of the scan --collector arg (row #71); this extends
+    # the same knob to the perception inspector. run/watch still reject it.
+    p_signals.add_argument(
+        "--collector",
+        action="append",
+        default=None,
+        choices=sorted(c.name for c in all_collectors()),
+        dest="collector",
+        metavar="NAME",
+        help=(
+            "Restrict inspection to only the named collector(s); repeatable "
+            "(--collector todos --collector git_state). Accepted values are the "
+            "live collector names; an unknown name is a usage error (exit 2). "
+            "Composes as a logical AND with --kind/--min-weight. "
+            "Default (absent) inspects all collectors."
+        ),
+    )
     p_signals.set_defaults(func=_cmd_signals)
 
     # `watch` wires scheduler.run_periodic into a user-facing verb: it re-runs the
@@ -2471,12 +2495,19 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     OR non-finite (``nan``/``inf``/``-inf``) value is rejected by argparse (exit 2)
     BEFORE this handler runs, while a finite negative or ``> 1.0`` value is accepted
     and an impossibly high finite value simply empties the view (no error).
+    ``--collector NAME`` is a repeatable UPSTREAM allowlist restricting WHICH
+    collectors are inspected (the perception-INPUT knob, mirroring
+    ``scan --collector``): its accepted values are exactly the live collector
+    names, an unknown name is an argparse usage error (exit 2) BEFORE this
+    handler runs, absent (the default) inspects all collectors, and it composes
+    as a logical AND with ``--kind``/``--min-weight``.
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
-    snapshot = _collect(workspace)
+    only = set(args.collector) if args.collector else None
+    snapshot = _collect(workspace, only=only)
     kind = getattr(args, "kind", None)
     min_weight = getattr(args, "min_weight", None)
     if args.json:

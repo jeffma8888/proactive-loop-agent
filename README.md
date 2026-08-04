@@ -203,7 +203,7 @@ drift from it); an unknown name is an argparse usage error (exit 2), rejected
 before any collection runs. Absent (the default) every collector runs, so a bare
 `scan` is byte-identical to before. Use it to focus the scout ("only look at git
 state, ignore TODOs and large files"), which shrinks the synthesis prompt and
-narrows the proposed goals. `--collector` applies to `scan` only.
+narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects); `run`/`watch` do not accept it.
 
 ## Configuration (environment variables)
 

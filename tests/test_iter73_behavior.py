@@ -269,17 +269,18 @@ def test_b04b_choices_are_derived_from_the_live_registry(tmp_path, capsys):
         assert f"'{name}'" in err, f"{name} missing from argparse choices: {err!r}"
 
 
-def test_b04c_flag_is_scan_only(tmp_path, capsys):
+def test_b04c_flag_rejected_by_run_and_watch(tmp_path, capsys):
+    # SPEC change (factory iter 94): --collector was extended from scan-only to
+    # scan+signals (the perception inspector); test_iter94_behavior.py proves
+    # `signals` now ACCEPTS it. The SURVIVING half of the iter-73 contract is that
+    # the two NON-inspector verbs -- run and watch -- STILL reject it. argparse
+    # rejects the unrecognized flag at PARSE time (before the handler builds any
+    # client), so no provider/scripted-responses wiring is needed here.
     ws = tmp_path / "ws"
     ws.mkdir()
-    run_base = [
-        "--provider", "scripted",
-        "--scripted-responses", str(SCRIPT),
-        "--state-dir", str(tmp_path / "st"),
-    ]
-    for verb, extra in (("run", run_base), ("signals", [])):
+    for verb in ("run", "watch"):
         with pytest.raises(SystemExit) as ei:
-            main([verb, "--workspace", str(ws), *extra, "--collector", "todos"])
+            main([verb, "--workspace", str(ws), "--collector", "todos"])
         assert ei.value.code == 2, f"{verb} must reject --collector (exit 2)"
         err = capsys.readouterr().err
         assert "--collector" in err, f"{verb} error should name --collector: {err!r}"

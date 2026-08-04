@@ -751,7 +751,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     document (shortened data rows only), all three with no note/trailer and no count
     key/row added. A
     non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage
-    error (exit 2) at PARSE time, before any client/collect/slate-write. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors feed synthesis (the perception-input knob, complementing `--top`/`--format` which shape the output view): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any client/collect/slate-write, absent (the default) runs all collectors byte-identically, and it is `scan`-only (`run`/`signals`/`watch` do not accept it). A missing
+    error (exit 2) at PARSE time, before any client/collect/slate-write. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors feed synthesis (the perception-input knob, complementing `--top`/`--format` which shape the output view): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any client/collect/slate-write, absent (the default) runs all collectors byte-identically, and it is accepted by `scan` and `signals` (the perception inspector), while `run`/`watch` do not accept it. A missing
     or non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr and exit 2 (before any
     client/collect, regardless of `--format`), rather than degrading to an empty
@@ -830,7 +830,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `resume`); a corrupt checkpoint → exit 1 via the `main()` boundary. Builds
     no `LLMClient`. Completes the run-lifecycle triad runs (find) → trace
     (inspect) → resume (continue).
-  - `pla signals --workspace W [--json] [--kind K] [--min-weight FLOAT]` — read-only, LLM-free
+  - `pla signals --workspace W [--json] [--kind K] [--min-weight FLOAT] [--collector NAME ...]` — read-only, LLM-free
     inspector of the FIRST pipeline stage: the raw `ContextSignal`s the collectors
     perceive for a workspace, printed WITHOUT synthesizing (builds no `LLMClient`),
     so `scan`'s question "what does the scout actually see?" is answerable with
@@ -856,7 +856,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     argparse usage error (exit 2) at PARSE time before any collection. A
     missing/non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr + exit 2 (the verbatim iter-10
-    guard, before any collection), regardless of `--json`/`--kind`. Completes the
+    guard, before any collection), regardless of `--json`/`--kind`. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors are inspected (the perception-INPUT knob, mirroring `scan --collector`): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any collection, absent (the default) inspects all collectors byte-identically, and it composes as a logical AND with `--kind`/`--min-weight`. Completes the
     transparency arc signals (see) → scan (propose) → explain (gate) → trace (did).
   - `pla watch --workspace W [--interval S] [--max-scans N]` — the proactive
     watch loop: re-run the SAME `scan` pipeline (collect → synthesize → gate →
