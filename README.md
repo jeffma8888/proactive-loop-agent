@@ -70,6 +70,7 @@ uv sync        # install the locked dependency set (pydantic + pytest)
 make demo      # scan the fixture workspace and auto-dispatch the top goal
 make test      # run the full offline test suite
 make cov       # run the suite with a coverage report (term-missing)
+make typecheck # mypy-check the package (the "fully type-hinted" oracle; also in CI)
 ```
 
 `make demo` runs:

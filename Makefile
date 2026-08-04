@@ -1,5 +1,5 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: setup test cov demo clean
+.PHONY: setup test cov typecheck demo clean
 
 # Resolve and install the locked dependency set into a project virtualenv.
 setup:
@@ -14,6 +14,12 @@ test:
 # and removed by `make clean`.
 cov:
 	uv run pytest --cov=proactive_loop --cov-report=term-missing
+
+# Type-check the package with the locked mypy -- the local half of the
+# permanent oracle for the README's "fully type-hinted" claim (the CI type
+# step is the other half). Runs the pinned mypy from the project venv, offline.
+typecheck:
+	uv run mypy src/proactive_loop
 
 # End-to-end demo: scan the fixture workspace, then auto-dispatch the single
 # top AUTO_DISPATCH goal through the resilient loop -- all driven by the bundled
