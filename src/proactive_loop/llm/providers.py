@@ -298,6 +298,45 @@ def _attr_or_key(obj: object, name: str, default: object) -> object:
     return default
 
 
+def _coerce_ollama_text(raw: object) -> str:
+    """Coerce a raw ollama message ``content`` to ``str`` at the boundary.
+
+    WHY: ``_attr_or_key`` is typed to return ``object`` (the reply may be a
+    typed model or a plain dict), so the raw ``content`` is untyped. A
+    missing or ``None`` content is a benign empty reply (-> ``""``), but a
+    PRESENT non-``str`` content is a MALFORMED reply: storing it verbatim as
+    ``LLMResponse.text`` would silently violate that field's ``str``
+    annotation and detonate LATER in a downstream string/JSON consumer with
+    a confusing error. Raising a clean ``LLMError`` that names the provider
+    surfaces the fault AT the boundary where it is actionable.
+    """
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    raise LLMError(
+        f"ollama returned a non-string message content "
+        f"(got {type(raw).__name__}); the provider reply is malformed."
+    )
+
+
+def _coerce_ollama_count(raw: object) -> int | None:
+    """Coerce a raw ollama token count to ``int``, or ``None`` if unusable.
+
+    WHY: same untyped-``object`` boundary as ``_coerce_ollama_text``. A count
+    that is missing OR present-but-non-``int`` (a ``str``/``float``/etc.) is
+    treated as ABSENT so ``LLMResponse.usage`` stays ``dict[str, int]`` -- a
+    bad count is dropped rather than corrupting the usage map with a
+    non-``int`` value. ``bool`` subclasses ``int`` but is never a token
+    count, so it is rejected too (the iter-93 bool-vs-int discipline).
+    """
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw
+    return None
+
+
 def _create_ollama(settings: Settings) -> LLMClient:
     """Build a client backed by a locally-hosted model served by `ollama`.
 
@@ -329,11 +368,19 @@ def _create_ollama(settings: Settings) -> LLMClient:
         )
         # ollama exposes the reply at `message.content`; read defensively so
         # either the typed `ChatResponse` or a plain dict works (see
-        # `_attr_or_key`).
+        # `_attr_or_key`), then COERCE at this boundary. `_attr_or_key` is
+        # typed to return `object`, so a malformed reply (a non-`str`
+        # content, or a non-`int` token count) must be normalized HERE --
+        # raise a clean provider error / drop a bad count -- rather than
+        # stored verbatim and detonating later in a downstream consumer.
         message = _attr_or_key(response, "message", {})
-        text = _attr_or_key(message, "content", "") or ""
-        prompt_eval = _attr_or_key(response, "prompt_eval_count", None)
-        eval_count = _attr_or_key(response, "eval_count", None)
+        text = _coerce_ollama_text(_attr_or_key(message, "content", ""))
+        prompt_eval = _coerce_ollama_count(
+            _attr_or_key(response, "prompt_eval_count", None)
+        )
+        eval_count = _coerce_ollama_count(
+            _attr_or_key(response, "eval_count", None)
+        )
         usage: dict[str, int] = {}
         if prompt_eval is not None or eval_count is not None:
             usage = {

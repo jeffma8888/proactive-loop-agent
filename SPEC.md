@@ -431,7 +431,7 @@ def create_client(settings: Settings) -> LLMClient: ...
   `ollama` namespace ONLY (`ollama.ResponseError` → throttle, `ollama.RequestError` →
   timeout) so the branch depends on no second SDK and construction stays offline. It
   extends the offline-first thesis (section 5) from the scripted test double to real
-  runtime execution. Additive, exactly like iter-23 — a new provider whose absence-guard
+  runtime execution. Its reply is COERCED at the provider boundary in `_create_ollama._complete` (see 4.2): the message `content` is coerced to `str` (missing / `None` -> `""`; a PRESENT non-`str` content raises a clean `LLMError` naming `ollama` instead of being stored verbatim as `LLMResponse.text` and detonating later in a downstream string/JSON consumer), and each token count (`prompt_eval_count` / `eval_count`) is kept only if a genuine `int` -- a non-`int` (`str`/`float`/`bool`) is dropped so `usage` stays all-`int`. This is behavior-only hardening on the wrong-shape path (no contract addition). Additive, exactly like iter-23 — a new provider whose absence-guard
   and taxonomy reuse the existing machinery, so **no version bump**.
 - `"groq"` is a CLOUD backend serving open models (Llama/Mixtral/…) on Groq's LPU
   inference stack. Its SDK is an OpenAI-SDK-shaped clone, so `_create_groq` is a

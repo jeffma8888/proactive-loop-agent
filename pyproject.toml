@@ -49,3 +49,19 @@ exclude_lines = [
     'raise NotImplementedError',
     '\.\.\.',
 ]
+
+[tool.mypy]
+# Minimal base config so the "fully type-hinted" README claim gets a machine
+# oracle (`uv run --with mypy mypy src/proactive_loop/...`). Deliberately NOT
+# `strict` this bite -- strict surfaces 42 errors; we clear the 6 default-mode
+# errors in reviewable bites (this bite = llm/providers.py). Do NOT add
+# error-surfacing flags here without also fixing what they surface.
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+# botocore is the transport SDK under boto3 (the OPTIONAL, lazily-imported
+# `bedrock` provider) and ships no bundled type stubs. Scope the missing-stub
+# allowance to it ALONE -- never a blanket global `ignore_missing_imports` --
+# so the rest of the tree keeps full stub enforcement.
+module = "botocore.*"
+ignore_missing_imports = true
