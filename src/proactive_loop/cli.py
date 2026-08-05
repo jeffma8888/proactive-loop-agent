@@ -538,6 +538,24 @@ def build_parser() -> argparse.ArgumentParser:
             "Default (absent) inspects all collectors."
         ),
     )
+    # An AGGREGATE view knob (default off): the three prior knobs
+    # (--kind/--min-weight/--collector) all FILTER the per-signal listing, but
+    # there was no way to ask "how many of each KIND is this workspace
+    # surfacing?" without eyeballing a long list. --summary swaps the listing
+    # for a per-kind COUNT rollup (kind -> count + a trailing total) over the
+    # SAME selected list, so it composes as a logical AND with the filters and
+    # never changes WHICH signals are selected -- only how they are rendered.
+    p_signals.add_argument(
+        "--summary",
+        action="store_true",
+        help=(
+            "Print a per-kind COUNT rollup (kind -> count, plus a trailing "
+            "total) of the selected signals instead of the per-signal listing. "
+            "Composes with --kind/--min-weight/--collector (same selection). "
+            "With --json emits one {workspace_root, summary, total} object; "
+            "otherwise a human count table (kinds ascending, 'total N' last)."
+        ),
+    )
     p_signals.set_defaults(func=_cmd_signals)
 
     # `watch` wires scheduler.run_periodic into a user-facing verb: it re-runs the
@@ -1496,6 +1514,82 @@ def _signals_json_payload(
             for s in selected
         ],
     }
+
+
+def _render_signals_summary(
+    snapshot: WorkspaceSnapshot,
+    kind: str | None = None,
+    min_weight: float | None = None,
+) -> str:
+    """Render a per-kind COUNT rollup of the selected signals as plain text.
+
+    The AGGREGATE twin of ``_render_signals``: where that groups and LISTS each
+    signal, this collapses the same ``selected`` list to one ``"{kind}  {count}"``
+    line per DISTINCT kind (kind, two spaces, the integer count) in ascending
+    lexicographic kind order, followed by a final ``"total  {N}"`` line whose ``N``
+    is the number of selected signals (== the sum of the per-kind counts). Like
+    ``_render_signals`` it is a pure, disk-free, deterministic function of
+    ``(snapshot, kind, min_weight)`` -- it opens no file and builds no client -- and
+    it reuses the EXACT same ``selected`` filter (``kind`` exact match AND inclusive
+    ``weight >= min_weight``) so ``--summary`` never changes WHICH signals are
+    counted, only how they are rendered; the ``--collector`` allowlist is applied
+    upstream in ``_collect``. An empty selection (nothing collected, or the filters
+    exclude everything) degrades to the SAME ``(no signals collected)`` marker the
+    listing view uses -- and, deliberately, NO ``total`` line -- rather than an
+    empty table. Deterministic by construction: kinds ascending, ``total`` last.
+    """
+    selected = [
+        s
+        for s in snapshot.signals
+        if (kind is None or s.kind == kind)
+        and (min_weight is None or s.weight >= min_weight)
+    ]
+    if not selected:
+        return "(no signals collected)"
+    counts: dict[str, int] = {}
+    for signal in selected:
+        counts[signal.kind] = counts.get(signal.kind, 0) + 1
+    lines = [f"{k}  {counts[k]}" for k in sorted(counts)]
+    lines.append(f"total  {len(selected)}")
+    return "\n".join(lines)
+
+
+def _signals_summary_payload(
+    snapshot: WorkspaceSnapshot,
+    kind: str | None = None,
+    min_weight: float | None = None,
+) -> dict:
+    """Build the ``signals --summary --json`` document as a pure function of inputs.
+
+    The machine twin of ``_render_signals_summary`` and the AGGREGATE analogue of
+    ``_signals_json_payload``: EXACTLY three top-level keys -- ``workspace_root``
+    (== ``snapshot.root``), ``summary`` (an object mapping each DISTINCT selected
+    kind to its integer count, keys in ascending lexicographic order so the
+    serialized document is deterministic), and ``total`` (the number of selected
+    signals == the sum of the ``summary`` values). No ``signals`` array in summary
+    mode. It reuses the SAME ``selected`` filter as ``_signals_json_payload`` (kind
+    exact match AND inclusive ``weight >= min_weight``; the ``--collector`` allowlist
+    is applied upstream in ``_collect``), so the counts are exactly consistent with
+    the human table. An empty selection degrades to ``summary == {}`` / ``total ==
+    0`` (never the human ``(no signals collected)`` marker, never a blank output) --
+    the JSON is always one object. Kept pure/disk-free so it is unit-testable from a
+    synthetic snapshot with no workspace or client.
+    """
+    selected = [
+        s
+        for s in snapshot.signals
+        if (kind is None or s.kind == kind)
+        and (min_weight is None or s.weight >= min_weight)
+    ]
+    counts: dict[str, int] = {}
+    for signal in selected:
+        counts[signal.kind] = counts.get(signal.kind, 0) + 1
+    return {
+        "workspace_root": snapshot.root,
+        "summary": {k: counts[k] for k in sorted(counts)},
+        "total": len(selected),
+    }
+
 
 
 def _explain_json_payload(
@@ -2531,7 +2625,16 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     snapshot = _collect(workspace, only=only)
     kind = getattr(args, "kind", None)
     min_weight = getattr(args, "min_weight", None)
-    if args.json:
+    if getattr(args, "summary", False):
+        # AGGREGATE view: a per-kind count rollup over the SAME selected list,
+        # NOT the per-signal listing. --json emits the {workspace_root, summary,
+        # total} object; otherwise the human count table (kinds ascending, total
+        # last). Selection (kind/min_weight/collector) is unchanged.
+        if args.json:
+            print(json.dumps(_signals_summary_payload(snapshot, kind, min_weight), indent=2))
+        else:
+            print(_render_signals_summary(snapshot, kind, min_weight))
+    elif args.json:
         # The ENTIRE stdout must parse as one JSON object; no human trailer.
         print(json.dumps(_signals_json_payload(snapshot, kind, min_weight), indent=2))
     else:

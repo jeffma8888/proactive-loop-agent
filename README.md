@@ -101,7 +101,7 @@ automatically.
 | `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array).|
 | `explain` | Audit gate decisions from a saved slate — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--json` for a full array; read-only).|
-| `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters; read-only, LLM-free).|
+| `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters; `--summary` prints a per-kind count rollup + total instead of the listing, composing with the filters; read-only, LLM-free).|
 | `watch`   | Repeatedly re-scan a workspace on an interval and re-print the slate (`--interval S`; `--max-scans N`; live monitor, writes no slate file).|
 | `diff`    | Compare two saved slates and classify goals as added/removed/changed/unchanged (`--old A.json --new B.json`; `--json` for a JSON object; matched by normalized title; read-only, LLM-free).|
 | `policy`  | Print the standing autonomy contract: the four ordered gate rules, the auto-dispatch threshold, and every category tagged sensitive/auto-eligible (`--json` for a JSON object; read-only, LLM-free, no workspace).|
