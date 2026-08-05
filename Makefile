@@ -1,5 +1,5 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: setup test cov typecheck demo clean
+.PHONY: setup test cov typecheck demo clean check
 
 # Resolve and install the locked dependency set into a project virtualenv.
 # Uses --locked (not bare 'uv sync') so a local install resolves the EXACT
@@ -41,3 +41,19 @@ clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache
 	rm -rf .coverage htmlcov
+
+# Reproduce the EXACT CI graded gate locally, in CI's own order, in one command.
+# CI (.github/workflows/ci.yml) grades five run-steps on every push: locked
+# install -> suite -> mypy oracle -> offline demo -> demo-artifact assertions.
+# Before this target there was no single local command to run that gate, and the
+# two demo-artifact assertions lived ONLY in ci.yml (nowhere runnable locally),
+# so they could silently rot. `make check` == a green CI. It reuses `$(MAKE)
+# demo` (no re-inline) so the demo command stays single-sourced. Kept in lockstep
+# with ci.yml by tests/test_iter102_behavior.py (a red test == recipe/CI drift).
+check:
+	uv sync --locked
+	uv run pytest
+	uv run mypy src/proactive_loop
+	$(MAKE) demo
+	test -f .pla_runs/slate.json
+	ls .pla_runs/run-*/artifacts/*.md > /dev/null
