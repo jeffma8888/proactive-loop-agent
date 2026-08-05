@@ -461,7 +461,7 @@ def test_b11_spec_count_equals_registry_and_emitted(capsys):
 
 # ==========================================================================
 # Behavior 12 --- Verb-count doc updated + no other-count regression. The cli.py
-# module docstring reads "fourteen verbs" (was "thirteen"); the collector count is
+# module docstring reads "fifteen verbs" (was "thirteen"); the collector count is
 # now 15 (later iters added syntax_error; the providers verb itself added no
 # collector). Tool count is now 14 (the read_lines tool shipped later, factory
 # iter 76; the providers verb added no tool).
@@ -469,13 +469,13 @@ def test_b11_spec_count_equals_registry_and_emitted(capsys):
 # ==========================================================================
 
 
-def test_b12_cli_docstring_says_fourteen_verbs():
+def test_b12_cli_docstring_says_fifteen_verbs():
     import proactive_loop.cli as cli_module
 
     doc = cli_module.__doc__ or ""
-    assert "fourteen" in doc, (
-        "cli.py module docstring must read 'fourteen verbs' after adding the "
-        f"providers verb; got docstring:\n{doc}"
+    assert "fifteen" in doc, (
+        "cli.py module docstring must read 'fifteen verbs' after adding the "
+        f"config verb; got docstring:\n{doc}"
     )
     assert "thirteen" not in doc, (
         "cli.py module docstring must no longer read 'thirteen'; got:\n" + doc

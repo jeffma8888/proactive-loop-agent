@@ -175,7 +175,7 @@ def test_b5_ordering_future_before_now_newest_first(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------------------
 # Behavior 6 -- No registry / never-raises drift: missing dir -> [], and the
-# count-lock invariants stay 15 collectors / 14 tools / 7 providers / 14 verbs,
+# count-lock invariants stay 15 collectors / 14 tools / 7 providers / 15 verbs,
 # __version__ frozen at 0.1.1 (a behavior-only clamp adds no public surface).
 # ---------------------------------------------------------------------------
 
@@ -208,8 +208,8 @@ def test_b6_cli_subcommand_count_unchanged() -> None:
     parser = build_parser()
     subactions = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
     assert len(subactions) == 1, "expected exactly one subparsers action"
-    assert len(subactions[0].choices) == 14, (
-        f"CLI subcommand count must stay 14; got {len(subactions[0].choices)}"
+    assert len(subactions[0].choices) == 15, (
+        f"CLI subcommand count must stay 15; got {len(subactions[0].choices)}"
     )
 
 

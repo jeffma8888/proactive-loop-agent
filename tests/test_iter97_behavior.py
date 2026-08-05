@@ -95,7 +95,7 @@ README_SECTIONS = (
 
 # Live-registry expected counts (behavior 6: no drift).
 EXPECTED_COLLECTORS = 16
-EXPECTED_VERBS = 14
+EXPECTED_VERBS = 15
 EXPECTED_TOOLS = 14
 EXPECTED_PROVIDERS = 7
 

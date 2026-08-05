@@ -58,11 +58,12 @@ _NUM_WORD: dict[int, str] = {
     16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty",
 }
 
-# The 14 subcommands the CLI must expose (Behavior 6). Encoded here as the
+# The 15 subcommands the CLI must expose (Behavior 6). Encoded here as the
 # spec-declared ground truth, NOT imported from a private catalog.
 EXPECTED_SUBCOMMANDS = [
     "scan", "dispatch", "run", "resume", "runs", "explain", "trace",
     "signals", "watch", "diff", "policy", "tools", "collectors", "providers",
+    "config",
 ]
 
 
@@ -102,7 +103,7 @@ def _run(argv: list[str]) -> tuple[int | None, int | None, str, str]:
 
 # ==========================================================================
 # Behavior 1 -- build_parser docstring names the LIVE subcommand count as an
-# English word (currently "fourteen subcommands").
+# English word (currently "fifteen subcommands").
 # ==========================================================================
 def test_b01_build_parser_docstring_names_live_subcommand_count():
     n = _subcommand_count()
@@ -114,9 +115,9 @@ def test_b01_build_parser_docstring_names_live_subcommand_count():
     )
 
 
-def test_b01_live_subcommand_count_is_fourteen():
-    # Anchor the current tree: the fix targets exactly 14 subcommands.
-    assert _subcommand_count() == 14
+def test_b01_live_subcommand_count_is_fifteen():
+    # Anchor the current tree: the fix targets exactly 15 subcommands.
+    assert _subcommand_count() == 15
 
 
 def test_b01_paren_trap_is_the_class_docstring():
@@ -125,8 +126,8 @@ def test_b01_paren_trap_is_the_class_docstring():
     # docstring, NOT the function docstring. The edit lives on the function.
     instance_doc = cli.build_parser().__doc__ or ""
     func_doc = cli.build_parser.__doc__ or ""
-    assert "fourteen subcommands" not in instance_doc
-    assert "fourteen subcommands" in func_doc
+    assert "fifteen subcommands" not in instance_doc
+    assert "fifteen subcommands" in func_doc
 
 
 # ==========================================================================
@@ -233,7 +234,7 @@ def test_b05_no_other_count_word_precedes_registered_collectors():
 
 # ==========================================================================
 # Behavior 6 -- the edits are INERT: no runtime behavior change. --help exits 0
-# and lists ALL 14 subcommand names; tools/collectors/providers/policy each
+# and lists ALL 15 subcommand names; tools/collectors/providers/policy each
 # return 0; the docstring text is never printed to stdout.
 # ==========================================================================
 def test_b06_help_exits_zero_and_lists_all_subcommands():
@@ -246,7 +247,7 @@ def test_b06_help_exits_zero_and_lists_all_subcommands():
 def test_b06_help_does_not_leak_function_docstrings():
     rc, code, out, err = _run(["--help"])
     for phrase in (
-        "fourteen subcommands",
+        "fifteen subcommands",
         "eleven subcommands",
         "registered tools",
         "registered collectors",
@@ -288,6 +289,6 @@ def test_b07_cli_version_flag_prints_pla_version():
 # locks the count trio the drift-guards are bound to.
 # ==========================================================================
 def test_b08_registry_sizes_unchanged():
-    assert _subcommand_count() == 14
+    assert _subcommand_count() == 15
     assert len(ToolRegistry.tool_names()) == 14
     assert len(all_collectors()) == 16

@@ -269,7 +269,7 @@ def test_b6_within_kind_reorder_does_not_leak_across_kinds() -> None:
 
 # ---------------------------------------------------------------------------
 # Behavior 7 -- registry / version lock (a behavior-only change adds NO public
-# surface): 15 collectors, 14 tools, 7 providers, 14 CLI subcommands, version
+# surface): 15 collectors, 14 tools, 7 providers, 15 CLI subcommands, version
 # frozen at 0.1.1.
 # ---------------------------------------------------------------------------
 
@@ -298,8 +298,8 @@ def test_b7_cli_subcommand_count_unchanged() -> None:
         a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
     ]
     assert len(subactions) == 1, "expected exactly one subparsers action"
-    assert len(subactions[0].choices) == 14, (
-        f"CLI subcommand count must stay 14; got {len(subactions[0].choices)}"
+    assert len(subactions[0].choices) == 15, (
+        f"CLI subcommand count must stay 15; got {len(subactions[0].choices)}"
     )
 
 

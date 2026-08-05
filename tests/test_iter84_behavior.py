@@ -305,7 +305,7 @@ def test_eb6_signal_fields_source_and_kind(monkeypatch, tmp_path) -> None:
 
 def test_eb6_registry_counts_and_version_frozen() -> None:
     """Behavior-only change -> the live registry and version are unchanged: 15
-    collectors, 14 tools, 7 providers, 14 CLI subcommands, __version__ 0.1.1.
+    collectors, 14 tools, 7 providers, 15 CLI subcommands, __version__ 0.1.1.
     A future collector/tool/verb/provider/env-var add self-flags here."""
     from proactive_loop.cli import build_parser
     from proactive_loop.llm.providers import VALID_PROVIDERS
@@ -322,5 +322,5 @@ def test_eb6_registry_counts_and_version_frozen() -> None:
         if isinstance(a, argparse._SubParsersAction)
     ]
     assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 14
+    assert len(sub_actions[0].choices) == 15
     assert __version__ == "0.1.1"

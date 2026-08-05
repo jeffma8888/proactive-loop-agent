@@ -281,7 +281,7 @@ def test_b7_verb_count_unchanged():
         a for a in build_parser()._subparsers._group_actions if hasattr(a, "choices")
     ]
     assert subactions, "no subparser choices found"
-    assert len(subactions[0].choices) == 14, "CLI verb set changed (expected 14)"
+    assert len(subactions[0].choices) == 15, "CLI verb set changed (expected 15)"
 
 
 def test_b7_version_unchanged():

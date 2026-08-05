@@ -264,7 +264,7 @@ def test_b08_subparser_choice_count_unchanged():
         a for a in parser._subparsers._group_actions if isinstance(a, argparse._SubParsersAction)
     ]
     assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 14
+    assert len(sub_actions[0].choices) == 15
     assert "signals" in sub_actions[0].choices
 
 

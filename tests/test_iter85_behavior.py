@@ -315,7 +315,7 @@ def test_eb6_oserror_during_enumeration_preserves_root_signal(monkeypatch, tmp_p
 
 def test_eb7_registry_counts_and_version_frozen() -> None:
     """Behavior-only, order-only change -> the live registry and version are
-    unchanged: 15 collectors, 14 tools, 7 providers, 14 CLI subcommands,
+    unchanged: 15 collectors, 14 tools, 7 providers, 15 CLI subcommands,
     __version__ 0.1.1. A future collector/tool/verb/provider add self-flags here."""
     from proactive_loop.cli import build_parser
     from proactive_loop.llm.providers import VALID_PROVIDERS
@@ -332,5 +332,5 @@ def test_eb7_registry_counts_and_version_frozen() -> None:
         if isinstance(a, argparse._SubParsersAction)
     ]
     assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 14
+    assert len(sub_actions[0].choices) == 15
     assert __version__ == "0.1.1"

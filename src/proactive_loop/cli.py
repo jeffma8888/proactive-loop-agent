@@ -2,13 +2,13 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into fourteen verbs a person actually runs -- scan, dispatch, run, resume, the
+into fifteen verbs a person actually runs -- scan, dispatch, run, resume, the
 read-only runs lister, the read-only explain auditor, the read-only trace
 transcript renderer, the read-only signals perception inspector, the periodic
 watch loop, the read-only diff slate-delta inspector, the read-only policy
 autonomy-contract catalog, the read-only tools sandbox-surface catalog, the
-read-only collectors L2-perception catalog, and the read-only providers
-LLM-backend catalog --
+read-only collectors L2-perception catalog, the read-only providers
+LLM-backend catalog, and the read-only config resolved-settings inspector --
 and owns
 the two things a library must not: argument
 parsing and where run artifacts land on disk. Keeping that policy here (never
@@ -244,7 +244,7 @@ def _finite_float(raw: str) -> float:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with fourteen subcommands and shared globals.
+    """Assemble the ``pla`` parser with fifteen subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -729,6 +729,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the provider catalog as one JSON object instead of the human catalog.",
     )
     p_providers.set_defaults(func=_cmd_providers)
+
+    # `config` prints the fully-RESOLVED effective ``Settings`` -- every field
+    # after ``PLA_*`` env vars AND the CLI globals (--provider/--state-dir/...) are
+    # folded in through the shared ``_settings`` seam. It is the RUNTIME-CONFIG
+    # window of the transparency arc: where `policy` catalogs the autonomy RULES,
+    # `collectors`/`tools`/`providers` catalog the three architectural seams, and
+    # `signals` shows a workspace's perceived input, `config` answers the prior
+    # question "what settings will the agent actually run with?" -- the natural
+    # companion to the README's PLA_* env-var table. It inherits the globals so
+    # --provider/--scripted-responses/--state-dir are folded into the resolved
+    # view; unlike a client-building verb it builds NO ``create_client`` (so a
+    # provider that would need an SDK is simply reflected, never validated -- exit
+    # 0, not the eager-load exit 1), runs no collector, and touches no filesystem.
+    # --json swaps the human listing for one explicit-allowlist object. Deliberately
+    # READ-ONLY: it only READS/prints the resolved settings, never a --set write
+    # mode, and it prints only declared ``Settings`` fields (which hold no secret),
+    # never raw ``os.environ``.
+    p_config = sub.add_parser(
+        "config",
+        parents=[globals_],
+        help="Print the fully-resolved effective settings after PLA_* env vars and CLI globals are applied (read-only, LLM-free, no workspace).",
+    )
+    p_config.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the resolved settings as one JSON object instead of the human listing.",
+    )
+    p_config.set_defaults(func=_cmd_config)
 
     return parser
 
@@ -1911,6 +1939,86 @@ def _render_policy(settings: Settings) -> str:
     return "\n".join(lines)
 
 
+def _config_json_payload(settings: Settings) -> dict:
+    """Build the ``config --json`` document as a pure function of ``settings``.
+
+    One object of an EXPLICIT key allowlist -- never ``settings.model_dump()`` (the
+    iter-08 schema-leak discipline every ``*_json_payload`` follows): a field added
+    later to ``Settings`` must NOT silently leak onto this wire schema, which a
+    ``jq``/CI pipeline asserts on. The keys are EXACTLY the resolved-``Settings``
+    surface ``{provider, model, scripted_responses_path, workspace_root, state_dir,
+    auto_dispatch_min_score, sensitive_categories, max_iterations, max_llm_calls,
+    retry}`` with ``retry`` nesting exactly its five knobs.
+
+    Path-typed fields are emitted as strings (``None`` -> JSON ``null`` for an unset
+    ``model``/``scripted_responses_path``); ``auto_dispatch_min_score`` is a raw JSON
+    number (not the ``:.2f`` human string); ``sensitive_categories`` is a sorted list
+    of category ``.value`` strings. Kept pure/disk-free and client-free so it is
+    unit-testable without a workspace, a slate file, or an ``LLMClient``.
+    """
+    scripted = settings.scripted_responses_path
+    return {
+        "provider": settings.provider,
+        "model": settings.model,
+        "scripted_responses_path": str(scripted) if scripted is not None else None,
+        "workspace_root": str(settings.workspace_root),
+        "state_dir": str(settings.state_dir),
+        "auto_dispatch_min_score": settings.auto_dispatch_min_score,
+        "sensitive_categories": sorted(
+            cat.value for cat in settings.sensitive_categories
+        ),
+        "max_iterations": settings.max_iterations,
+        "max_llm_calls": settings.max_llm_calls,
+        "retry": {
+            "max_attempts": settings.retry.max_attempts,
+            "base_backoff_sec": settings.retry.base_backoff_sec,
+            "backoff_factor": settings.retry.backoff_factor,
+            "max_backoff_sec": settings.retry.max_backoff_sec,
+            "jitter_frac": settings.retry.jitter_frac,
+        },
+    }
+
+
+def _render_config(settings: Settings) -> str:
+    """Render the fully-resolved effective settings as plain text (read-only, LLM-free).
+
+    A pure, disk-free, client-free function of ``settings`` -- like ``_render_policy``
+    it opens no file and builds no client, so the exact human view is reproducible
+    from a ``Settings`` alone. It surfaces every resolved field (all ``PLA_*`` env
+    vars and CLI globals already folded in via the shared ``_settings`` seam) as a
+    flat catalog, with the five ``RetryPolicy`` knobs nested under ``retry:``.
+
+    ``auto_dispatch_min_score`` uses ``:.2f`` (mirroring ``_render_policy``) so a
+    default renders ``4.00``; an unset ``model``/``scripted_responses_path`` renders
+    ``(unset)``; ``sensitive_categories`` is a sorted comma-joined list of category
+    ``.value`` strings. Field labels are the literal ``Settings`` attribute names so
+    the render is self-describing.
+    """
+    scripted = settings.scripted_responses_path
+    scripted_str = str(scripted) if scripted is not None else "(unset)"
+    model_str = settings.model if settings.model is not None else "(unset)"
+    categories = ", ".join(sorted(cat.value for cat in settings.sensitive_categories))
+    lines = [
+        "effective settings",
+        f"  provider: {settings.provider}",
+        f"  model: {model_str}",
+        f"  scripted_responses_path: {scripted_str}",
+        f"  workspace_root: {settings.workspace_root}",
+        f"  state_dir: {settings.state_dir}",
+        f"  auto_dispatch_min_score: {settings.auto_dispatch_min_score:.2f}",
+        f"  sensitive_categories: {categories}",
+        f"  max_iterations: {settings.max_iterations}",
+        f"  max_llm_calls: {settings.max_llm_calls}",
+        "  retry:",
+        f"    max_attempts: {settings.retry.max_attempts}",
+        f"    base_backoff_sec: {settings.retry.base_backoff_sec}",
+        f"    backoff_factor: {settings.retry.backoff_factor}",
+        f"    max_backoff_sec: {settings.retry.max_backoff_sec}",
+        f"    jitter_frac: {settings.retry.jitter_frac}",
+    ]
+    return "\n".join(lines)
+
+
 # The four access classes a sandbox tool can belong to -- a CLOSED set, named
 # once so the `tools` catalog, its JSON, and any reviewer read the identical
 # vocabulary (mirrors how `_POLICY_RULES` pins the gate narration). read-only:
@@ -2778,6 +2886,32 @@ def _cmd_policy(args: argparse.Namespace) -> int:
         print(json.dumps(_policy_json_payload(settings), indent=2))
     else:
         print(_render_policy(settings))
+    return 0
+
+
+def _cmd_config(args: argparse.Namespace) -> int:
+    """config: print the fully-resolved effective ``Settings`` (read-only, LLM-free).
+
+    Mirrors ``_cmd_policy`` exactly: it resolves ``settings`` through the SHARED
+    ``_settings(args)`` seam -- so ``PLA_*`` env vars AND the CLI globals
+    (``--provider``/``--scripted-responses``/``--state-dir``) are folded into the
+    printed view -- and does NOTHING else: no ``create_client`` (a provider that
+    would need an SDK is simply reflected in the output, never validated, so exit 0
+    rather than the eager-load exit 1 a client-building verb gives), no collector,
+    no filesystem, no mutation. So it structurally cannot regress any existing
+    behavior. It always returns 0; ``--json`` swaps the human listing for one
+    explicit-allowlist object (rendering selection only -- there is no input to fail
+    on). A malformed ``PLA_*`` numeric env var still fails through the ``main()``
+    ``except (LLMError, ValueError, OSError)`` boundary (one ``error:`` line + exit
+    1), identical to every other settings-resolving verb -- that path lives in
+    ``Settings.from_env`` under this handler, not in a pre-flight arg guard.
+    """
+    settings = _settings(args)
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer.
+        print(json.dumps(_config_json_payload(settings), indent=2))
+    else:
+        print(_render_config(settings))
     return 0
 
 
