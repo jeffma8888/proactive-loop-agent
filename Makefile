@@ -2,8 +2,12 @@
 .PHONY: setup test cov typecheck demo clean
 
 # Resolve and install the locked dependency set into a project virtualenv.
+# Uses --locked (not bare 'uv sync') so a local install resolves the EXACT
+# dependency set CI grades against: CI runs 'uv sync --locked' and fails on any
+# uv.lock drift, so aligning setup here turns a silent local/CI divergence into
+# a loud, fixable error and makes 'clone -> make setup == CI env' a guarantee.
 setup:
-	uv sync
+	uv sync --locked
 
 # Run the whole test suite (offline; no network, no API keys).
 test:
