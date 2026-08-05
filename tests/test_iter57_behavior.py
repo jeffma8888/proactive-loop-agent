@@ -46,6 +46,7 @@ CANONICAL_COLLECTORS = {
     "git_stash",
     "git_state",
     "large_file",
+    "license",
     "merge_conflict",
     "notes",
     "recent_files",
@@ -233,7 +234,7 @@ def test_b05_json_names_equal_sorted_canonical(capsys):
         f"json names must equal sorted canonical 15 (no dups/extras, ascending); "
         f"got {names}"
     )
-    assert len(names) == 15
+    assert len(names) == 16
 
 
 # ==========================================================================
@@ -346,7 +347,7 @@ def test_b10_version_unchanged():
 
 
 def test_b10_registry_unchanged_fifteen_collectors():
-    assert len(all_collectors()) == 15, "the collector registry must still have 15 entries"
+    assert len(all_collectors()) == 16, "the collector registry must still have 16 entries"
     assert {c.name for c in all_collectors()} == CANONICAL_COLLECTORS, (
         "the collector registry name set must be unchanged (verb adds no collector)"
     )

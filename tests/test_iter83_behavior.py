@@ -192,9 +192,9 @@ def test_b7_inline_tag_precedence_no_double_count(tmp_path: Path) -> None:
 
 
 def test_b8_collector_registry_count_unchanged() -> None:
-    assert len(all_collectors()) == 15, (
+    assert len(all_collectors()) == 16, (
         "a checkbox-bullet widening on TodoCollector must add NO collector; "
-        f"expected 15, got {len(all_collectors())}"
+        f"expected 16, got {len(all_collectors())}"
     )
 
 

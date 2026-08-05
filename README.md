@@ -16,7 +16,7 @@ The whole system runs **fully offline and deterministically** by default — the
 
 - **A 0→1 idea, not a prompt trick** — proactivity modeled as an explicit architectural layer (perceive → propose → gate → execute), with clear seams between deciding *what* to do and *how* to do it.
 - **Safety by construction** — the autonomy gate is a hard rule engine: sensitive categories (finance, legal, health) *always* require human approval, no matter how high a goal scores. Autonomy comes from a sandbox, not from trust; the execution loop can only write inside a scratch directory through path-guarded tools.
-- **Production-grade rigor on a portfolio codebase** — **1,800+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 15 context collectors, 14 CLI verbs, deterministic and offline end to end.
+- **Production-grade rigor on a portfolio codebase** — **1,800+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 16 context collectors, 14 CLI verbs, deterministic and offline end to end.
 - **Auditability as a first-class feature** — a transparency arc of read-only, LLM-free inspector commands: see what the collectors *perceive* → what the scout *proposed* → *why* the gate ruled → exactly what a run *did*.
 
 <!-- ============================================================================

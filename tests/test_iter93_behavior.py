@@ -170,7 +170,7 @@ def test_b11_bad_done_observation_mentions_boolean():
 
 
 def test_b11_collector_count_unchanged():
-    assert len(all_collectors()) == 15, "collector set changed (expected 15)"
+    assert len(all_collectors()) == 16, "collector set changed (expected 16)"
 
 
 def test_b11_tool_count_unchanged():

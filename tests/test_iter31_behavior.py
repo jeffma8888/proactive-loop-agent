@@ -57,6 +57,7 @@ _DOCUMENTED_COLLECTOR_NAMES = frozenset(
         "test_posture",
         "merge_conflict",
         "large_file",
+        "license",
         "secret_file",
         "git_stash",
         "syntax_error",

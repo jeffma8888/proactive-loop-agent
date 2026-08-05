@@ -14,6 +14,7 @@ from proactive_loop.collectors.git_activity import GitActivityCollector
 from proactive_loop.collectors.git_state import GitStateCollector
 from proactive_loop.collectors.git_stash import GitStashCollector
 from proactive_loop.collectors.large_file import LargeFileCollector
+from proactive_loop.collectors.license import LicenseCollector
 from proactive_loop.collectors.lockfile_drift import LockfileDriftCollector
 from proactive_loop.collectors.merge_conflict import MergeConflictCollector
 from proactive_loop.collectors.notes import NotesCollector
@@ -47,6 +48,7 @@ def all_collectors() -> list[Collector]:
         CiConfigCollector(),
         LockfileDriftCollector(),
         SyntaxErrorCollector(),
+        LicenseCollector(),
     ]
 
 
@@ -67,5 +69,6 @@ __all__ = [
     "CiConfigCollector",
     "LockfileDriftCollector",
     "SyntaxErrorCollector",
+    "LicenseCollector",
     "all_collectors",
 ]

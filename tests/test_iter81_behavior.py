@@ -247,9 +247,9 @@ def test_b7_collect_never_raises_and_returns_list(tmp_path: Path) -> None:
 
 
 def test_b8_collector_registry_count_unchanged(tmp_path: Path) -> None:
-    assert len(all_collectors()) == 15, (
+    assert len(all_collectors()) == 16, (
         "a fence-awareness fix on NotesCollector must add NO collector; "
-        f"expected 15, got {len(all_collectors())}"
+        f"expected 16, got {len(all_collectors())}"
     )
 
 

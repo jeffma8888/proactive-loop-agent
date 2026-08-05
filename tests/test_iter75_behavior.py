@@ -483,8 +483,8 @@ def test_b12_cli_docstring_says_fourteen_verbs():
 
 
 def test_b12_collector_count_fifteen():
-    assert len(all_collectors()) == 15, (
-        "the collector registry must have 15 entries (later iters added syntax_error)"
+    assert len(all_collectors()) == 16, (
+        "the collector registry must have 16 entries (later iters added syntax_error)"
     )
 
 

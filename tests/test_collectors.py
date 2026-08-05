@@ -29,6 +29,7 @@ from proactive_loop.collectors import (
     GitStateCollector,
     GitStashCollector,
     LargeFileCollector,
+    LicenseCollector,
     LockfileDriftCollector,
     MergeConflictCollector,
     NotesCollector,
@@ -102,6 +103,7 @@ _DOCUMENTED_COLLECTOR_NAMES = frozenset(
         "test_posture",
         "merge_conflict",
         "large_file",
+        "license",
         "secret_file",
         "git_stash",
         "syntax_error",
@@ -122,6 +124,7 @@ _EXPORTED_COLLECTOR_CLASSES = frozenset(
         PostureCollector,
         MergeConflictCollector,
         LargeFileCollector,
+        LicenseCollector,
         SecretFileCollector,
         SyntaxErrorCollector,
     }

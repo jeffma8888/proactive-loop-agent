@@ -252,7 +252,7 @@ def test_b08_and_composition_with_kind_unchanged(tmp_path, capsys):
 
 
 def test_b08_registry_counts_and_version_unchanged():
-    assert len(all_collectors()) == 15
+    assert len(all_collectors()) == 16
     assert len(ToolRegistry.tool_names()) == 14
     assert len(VALID_PROVIDERS) == 7
     assert __version__ == "0.1.1"

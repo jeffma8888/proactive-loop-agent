@@ -37,7 +37,7 @@ from proactive_loop.loop.tools import ToolRegistry
 
 # --- spec-declared ground facts (encoded here, NOT imported from any private catalog) ---
 EXPECTED_COUNT = 14  # TOOLS count (pla tools --json / SPEC tools shape)
-EXPECTED_COLLECTOR_COUNT = 15  # COLLECTORS count; decoupled once a collector was added without a tool
+EXPECTED_COLLECTOR_COUNT = 16  # COLLECTORS count; decoupled once a collector was added without a tool
 
 CANONICAL_TOOLS = {
     "write_file",
@@ -64,6 +64,7 @@ CANONICAL_COLLECTORS = {
     "git_stash",
     "git_state",
     "large_file",
+    "license",
     "merge_conflict",
     "notes",
     "recent_files",

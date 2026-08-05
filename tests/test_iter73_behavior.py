@@ -41,7 +41,7 @@ _LIVE_NAMES = frozenset(
     {
         "recent_files", "git_activity", "git_state", "git_stash", "todos",
         "notes", "dependencies", "working_tree", "test_posture",
-        "merge_conflict", "large_file", "secret_file", "ci_config",
+        "merge_conflict", "large_file", "license", "secret_file", "ci_config",
         "lockfile_drift", "syntax_error",
     }
 )

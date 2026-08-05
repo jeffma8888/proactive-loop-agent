@@ -242,7 +242,7 @@ def test_b6_no_registry_or_version_drift() -> None:
     from proactive_loop.loop.tools import ToolRegistry
 
     assert proactive_loop.__version__ == "0.1.1"
-    assert len(all_collectors()) == 15
+    assert len(all_collectors()) == 16
     assert len(ToolRegistry.tool_names()) == 14
     assert len(VALID_PROVIDERS) == 7
 

@@ -216,7 +216,7 @@ def test_b05_cmd_collectors_docstring_matches_live_count():
 
 
 def test_b05_live_collector_count_is_fifteen():
-    assert len(all_collectors()) == 15
+    assert len(all_collectors()) == 16
 
 
 def test_b05_no_other_count_word_precedes_registered_collectors():
@@ -290,4 +290,4 @@ def test_b07_cli_version_flag_prints_pla_version():
 def test_b08_registry_sizes_unchanged():
     assert _subcommand_count() == 14
     assert len(ToolRegistry.tool_names()) == 14
-    assert len(all_collectors()) == 15
+    assert len(all_collectors()) == 16
