@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
 from proactive_loop.models import ContextSignal
 
 # Matches TODO / FIXME / XXX anywhere in a line (case-insensitive).
@@ -39,10 +40,22 @@ class TodoCollector:
     """Emit one ContextSignal per TODO/FIXME/XXX comment or Markdown checkbox.
 
     Caps results at *max_items* to keep the synthesizer prompt concise.
+
+    WHY *max_read_bytes*: this collector DECODES every scanned-extension file it
+    walks, so without an upper bound one vendored blob (a 50 MB generated ``.md``
+    or checked-in ``.py``) is pulled into memory on every scan -- and ``pla watch``
+    repeats that each interval. Files whose ``st_size`` EXCEEDS the cap are skipped
+    unread. This is not a blind spot: the cap equals ``LARGE_FILE_MIN_BYTES``, and
+    ``LargeFileCollector`` reports at ``size >= LARGE_FILE_MIN_BYTES`` from
+    ``st_size`` alone, so every file skipped here is already reported there as a
+    ``kind="large_file"`` signal -- skipped-here implies reported-there. The
+    comparison is STRICTLY greater, deliberately overlapping that inclusive ``>=``
+    by exactly one size so the two ranges leave no gap.
     """
 
     name: str = "todos"
     max_items: int = 30
+    max_read_bytes: int = LARGE_FILE_MIN_BYTES
 
     def collect(self, root: Path) -> list[ContextSignal]:
         """Scan *root* recursively for actionable todo items."""
@@ -70,7 +83,14 @@ class TodoCollector:
                 if Path(fname).suffix.lower() not in _SCAN_EXTENSIONS:
                     continue
                 full = Path(dirpath) / fname
+                # Per-file guard, inside ONE try so the size read is under the
+                # same never-raise discipline as the decode: a file that vanishes
+                # or denies stat() between the walk and here is skipped, and its
+                # siblings still emit. Oversized files are skipped BEFORE any
+                # decode, so nothing above the cap is ever pulled into memory.
                 try:
+                    if full.stat().st_size > self.max_read_bytes:
+                        continue
                     text = full.read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     continue

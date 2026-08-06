@@ -52,6 +52,7 @@ from pathlib import Path
 # shared seam, mirroring merge_conflict.py / large_file.py) so a broken file
 # buried in node_modules/.venv/a hidden dir is invisible here too.
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
 from proactive_loop.models import ContextSignal
 
 
@@ -62,10 +63,22 @@ class SyntaxErrorCollector:
     WHY a dataclass with defaults: mirrors the sibling collectors so
     ``all_collectors()`` can construct it with no arguments, while a caller
     scanning a very large tree can still cap the number of files reported.
+
+    WHY *max_read_bytes*: parsing requires DECODING the whole file first, and the
+    ``MemoryError``/``RecursionError`` guard in ``_check_file`` is REACTIVE -- it
+    only fires after the bytes are already in memory. Capping ``st_size`` makes the
+    module docstring's "oversized source degrades to skipped" claim PROACTIVE and
+    true. This is not a blind spot: the cap equals ``LARGE_FILE_MIN_BYTES``, and
+    ``LargeFileCollector`` reports at ``size >= LARGE_FILE_MIN_BYTES`` from
+    ``st_size`` alone, so every file skipped here is already reported there as a
+    ``kind="large_file"`` signal -- skipped-here implies reported-there. The
+    comparison is STRICTLY greater, deliberately overlapping that inclusive ``>=``
+    by exactly one size so the ranges leave no gap.
     """
 
     name: str = "syntax_error"
     max_items: int = 30
+    max_read_bytes: int = LARGE_FILE_MIN_BYTES
 
     def collect(self, root: Path) -> list[ContextSignal]:
         """Walk *root* and return one signal per un-parseable ``*.py`` file.
@@ -116,13 +129,24 @@ class SyntaxErrorCollector:
         """Parse-check one ``*.py`` file; return its ``(rel, signal)`` or None.
 
         Returns None (SKIP, not a signal) for anything that is not a genuine
-        parse failure of decodable Python: an unreadable file, a non-UTF-8 /
-        undecodable file, a NUL-byte file, or pathological input.
+        parse failure of decodable Python: an unreadable file, a file LARGER than
+        *max_read_bytes*, a non-UTF-8 / undecodable file, a NUL-byte file, or
+        pathological input.
         """
         # Read STRICT UTF-8 (unlike merge_conflict's errors="replace"): a
         # syntax-check is only meaningful on genuinely-decodable Python, so a
         # non-UTF-8 file is "not a reportable Python file", not a crash.
+        #
+        # The size read sits inside the SAME try as the decode, so a file that
+        # vanishes or denies stat() between the walk and here is SKIPPED exactly
+        # like an unreadable one -- never an exception escaping to abort the walk.
+        # Skipping oversized source BEFORE the read is what makes the module
+        # docstring's "oversized source degrades to skipped" guarantee proactive:
+        # the reactive MemoryError/RecursionError branch below can only help once
+        # the whole file is already decoded.
         try:
+            if full.stat().st_size > self.max_read_bytes:
+                return None
             text = full.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return None

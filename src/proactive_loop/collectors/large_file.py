@@ -34,6 +34,16 @@ from pathlib import Path
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ContextSignal
 
+# The ONE home for "how big is too big" in the perception layer.
+#
+# WHY a named module-level constant rather than a bare dataclass default: this
+# collector owns the size decision, and the three whole-tree TEXT collectors
+# (todos, merge_conflict, syntax_error) cap the bytes they are willing to DECODE
+# at this same number. Sharing one constant makes their coverage compose exactly:
+# a file too big for them to read is necessarily big enough to be reported here,
+# so no file becomes invisible (see those modules' docstrings).
+LARGE_FILE_MIN_BYTES: int = 5_000_000
+
 
 def _human_size(n: int) -> str:
     """Render a raw byte count *n* with SI (decimal) units and one decimal place.
@@ -63,7 +73,7 @@ class LargeFileCollector:
 
     name: str = "large_file"
     max_items: int = 20
-    min_bytes: int = 5_000_000
+    min_bytes: int = LARGE_FILE_MIN_BYTES
 
     def collect(self, root: Path) -> list[ContextSignal]:
         """Walk *root* and return one signal per oversized file.

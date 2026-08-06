@@ -45,6 +45,7 @@ from pathlib import Path
 # shared seam, mirroring dependencies.py / test_posture.py) so a marked file
 # buried in node_modules/.venv/a hidden dir is invisible here too.
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
 from proactive_loop.models import ContextSignal
 
 # The two conflict-marker label prefixes git writes at column 0: exactly seven
@@ -91,10 +92,22 @@ class MergeConflictCollector:
     WHY a dataclass with defaults: mirrors the sibling collectors so
     ``all_collectors()`` can construct it with no arguments, while a caller
     scanning a very large tree can still cap the number of files reported.
+
+    WHY *max_read_bytes*: this collector DECODES every scanned-extension file it
+    walks (the widest extension set of the three text collectors), so without an
+    upper bound one vendored blob is pulled into memory on every scan -- and
+    ``pla watch`` repeats that each interval. Files whose ``st_size`` EXCEEDS the
+    cap are skipped unread. This is not a blind spot: the cap equals
+    ``LARGE_FILE_MIN_BYTES``, and ``LargeFileCollector`` reports at ``size >=
+    LARGE_FILE_MIN_BYTES`` from ``st_size`` alone, so every file skipped here is
+    already reported there as a ``kind="large_file"`` signal -- skipped-here
+    implies reported-there. The comparison is STRICTLY greater, deliberately
+    overlapping that inclusive ``>=`` by exactly one size so the ranges leave no gap.
     """
 
     name: str = "merge_conflict"
     max_items: int = 30
+    max_read_bytes: int = LARGE_FILE_MIN_BYTES
 
     def collect(self, root: Path) -> list[ContextSignal]:
         """Walk *root* and return one signal per file containing conflict markers.
@@ -131,7 +144,12 @@ class MergeConflictCollector:
                 # Per-file guard: one unreadable file (OSError) is skipped
                 # without aborting the walk; errors="replace" means a decode
                 # never raises, so a binary-ish text file just yields 0 markers.
+                # The size read sits inside the SAME try, so a file that vanishes
+                # or denies stat() mid-walk is skipped just like an unreadable one,
+                # and an oversized file is skipped BEFORE any decode happens.
                 try:
+                    if full.stat().st_size > self.max_read_bytes:
+                        continue
                     text = full.read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     continue

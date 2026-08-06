@@ -180,8 +180,10 @@ class Collector(Protocol):
   (`sorted`) so cross-repo signal order is deterministic (per-repo commits stay
   newest-first, since the directories are sorted, not the signals); `kind="git_commit"`;
   return `[]` if git missing/not a repo.
-- `todos.py: TodoCollector(name="todos", max_items=30)` — scan `*.py,*.ts,*.js,*.md`
+- `todos.py: TodoCollector(name="todos", max_items=30, max_read_bytes=5_000_000)` — scan `*.py,*.ts,*.js,*.md`
   for `TODO|FIXME|XXX` comments and markdown `- [ ]`/`* [ ]`/`+ [ ]` checkboxes; `kind="todo"`.
+  Files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread (composition note
+  under `large_file`).
   Emitted ordered by ascending relpath then line number, then capped at `max_items` (sort
   key `(relpath, lineno)` — an INTEGER line number, so `a.py:2` precedes `a.py:10`), so
   which todos survive the cap and their order are a total, `os.walk`-order-independent
@@ -268,13 +270,15 @@ class Collector(Protocol):
   Stdlib-only (`os`/`pathlib`), never raises → `[]`. Reports the raw `(src,
   test)` counts only; the synthesizer judges whether to propose adding tests.
   (Additive collector, exactly like iters 09/11 — no version bump.)
-- `merge_conflict.py: MergeConflictCollector(name="merge_conflict", max_items=30)` —
+- `merge_conflict.py: MergeConflictCollector(name="merge_conflict", max_items=30, max_read_bytes=5_000_000)` —
   committed-conflict-marker companion to `git_state` (which reads `.git/MERGE_HEAD`
   for an *in-progress* merge — that marker vanishes at `git commit` while the
   `<<<<<<<`/`>>>>>>>` TEXT survives inside the committed file). Walk `root` (same
   skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/`_is_hidden`),
-  content-scan each scanned-extension file for conflict-marker label lines and
-  emit one `kind="merge_conflict"` signal per affected file. A marker line is a
+  content-scan each scanned-extension file whose `st_size` does not EXCEED
+  `max_read_bytes` (oversized files are skipped unread; composition note under
+  `large_file`) for conflict-marker label lines and emit one
+  `kind="merge_conflict"` signal per affected file. A marker line is a
   line whose raw text (no leading-whitespace strip) **starts with** the OPEN
   prefix `"<<<<<<< "` or CLOSE prefix `">>>>>>> "` (seven chevrons + one space at
   column 0); the ambiguous middle `=======` separator is **excluded** from both
@@ -304,7 +308,14 @@ class Collector(Protocol):
   path in `path`, `timestamp=None`. Output is ordered by descending byte size, ties
   broken by ascending relpath, then capped at `max_items` (the largest files
   are kept). `min_bytes`/`max_items` are ctor-overridable defaults only (no CLI
-  flag, no `"5MB"` unit parsing). Reads **only `st_size` metadata and never
+  flag, no `"5MB"` unit parsing). `min_bytes` defaults to the module constant
+  `LARGE_FILE_MIN_BYTES`, which is ALSO the `max_read_bytes` read cap of the three
+  whole-tree TEXT collectors (`todos`, `merge_conflict`, `syntax_error`), so their
+  coverage composes exactly: a file too big for them to DECODE (`size > cap`) is
+  necessarily big enough to be REPORTED here (inclusive `size >= min_bytes`), i.e.
+  skipped-there implies reported-here and no file becomes invisible. The strict `>`
+  and the inclusive `>=` overlap by exactly one size, so the ranges leave no gap.
+  Reads **only `st_size` metadata and never
   opens file content** (SPEC Out of Scope: no line counting, no MIME sniffing,
   no git/.gitignore/git-lfs awareness), so it structurally cannot raise on
   binary/non-UTF-8 bytes. Pure stdlib (`os`/`pathlib`), never raises → `[]`.
@@ -384,10 +395,12 @@ class Collector(Protocol):
   regenerating the lock. (Additive collector, exactly like iters 09/11/16/20/28/37/42/53/63
   — a new `kind` flows into synthesis via `by_kind()` with zero synthesizer change, so
   no version bump.)
-- `syntax_error.py: SyntaxErrorCollector(name="syntax_error", max_items=30)` — the first
+- `syntax_error.py: SyntaxErrorCollector(name="syntax_error", max_items=30, max_read_bytes=5_000_000)` — the first
   code-PARSING collector: it runs the stdlib parser `compile(text, str(full), "exec")` on
   every `*.py` file under `root` (same skip rules as `RecentFilesCollector`, reusing
-  `_SKIP_DIRS`/`_is_hidden`; scans `.py` ONLY, case-insensitive; `.pyi` stubs excluded) and
+  `_SKIP_DIRS`/`_is_hidden`; scans `.py` ONLY, case-insensitive; `.pyi` stubs excluded;
+  files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread, which is what
+  keeps "every `*.py` file" literally true; composition note under `large_file`) and
   emits one `kind="syntax_error"` signal per file that raises a `SyntaxError`. **Parse-only
   is the load-bearing safety property**: `compile(..., "exec")` builds a code object but
   NEVER runs the user's code (no `exec`/`eval`/`import`/subprocess), so scanning a workspace
