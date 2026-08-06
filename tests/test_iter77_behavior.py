@@ -407,8 +407,8 @@ def test_b10_collectors_json_15_objects_includes_syntax_error(capsys) -> None:
         f"catalog must list {EXPECTED_COLLECTOR_COUNT} collectors; got {len(entries)}"
     )
     for e in entries:
-        assert set(e.keys()) == {"name", "description"}, (
-            f"each entry must have EXACTLY {{name, description}}; got {sorted(e.keys())}"
+        assert set(e.keys()) == {"name", "kind", "description"}, (
+            f"each entry must have EXACTLY {{name, kind, description}}; got {sorted(e.keys())}"
         )
         assert isinstance(e["name"], str) and e["name"]
         assert isinstance(e["description"], str) and e["description"].strip()

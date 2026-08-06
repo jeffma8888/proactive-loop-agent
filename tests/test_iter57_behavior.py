@@ -57,8 +57,11 @@ CANONICAL_COLLECTORS = {
     "working_tree",
 }
 
-# The exactly-two keys of every collector object in the --json array.
-COLLECTOR_OBJ_KEYS = {"name", "description"}
+# The exactly-three keys of every collector object in the --json array.
+# Widened from {name, description} when the `kind` column shipped: this stays an
+# EXACT set equality (never a subset check), so it still catches a leaked model
+# dump -- only the allowlist itself grew, by one deliberate key.
+COLLECTOR_OBJ_KEYS = {"name", "kind", "description"}
 
 
 # --------------------------------------------------------------------------
@@ -201,8 +204,8 @@ def test_b03_json_single_object_one_top_key(capsys):
 
 
 # ==========================================================================
-# Behavior 4 --- Each `--json` entry has EXACTLY the two keys {name,
-# description}, both non-empty strings (explicit allowlist, never a model dump).
+# Behavior 4 --- Each `--json` entry has EXACTLY the three keys {name, kind,
+# description}, all non-empty strings (explicit allowlist, never a model dump).
 # ==========================================================================
 
 

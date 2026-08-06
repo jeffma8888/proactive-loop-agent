@@ -724,6 +724,29 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the collector catalog as one JSON object instead of the human catalog.",
     )
+    # --kind is the REVERSE lookup of the newly published kind column: "which
+    # collector emits this signal kind?". Its vocabulary is `SIGNAL_KINDS`, the
+    # SAME closed set `signals --kind` validates against, so the two verbs accept
+    # exactly one token vocabulary and an unknown value is a PARSE-time usage error
+    # (exit 2) that enumerates the accepted kinds. Deliberately NOT widened to also
+    # accept collector NAMES: names are already the leading column, and admitting
+    # both vocabularies here would teach the very name/kind conflation this row
+    # exists to fix. Because name <-> kind is a bijection onto `SIGNAL_KINDS`, a
+    # validated value always selects exactly one collector -- never an empty list.
+    # Deliberately NO metavar: the enumerated choices in --help ARE the reference.
+    p_collectors.add_argument(
+        "--kind",
+        default=None,
+        choices=SIGNAL_KINDS,
+        help=(
+            "Show only the collector that emits this signal kind (the reverse of "
+            "the kind column). Accepted values are exactly the live signal kinds "
+            "(argparse enumerates them in braces) -- the same vocabulary "
+            "`signals --kind` takes, so an unknown kind is a usage error (exit 2) "
+            "at PARSE time. Note a collector NAME is not always a kind (`todos` "
+            "emits `todo`). Default (absent) lists every collector."
+        ),
+    )
     p_collectors.set_defaults(func=_cmd_collectors)
 
     # `providers` prints the L0 LLM-BACKEND surface -- every accepted provider
@@ -2183,28 +2206,108 @@ _COLLECTOR_CATALOG: dict[str, str] = {
 }
 
 
-def _collectors_json_payload() -> dict:
+# The collector name -> emitted `ContextSignal.kind` mapping, published so the
+# transparency arc's FRONT DOOR hands a reader a token the NEXT command accepts.
+#
+# WHY this exists at all: five of the sixteen collector NAMES are not valid
+# `pla signals --kind` values (`dependencies`->`dependency`, `git_activity`->
+# `git_commit`, `notes`->`note`, `recent_files`->`recent_file`, `todos`->`todo`).
+# Since `--kind` became fail-closed (an unknown kind is a parse-time exit 2, so a
+# typo can no longer read as a quiet workspace), publishing only the NAME made the
+# documented path `collectors` -> `signals --kind` a dead end a third of the time:
+# `pla signals --kind todos` exits 2 while `todo` works, and the working token
+# appeared NOWHERE in the product's own output. Publishing the mapping fixes that
+# WITHOUT relaxing the validation -- the alternative (teaching `signals --kind` to
+# also accept collector names) would re-open the silently-empty-listing hole.
+#
+# WHY a separate dict instead of widening `_COLLECTOR_CATALOG`'s values to tuples:
+# the catalog is a curated PROSE surface with its own guards; keeping it a plain
+# `name -> description` map means this feature adds a mapping rather than migrating
+# an existing structure (and both dicts stay independently greppable and diffable).
+#
+# WHY a scalar `str` and not a set/list of kinds: measured, not assumed -- an `ast`
+# pass over `collectors/*.py` finds each of the 16 collectors emitting EXACTLY ONE
+# distinct string-literal `kind=`, and the 16 kinds are distinct, so name <-> kind
+# is a genuine BIJECTION onto `SIGNAL_KINDS`. A list would be dishonest about a 1:1
+# relation, and the bijection is what makes the reverse `--kind` lookup total:
+# every value `choices=SIGNAL_KINDS` admits matches exactly one collector, so the
+# filtered view can never be empty and needs no "no matches" branch.
+#
+# What keeps it HONEST is the fail-closed drift guard in the test suite: it asserts
+# this map's key set equals `{c.name for c in all_collectors()}`, its value set
+# equals `set(SIGNAL_KINDS)`, its values are pairwise distinct, and -- the
+# load-bearing part -- that each published kind equals the `kind=` string literal
+# that collector's own SOURCE MODULE emits. NOTE for whoever writes/edits that
+# guard: the join must be MODULE-scoped via `type(c).__module__`, NOT class-scoped
+# and NOT by filename. Three collectors (`git_activity`, `notes`, `todos`) build
+# their signals in module-level helper functions OUTSIDE the class body, so a
+# class-scoped scan finds zero kinds for them; and `filesystem.py` hosts
+# `recent_files`, so the filename is not the collector name either.
+_COLLECTOR_KINDS: dict[str, str] = {
+    "ci_config": "ci_config",
+    "dependencies": "dependency",
+    "git_activity": "git_commit",
+    "git_stash": "git_stash",
+    "git_state": "git_state",
+    "large_file": "large_file",
+    "license": "license",
+    "lockfile_drift": "lockfile_drift",
+    "merge_conflict": "merge_conflict",
+    "notes": "note",
+    "recent_files": "recent_file",
+    "secret_file": "secret_file",
+    "syntax_error": "syntax_error",
+    "test_posture": "test_posture",
+    "todos": "todo",
+    "working_tree": "working_tree",
+}
+
+
+def _collector_rows(kind: str | None = None) -> list[tuple[str, str, str]]:
+    """Return ``(name, kind, description)`` triples, name-ascending.
+
+    The ONE place the two catalogs are joined, so the human render and the JSON
+    payload cannot disagree about a collector's kind. ``kind`` filters to the
+    single collector emitting it; because the mapping is a bijection onto
+    ``SIGNAL_KINDS`` (and the CLI validates ``--kind`` against exactly that tuple)
+    a non-``None`` value always yields exactly one row -- an unknown kind never
+    reaches here, it is rejected at PARSE time with exit 2.
+    """
+    return [
+        (name, _COLLECTOR_KINDS[name], description)
+        for name, description in sorted(_COLLECTOR_CATALOG.items())
+        if kind is None or _COLLECTOR_KINDS[name] == kind
+    ]
+
+
+def _collectors_json_payload(kind: str | None = None) -> dict:
     """Build the ``collectors --json`` document -- a pure, input-free function.
 
     One object of EXACTLY one top-level key ``{collectors}``, built from an
     EXPLICIT allowlist (never ``model_dump``; the iter-08 schema-leak discipline):
-    ``collectors`` is the ``_COLLECTOR_CATALOG`` projected to a list of
-    ``{name, description}`` objects with EXACTLY those two keys each, ordered by
-    ``name`` ascending (``sorted`` on the catalog items). The catalog is the
-    single source for the emitted set, and a test drift-guards its key set against
-    ``{c.name for c in all_collectors()}`` so the wire set can never diverge from
-    the live registry. Disk-free and client-free -- the collector SET is static,
-    so no workspace / signal / ``LLMClient`` is consulted.
+    ``collectors`` is the catalog join projected to a list of
+    ``{name, kind, description}`` objects with EXACTLY those three keys each,
+    ordered by ``name`` ascending (``sorted`` on the catalog items). ``kind`` is
+    the ``ContextSignal.kind`` that collector emits -- i.e. the token to hand
+    ``pla signals --kind`` -- which is NOT always the collector's name. The
+    catalogs are the single source for the emitted set, and tests drift-guard the
+    key set against ``{c.name for c in all_collectors()}`` and the kind set against
+    ``SIGNAL_KINDS``, so neither the wire set nor the published kinds can diverge
+    from the live registry. The optional ``kind`` argument filters to the single
+    collector emitting it (the payload shape is unchanged -- still exactly one
+    top-level key -- so a filtered document parses identically). Disk-free and
+    client-free -- the collector SET is static, so no workspace / signal /
+    ``LLMClient`` is consulted.
     """
     return {
         "collectors": [
-            {"name": name, "description": description}
-            for name, description in sorted(_COLLECTOR_CATALOG.items())
+            {"name": name, "kind": signal_kind, "description": description}
+            for name, signal_kind, description in _collector_rows(kind)
         ],
     }
 
 
-def _render_collectors() -> str:
+def _render_collectors(kind: str | None = None) -> str:
     """Render the L2 perception surface as plain text (read-only, LLM-free).
 
     A pure, disk-free, deterministic function -- like ``_render_tools`` it opens
@@ -2213,18 +2316,25 @@ def _render_collectors() -> str:
     per line as ``name  description`` so a reader can answer "what does the
     proactivity layer even look at?" with no workspace and no LLM call. It is the
     context-free FRONT DOOR to ``signals`` (which needs a ``--workspace`` and only
-    shows what fired there).
+    shows what fired there) -- so each row publishes the signal ``kind`` that
+    collector emits, which is the token ``signals --kind`` accepts and is NOT
+    always the collector's name (``todos`` emits ``todo``). ``kind`` filters the
+    listing to the single collector emitting it.
     """
     lines = [
         "context collectors (L2 perception)",
         "",
         "each collector perceives one kind of working-context signal;",
-        "run `pla signals --workspace W` to see what they emit for a workspace.",
+        "run `pla signals --kind K --workspace W` to see what one emits for a",
+        "workspace -- K is the kind column below, not the collector name.",
         "",
-        "collectors (name / description):",
+        "collectors (name / kind / description):",
     ]
-    for name, description in sorted(_COLLECTOR_CATALOG.items()):
-        lines.append(f"  {name:<16}{description}")
+    for name, signal_kind, description in _collector_rows(kind):
+        lines.append(f"  {name:<16}{signal_kind:<16}{description}")
+    if kind is not None:
+        lines.append("")
+        lines.append(f"(filtered to signal kind `{kind}`; omit --kind to list all)")
     return "\n".join(lines)
 
 
@@ -2975,17 +3085,21 @@ def _cmd_collectors(args: argparse.Namespace) -> int:
     the eager-load exit 1 a client-building verb would give), runs no collector,
     and touches no filesystem. It structurally cannot regress any existing
     behavior -- the same envelope that made ``policy``/``tools`` a clean ship. It
-    always returns 0; ``--json`` swaps the human catalog for one explicit-allowlist
-    object (rendering selection only -- there is no input to fail on). It is the
+    always returns 0: ``--json`` swaps the human catalog for one explicit-allowlist
+    object and ``--kind`` narrows the listing, both pure rendering selections with
+    no input for the HANDLER to fail on -- an unknown ``--kind`` is rejected by
+    argparse (exit 2) before this function is ever entered, and a valid one always
+    matches exactly one collector because name <-> kind is a bijection. It is the
     context-free FRONT DOOR of the transparency arc: collectors (what perceivers
-    exist) -> signals (raw output for a workspace) -> scan (proposals) -> explain
-    (why THIS goal) -> trace (what a run did).
+    exist, and which signal kind each emits) -> signals (raw output for a
+    workspace, filterable by that kind) -> scan (proposals) -> explain (why THIS
+    goal) -> trace (what a run did).
     """
     if args.json:
         # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_collectors_json_payload(), indent=2))
+        print(json.dumps(_collectors_json_payload(args.kind), indent=2))
     else:
-        print(_render_collectors())
+        print(_render_collectors(args.kind))
     return 0
 
 

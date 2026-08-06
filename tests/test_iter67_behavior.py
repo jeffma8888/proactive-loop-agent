@@ -162,9 +162,10 @@ def test_eb2_collectors_json_emits_fifteen_objects(capsys) -> None:
         f"`pla collectors --json` must emit {EXPECTED_COLLECTOR_COUNT} objects; got {len(collectors)}"
     )
 
-    # Each object keeps EXACTLY {name, description}.
+    # Each object keeps EXACTLY {name, kind, description} (the `kind` column
+    # shipped later; the assertion stays an exact set, only the allowlist grew).
     for c in collectors:
-        assert set(c.keys()) == {"name", "description"}, c
+        assert set(c.keys()) == {"name", "kind", "description"}, c
 
     names = {c["name"] for c in collectors}
     assert names == CANONICAL_COLLECTORS, sorted(names)

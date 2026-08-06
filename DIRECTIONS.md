@@ -1,10 +1,19 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-104
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- Give the root package a public API: `__all__` re-exports + a README "Use as a library" section
+    - Candidate A2 -- Publish each collector's emitted signal `kind` in `pla collectors` (+ `--kind` reverse lookup)
+    - Candidate A3 -- Packaging-contract oracle: prove the installable artifact carries the `pla` entry point and the `py.typed` marker
+    - Candidate B1 -- Delete the 2 divergent copies of `_SKIP_DIRS`/`_is_hidden`; one canonical definition + an AST single-definition guard
+    - Candidates B2/B3 -- IN PROGRESS
+    winner: A2
+    ship: unknown
   iter-103
     lenses: HARDENING / DX, INTEGRATION AND ADOPTION
     winner: unknown
-    ship: unknown
+    ship: PUSHED 9cae927
   iter-102
     lenses: NEW CAPABILITY -- iteration 102, HARDENING / DX -- iteration 102
     winner: B2
@@ -63,4 +72,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-12 scouted iterations
+13 scouted iterations

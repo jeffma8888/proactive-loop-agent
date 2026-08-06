@@ -55,10 +55,11 @@ class TestJsonPayload:
         assert isinstance(payload["collectors"], list)
 
     def test_each_entry_is_exact_two_key_allowlist(self) -> None:
-        # Explicit allowlist, never model_dump: exactly {name, description}.
+        # Explicit allowlist, never model_dump: exactly {name, kind, description}.
         for entry in _collectors_json_payload()["collectors"]:
-            assert set(entry.keys()) == {"name", "description"}
+            assert set(entry.keys()) == {"name", "kind", "description"}
             assert isinstance(entry["name"], str) and entry["name"]
+            assert isinstance(entry["kind"], str) and entry["kind"]
             assert isinstance(entry["description"], str) and entry["description"]
 
     def test_names_equal_sorted_registry(self) -> None:
