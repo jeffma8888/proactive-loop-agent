@@ -1,10 +1,14 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-100
+    lenses: performance-and-throughput, narrative-and-docs
+    winner: B1
+    ship: unknown
   iter-99
     lenses: SIMPLIFICATION-AND-DELETION, performance-and-throughput
     winner: B1
-    ship: unknown
+    ship: PUSHED 83fa8e0
   iter-98
     lenses: NEW-CAPABILITY, HARDENING / DX
     winner: A1
@@ -47,4 +51,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-8 scouted iterations
+9 scouted iterations

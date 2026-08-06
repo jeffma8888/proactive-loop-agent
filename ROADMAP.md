@@ -8,21 +8,11 @@ execution, L0 resilience/observability, or CLI/DX — without breaking the publi
 contracts. Each iteration of the dev loop selects exactly one row.
 
 Ordering is by leverage on the product's thesis ("a proactivity layer that is
-resilient by design"), balanced against blast radius. Seeded from both PM scouts
-(new-capability lens + hardening/DX lens) across iters 01–03 and a fresh read of
-`SPEC.md`. Net-new rows (#17+) surfaced mid-loop by a scout may jump the queued
-backlog when they close a docs-vs-code honesty gap on a public repo (the standing
-iter-01 tie-break rule: an integrity fix outranks a net-new capability). Applied
-iters 01, 03, and 05; iters 04, 06, and 07 went net-new (`pla runs`, `pla explain`,
-then `pla trace`) because no live 30s-falsifiable docs-vs-code contradiction existed
-those iterations. iter-08 returns to the queued backlog, applying #6 (retry telemetry)
-to complete the observability arc runs → explain → trace → retry-visibility. iter-09
-shipped #5 (DependencyCollector), iter-10 shipped #21 (net-new `--workspace` guard), and
-iter-11 returns to the queued backlog with #8 (WorkingTreeCollector) — its consecutive-collector
-objection now spent by iter-10's CLI verb. The integrity tie-break is now a depleted resource: both iter-07
-scouts independently re-verified the verb lists and version sources are all consistent,
-| # | Enhancement | Layer | Value | Risk | Source | Status |
-|---|-------------|-------|-------|------|--------|--------|
+resilient by design"), balanced against blast radius, with one standing
+tie-break: an integrity fix (a live docs-vs-code contradiction on a public
+repo) outranks a net-new capability. Per-row reasoning lives in that
+iteration's `pm.md`; the full verbatim history is in
+[`ROADMAP_ARCHIVE.md`](ROADMAP_ARCHIVE.md).
 
 > **This file is an INDEX, deliberately kept small.** It grew to 200KB of settled history, which pushed the PM stage past the agent CLI's hard 600-second timeout and stalled the loop entirely (iteration 90 lost all four attempts, producing nothing).
 >
@@ -30,6 +20,8 @@ scouts independently re-verified the verb lists and version sources are all cons
 >
 > **Maintainers (including automated contributors): keep rows one line and terse.** Put a new row's full reasoning in your iteration's `pm.md`, not here. If this file passes ~40KB again the loop will stall the same way.
 
+| # | Enhancement | Layer | Value | Risk | Source | Status |
+|---|-------------|-------|-------|------|--------|--------|
 | 1 | **Retry-wrap the L2 `synthesize` call** so `pla scan`/`pla run` survive a transient throttle/timeout the same way a dispatched goal does | L0×L2 | High | Low | Scout B C1 (iter-01) | **SHIPPED — iter-01** (`172d38f`) |
 | 2 | **Top-level CLI error boundary in `main()`** — map foreseeable operator/environment faults (persistent throttle, bad `--provider`, missing/malformed scripted file, corrupted slate ... | CLI/L0 | High | Low | Scout B C1 (iter-02) | **SHIPPED — iter-02** (`9d638a9`) |
 | 3 | `pla explain --slate --goal-id` — print the score arithmetic + which gate rule fired + sources, making the autonomy contract auditable | CLI/L2 | High | Low | Scout A C1 (iter-02) | **SHIPPED — iter-06** (`5d59292`; completes the scan → runs → explain legibility arc; additive ... |
@@ -133,6 +125,11 @@ scouts independently re-verified the verb lists and version sources are all cons
 | 101 | **`LicenseCollector` (`kind="license"`)** -- L2 collector flagging "source but no LICENSE" (gap-only, source-gated, dogfood-safe); 4-pt drift-guarded count cascade. | L2 | High | Low-Med | PM-lead (iter-94) | **SHIPPED -- iter-94** (`07d650f`) |
 | 102 | **`make check` aggregate + drift-guard** -- `.PHONY` target reproducing the CI gate locally in order (sync --locked -> pytest -> mypy -> demo -> asserts); test binds recipe to `ci.yml`. | DX/CI | Med | Very Low | PM-lead (iter-95) | **SHIPPED -- iter-95** (`19ea19b`) |
 | 103 | **Offline-first source-import guard** -- pure-`ast` test failing the build if any `src/` file imports a network module; turns the no-network claim into a CI oracle (`subprocess` whitelisted). | Integrity/DX | High | Very Low | PM-lead (iter-96) | **SHIPPED -- iter-96** (`52242cc`) |
-| 104 | **`pla config [--json]` resolved-Settings inspector** -- read-only, LLM-free verb printing the effective Settings (PLA_* env + CLI overrides via `_settings`); human or allowlist JSON. Mirrors `_cmd_policy`; verb 14->15 (README + drift-guard). | CLI/DX | High | Very Low | PM-lead (iter-97, scout-A A1 over scout-B B2) | **SELECTED -- iter-97** |
+| 104 | **`pla config [--json]` resolved-Settings inspector** -- read-only, LLM-free verb printing the effective Settings (PLA_* env + CLI overrides via `_settings`); human or allowlist JSON. Mirrors `_cmd_policy`; verb 14->15 (README + drift-guard). | CLI/DX | High | Very Low | PM-lead (iter-97, scout-A A1 over scout-B B2) | **SHIPPED -- iter-97** (`dc10934`) |
+| 105 | **`DebugArtifactCollector` (`kind="debug_artifact"`)** -- AST-parse-only collector for leftover debug scaffolding (would be the 17th collector). | L2 | Med | Low | PM-lead (iter-98) | **ABANDONED -- iter-98** (spec'd + engineered, never reached tester/final; no commit -- commit-seq 105 is skipped; re-proposable as-is) |
+| 106 | **Pre-read byte-size cap in the three whole-tree text collectors** -- `max_read_bytes=LARGE_FILE_MIN_BYTES` + a `stat().st_size` skip in `todos`/`merge_conflict`/`syntax_error`. | L2/throughput | Med | Low | PM-lead (iter-99) | **SHIPPED -- iter-99** (`83fa8e0`) |
+| 107 | **Document the 5 undocumented CLI long options + a bidirectional parser<->README drift guard** -- `--slate`/`--run-dir` are REQUIRED on 4 of the 15 verbs yet appear NOWHERE in `README.md`, so the README's own CLI reference cannot be followed; forward + reverse + verb-presence guards derived from live `build_parser()`, scoped to the `## CLI` section. | Docs/integrity | High | Very Low | PM-lead (iter-100, scout-B B1 over scout-A A1) | **SELECTED -- iter-100** |
+| 108 | **Prune noise dirs inside `NotesCollector`'s inner `rglob`** -- the notes-dir walk is unfiltered, so `docs/node_modules/**`, `docs/{build,dist}/**` and even hidden `docs/.venv/**` are enumerated AND read in full (live-reproduced iter-100: 5 signals, 4 noise); also corrects the FALSE `notes.py` docstring claiming hidden dirs are skipped. Must actually PRUNE (a filter-only diff is cosmetic) and must keep row 92's `sorted()` determinism. | L2/throughput | Med-High | Low | PM scout-A A1 (iter-100), deferred by the diversity guard | **QUEUED -- top of backlog for iter-101** |
+| 109 | **Char-size budget test for the per-iteration required-reading docs** -- `ROADMAP.md` (~40KB operator trigger) and `SPEC.md` (90,269 chars) have NO size guard, and the 200KB-roadmap stall cost iters 90-91 all 8 attempts and 0 commits. Must prove itself against a synthetic over-budget file, and must NOT rewrite `SPEC.md` (operator-owned). | DX/integrity | Med | Very Low | PM scout-B B3 (iter-100) | **QUEUED** |
 
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._
