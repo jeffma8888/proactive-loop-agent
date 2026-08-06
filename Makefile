@@ -50,7 +50,23 @@ clean:
 # so they could silently rot. `make check` == a green CI. It reuses `$(MAKE)
 # demo` (no re-inline) so the demo command stays single-sourced. Kept in lockstep
 # with ci.yml by tests/test_iter102_behavior.py (a red test == recipe/CI drift).
+#
+# WHY the recipe OPENS with `rm -rf .pla_runs` (the demo's own state dir): the
+# last two steps are EXISTENCE checks (`test -f` / `ls`) against a persistent,
+# gitignored dir, so they assert FRESHNESS only when the pre-state is clean. CI
+# gets that for free -- every CI run is a fresh checkout -- but a local run does
+# not. Without this pre-step a stale .pla_runs/ left by ANY earlier demo
+# satisfies both assertions, so the gate reports green even when THIS demo
+# produced nothing (no AUTO_DISPATCH goal survived the policy gate, a provider
+# silently reflected, the state-dir path changed) -- the exact failure those two
+# assertions exist to catch. A trusted fail-open gate is worse than no gate.
+# Consequence to know: `make check` DISCARDS your previous .pla_runs/, exactly
+# as `make clean` already does -- the pre-step is a strict SUBSET of `clean`, so
+# the two cannot drift apart. It is deliberately NOT `$(MAKE) clean`: clean also
+# wipes .pytest_cache/__pycache__, which buys no freshness and only makes the
+# gate (and the suite that follows it) slower.
 check:
+	rm -rf .pla_runs
 	uv sync --locked
 	uv run pytest
 	uv run mypy src/proactive_loop
