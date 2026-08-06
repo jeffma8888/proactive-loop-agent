@@ -53,6 +53,26 @@ REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
 
 _EMPTY_MARKER = "(no signals collected)"
+
+# A kind that is VALID (in SIGNAL_KINDS, so it parses) but that this fixture
+# never emits -- the vehicle for the empty-SELECTION cases now that
+# `pla signals --kind` rejects unknown kinds at parse time (exit 2). Paired with
+# _assert_vehicle_absent so the vehicle cannot silently become present.
+_ABSENT_KIND = "merge_conflict"
+
+
+def _assert_vehicle_absent() -> None:
+    """Fail closed if the empty-selection vehicle kind starts appearing.
+
+    WHY: an empty result is indistinguishable from a filter that matched
+    everything-but-nothing-was-there. Anchoring on the UNFILTERED listing keeps
+    the degrade assertions honest if the fixture ever grows a merge conflict.
+    """
+    present = _listing_counts_via_cli([])
+    assert _ABSENT_KIND not in present, (
+        f"vehicle kind {_ABSENT_KIND!r} is now emitted by the fixture "
+        f"({sorted(present)}); pick another absent kind"
+    )
 # One human table line: kind, EXACTLY two spaces, an integer count. `\S+`/`\d+`
 # forbid interior spaces, so this pattern enforces the "exactly two spaces" and
 # "no column padding" contract from behavior 1.
@@ -165,8 +185,9 @@ def test_b02_human_empty_selection_marker_no_total_pure():
 
 
 def test_b02_human_empty_selection_via_cli():
+    _assert_vehicle_absent()
     code, out, err = _run(
-        ["signals", "--workspace", str(FIXTURE), "--summary", "--kind", "no_such_kind_xyz"]
+        ["signals", "--workspace", str(FIXTURE), "--summary", "--kind", _ABSENT_KIND]
     )
     assert code == 0, f"empty-selection --summary must exit 0; stderr={err!r}"
     assert out == _EMPTY_MARKER + "\n", f"must be exactly the empty marker; got {out!r}"
@@ -216,8 +237,9 @@ def test_b04_json_empty_selection_pure():
 
 
 def test_b04_json_empty_selection_via_cli():
+    _assert_vehicle_absent()
     code, out, err = _run(
-        ["signals", "--workspace", str(FIXTURE), "--summary", "--json", "--kind", "no_such_kind_xyz"]
+        ["signals", "--workspace", str(FIXTURE), "--summary", "--json", "--kind", _ABSENT_KIND]
     )
     assert code == 0, f"empty --summary --json must exit 0; stderr={err!r}"
     doc = json.loads(out)

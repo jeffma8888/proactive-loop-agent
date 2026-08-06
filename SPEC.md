@@ -858,8 +858,12 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     (no `timestamp`; the iter-08 schema-leak discipline), the flat `signals` array
     ordered by `(kind, source, summary, path or "")`, degrading to `[]` (not the
     human marker) when a `--kind` matches nothing, so it pipes cleanly into `jq`.
-    `--kind K` narrows to one collector-defined kind (dynamic; not validated
-    against a fixed enum — an unknown kind is just an empty selection).
+    `--kind K` narrows to one collector-defined kind; its accepted values are
+    exactly the live signal kinds (the `SIGNAL_KINDS` registry, held in lockstep
+    with what the collectors actually emit by a fail-closed AST drift guard), so
+    an unknown kind is an argparse usage error (exit 2) at PARSE time before any
+    collection — never a silently empty selection — while a VALID kind that
+    matches nothing still degrades to the empty view.
     `--min-weight FLOAT` keeps only signals whose relevance `weight >= min_weight`
     (an INCLUSIVE lower bound), AND-composed with `--kind`; omitted (the default)
     leaves the view unfiltered and byte-identical to before; the float must be

@@ -10,13 +10,13 @@
 
 Most agentic systems are **reactive**: they sit idle until prompted, run the task, and stop. `proactive-loop-agent` inverts that. It is a reference implementation of a three-layer **proactivity stack** that turns raw working context into a *ranked slate of candidate goals*, gates each one through an **autonomy contract**, and dispatches only the approved goals into a resilient, sandboxed **plan → act → check** execution loop.
 
-The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **1,800+ tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
+The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **2,200+ tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
 
 ### What this project demonstrates
 
 - **A 0→1 idea, not a prompt trick** — proactivity modeled as an explicit architectural layer (perceive → propose → gate → execute), with clear seams between deciding *what* to do and *how* to do it.
 - **Safety by construction** — the autonomy gate is a hard rule engine: sensitive categories (finance, legal, health) *always* require human approval, no matter how high a goal scores. Autonomy comes from a sandbox, not from trust; the execution loop can only write inside a scratch directory through path-guarded tools.
-- **Production-grade rigor on a portfolio codebase** — **1,800+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 16 context collectors, 15 CLI verbs, deterministic and offline end to end.
+- **Production-grade rigor on a portfolio codebase** — **2,200+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 16 context collectors, 15 CLI verbs, deterministic and offline end to end.
 - **Auditability as a first-class feature** — a transparency arc of read-only, LLM-free inspector commands: see what the collectors *perceive* → what the scout *proposed* → *why* the gate ruled → exactly what a run *did*.
 
 <!-- ============================================================================
@@ -101,7 +101,7 @@ automatically.
 | `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array).|
 | `explain` | Audit gate decisions from a saved slate (`--slate FILE` required) — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--run-dir DIR` required; `--json` for a full array; read-only).|
-| `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters by kind and `--min-weight W` by relevance weight (>= W, inclusive); `--summary` prints a per-kind count rollup + total instead of the listing, composing with the filters; read-only, LLM-free).|
+| `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters by kind, validated against the live signal-kind registry so an unknown kind is a usage error (exit 2) at parse time rather than a silently empty listing — run `pla signals --help` for the full list of accepted kinds; `--min-weight W` filters by relevance weight (>= W, inclusive); `--summary` prints a per-kind count rollup + total instead of the listing, composing with the filters; read-only, LLM-free).|
 | `watch`   | Repeatedly re-scan a workspace on an interval and re-print the slate (`--interval S`; `--max-scans N`; live monitor, writes no slate file).|
 | `diff`    | Compare two saved slates and classify goals as added/removed/changed/unchanged (`--old A.json --new B.json`; `--json` for a JSON object; matched by normalized title; read-only, LLM-free).|
 | `policy`  | Print the standing autonomy contract: the four ordered gate rules, the auto-dispatch threshold, and every category tagged sensitive/auto-eligible (`--json` for a JSON object; read-only, LLM-free, no workspace).|

@@ -41,7 +41,7 @@ from pydantic import ValidationError
 
 from . import __version__
 from .config import Settings
-from .collectors import all_collectors
+from .collectors import SIGNAL_KINDS, all_collectors
 from .llm import LLMError
 from .llm.providers import create_client
 from .loop import Checkpoint, GoalLoop, ToolRegistry
@@ -485,7 +485,8 @@ def build_parser() -> argparse.ArgumentParser:
     # INERT: the handler builds no LLMClient, so a fresh clone can inspect what
     # the scout sees with zero provider wiring and without paying for an LLM call.
     # --workspace is required (mirrors scan/run); --json swaps the grouped human
-    # view for one machine-parseable object; --kind narrows to one collector kind.
+    # view for one machine-parseable object; --kind narrows to one collector kind
+    # (registry-validated, see below).
     p_signals = sub.add_parser(
         "signals",
         parents=[globals_],
@@ -497,10 +498,33 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the signals as one JSON object instead of the grouped human view.",
     )
+    # --kind is VALIDATED against the live signal-kind registry rather than left
+    # free-form. Before this, an unknown kind was byte-identical to a genuinely
+    # quiet workspace -- exit 0 plus `(no signals collected)` in the human view,
+    # `[]` under --json, `total 0` under --summary -- so a typo read as "nothing
+    # to see here" on the one surface whose entire job is reporting what was
+    # perceived. `todos` is the natural typo, not a contrived one: the COLLECTOR
+    # is named `todos` while the KIND is `todo` (same near-miss for notes/note,
+    # git_activity/git_commit, filesystem/recent_file). choices= turns that into
+    # a PARSE-time usage error (exit 2) that names the rejected value and lists
+    # every accepted kind, before any collection runs, and it makes `signals
+    # --help` enumerate the vocabulary -- which until now was learnable only by
+    # reading src/. This also makes --kind consistent with --collector, the only
+    # other value-taking filter here, which has always validated this way.
+    # Deliberately NO metavar: the enumerated choices in --help ARE the reference.
     p_signals.add_argument(
         "--kind",
         default=None,
-        help="Show only signals of this collector-defined kind (e.g. todo|note|git_commit).",
+        choices=SIGNAL_KINDS,
+        help=(
+            "Show only signals of this collector-defined kind. Accepted values "
+            "are exactly the live signal kinds (argparse enumerates them in "
+            "braces); an "
+            "unknown kind is a usage error (exit 2) at PARSE time, before any "
+            "collection runs -- never a silently empty listing. Composes as a "
+            "logical AND with --collector/--min-weight. Default (absent) shows "
+            "every kind."
+        ),
     )
     p_signals.add_argument(
         "--min-weight",

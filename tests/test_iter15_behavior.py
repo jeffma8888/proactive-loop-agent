@@ -51,6 +51,14 @@ FIXTURE = REPO / "examples" / "fixture_workspace"
 _MSG = "error: workspace not found"
 _EMPTY_MARKER = "(no signals collected)"
 
+# A kind that is VALID (in SIGNAL_KINDS, so it parses) but that this fixture
+# never emits -- the vehicle for exercising the empty-selection degrade now that
+# `pla signals --kind` rejects unknown kinds at parse time (exit 2). Every test
+# using it also asserts it is genuinely absent from the UNFILTERED listing, so it
+# can never quietly become present and turn a degrade test green for the wrong
+# reason.
+_ABSENT_KIND = "merge_conflict"
+
 # The six-key explicit signal schema the JSON view must emit -- and nothing else
 # (no `timestamp`, no `collected_at`). Per the iter-08 schema-leak discipline.
 _SIGNAL_KEYS = {"source", "kind", "summary", "detail", "path", "weight"}
@@ -413,8 +421,19 @@ def test_b10_json_kind_filter_helper(capsys):
 
 
 def test_b10_json_kind_no_match_cli_empty_array(capsys):
+    # FAIL-CLOSED vehicle check: the degrade below only means something while the
+    # fixture really emits no `merge_conflict` signal.
+    rc0, o0, _ = _run(["signals", "--workspace", str(FIXTURE), "--json"], capsys)
+    assert rc0 == 0
+    kinds_present = {s["kind"] for s in json.loads(o0)["signals"]}
+    assert _ABSENT_KIND not in kinds_present, (
+        f"vehicle kind {_ABSENT_KIND!r} is now EMITTED by the fixture "
+        f"({sorted(kinds_present)}); pick another absent kind or this test "
+        f"stops exercising the empty-selection degrade"
+    )
+
     rc, o, e = _run(
-        ["signals", "--workspace", str(FIXTURE), "--json", "--kind", "no_such_kind_xyz"],
+        ["signals", "--workspace", str(FIXTURE), "--json", "--kind", _ABSENT_KIND],
         capsys,
     )
     assert rc == 0
