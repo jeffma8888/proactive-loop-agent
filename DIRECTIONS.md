@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-105
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Collapse the three copies of the collector directory-skip seam
+    - Candidate A2 -- Delete the magic number `15` from six test modules; derive the verb count
+    - Candidate A3 -- Extract the duplicated capped file read in the text collectors
+    - Candidate B1 -- Make scan cost VISIBLE: per-collector timings
+    - Candidate B2 -- Deduplicate the 333 redundant file reads (share BYTES, not text)
+    - Candidate B3 -- Deterministic early-exit for the relpath-capped collectors
+    winner: B1
+    ship: unknown
   iter-104
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- Give the root package a public API: `__all__` re-exports + a README "Use as a library" section
@@ -9,7 +19,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 -- Delete the 2 divergent copies of `_SKIP_DIRS`/`_is_hidden`; one canonical definition + an AST single-definition guard
     - Candidates B2/B3 -- IN PROGRESS
     winner: A2
-    ship: unknown
+    ship: PUSHED b79c1aa
   iter-103
     lenses: HARDENING / DX, INTEGRATION AND ADOPTION
     winner: unknown
@@ -72,4 +82,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-13 scouted iterations
+14 scouted iterations

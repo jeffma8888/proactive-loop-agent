@@ -35,6 +35,7 @@ import json
 import logging
 import math
 import sys
+import time
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -580,6 +581,29 @@ def build_parser() -> argparse.ArgumentParser:
             "otherwise a human count table (kinds ascending, 'total N' last)."
         ),
     )
+    # A COST knob, and the only one here that writes to stderr. Everything else on
+    # this verb answers "what did the collectors see?"; --timings answers "what did
+    # looking cost, and which collector spent it?" -- the one dimension the product
+    # had no instrument for, which mattered because `watch` re-runs this exact
+    # collect on every tick. Opt-in (default off) and stderr-only BY DESIGN: a
+    # duration is non-deterministic, so it must never enter the stdout contracts
+    # (human listing / --summary rollup / --json object) that tests and jq
+    # pipelines compare byte for byte. It is added to `signals` alone, not to
+    # scan/run/watch: `signals` builds no LLMClient, so what it measures is pure
+    # perception cost, unpolluted by synthesizer time -- while _collect's sink is
+    # already general enough for those verbs to adopt later.
+    p_signals.add_argument(
+        "--timings",
+        action="store_true",
+        help=(
+            "Also print a per-collector wall-clock cost table to STDERR (name, "
+            "elapsed ms, signal count, plus a TOTAL row) in registry order. "
+            "Opt-in; stdout is byte-identical with and without this flag, so it "
+            "is safe to add to a piped or --json invocation. Rows reflect which "
+            "collectors RAN (so --collector narrows them), not the display "
+            "filters."
+        ),
+    )
     p_signals.set_defaults(func=_cmd_signals)
 
     # `watch` wires scheduler.run_periodic into a user-facing verb: it re-runs the
@@ -891,7 +915,11 @@ def _load_slate(path: Path) -> GoalSlate:
         raise ValueError(sanitize_validation_error("slate", path, exc)) from None
 
 
-def _collect(workspace: Path, only: set[str] | None = None) -> WorkspaceSnapshot:
+def _collect(
+    workspace: Path,
+    only: set[str] | None = None,
+    timings: list[tuple[str, float, int]] | None = None,
+) -> WorkspaceSnapshot:
     """Run every collector over *workspace* into one snapshot.
 
     The §4.1 contract is that collectors never raise (they degrade to ``[]``).
@@ -911,11 +939,26 @@ def _collect(workspace: Path, only: set[str] | None = None) -> WorkspaceSnapshot
     filter is applied BEFORE the isolation try/except, so it changes only WHICH
     collectors run, never the never-raise / registry-order semantics of the
     ones that do.
+
+    ``timings`` is an optional OUT-parameter sink for cost attribution (from
+    ``signals --timings``): when a list is passed, exactly one
+    ``(collector_name, elapsed_ms, signal_count)`` tuple is APPENDED per collector
+    that actually ran, in registry order. It defaults to ``None`` -- measure
+    nothing, append nothing -- which is what ``scan``/``run``/``watch`` pass, so
+    the seam stays byte-identical to before this knob existed for every caller
+    that does not ask for it. WHY an out-parameter instead of a second return
+    value: the snapshot is this function's contract with four verbs and a wire
+    schema, and widening it to a tuple would force every call site to change for
+    a diagnostic that only one verb wants.
     """
-    signals = []
+    # Explicitly annotated: the `len(signals)` read below now precedes the first
+    # `extend`, so mypy can no longer infer the element type from usage.
+    signals: list[ContextSignal] = []
     for collector in all_collectors():
         if only is not None and collector.name not in only:
             continue
+        started = time.perf_counter()
+        before = len(signals)
         try:
             signals.extend(collector.collect(workspace))
         except Exception as exc:  # noqa: BLE001 - deliberate: contain a buggy collector
@@ -925,6 +968,27 @@ def _collect(workspace: Path, only: set[str] | None = None) -> WorkspaceSnapshot
             # every verb that shares this seam. Broad by design: any exception a
             # collector leaks must be isolated, not just a known subset.
             _LOG.warning("collector %r raised, skipping: %s", collector.name, exc)
+        if timings is not None:
+            # Recorded AFTER the try/except, so a collector that RAISED is still
+            # timed and still gets a row -- a broken collector is exactly the one
+            # whose cost you want attributed. Its containment WARNING is inside
+            # the window by design: the row reports what this SEAM spent on that
+            # collector, not an idealized inner duration.
+            #
+            # The count is the DELTA in the shared list, never len() of a captured
+            # return value. That keeps the extend() call above VERBATIM (so a
+            # generator that yields then raises still contributes what it yielded,
+            # exactly as today) and makes the reconciliation invariant true by
+            # construction: the per-collector counts always sum to the snapshot's
+            # signal count, so the table can never quietly disagree with the
+            # listing it annotates.
+            timings.append(
+                (
+                    collector.name,
+                    (time.perf_counter() - started) * 1000.0,
+                    len(signals) - before,
+                )
+            )
     return WorkspaceSnapshot(root=str(workspace), signals=signals)
 
 
@@ -1665,6 +1729,57 @@ def _signals_summary_payload(
         "total": len(selected),
     }
 
+
+
+def _render_collector_timings(timings: list[tuple[str, float, int]]) -> str:
+    """Render per-collector wall-clock cost as a plain-text table (stderr-bound).
+
+    The cost twin of ``_render_signals``: where that reports WHAT was perceived,
+    this reports what perceiving it COST, from the ``(name, elapsed_ms, count)``
+    tuples ``_collect`` appended to its ``timings`` sink. A pure, disk-free
+    function of that list alone -- no snapshot, no filters, no client -- so it is
+    unit-testable and cannot disagree with the measurement it formats.
+
+    Three deliberate shape decisions:
+
+    * **Registry order, never sorted by duration.** The rows are emitted in the
+      order ``_collect`` ran them, so the table lines up 1:1 with the seam's own
+      loop and with ``pla collectors``. Sorting by cost would make the row ORDER a
+      function of a non-deterministic measurement -- the one thing this repo's
+      output contracts refuse to do.
+    * **A ``TOTAL`` row, summed from the RAW floats** (not from the 2-decimal
+      strings), so the total is the honest scan cost and the displayed rows differ
+      from it by at most rounding.
+    * **The row set reflects which collectors RAN**, so an ``--collector``
+      allowlist shrinks it (an excluded collector never ran, so it has no cost to
+      report) while the stdout display filters (``--kind``/``--min-weight``/
+      ``--summary``) leave it untouched.
+
+    The caller writes this to STDERR: a duration is non-deterministic, and every
+    ``signals`` stdout surface (human listing, ``--summary`` rollup, ``--json``
+    object) is a byte-comparable contract that tests and ``jq`` pipelines assert
+    on. Diagnostics belong on the other stream. Degenerate case (no collector
+    ran at all -- an empty registry under test): header plus a ``TOTAL`` row of
+    ``0.00  0``, keeping the "header, N rows, TOTAL" shape unconditional rather
+    than adding a second empty-state format to reason about.
+    """
+    total_label = "TOTAL"
+    # Width is derived from the actual names (not a fixed :<16 like
+    # _render_collectors) because a test double or a future long collector name
+    # must not glue the name column onto the number column. The two explicit
+    # spaces between every pair of fields guarantee each row splits into exactly
+    # three whitespace-separated fields no matter how wide a value gets.
+    width = max([len(name) for name, _, _ in timings] + [len(total_label)])
+    lines = ["collector timings (ms):"]
+    lines.extend(
+        f"  {name:<{width}}  {elapsed_ms:>9.2f}  {count:>5}"
+        for name, elapsed_ms, count in timings
+    )
+    lines.append(
+        f"  {total_label:<{width}}  {sum(t[1] for t in timings):>9.2f}  "
+        f"{sum(t[2] for t in timings):>5}"
+    )
+    return "\n".join(lines)
 
 
 def _explain_json_payload(
@@ -2858,14 +2973,28 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     ``scan --collector``): its accepted values are exactly the live collector
     names, an unknown name is an argparse usage error (exit 2) BEFORE this
     handler runs, absent (the default) inspects all collectors, and it composes
-    as a logical AND with ``--kind``/``--min-weight``.
+    as a logical AND with ``--kind``/``--min-weight``. ``--timings`` is the one
+    knob here that is not a view filter: it arms ``_collect``'s measurement sink
+    and prints a per-collector cost table (name / elapsed ms / signal count, plus
+    a ``TOTAL`` row, in registry order) to STDERR only, so every stdout surface
+    stays byte-identical to the same command without the flag -- durations are
+    non-deterministic and must never enter a stdout contract. Its rows report
+    which collectors RAN (``--collector`` narrows them; the display filters do
+    not), and the front-door workspace guard above still runs FIRST, so a
+    mistyped path exits 2 with no timing block.
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
     only = set(args.collector) if args.collector else None
-    snapshot = _collect(workspace, only=only)
+    # An empty list (not None) is what ARMS the measurement in _collect; None
+    # leaves that seam on its default no-op path, so a bare `signals` runs the
+    # collectors exactly as scan/run/watch do.
+    timings: list[tuple[str, float, int]] | None = (
+        [] if getattr(args, "timings", False) else None
+    )
+    snapshot = _collect(workspace, only=only, timings=timings)
     kind = getattr(args, "kind", None)
     min_weight = getattr(args, "min_weight", None)
     if getattr(args, "summary", False):
@@ -2882,6 +3011,12 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         print(json.dumps(_signals_json_payload(snapshot, kind, min_weight), indent=2))
     else:
         print(_render_signals(snapshot, kind, min_weight))
+    if timings is not None:
+        # A stderr TRAILER, printed after the stdout view so the primary output
+        # leads when both streams share a terminal. Nothing above this line
+        # branches on `timings`, which is how "stdout is byte-identical with and
+        # without --timings" is guaranteed structurally rather than by review.
+        print(_render_collector_timings(timings), file=sys.stderr)
     return 0
 
 
