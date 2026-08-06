@@ -40,6 +40,51 @@ def _is_notes_dir(name: str) -> bool:
     return name.lower() in _NOTES_DIRS
 
 
+def _walk_note_files(notes_dir: Path) -> list[Path]:
+    """Return the ``*.md`` files under *notes_dir*, PRUNING noise/hidden subtrees.
+
+    WHY prune at all: ``notes_dir.rglob("*.md")`` cannot stop descending, so a
+    vendored or generated subtree (``docs/node_modules``, ``docs/build``) was not
+    merely enumerated -- every file in it was opened and parsed into ``kind="note"``
+    signals of the SAME weight as a real note, letting vendored headings evict real
+    ones under the per-kind cap. This module already DECLARES that policy in
+    ``_SKIP_DIRS`` and enforces it while searching FOR notes directories (see
+    ``_collect``); pruning here makes the declared policy true for the whole scan
+    instead of only its first half.
+
+    WHY ``os.scandir`` rather than the ``os.walk`` + ``dirnames[:]`` idiom the outer
+    search uses: ``os.walk`` is that outer search's substitution seam -- the
+    determinism suite replaces it to force the order in which notes directories are
+    ENCOUNTERED. Reusing it here would make this independent inner enumeration answer
+    to the same stub, coupling two unrelated concerns. ``scandir`` also classifies
+    each entry from its dirent, so pruning costs no extra ``stat``.
+
+    Symlinked directories are not descended, matching ``os.walk``'s default and the
+    rest of the codebase. Ordering is deliberately unchanged: the survivors are
+    returned ``sorted()``, exactly as ``sorted(rglob(...))`` returned them, so
+    emission order and which headings survive ``max_items`` are untouched for
+    noise-free trees.
+    """
+    files: list[Path] = []
+    stack: list[Path] = [notes_dir]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False):
+                        if _is_hidden(entry.name) or entry.name in _SKIP_DIRS:
+                            continue  # Pruned: never descended, never read.
+                        stack.append(Path(entry.path))
+                    elif entry.name.endswith(".md"):
+                        files.append(Path(entry.path))
+        except OSError:
+            # Tolerate an unreadable sub-directory the way rglob did: skip it and
+            # keep scanning its siblings rather than failing the whole collect.
+            continue
+    return sorted(files)
+
+
 def _fence_mask(lines: list[str]) -> list[bool]:
     """Return a per-line mask where True means the line lies inside a fenced code block.
 
@@ -113,7 +158,7 @@ class NotesCollector:
         notes_dirs.sort(key=lambda p: p.as_posix())
 
         for notes_dir in notes_dirs:
-            for fpath in sorted(notes_dir.rglob("*.md")):
+            for fpath in _walk_note_files(notes_dir):
                 if _is_hidden(fpath.name):
                     continue
                 try:
