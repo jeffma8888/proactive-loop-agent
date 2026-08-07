@@ -1,11 +1,15 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-109
+    lenses: HARDENING / DX, INTEGRATION AND ADOPTION
+    winner: unknown
+    ship: unknown
   iter-108
     lenses: NEW CAPABILITY, HARDENING / DX
     - Candidates I checked and DROPPED (recorded so they are not re-proposed)
     winner: B1
-    ship: unknown
+    ship: PUSHED f5212e2
   iter-107
     lenses: narrative-and-docs (iteration 107), new-capability (iteration 107)
     - Candidate A1 -- SHOW the flagship output: an annotated `make demo` transcript in the README, asserted against a real run
@@ -107,4 +111,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-17 scouted iterations
+18 scouted iterations

@@ -120,6 +120,32 @@ atomic checkpoint under `.pla_runs/run-<goal_id>/`. Approval-gated goals are
 listed with a ready-to-paste `pla dispatch ... --yes` command but are never run
 automatically.
 
+### Try it on your own repo
+
+Everything above points at this repo's bundled fixture. To point the
+*perception* half of the stack at your own checkout you need **no provider, no
+API key, no config file and no network** -- ten of the fifteen verbs never
+construct an LLM client at all, so they work on a bare `uv sync`:
+
+```bash
+# every context signal the collectors perceive in this checkout
+pla signals --workspace .
+
+# the perceivers and the gate itself, context-free (no --workspace needed)
+pla collectors
+pla policy
+```
+
+Goal *synthesis* is the step that calls a model, so `scan`, `run`,
+`dispatch`, `resume` and `watch` each require a provider -- either a live one
+(`--provider anthropic`, `openai`, `bedrock`, `ollama`, `groq`, `together`) or
+the offline `scripted` default together with a script for it to read
+(`--scripted-responses PATH`, as `make demo` does above). Asked to synthesize
+with neither, the CLI stops immediately with `error: provider is 'scripted' but
+no scripted_responses_path was configured` instead of pretending to think.
+Start with `signals` to see what the agent would be reasoning about; add a
+provider when you want it to propose.
+
 ## CLI
 
 | Command   | What it does                                                              |
@@ -344,8 +370,18 @@ For example, to make an unattended run more patient against a throttling API:
 ```bash
 export PLA_RETRY_MAX_ATTEMPTS=8
 export PLA_RETRY_BASE_BACKOFF_SEC=30
-pla run --workspace .
+pla run \
+  --workspace examples/fixture_workspace \
+  --provider scripted \
+  --scripted-responses examples/scripted_responses.json
 ```
+
+That form is runnable as printed from a fresh clone with no credentials --
+it tunes L0 against the bundled offline fixture, where the scripted provider
+can be told to `{"raise": "throttle"}` and you can watch the backoff with
+`-vv`. The same five retry knobs in the table above apply unchanged to a live
+provider (swap in `--provider anthropic` and drop `--scripted-responses`),
+which is where throttling actually happens.
 
 ## How the offline scripted provider works
 
