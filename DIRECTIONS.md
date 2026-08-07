@@ -1,10 +1,20 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-111
+    lenses: SIMPLIFICATION-AND-DELETION, PERFORMANCE-AND-THROUGHPUT
+    - Candidate A1 -- Compact `SPEC.md` (90,573 chars) into an index + `SPEC_ARCHIVE.md`, and add the missing char-budget guard (roadmap row 109, QUEUED)
+    - Candidate A2 -- Delete the verb-count magic number `15`, now pinned in 18 test modules
+    - Candidate A3 -- Delete the verbatim second copy of `_has_source` and the third copy of the source-extension set (roadmap row 125, QUEUED)
+    - Candidate B1 -- Make `--kind` an UPSTREAM collector allowlist, not a display-only post-filter
+    - Candidate B2 -- Bound the WORK of the two collect-all-then-cap whole-tree collectors, not just their OUTPUT
+    - Candidate B3 -- Cost visibility where the loop actually runs: `--timings` on `scan` (and the `watch` tick), not only on `signals`
+    winner: B1
+    ship: unknown
   iter-110
     lenses: integration-and-adoption, simplification-and-deletion
     winner: A1
-    ship: unknown
+    ship: PUSHED 193ac4d
   iter-109
     lenses: HARDENING / DX, INTEGRATION AND ADOPTION
     winner: unknown
@@ -115,4 +125,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-19 scouted iterations
+20 scouted iterations

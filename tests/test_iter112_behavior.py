@@ -503,18 +503,26 @@ def test_b07_allowlisted_rows_keep_registry_order(tmp_path: Path) -> None:
 
 # ===========================================================================
 # Behavior 8 -- display filters reshape stdout only; the table is unchanged.
+#
+# SUPERSEDED CLASSIFICATION (factory iter 118, deliberate): `--kind` used to be
+# checked here as a display-only filter. It is now an UPSTREAM collector
+# allowlist -- `signals --kind K` runs ONLY the collector that emits K -- so it
+# legitimately shrinks the row set, and it was removed from these two guards
+# rather than the guards being weakened. Behavior 8's INTENT is unchanged and in
+# fact strengthened: the timings table must never lie about which collectors RAN.
+# The genuinely display-only filters (--min-weight/--summary/--json) are still
+# guarded below, and the new --kind contract is asserted in
+# tests/test_iter118_behavior.py.
 # ===========================================================================
 @pytest.mark.parametrize(
     "extra",
     [
-        ["--kind", "todo"],
         ["--min-weight", "0.95"],
         ["--summary"],
         ["--json"],
-        ["--json", "--kind", "todo"],
         ["--summary", "--min-weight", "0.95"],
     ],
-    ids=["kind", "minweight", "summary", "json", "json-kind", "summary-minweight"],
+    ids=["minweight", "summary", "json", "summary-minweight"],
 )
 def test_b08_display_filters_do_not_change_the_row_set(
     tmp_path: Path, extra: list[str]
@@ -530,16 +538,22 @@ def test_b08_display_filters_do_not_change_the_row_set(
 
 def test_b08_display_filters_do_not_change_the_timing_counts(tmp_path: Path) -> None:
     """The counts reflect what each collector CONTRIBUTED, so a stdout filter
-    that hides signals must not shrink them."""
+    that hides signals must not shrink them.
+
+    Driven by --min-weight, which is display-only for real: it is a PER-SIGNAL
+    predicate, so no collector->weight map exists that could ever narrow
+    collection. (This guard used to drive --kind, which became an upstream
+    allowlist in factory iter 118 -- see the banner above.)
+    """
     ws = _make_workspace(tmp_path)
     _c0, _o0, err_plain = _run(["signals", "--workspace", str(ws), "--timings"])
-    _c1, _o1, err_kind = _run(
-        ["signals", "--workspace", str(ws), "--timings", "--kind", "todo"]
+    _c1, _o1, err_filtered = _run(
+        ["signals", "--workspace", str(ws), "--timings", "--min-weight", "0.95"]
     )
     plain = {n: c for n, _ms, c in _parse_timings(err_plain)}
-    kinded = {n: c for n, _ms, c in _parse_timings(err_kind)}
-    assert kinded == plain, (
-        f"--kind changed the per-collector counts: {plain} -> {kinded}"
+    filtered = {n: c for n, _ms, c in _parse_timings(err_filtered)}
+    assert filtered == plain, (
+        f"--min-weight changed the per-collector counts: {plain} -> {filtered}"
     )
 
 

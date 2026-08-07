@@ -523,8 +523,11 @@ def build_parser() -> argparse.ArgumentParser:
             "braces); an "
             "unknown kind is a usage error (exit 2) at PARSE time, before any "
             "collection runs -- never a silently empty listing. Composes as a "
-            "logical AND with --collector/--min-weight. Default (absent) shows "
-            "every kind."
+            "logical AND with --collector/--min-weight. This is an UPSTREAM "
+            "filter like --collector, not a display-only one: only the "
+            "collector that emits this kind is run, so --timings shows one "
+            "row and the scan costs what that one collector costs. Default "
+            "(absent) shows every kind."
         ),
     )
     p_signals.add_argument(
@@ -600,8 +603,10 @@ def build_parser() -> argparse.ArgumentParser:
             "elapsed ms, signal count, plus a TOTAL row) in registry order. "
             "Opt-in; stdout is byte-identical with and without this flag, so it "
             "is safe to add to a piped or --json invocation. Rows reflect which "
-            "collectors RAN (so --collector narrows them), not the display "
-            "filters."
+            "collectors RAN, so the UPSTREAM filters shrink the row set "
+            "(--collector directly, --kind through the collector that emits "
+            "that kind) while the display-only filters (--min-weight, "
+            "--summary) leave it untouched."
         ),
     )
     p_signals.set_defaults(func=_cmd_signals)
@@ -931,10 +936,12 @@ def _collect(
     or absent git therefore still simply yields fewer signals.
 
     ``only`` is an optional UPSTREAM allowlist of collector names (from
-    ``scan --collector``): when not ``None``, a collector whose ``.name`` is not
-    in the set is skipped entirely (its ``collect()`` never runs), so the caller
-    can focus the scout on a subset of the perception surface. ``None`` (the
-    default, and what ``run``/``signals``/``watch`` pass) runs every collector,
+    ``scan --collector`` and ``signals --collector``, and from ``signals --kind``,
+    which resolves the kind to the collector that emits it): when not ``None``, a
+    collector whose ``.name`` is not in the set is skipped entirely (its
+    ``collect()`` never runs), so the caller can focus the scout on a subset of
+    the perception surface. ``None`` (the default, what ``run``/``watch`` pass,
+    and what ``signals`` passes when neither filter is given) runs every collector,
     byte-identical to before this knob existed; an empty set runs none. The
     filter is applied BEFORE the isolation try/except, so it changes only WHICH
     collectors run, never the never-raise / registry-order semantics of the
@@ -1750,10 +1757,11 @@ def _render_collector_timings(timings: list[tuple[str, float, int]]) -> str:
     * **A ``TOTAL`` row, summed from the RAW floats** (not from the 2-decimal
       strings), so the total is the honest scan cost and the displayed rows differ
       from it by at most rounding.
-    * **The row set reflects which collectors RAN**, so an ``--collector``
-      allowlist shrinks it (an excluded collector never ran, so it has no cost to
-      report) while the stdout display filters (``--kind``/``--min-weight``/
-      ``--summary``) leave it untouched.
+    * **The row set reflects which collectors RAN**, so the UPSTREAM allowlists
+      shrink it -- ``--collector`` directly, and ``--kind`` through the collector
+      that emits that kind (an excluded collector never ran, so it has no cost to
+      report) -- while the stdout display filters (``--min-weight``/``--summary``)
+      leave it untouched.
 
     The caller writes this to STDERR: a duration is non-deterministic, and every
     ``signals`` stdout surface (human listing, ``--summary`` rollup, ``--json``
@@ -2377,6 +2385,31 @@ _COLLECTOR_KINDS: dict[str, str] = {
     "working_tree": "working_tree",
 }
 
+# The INVERSE of `_COLLECTOR_KINDS`, DERIVED at import time and never hand-typed,
+# so it cannot drift from the forward map (which the suite already pins against the
+# `kind=` literal each collector module emits). It answers the question that
+# `signals --kind K` actually asks -- "which collectors can emit K?" -- which is
+# what turns that flag from a display-only post-filter into an UPSTREAM allowlist:
+# asking for one cheap kind no longer pays for the whole perception sweep (measured
+# on this repo before the change: `--kind ci_config` spent ~378 ms to print the
+# output of a 0.16 ms collector, and `--kind todo` cost 3.2x `--collector todos`
+# for byte-identical stdout).
+#
+# WHY the value is a SET of names when the forward map is a bijection TODAY: the
+# value type IS the safety property, not a convenience. Let a future collector emit
+# two kinds (or two collectors share one kind) and the forward map becomes
+# many-to-one; a scalar inverse would then silently pick ONE owner and narrowing
+# would DROP signals the user asked to see. With owner SETS the same change merely
+# widens the allowlist, so the worst case degrades to correct-but-slower.
+#
+# Kind-ascending by construction (`sorted`): iteration order over a plain `set` of
+# strings varies between interpreter runs, and every ordered surface in this repo
+# has to be reproducible.
+_KIND_COLLECTORS: dict[str, frozenset[str]] = {
+    kind: frozenset(name for name, k in _COLLECTOR_KINDS.items() if k == kind)
+    for kind in sorted(set(_COLLECTOR_KINDS.values()))
+}
+
 
 def _collector_rows(kind: str | None = None) -> list[tuple[str, str, str]]:
     """Return ``(name, kind, description)`` triples, name-ascending.
@@ -2961,8 +2994,12 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     collection (never degrading to an empty inspector), matching
     scan/run/resume/runs/trace's missing-input contract. ``--json`` swaps the
     grouped human view for one machine-parseable object; ``--kind`` narrows to one
-    collector-defined kind (an unrecognized kind is simply an empty selection, not
-    an error -- kinds are dynamic, so there is no fixed enum to validate against);
+    collector-defined kind, validated at PARSE time against the live
+    ``SIGNAL_KINDS`` registry (an unknown kind is an argparse usage error, exit 2,
+    never a silently empty listing) -- and it narrows COLLECTION as well as the
+    view: the kind's emitting collector is intersected into the ``only`` allowlist
+    below, so only that collector runs (fail-OPEN -- a kind with no known owner
+    runs them all rather than none);
     ``--min-weight`` keeps only signals whose ``weight >= min_weight`` (an
     inclusive relevance lower bound, AND-composed with ``--kind``) -- a non-numeric
     OR non-finite (``nan``/``inf``/``-inf``) value is rejected by argparse (exit 2)
@@ -2979,15 +3016,38 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     a ``TOTAL`` row, in registry order) to STDERR only, so every stdout surface
     stays byte-identical to the same command without the flag -- durations are
     non-deterministic and must never enter a stdout contract. Its rows report
-    which collectors RAN (``--collector`` narrows them; the display filters do
-    not), and the front-door workspace guard above still runs FIRST, so a
-    mistyped path exits 2 with no timing block.
+    which collectors RAN, so the UPSTREAM filters narrow them (``--collector``,
+    and ``--kind`` via its emitting collector) while the display-only ones
+    (``--min-weight``/``--summary``) do not, and the front-door workspace guard
+    above still runs FIRST, so a mistyped path exits 2 with no timing block.
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
     only = set(args.collector) if args.collector else None
+    kind = getattr(args, "kind", None)
+    # UPSTREAM narrowing: --kind is read BEFORE collecting (it used to be read
+    # after) and its emitting collector(s) are intersected into the --collector
+    # allowlist, so a kind-filtered inspection now does a kind-filtered amount of
+    # WORK. STDOUT is unchanged by construction: the display filter downstream is
+    # simply re-applied over an already-narrow list, and it cannot lose a row
+    # because `_COLLECTOR_KINDS` is a guarded bijection -- kind K is emitted by
+    # exactly one collector, so no OTHER collector could have contributed a signal
+    # that `--kind K` would have displayed.
+    #
+    # Fail-OPEN on purpose (`if owners`, not `if owners is not None`): a kind with
+    # no known owner runs EVERY collector -- correct but slow -- instead of none,
+    # which would be fast but wrong. Narrowing is an optimization, so its
+    # degenerate case must never be able to hide a signal the user asked for.
+    #
+    # Intersecting (never replacing) keeps --collector authoritative, so a disjoint
+    # pair like `--collector notes --kind todo` collapses to the empty allowlist:
+    # zero collectors run, the listing is empty, exit stays 0. It is an honest
+    # answer to a contradictory question, not a usage error.
+    owners = _KIND_COLLECTORS.get(kind) if kind is not None else None
+    if owners:
+        only = set(owners) if only is None else only & owners
     # An empty list (not None) is what ARMS the measurement in _collect; None
     # leaves that seam on its default no-op path, so a bare `signals` runs the
     # collectors exactly as scan/run/watch do.
@@ -2995,7 +3055,6 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         [] if getattr(args, "timings", False) else None
     )
     snapshot = _collect(workspace, only=only, timings=timings)
-    kind = getattr(args, "kind", None)
     min_weight = getattr(args, "min_weight", None)
     if getattr(args, "summary", False):
         # AGGREGATE view: a per-kind count rollup over the SAME selected list,
