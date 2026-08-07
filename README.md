@@ -263,6 +263,20 @@ before any collection runs. Absent (the default) every collector runs, so a bare
 state, ignore TODOs and large files"), which shrinks the synthesis prompt and
 narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects); `run`/`watch` do not accept it.
 
+### Exit codes
+
+`pla` distinguishes a *deliberate refusal* from a *fault*, so a wrapper script
+should branch on the exit code rather than treat every non-zero exit as a
+failure. The contract lives in the docstring of `proactive_loop.cli.main`.
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success. |
+| 1 | Operational fault — a foreseeable operator or environment error (an unknown `--provider`, a **malformed** slate or `checkpoint.json`, a missing `--scripted-responses` script, or a model-boundary failure once the retry budget is spent). Reported as one `error: ...` line on stderr, never a traceback. |
+| 2 | Nothing to act on, or the invocation was wrong — a path you passed does not **exist** (`--workspace`, `--slate`, `--old`/`--new`, or a `--run-dir` holding no `checkpoint.json`), an output target is unusable (`--out` or `--state-dir` is not a directory), or a goal id is not in the slate. argparse also exits `2` on a usage error (an unknown flag, or an invalid `--format` / `--kind` / `--collector` / `--status` value). |
+| 3 | BLOCKED by the autonomy contract — the goal is refused as a policy decision, so `--yes` does not help and re-running it changes nothing. Rewrite or drop the goal. |
+| 4 | NEEDS_APPROVAL — the goal is legitimate but sensitive, so it stops and waits for a person. Once a human has approved it, re-run the same command with `--yes`. |
+
 ## Use as a library
 
 `pla` is the primary interface, but the layers underneath it are an importable,

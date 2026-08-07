@@ -1,10 +1,14 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-110
+    lenses: integration-and-adoption, simplification-and-deletion
+    winner: A1
+    ship: unknown
   iter-109
     lenses: HARDENING / DX, INTEGRATION AND ADOPTION
     winner: unknown
-    ship: unknown
+    ship: PUSHED b83621f
   iter-108
     lenses: NEW CAPABILITY, HARDENING / DX
     - Candidates I checked and DROPPED (recorded so they are not re-proposed)
@@ -111,4 +115,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-18 scouted iterations
+19 scouted iterations
