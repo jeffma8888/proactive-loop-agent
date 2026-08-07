@@ -13,6 +13,7 @@ from __future__ import annotations
 import difflib
 import fnmatch
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
@@ -100,7 +101,12 @@ class ToolRegistry:
                 f"error: unknown tool {tool!r}; "
                 "available tools: " + ", ".join(_TOOL_NAMES)
             )
-        handler = getattr(self, f"_{tool}")
+        # Annotated because `getattr` returns Any, which otherwise leaks straight
+        # out of this `-> str` function. The annotation is an assertion the
+        # allowlist above makes safe: every name in _TOOL_NAMES resolves to a
+        # `_<name>(self, args: dict) -> str` handler, so a `str` return is
+        # guaranteed for anything that gets past the membership gate.
+        handler: Callable[..., str] = getattr(self, f"_{tool}")
         try:
             return handler(args or {})
         except Exception as exc:  # never let a tool fault abort the loop

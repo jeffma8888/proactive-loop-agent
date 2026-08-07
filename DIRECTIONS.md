@@ -1,6 +1,11 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-108
+    lenses: NEW CAPABILITY, HARDENING / DX
+    - Candidates I checked and DROPPED (recorded so they are not re-proposed)
+    winner: B1
+    ship: unknown
   iter-107
     lenses: narrative-and-docs (iteration 107), new-capability (iteration 107)
     - Candidate A1 -- SHOW the flagship output: an annotated `make demo` transcript in the README, asserted against a real run
@@ -10,7 +15,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `DebugArtifactCollector`: the 17th L2 collector (roadmap row #105, ABANDONED, explicitly re-proposable)
     - Candidate B3 -- `pla watch --json`: make the namesake proactive loop machine-consumable
     winner: B1
-    ship: unknown
+    ship: PUSHED 2bd44f7
   iter-106
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Bounded worst case: sort-then-stop in the three relpath-capped body-reading collectors
@@ -102,4 +107,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-16 scouted iterations
+17 scouted iterations

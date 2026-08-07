@@ -43,7 +43,7 @@ from pydantic import ValidationError
 from . import __version__
 from .config import Settings
 from .collectors import SIGNAL_KINDS, all_collectors
-from .llm import LLMError
+from .llm import LLMClient, LLMError
 from .llm.providers import create_client
 from .loop import Checkpoint, GoalLoop, ToolRegistry
 from .models import (
@@ -2535,7 +2535,7 @@ def _render_providers() -> str:
 
 
 def _dispatch_goal(
-    goal: CandidateGoal, workspace_root: Path, settings: Settings, client
+    goal: CandidateGoal, workspace_root: Path, settings: Settings, client: LLMClient
 ) -> int:
     """Execute one already-approved goal through a checkpointed GoalLoop.
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -74,7 +75,7 @@ class ScriptedLLMClient:
         "timeout": LLMTimeoutError,
     }
 
-    def __init__(self, entries: list[dict[str, Any]]):
+    def __init__(self, entries: list[dict[str, Any]]) -> None:
         # Validate eagerly: a non-dict entry must surface HERE, at construction,
         # not on the first `complete()` deep inside a dispatched run (where it
         # used to raise an uncaught `AttributeError`). See the class docstring.
@@ -213,7 +214,16 @@ def parse_json_block(text: str) -> Any:
     match = _FENCE_RE.search(text)
     if match:
         fenced = match.group(1).strip()
-        for attempt in (lambda: json.loads(fenced), lambda: _raw_decode(fenced)):
+        # Hoisted into an ANNOTATED local rather than an inline tuple: a bare
+        # lambda is an untyped callable, so `return attempt()` used to leak an
+        # untyped call into this typed function. The ORDER is load-bearing --
+        # strict `json.loads` over the whole fence first (so a fence holding
+        # exactly one value is parsed as-is), junk-tolerant `raw_decode` second.
+        fence_attempts: tuple[Callable[[], Any], ...] = (
+            lambda: json.loads(fenced),
+            lambda: _raw_decode(fenced),
+        )
+        for attempt in fence_attempts:
             try:
                 return attempt()
             except (json.JSONDecodeError, ValueError, TypeError):

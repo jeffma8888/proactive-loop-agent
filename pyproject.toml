@@ -56,12 +56,31 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-# Minimal base config so the "fully type-hinted" README claim gets a machine
-# oracle (`uv run --with mypy mypy src/proactive_loop/...`). Deliberately NOT
-# `strict` this bite -- strict surfaces 42 errors; we clear the 6 default-mode
-# errors in reviewable bites (this bite = llm/providers.py). Do NOT add
-# error-surfacing flags here without also fixing what they surface.
+# The machine oracle for the "fully type-hinted" README claim (`make typecheck`,
+# and the byte-identical CI step). Now `strict`, because DEFAULT-mode mypy does
+# not check the signature or body of an UNANNOTATED function at all -- i.e. the
+# old default-mode config was structurally blind to the exact defect class the
+# README claim is about, and it did in fact pass a fully unannotated parameter
+# (`cli.py::_dispatch_goal(client)`) as "Success".
+#
+# Re-measured at the commit that flipped this on (the previous comment here was
+# from the iter-86 bite and was stale in BOTH of its numbers):
+#   default mode                        -> 0 errors  (the old comment promised 6)
+#   --strict                            -> 38 errors (the old comment said 42)
+#   --strict, by code                   -> 35 `type-arg`, plus exactly 3 others
+#   --strict --allow-any-generics       -> exactly 3 errors, all fixed here
+# So ONE flag owned 35 of the 38 errors: deferring `disallow_any_generics` alone
+# buys every other strict flag -- including the load-bearing
+# `disallow_untyped_defs` -- for a 3-error fix.
+#
+# `disallow_any_generics` is therefore the ONE deliberately deferred flag; the
+# remaining bare-generic sites (`cli.py` 19, `loop/tools.py` 15,
+# `loop/executor.py` 1) are queued as a roadmap row, not forgotten. Do NOT
+# weaken any other strict flag here, and do NOT add an error-surfacing flag
+# without also fixing what it surfaces.
 python_version = "3.12"
+strict = true
+disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 # botocore is the transport SDK under boto3 (the OPTIONAL, lazily-imported
