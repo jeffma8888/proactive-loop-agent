@@ -21,6 +21,15 @@ from pydantic import BaseModel, Field, field_validator
 
 from .models import GoalCategory
 
+# The two settings objects a downstream caller constructs or annotates against.
+# Deliberately class/def-only: the module-level constants below (``ENV_PREFIX``,
+# ``DEFAULT_SENSITIVE``) stay importable but are implementation detail of the
+# env-var reader, not part of the promised API.
+__all__ = [
+    "RetryPolicy",
+    "Settings",
+]
+
 ENV_PREFIX = "PLA_"
 
 # The five ``PLA_RETRY_*`` env vars, each mapped to (RetryPolicy field, coercion).

@@ -237,6 +237,61 @@ before any collection runs. Absent (the default) every collector runs, so a bare
 state, ignore TODOs and large files"), which shrinks the synthesis prompt and
 narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects); `run`/`watch` do not accept it.
 
+## Use as a library
+
+`pla` is the primary interface, but the layers underneath it are an importable,
+fully typed package. The root `proactive_loop` namespace re-exports the **data
+contract** every layer speaks: what a collector perceives (`ContextSignal`,
+`WorkspaceSnapshot`), what the scout proposes (`CandidateGoal`, `GoalSlate`,
+`GoalCategory`), how the gate rules (`DispatchDecision`, `AutonomyDecision`),
+what a run records (`RunState`, `RunStatus`, `LoopStep`, `StepKind`), and how it
+is all configured (`Settings`, `RetryPolicy`). That promised surface is exactly
+**13 names**, enumerated in `proactive_loop.__all__`.
+
+Behavior entry points are deliberately **not** re-exported at the root — they
+keep their sub-package paths (`proactive_loop.collectors`, `proactive_loop.scout`,
+`proactive_loop.loop`, `proactive_loop.llm`). Two consequences worth knowing: the
+compatibility promise stays small (the re-exported types are the persisted JSON
+schema, so they are already frozen, while the internals stay free to move), and
+`import proactive_loop` never drags in the CLI, so importing the library costs no
+argparse setup.
+
+```python
+from proactive_loop import CandidateGoal, ContextSignal, GoalCategory, GoalSlate, Settings
+from proactive_loop.scout import gate_slate
+
+signal = ContextSignal(
+    source="notes",
+    kind="note",
+    summary="the importable API is undocumented",
+)
+goal = CandidateGoal(
+    title="Document the library surface",
+    rationale=signal.summary,
+    sources=[signal.summary],
+    category=GoalCategory.PROJECT,
+)
+slate = GoalSlate(workspace_root=".", goals=[goal])
+
+# The autonomy gate is a pure function of the slate plus settings — no I/O and no
+# network — so a host can rule on candidates before deciding to run anything.
+for decision in gate_slate(slate, Settings()):
+    print(decision.goal_id, decision.decision.value, decision.reason)
+
+# Every promised type is a pydantic model, so a slate round-trips through JSON:
+# this is the same schema the artifacts under the state dir already hold.
+restored = GoalSlate.model_validate_json(slate.model_dump_json())
+for candidate in restored.ranked():
+    print(candidate.title, candidate.score, candidate.category.value)
+```
+
+Because the package ships a `py.typed` marker, a downstream project type-checks
+against these models directly — no stub package, and no reaching into private
+module paths. Two names that are public in their own modules stay out of the root
+promise on purpose: `ensure_dir` and `sanitize_validation_error` are internal
+helpers rather than part of the data contract, and remain importable from
+`proactive_loop.models`.
+
 ## Configuration (environment variables)
 
 Every runtime knob is overridable from the environment with the `PLA_` prefix,

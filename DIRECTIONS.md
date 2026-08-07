@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-107
+    lenses: narrative-and-docs (iteration 107), new-capability (iteration 107)
+    - Candidate A1 -- SHOW the flagship output: an annotated `make demo` transcript in the README, asserted against a real run
+    - Candidate A2 -- Un-cram the CLI reference: one table cell is 851 characters, and the drift guard actively rewards that
+    - Candidate A3 -- Document the CLI exit-code contract (roadmap row #115, QUEUED): `dispatch` returns 3 vs 4 and the README says neither
+    - Candidate B1 -- Make `proactive_loop` importable: root-package public API (roadmap row #116, QUEUED)
+    - Candidate B2 -- `DebugArtifactCollector`: the 17th L2 collector (roadmap row #105, ABANDONED, explicitly re-proposable)
+    - Candidate B3 -- `pla watch --json`: make the namesake proactive loop machine-consumable
+    winner: B1
+    ship: unknown
   iter-106
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Bounded worst case: sort-then-stop in the three relpath-capped body-reading collectors
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- The perception vocabulary (16 collectors, 16 kinds) is documented nowhere, yet a wrong kind is now a hard exit 2
     - Candidate B3 -- The CLI reference is collapsing into mega-cells, and the drift guard rewards it
     winner: B1
-    ship: unknown
+    ship: PUSHED 1b4e265
   iter-105
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Collapse the three copies of the collector directory-skip seam
@@ -92,4 +102,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-15 scouted iterations
+16 scouted iterations

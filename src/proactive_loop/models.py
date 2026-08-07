@@ -14,6 +14,27 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError, computed_field
 
+# Public surface of this module, in DECLARATION order so the list doubles as a
+# table of contents for the data contract. WHY it is kept ast-complete (every
+# public top-level class/def, nothing more): the root package re-exports a
+# curated SUBSET of this list, so a public model added here without an entry is
+# a name that silently escapes the promised API -- the suite fails instead.
+__all__ = [
+    "GoalCategory",
+    "AutonomyDecision",
+    "RunStatus",
+    "StepKind",
+    "ContextSignal",
+    "WorkspaceSnapshot",
+    "CandidateGoal",
+    "GoalSlate",
+    "DispatchDecision",
+    "LoopStep",
+    "RunState",
+    "ensure_dir",
+    "sanitize_validation_error",
+]
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
