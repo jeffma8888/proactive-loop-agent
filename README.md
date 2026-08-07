@@ -55,13 +55,43 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
   human approval, no matter how high they score.
 - **L1 goal loop** drives one approved goal through bounded plan/act/check
   iterations. The ACT phase can only touch a sandboxed artifacts directory,
-  through a fixed set of path-guarded tools: write, append, read, relocate
-  (`move_file`), and delete files, plus read-only discovery (list / search /
-  find / stat / head / tail).
+  and only through a closed allowlist of 14 path-guarded tools — creating,
+  extending and in-place editing of files, one relocate, one delete, and
+  read-only reading / ranged reading / diffing / discovery. Every one of them
+  is named with its access class in
+  [ACT sandbox tool allowlist](#act-sandbox-tool-allowlist) below.
 - **L0 resilience** wraps every model call in retry-with-backoff and checkpoints
   the run state after every step, so a throttle blip or a crash never loses more
   than the in-flight step. Each recovered retry is counted on the run and shown
   in the run summary and the `pla trace` header, so the self-healing is visible.
+
+### ACT sandbox tool allowlist
+
+Every ACT step resolves the model's requested tool against this closed
+allowlist before any path is touched: an unlisted name is refused outright,
+and each listed tool re-checks that its path stays inside the sandbox — writes
+are confined to the run's artifacts directory and the workspace is read-only.
+`pla tools` prints this same surface at runtime (`--json` for the
+machine-readable form), and a drift guard binds every row below to the CLI's
+tool catalog by name AND by access class, so the table cannot fall behind the
+code.
+
+| tool | access | effect |
+|------|--------|--------|
+| `append_file` | `create-update` | Extend a file, creating it if it does not exist yet. |
+| `diff_files` | `read-only` | Compare two files and return a bounded unified diff. |
+| `find_files` | `read-only` | Find files by basename glob under a sandbox directory. |
+| `head_file` | `read-only` | Return the first N lines of a file (a bounded top-of-file peek). |
+| `list_files` | `read-only` | List the entries of one directory in the sandbox. |
+| `move_file` | `move` | Atomically rename or relocate one file inside the sandbox. |
+| `read_file` | `read-only` | Return the whole contents of one file. |
+| `read_lines` | `read-only` | Return an inclusive 1-based line range (a bounded interior window). |
+| `remove_file` | `delete` | Remove one file from the sandbox. |
+| `replace_in_file` | `create-update` | Edit a file in place: substitute every literal occurrence of a substring in a file that must already exist. |
+| `search_files` | `read-only` | Grep file contents for a substring across a sandbox directory. |
+| `stat_file` | `read-only` | Describe one path in a line: type, byte size, line count, extension. |
+| `tail_file` | `read-only` | Return the last N lines of a file (a bounded bottom-of-file peek). |
+| `write_file` | `create-update` | Create a file or overwrite an existing one whole. |
 
 ## Quickstart
 

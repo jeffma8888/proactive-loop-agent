@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-106
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- Bounded worst case: sort-then-stop in the three relpath-capped body-reading collectors
+    - Candidate A2 -- Push `--kind` upstream: run only the collector that can emit the requested kind
+    - Candidate A3 -- Halve `working_tree`'s git spawns: one `status --porcelain --branch` instead of two commands
+    - Candidate B1 -- The ACT-sandbox tool allowlist is mis-described, and the error understates MUTATION
+    - Candidate B2 -- The perception vocabulary (16 collectors, 16 kinds) is documented nowhere, yet a wrong kind is now a hard exit 2
+    - Candidate B3 -- The CLI reference is collapsing into mega-cells, and the drift guard rewards it
+    winner: B1
+    ship: unknown
   iter-105
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Collapse the three copies of the collector directory-skip seam
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Deduplicate the 333 redundant file reads (share BYTES, not text)
     - Candidate B3 -- Deterministic early-exit for the relpath-capped collectors
     winner: B1
-    ship: unknown
+    ship: PUSHED bfbfe61
   iter-104
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- Give the root package a public API: `__all__` re-exports + a README "Use as a library" section
@@ -82,4 +92,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-14 scouted iterations
+15 scouted iterations
