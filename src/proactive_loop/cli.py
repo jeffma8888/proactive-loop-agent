@@ -85,6 +85,54 @@ _NO_CHECKPOINT = "(no checkpoint)"
 # text is only ever surfaced via `trace --json`. A named constant (not an inline
 # literal) so the truncation policy has one home.
 _TRACE_OUTPUT_WIDTH = 80
+# The `watch --out-dir` slate-STREAM filename convention, defined here ONCE and
+# nowhere else. WHY one definition instead of an inline f-string at the write
+# site: the stream now has two sides -- `watch --out-dir` PRODUCES it and
+# `diff --dir` CONSUMES it -- and a writer/reader disagreement about the prefix,
+# the zero-pad width or the suffix would not raise anything: the reader would
+# simply find no stream files and report an empty directory, the worst kind of
+# silent drift. So the shape (`slate-001.json`: 1-based tick index, zero-padded
+# to 3 so up to 999 ticks also sort lexicographically) lives in these three
+# constants, and the only consumers are the two helpers directly below them --
+# `_stream_slate_name` for the producer and `_stream_slate_index` for the reader.
+_STREAM_SLATE_PREFIX = "slate-"
+_STREAM_SLATE_PAD = 3
+_STREAM_SLATE_SUFFIX = ".json"
+
+
+def _stream_slate_name(index: int) -> str:
+    """Format a 1-based tick *index* as its stream filename (the PRODUCER side).
+
+    The single formatting site for the convention above, so `watch --out-dir`
+    never restates the prefix/pad/suffix inline. Pure and total: an index wider
+    than the pad simply renders unpadded (``1000`` -> ``slate-1000.json``), which
+    stays readable by `_stream_slate_index` because that parses an integer of any
+    width rather than a fixed-width field.
+    """
+    return f"{_STREAM_SLATE_PREFIX}{index:0{_STREAM_SLATE_PAD}d}{_STREAM_SLATE_SUFFIX}"
+
+
+def _stream_slate_index(name: str) -> int | None:
+    """Parse a stream filename back to its tick index, or ``None`` (the READER side).
+
+    The exact inverse of `_stream_slate_name` over the same three constants, so
+    the reader cannot recognise a shape the writer does not emit. Returns ``None``
+    -- never raises -- for anything that is not a stream file, because a stream
+    directory legitimately holds other entries (a plain ``slate.json`` from
+    ``scan --out``, editor backups, notes) and those must be SKIPPED, not treated
+    as errors.
+
+    WHY ``isascii()`` guards ``isdigit()``: ``str.isdigit()`` is true for unicode
+    digits, and ``int()`` then raises ``ValueError`` on some of them -- so the
+    ASCII check is what keeps this total. It also rejects an empty body, since
+    ``"".isdigit()`` is ``False``.
+    """
+    if not name.startswith(_STREAM_SLATE_PREFIX) or not name.endswith(_STREAM_SLATE_SUFFIX):
+        return None
+    body = name[len(_STREAM_SLATE_PREFIX) : -len(_STREAM_SLATE_SUFFIX)]
+    if not (body.isascii() and body.isdigit()):
+        return None
+    return int(body)
 
 
 # ---------------------------------------------------------------------------
@@ -679,16 +727,43 @@ def build_parser() -> argparse.ArgumentParser:
     # of point-in-time slates into a change feed. Like runs/explain/trace/signals
     # it inherits the globals so --provider/--scripted-responses/--state-dir are
     # accepted but INERT: the handler builds no LLMClient, runs no collector, and
-    # writes no file. --old and --new are both required; --json swaps the human
-    # sections for one machine-parseable object. It matches goals by NORMALIZED
-    # TITLE, never the random per-scan id (an id-match reports 100% churn per scan).
+    # writes no file. TWO mutually exclusive selector modes: explicit paths (both
+    # --old and --new) or --dir DIR, which resolves the two newest slates in a
+    # `watch --out-dir` stream directory so the producer and this consumer compose
+    # with no filename arithmetic. Neither --old/--new is argparse-`required`
+    # (that would forbid --dir); the handler enforces "exactly one mode" itself so
+    # a missing or conflicting selector is one `error:` line, still exit 2.
+    # --json swaps the human sections for one machine-parseable object. It matches
+    # goals by NORMALIZED TITLE, never the random per-scan id (an id-match reports
+    # 100% churn per scan).
     p_diff = sub.add_parser(
         "diff",
         parents=[globals_],
         help="Compare two saved slates and classify goals as added/removed/changed (read-only, LLM-free).",
     )
-    p_diff.add_argument("--old", required=True, help="Path to the OLDER slate JSON from `scan`.")
-    p_diff.add_argument("--new", required=True, help="Path to the NEWER slate JSON from `scan`.")
+    p_diff.add_argument(
+        "--old",
+        default=None,
+        help="Path to the OLDER slate JSON from `scan`. Required unless --dir is given.",
+    )
+    p_diff.add_argument(
+        "--new",
+        default=None,
+        help="Path to the NEWER slate JSON from `scan`. Required unless --dir is given.",
+    )
+    p_diff.add_argument(
+        "--dir",
+        default=None,
+        help=(
+            "Diff the two newest slates in a `pla watch --out-dir DIR` stream "
+            "directory instead of naming paths: --new binds to the highest "
+            "slate-<NNN>.json tick index present and --old to the second-highest "
+            "(compared as integers, so 1000 beats 999). Entries that are not "
+            "stream files are ignored. Mutually exclusive with --old/--new; fewer "
+            "than two stream slates, or a DIR that is not an existing directory, "
+            "is a usage error (exit 2)."
+        ),
+    )
     p_diff.add_argument(
         "--json",
         action="store_true",
@@ -1128,6 +1203,34 @@ def _out_dir_guard(out_dir: Path) -> str | None:
     if not anc.is_dir():
         return f"--out-dir parent is not a directory: {anc}"
     return None
+
+
+def _stream_slates(stream_dir: Path) -> list[Path]:
+    """Every stream slate in *stream_dir*, oldest-first by PARSED INTEGER index.
+
+    The reader half of the `watch --out-dir` stream, backing `diff --dir`: the
+    caller takes the last two entries to diff the newest tick against the one
+    before it.
+
+    WHY ordering by the parsed int rather than by filename: the pad is only 3
+    wide, so past 999 ticks a lexicographic sort inverts the pair
+    (``slate-1000.json`` sorts BEFORE ``slate-999.json``) and `diff` would
+    silently report the change feed backwards. The secondary sort on the name
+    keeps the result deterministic if two names map to one index (``slate-1.json``
+    beside ``slate-001.json``), because ``iterdir()`` order is OS-dependent.
+
+    Non-stream entries are SKIPPED, never errors -- a stream directory legitimately
+    holds other files -- and ``is_file()`` is checked so a DIRECTORY whose name
+    happens to match the convention can never be selected and handed to a loader.
+    """
+    indexed: list[tuple[int, str, Path]] = []
+    for entry in stream_dir.iterdir():
+        index = _stream_slate_index(entry.name)
+        if index is None or not entry.is_file():
+            continue
+        indexed.append((index, entry.name, entry))
+    indexed.sort(key=lambda row: (row[0], row[1]))
+    return [row[2] for row in indexed]
 
 
 def _render_table(
@@ -3235,7 +3338,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
             # index can never run ahead of the ticks that actually produced one.
             # Same `slate written:` trailer wording `scan` prints, so the two
             # verbs cannot describe the same act differently.
-            target = out_dir / f"slate-{count:03d}.json"
+            target = out_dir / _stream_slate_name(count)
             _write_slate(slate, target)
             print(f"\nslate written: {target}")
 
@@ -3270,15 +3373,62 @@ def _cmd_diff(args: argparse.Namespace) -> int:
     ``error:`` line at exit ``1`` -- no bespoke catch, no traceback. ``--json`` swaps
     the human sections for one machine-parseable object AFTER those guards, so the
     exit contract is ``--json``-independent -- rendering selection only.
+
+    WHY the ``--dir`` mode exists: ``watch --out-dir`` makes the monitor a PRODUCER
+    of a slate stream and this verb is its advertised consumer, but composing them
+    meant human filename arithmetic (``ls | sort | tail -2``, then retyping two
+    paths). ``--dir DIR`` resolves that pair itself -- highest tick index as
+    ``--new``, second-highest as ``--old``, over the shared
+    `_stream_slate_index` convention -- so "what changed on the last tick?" is one
+    command. It is a SELECTOR only: once the pair is resolved the two modes share
+    the identical load/gate/render tail, so ``--dir`` cannot drift from the explicit
+    contract. The two modes are mutually exclusive and the conflict is rejected
+    BEFORE any filesystem probe, so a wrong invocation is never half-executed.
     """
-    old_path = Path(args.old)
-    if not old_path.is_file():
-        print(f"error: slate file not found: {old_path}", file=sys.stderr)
-        return 2
-    new_path = Path(args.new)
-    if not new_path.is_file():
-        print(f"error: slate file not found: {new_path}", file=sys.stderr)
-        return 2
+    # Exactly one selector mode. The conflict is rejected BEFORE any filesystem
+    # probe, so a wrong invocation is reported even when every path in it is
+    # valid and no slate is ever loaded for a request that cannot be served.
+    if args.dir is not None:
+        if args.old is not None or args.new is not None:
+            print("error: --dir cannot be combined with --old/--new", file=sys.stderr)
+            return 2
+        stream_dir = Path(args.dir)
+        if not stream_dir.is_dir():
+            # A missing path and an existing non-directory are the SAME operator
+            # mistake here -- unlike `watch --out-dir`, this verb never CREATES
+            # anything -- so one message covers both cases.
+            print(f"error: --dir must be an existing directory: {stream_dir}", file=sys.stderr)
+            return 2
+        slates = _stream_slates(stream_dir)
+        if len(slates) < 2:
+            # Reporting the count found (not just "too few") distinguishes "wrong
+            # directory" from "the watch has only ticked once" without a second look.
+            print(
+                f"error: --dir needs at least two stream slates to compare, "
+                f"found {len(slates)}: {stream_dir}",
+                file=sys.stderr,
+            )
+            return 2
+        old_path, new_path = slates[-2], slates[-1]
+        # Under --json, echo the RESOLVED paths: the caller delegated the choice, so
+        # the document has to say WHICH pair was chosen -- the `--dir` value alone
+        # would leave a machine consumer unable to tell the two ticks apart.
+        old_echo, new_echo = str(old_path), str(new_path)
+    else:
+        if args.old is None or args.new is None:
+            print("error: diff needs either --dir DIR or both --old and --new", file=sys.stderr)
+            return 2
+        old_path = Path(args.old)
+        if not old_path.is_file():
+            print(f"error: slate file not found: {old_path}", file=sys.stderr)
+            return 2
+        new_path = Path(args.new)
+        if not new_path.is_file():
+            print(f"error: slate file not found: {new_path}", file=sys.stderr)
+            return 2
+        # Explicit mode keeps echoing the RAW arg strings, byte-identically to
+        # before: a re-stringified Path would drop a leading ``./``.
+        old_echo, new_echo = args.old, args.new
 
     old_slate = _load_slate(old_path)
     new_slate = _load_slate(new_path)
@@ -3289,8 +3439,10 @@ def _cmd_diff(args: argparse.Namespace) -> int:
         # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
         # guards above (exit 2 / exit 1) already ran, so --json selects a rendering
         # only and leaves the exit-code contract untouched. `old`/`new` echo the
-        # raw arg strings (behavior 12), not the normalized Path.
-        print(json.dumps(_diff_json_payload(args.old, args.new, result), indent=2))
+        # strings the selector block resolved: the raw arg strings in explicit mode
+        # (the raw-arg echo contract -- never the normalized Path, which drops a
+        # leading `./`), and the CHOSEN stream paths in `--dir` mode.
+        print(json.dumps(_diff_json_payload(old_echo, new_echo, result), indent=2))
     else:
         print(_render_diff(result))
     return 0

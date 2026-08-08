@@ -162,27 +162,38 @@ def test_behavior1_global_flags_accepted_but_inert(tmp_path, capsys):
 
 
 # ===========================================================================
-# Behavior 2 -- --old and --new are both REQUIRED (argparse exit 2 on stderr);
+# Behavior 2 -- a `diff` invocation MUST name a selector: both --old and --new,
+# or --dir. The ENFORCEMENT MECHANISM moved in the `diff --dir` iteration --
+# argparse cannot express "either (--old AND --new) or --dir", so `_cmd_diff`
+# now rejects a missing selector itself and RETURNS 2 instead of argparse
+# raising SystemExit. The observable contract these two tests exist to pin is
+# unchanged, and is what they assert: exit 2, empty stdout, exactly one
+# `error: ` line on stderr naming the option, no traceback.
 # --json is an optional store_true defaulting off.
 # ===========================================================================
 
 
+def _assert_usage_error(rc: int, out: str, err: str, names: str) -> None:
+    """Pin the exit-2 usage contract: rc 2, silent stdout, ONE `error:` line."""
+    assert rc == 2, f"a missing selector must exit 2, got {rc}; stderr:\n{err}"
+    assert out == "", f"a usage error must print nothing on stdout; got:\n{out!r}"
+    lines = err.splitlines()
+    assert len(lines) == 1, f"expected exactly one stderr line; got:\n{err!r}"
+    assert lines[0].startswith("error: "), f"stderr must be an `error: ` line; got:\n{err!r}"
+    assert names in err, f"usage error must name {names}; got:\n{err!r}"
+    assert _TRACEBACK not in err
+
+
 def test_behavior2_old_is_required(tmp_path, capsys):
     new = _write_slate(tmp_path, _goal("A"), name="new.json")
-    with pytest.raises(SystemExit) as ei:
-        _run(["diff", "--new", str(new)], capsys)
-    assert ei.value.code == 2, f"omitting --old must be an argparse exit 2, got {ei.value.code}"
-    err = capsys.readouterr().err
-    assert "--old" in err, f"usage error must name --old; got:\n{err!r}"
+    rc, out, err = _run(["diff", "--new", str(new)], capsys)
+    _assert_usage_error(rc, out, err, "--old")
 
 
 def test_behavior2_new_is_required(tmp_path, capsys):
     old = _write_slate(tmp_path, _goal("A"), name="old.json")
-    with pytest.raises(SystemExit) as ei:
-        _run(["diff", "--old", str(old)], capsys)
-    assert ei.value.code == 2, f"omitting --new must be an argparse exit 2, got {ei.value.code}"
-    err = capsys.readouterr().err
-    assert "--new" in err, f"usage error must name --new; got:\n{err!r}"
+    rc, out, err = _run(["diff", "--old", str(old)], capsys)
+    _assert_usage_error(rc, out, err, "--new")
 
 
 def test_behavior2_json_defaults_off(tmp_path, capsys):

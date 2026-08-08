@@ -89,13 +89,28 @@ OWN_REPO_HEADING = "### Try it on your own repo"
 # Spec behavior 3: the two DECLARED buckets. A required option must be in exactly
 # one of them; anything else is a test FAILURE, never a silent default.
 WORKSPACE_SATISFIABLE = frozenset({"--workspace"})
-PRIOR_RUN_ARTIFACT = frozenset({"--slate", "--goal-id", "--run-dir", "--old", "--new"})
+PRIOR_RUN_ARTIFACT = frozenset(
+    {"--slate", "--goal-id", "--run-dir", "--old", "--new", "--dir"}
+)
+
+# Options a verb REFUSES to run without but that argparse cannot mark
+# ``required=True``. `diff` accepts EITHER (``--old`` and ``--new``) OR ``--dir``,
+# a disjunction argparse has no way to express, so `_cmd_diff` enforces it itself
+# and returns ``2``. `action.required` is therefore blind to it -- and a blind
+# derivation would silently reclassify `diff` as standalone, i.e. publish "needs
+# nothing but the checkout itself" about a verb that exits ``2`` without a prior
+# run. That is the rot in the SAFE direction this module exists to prevent, so the
+# handler-enforced requirement is DECLARED here and merged into the derivation;
+# behavior 3b proves the merge is load-bearing rather than decorative.
+HANDLER_ENFORCED_REQUIRED: dict[str, frozenset[str]] = {
+    "diff": frozenset({"--old", "--new", "--dir"}),
+}
 
 # Spec behaviors 3-5: assertions ON the derivation, not the source of truth.
 EXPECTED_REQUIRED_OPTIONS: dict[str, frozenset[str]] = {
     "collectors": frozenset(),
     "config": frozenset(),
-    "diff": frozenset({"--old", "--new"}),
+    "diff": frozenset({"--old", "--new", "--dir"}),  # handler-enforced, see above
     "dispatch": frozenset({"--slate", "--goal-id"}),
     "explain": frozenset({"--slate"}),
     "policy": frozenset(),
@@ -244,7 +259,7 @@ def numbers_in(sentence: str) -> list[int]:
 # --------------------------------------------------------------------------
 
 
-def required_options_by_verb() -> dict[str, frozenset[str]]:
+def argparse_required_options_by_verb() -> dict[str, frozenset[str]]:
     """``verb -> its ``required=True`` option strings``, from the LIVE parser."""
     parser = build_parser()
     subparser_actions = [
@@ -267,6 +282,25 @@ def required_options_by_verb() -> dict[str, frozenset[str]]:
         out[verb] = frozenset(names)
     assert out, "derived ZERO subparsers -- the derivation is broken, not the README"
     return out
+
+
+def required_options_by_verb() -> dict[str, frozenset[str]]:
+    """``verb -> every option string the verb REFUSES to run without``.
+
+    The live argparse view UNION the handler-enforced declarations above. The
+    union is the honest answer to "can a reader run this verb on a fresh
+    checkout?", because where the check LIVES (argparse or the handler) is an
+    implementation detail while the reader's experience -- exit ``2`` until a
+    prior run produced the artifact -- is not.
+    """
+    merged = dict(argparse_required_options_by_verb())
+    for verb, options in HANDLER_ENFORCED_REQUIRED.items():
+        assert verb in merged, (
+            f"HANDLER_ENFORCED_REQUIRED names {verb!r}, which is not a live "
+            "subcommand -- the declaration is stale"
+        )
+        merged[verb] = merged[verb] | options
+    return merged
 
 
 def unclassified_options(
@@ -560,6 +594,44 @@ def test_behavior3_every_live_required_option_is_classified() -> None:
     assert required == EXPECTED_REQUIRED_OPTIONS, (
         "the live required-option map drifted from the spec's measured facts; "
         f"live={ {k: sorted(v) for k, v in sorted(required.items())} }"
+    )
+
+
+def test_behavior3b_handler_enforced_requirements_are_load_bearing() -> None:
+    """Without the merge, `diff` derives as STANDALONE -- pin both sides.
+
+    `diff` accepts either (``--old`` and ``--new``) or ``--dir``; argparse cannot
+    express that disjunction, so the check moved into `_cmd_diff` and
+    ``action.required`` reports nothing for the verb. An argparse-only derivation
+    would therefore publish `diff` as needing "nothing but the checkout itself",
+    which is false -- it exits ``2`` until a prior run produced a slate or a
+    stream directory. This test fails if the merge is ever dropped OR if the
+    declaration outlives the argparse change that made it necessary.
+    """
+    raw = argparse_required_options_by_verb()
+    assert raw["diff"] == frozenset(), (
+        "`diff` declares an argparse-required option again, so the "
+        "HANDLER_ENFORCED_REQUIRED entry may now be redundant: "
+        f"{sorted(raw['diff'])}"
+    )
+    merged = required_options_by_verb()
+    assert merged["diff"] == HANDLER_ENFORCED_REQUIRED["diff"], (
+        f"the merge did not apply: {sorted(merged['diff'])}"
+    )
+    # The known-bad side: the raw view puts `diff` on the standalone side.
+    raw_standalone = {
+        verb
+        for verb, options in raw.items()
+        if not any(option in PRIOR_RUN_ARTIFACT for option in options)
+    }
+    assert "diff" in raw_standalone, (
+        "the argparse-only view already classifies `diff` correctly, so this "
+        "guard proves nothing -- re-derive it"
+    )
+    _, prior_run = derive_buckets()
+    assert "diff" in prior_run, (
+        f"the merged derivation must keep `diff` in the prior-run bucket: "
+        f"{sorted(prior_run)}"
     )
 
 

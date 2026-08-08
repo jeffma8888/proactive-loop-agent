@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-116
+    lenses: integration-and-adoption (iteration 116), simplification-and-deletion
+    - Candidate A1 -- `pla diff --dir DIR`: let `diff` consume the slate stream `watch` produces
+    - Candidate A2 -- put the `watch` -> `diff` change feed inside the graded gate (`make check` + CI)
+    - Candidate A3 -- `pla completion bash`: parser-derived shell completion for a 15-verb CLI
+    - Candidate B1 -- collapse the 3 near-duplicate CLI path guards into one general rule
+    - Candidate B2 -- delete the duplicated source-extension set + the verbatim second `_has_source` (row #125, widened)
+    - Candidate B3 -- compact `ROADMAP.md` by archiving its oldest settled rows (with a data-loss trap I found)
+    winner: A1
+    ship: unknown
   iter-115
     lenses: hardening/DX) -- iteration 115, integration-and-adoption) -- iteration 115
     - Candidate A1 -- Make `_write_slate` atomic (tmp + `os.replace`), matching the checkpoint's own documented durability contract
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Make the machine-readable spelling uniform: accept `--json` on `pla scan`
     - Candidate B3 -- An opt-in "findings mean non-zero" exit, so a neighbouring tool can gate on `pla`
     winner: A1
-    ship: unknown
+    ship: PUSHED 3559a67
   iter-114
     lenses: unknown
     - Candidate A1 -- `pla runs --prune --status STATUS`: the product's first persisted-state lifecycle capability
@@ -165,4 +175,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-24 scouted iterations
+25 scouted iterations
