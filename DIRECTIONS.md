@@ -1,6 +1,10 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-118
+    lenses: performance-and-throughput, narrative-and-docs
+    winner: B1
+    ship: unknown
   iter-117
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Collapse the 16 hand-copied never-raises `collect()` wrappers into one typed decorator
@@ -10,7 +14,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one shared pruned tree walk for the three hottest file-scanning collectors
     - Candidate B3 -- phase-level cost attribution for a scan/watch tick
     winner: B1
-    ship: unknown
+    ship: PUSHED 385a840
   iter-116
     lenses: integration-and-adoption (iteration 116), simplification-and-deletion
     - Candidate A1 -- `pla diff --dir DIR`: let `diff` consume the slate stream `watch` produces
@@ -185,4 +189,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-26 scouted iterations
+27 scouted iterations
