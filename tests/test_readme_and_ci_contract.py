@@ -74,6 +74,19 @@ DOCUMENTED_SHORT_FORMS: dict[str, tuple[str, ...]] = {"--verbose": ("-v",)}
 # nothing.
 FLAG_TOKEN = re.compile(r"--[A-Za-z][A-Za-z0-9-]*")
 
+# The COMPLETE census of ``--``-shaped tokens the README publishes that are not
+# `pla` options at all, so no parser could ever accept them. This is why the
+# reverse guard is scoped to the ``## CLI`` section: both of these live outside
+# it. Pinned as an EXACT list rather than added to ``EXEMPT_FLAGS``, so a THIRD
+# such token still fails the build instead of being silently forgiven.
+#   ``--first-success``  shields.io escapes a literal dash as ``--`` in the
+#                        Offline badge, inside the human-owned intro.
+#   ``--locked``         the Quickstart installs with ``uv sync --locked``. It is
+#                        a `uv` flag, and it is exactly what makes that line
+#                        honest: a bare ``uv sync`` may resolve and mutate
+#                        ``uv.lock``, which is what CI forbids.
+FOREIGN_FLAG_TOKENS = ["--first-success", "--locked"]
+
 
 def _intro() -> str:
     """Return the human-owned block: everything above the portfolio marker."""
@@ -313,20 +326,21 @@ def test_cli_reference_documents_every_live_verb() -> None:
 
 
 def test_ghost_flag_guard_is_scoped_to_the_cli_section() -> None:
-    """The badge in the human-owned intro is why the reverse guard is section-scoped.
+    """Tokens outside the CLI section are why the reverse guard is section-scoped.
 
     ``![Offline](.../runtime-offline--first-success)`` uses shields.io's escaped
     dash, which looks exactly like a long option. It is inside the block this file
     may not edit, so a whole-README reverse guard would be permanently red with an
-    unfixable remedy. Pinning both results keeps that decision from being quietly
-    "simplified" later.
+    unfixable remedy. The Quickstart's ``uv sync --locked`` is the second such
+    token and a foreign tool's flag for the same reason. Pinning both results
+    keeps that decision from being quietly "simplified" later.
     """
     text = README.read_text(encoding="utf-8")
     universe = flag_universe(build_parser())
-    assert ghost_flags(text, universe) == ["--first-success"], (
-        "expected the shields.io badge escape to be the ONLY parser-less '--' "
-        "token in the README; if this changed, re-check whether the reverse guard "
-        "is still correctly scoped to the CLI section"
+    assert ghost_flags(text, universe) == FOREIGN_FLAG_TOKENS, (
+        f"expected {FOREIGN_FLAG_TOKENS} to be the ONLY parser-less '--' tokens "
+        "in the README; if this changed, re-check whether the reverse guard is "
+        "still correctly scoped to the CLI section"
     )
     assert ghost_flags(cli_section(text), universe) == []
 

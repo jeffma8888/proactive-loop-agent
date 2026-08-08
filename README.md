@@ -96,7 +96,7 @@ code.
 ## Quickstart
 
 ```bash
-uv sync        # install the locked dependency set (pydantic + pytest)
+uv sync --locked # install the exact locked dependency set (pydantic + pytest, pytest-cov, mypy)
 make demo      # scan the fixture workspace and auto-dispatch the top goal
 make test      # run the full offline test suite
 make cov       # run the suite with a coverage report (term-missing)
@@ -125,7 +125,13 @@ automatically.
 Everything above points at this repo's bundled fixture. To point the
 *perception* half of the stack at your own checkout you need **no provider, no
 API key, no config file and no network** -- ten of the fifteen verbs never
-construct an LLM client at all, so they work on a bare `uv sync`:
+construct an LLM client at all. **Seven** of those ten -- `collectors`,
+`config`, `policy`, `providers`, `runs`, `signals` and `tools` -- need nothing
+but the checkout itself. The other **three** are inspectors of a run that
+already happened, so they are not standalone. `diff` and `explain` read a slate
+file and `trace` reads a run directory's checkpoint, so each names the missing
+artifact and exits `2` until you have produced one (`make demo` is enough).
+The seven standalone verbs need only your checkout:
 
 ```bash
 # every context signal the collectors perceive in this checkout

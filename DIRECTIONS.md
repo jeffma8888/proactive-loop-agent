@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-112
+    lenses: performance-and-throughput (iteration 112), narrative-and-docs (iteration 112)
+    - Candidate A1 -- File-level cheap prefilter before the per-line regex loop in `todos`
+    - Candidate A2 -- Per-scan shared decode of files read by more than one collector
+    - Candidate A3 -- Memoize the syntax check by (path, st_mtime_ns, st_size) so `pla watch` ticks stop re-compiling an unchanged tree
+    - Candidate B1 -- Make the "ten LLM-free verbs work on a bare `uv sync`" promise exact (7 standalone, 3 need a prior run)
+    - Candidate B2 -- Publish the state-dir artifact layout, guarded against the four `cli.py` filename constants
+    - Candidate B3 -- Fix the Quickstart install command: `uv sync` is published where the repo's own rule is `uv sync --locked`
+    winner: B1
+    ship: unknown
   iter-111
     lenses: SIMPLIFICATION-AND-DELETION, PERFORMANCE-AND-THROUGHPUT
     - Candidate A1 -- Compact `SPEC.md` (90,573 chars) into an index + `SPEC_ARCHIVE.md`, and add the missing char-budget guard (roadmap row 109, QUEUED)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Bound the WORK of the two collect-all-then-cap whole-tree collectors, not just their OUTPUT
     - Candidate B3 -- Cost visibility where the loop actually runs: `--timings` on `scan` (and the `watch` tick), not only on `signals`
     winner: B1
-    ship: unknown
+    ship: PUSHED a479e02
   iter-110
     lenses: integration-and-adoption, simplification-and-deletion
     winner: A1
@@ -125,4 +135,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-20 scouted iterations
+21 scouted iterations

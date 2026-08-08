@@ -58,6 +58,17 @@ SHORT_FORMS: dict[str, tuple[str, ...]] = {"--verbose": ("-v",)}
 # option name, so ``--out PATH`` yields ``--out``.
 FLAG_TOKEN = re.compile(r"--[A-Za-z][A-Za-z0-9-]*")
 
+# The COMPLETE census of ``--``-shaped tokens the README publishes that no parser
+# could accept, because they are not `pla` options at all. Derived independently
+# here (this module never imports the shipped constants) and pinned as an EXACT
+# list, never folded into ``EXEMPT_FLAGS``: a THIRD such token must fail.
+#   ``--first-success``  shields.io dash escaping in the Offline badge, inside
+#                        the human-owned intro (behavior 6).
+#   ``--locked``         the Quickstart's ``uv sync --locked`` -- a `uv` flag,
+#                        below the marker, and the thing that makes the install
+#                        line true (a bare ``uv sync`` may mutate ``uv.lock``).
+FOREIGN_FLAG_TOKENS = ["--first-success", "--locked"]
+
 # The 7 verb/flag pairs the spec requires on the ROW THAT OWNS THEM (behavior 9);
 # 4 of them are REQUIRED arguments, so an omission makes the documented command
 # exit 2.
@@ -325,15 +336,23 @@ def test_behavior6_badge_escape_is_the_only_parserless_token_in_the_readme() -> 
 
     It lives in the human-owned intro, so a whole-README reverse guard would be
     permanently red with an unfixable remedy. Pinning BOTH results keeps the
-    scoping decision from being quietly "simplified" later.
+    scoping decision from being quietly "simplified" later. The Quickstart's
+    ``uv sync --locked`` is the second member of that census: a foreign tool's
+    flag, so also unreachable for any `pla` parser, but BELOW the marker.
     """
     text = readme_text()
     universe = flag_universe()
-    assert parserless(text, universe) == ["--first-success"]
+    assert parserless(text, universe) == FOREIGN_FLAG_TOKENS
     assert parserless(section_of(text), universe) == []
     assert "--first-success" in text.split(MARKER, 1)[0], (
         "the badge escape moved out of the human-owned intro; re-check whether "
         "the reverse guard still needs to be section-scoped"
+    )
+    # The other census member must stay in the editable half, or the remedy for a
+    # future failure here changes from "fix the docs" to "cannot be fixed".
+    assert "--locked" in text.split(MARKER, 1)[1], (
+        "`uv sync --locked` moved above the human-owned marker; automated "
+        "contributors may not edit it there"
     )
 
 
@@ -528,7 +547,7 @@ def test_shipped_guard_helpers_agree_with_the_independent_derivations() -> None:
     assert contract.ghost_flags(shipped_section, universe) == parserless(
         shipped_section, universe
     )
-    assert contract.ghost_flags(text, universe) == ["--first-success"]
+    assert contract.ghost_flags(text, universe) == FOREIGN_FLAG_TOKENS
     verbs = live_verbs()
     assert contract.missing_verbs(shipped_section, verbs) == undocumented_verbs(
         shipped_section, verbs
