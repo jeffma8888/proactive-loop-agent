@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-115
+    lenses: hardening/DX) -- iteration 115, integration-and-adoption) -- iteration 115
+    - Candidate A1 -- Make `_write_slate` atomic (tmp + `os.replace`), matching the checkpoint's own documented durability contract
+    - Candidate A2 -- Warn on unrecognized `PLA_*` environment variables in `Settings.from_env`
+    - Candidate A3 -- Re-pick row #121: close the deferred `disallow_any_generics` flag (35 `type-arg` sites + flip the flag)
+    - Candidate B1 -- Teach `pla diff` to consume the watch slate stream: `--dir DIR` diffs the two newest `slate-NNN.json`
+    - Candidate B2 -- Make the machine-readable spelling uniform: accept `--json` on `pla scan`
+    - Candidate B3 -- An opt-in "findings mean non-zero" exit, so a neighbouring tool can gate on `pla`
+    winner: A1
+    ship: unknown
+  iter-114
+    lenses: unknown
+    - Candidate A1 -- `pla runs --prune --status STATUS`: the product's first persisted-state lifecycle capability
+    - Candidate A2 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`), the 17th collector
+    - Candidate A3 -- teach the change feed to read the whole stream, not just two points
+    - Candidate B1 -- Close the deferred `disallow_any_generics` ratchet: fix the 35 `type-arg` sites and flip the flag
+    - Candidate B2 -- Make `pla watch` account for its ticks: a final summary line and a non-zero exit when every scan failed
+    - Candidate B3 -- Char-budget guard for the per-iteration required-reading docs (`ROADMAP.md`, `SPEC.md`)
+    winner: B1
+    ship: unknown
   iter-113
     lenses: narrative-and-docs (iteration 113), new-capability (iteration 113)
     - Candidate A1 -- Bump the stale `2,200+` tests floor and give the floor a real oracle
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PythonVersionDriftCollector` (roadmap row #122): the 17th collector, 2nd relational one
     - Candidate B3 -- `pla runs --prune --status STATUS` (roadmap row #123): the first state-lifecycle capability
     winner: B1
-    ship: unknown
+    ship: PUSHED a34eb6c
   iter-112
     lenses: performance-and-throughput (iteration 112), narrative-and-docs (iteration 112)
     - Candidate A1 -- File-level cheap prefilter before the per-line regex loop in `todos`
@@ -145,4 +165,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-22 scouted iterations
+24 scouted iterations

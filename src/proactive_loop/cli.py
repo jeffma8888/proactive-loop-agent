@@ -34,6 +34,7 @@ import io
 import json
 import logging
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -1016,9 +1017,35 @@ def _collect(
 
 
 def _write_slate(slate: GoalSlate, out: Path) -> None:
-    """Persist the slate as pretty JSON, creating parent dirs as needed."""
+    """Persist the slate as pretty JSON atomically, creating parent dirs as needed.
+
+    WHY temp sibling + ``os.replace`` (the same guarantee :class:`Checkpoint`
+    documents for its own snapshot): a crash or kill mid-write must never leave a
+    truncated slate behind. ``os.replace`` is atomic on the same filesystem, and
+    writing the temp file as a SIBLING of *out* is what keeps the rename on that
+    one filesystem, so a reader always sees either the previous slate or the
+    complete new one -- never a half-written prefix.
+
+    Load-bearing since ``watch --out-dir`` made this a PER-TICK writer: a
+    watcher normally exits by Ctrl-C or a kill, and a truncated ``slate-NNN.json``
+    would be rejected by the two readers of that stream (``diff``, ``explain``).
+    """
     ensure_dir(out.parent)
-    out.write_text(slate.model_dump_json(indent=2))
+    tmp = out.with_name(out.name + ".tmp")
+    try:
+        tmp.write_text(slate.model_dump_json(indent=2))
+        os.replace(tmp, out)
+    finally:
+        # Best-effort cleanup so a failed swap cannot litter a user-chosen
+        # ``--out-dir`` with a stray ``.tmp``; after a successful replace the temp
+        # name is already gone, so one ``finally`` covers both paths. Cleanup
+        # errors are swallowed deliberately: the caller must keep seeing the
+        # PRIMARY OS error (the CLI ``error:`` boundary reports that one), never a
+        # secondary failure raised while tidying up.
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _state_dir_guard(state_dir: Path) -> str | None:
