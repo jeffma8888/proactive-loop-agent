@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-117
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Collapse the 16 hand-copied never-raises `collect()` wrappers into one typed decorator
+    - Candidate A2 -- Delete the duplicated `_has_source` walk and single-source the code-extension set (roadmap row #125, with a premise correction)
+    - Candidate A3 -- Collapse the three AST-identical OpenAI-shaped provider branches into one parameterized factory
+    - Candidate B1 -- content-digest parse memo so a watch tick never re-parses unchanged source (roadmap row #130, with the blocking premise corrected)
+    - Candidate B2 -- one shared pruned tree walk for the three hottest file-scanning collectors
+    - Candidate B3 -- phase-level cost attribution for a scan/watch tick
+    winner: B1
+    ship: unknown
   iter-116
     lenses: integration-and-adoption (iteration 116), simplification-and-deletion
     - Candidate A1 -- `pla diff --dir DIR`: let `diff` consume the slate stream `watch` produces
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- delete the duplicated source-extension set + the verbatim second `_has_source` (row #125, widened)
     - Candidate B3 -- compact `ROADMAP.md` by archiving its oldest settled rows (with a data-loss trap I found)
     winner: A1
-    ship: unknown
+    ship: PUSHED f3abb5c
   iter-115
     lenses: hardening/DX) -- iteration 115, integration-and-adoption) -- iteration 115
     - Candidate A1 -- Make `_write_slate` atomic (tmp + `os.replace`), matching the checkpoint's own documented durability contract
@@ -175,4 +185,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-25 scouted iterations
+26 scouted iterations
