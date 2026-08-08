@@ -167,12 +167,25 @@ def _mentions_alias(text: str, alias: str) -> bool:
     return re.search(rf"(?<![\w-]){re.escape(alias)}", text) is not None
 
 
+def _mentions_flag(text: str, flag: str) -> bool:
+    """True when ``flag`` appears as a WHOLE option token in ``text``.
+
+    The long-option mirror of ``_mentions_alias``, and load-bearing for the same
+    reason: one live flag is now a PREFIX of another (``--out`` inside
+    ``--out-dir``), so a plain substring test would let a section documenting
+    only the longer one silently satisfy the shorter -- exactly the blindness
+    behavior 4 exists to rule out. The lookahead rejects a match that continues
+    into a longer option name.
+    """
+    return re.search(rf"{re.escape(flag)}(?![A-Za-z0-9-])", text) is not None
+
+
 def undocumented(section_text: str, universe: Iterable[str]) -> list[str]:
     """Sorted universe flags absent from ``section_text`` (short form counts)."""
     return sorted(
         flag
         for flag in set(universe) - EXEMPT_FLAGS
-        if flag not in section_text
+        if not _mentions_flag(section_text, flag)
         and not any(
             _mentions_alias(section_text, alias)
             for alias in SHORT_FORMS.get(flag, ())

@@ -162,14 +162,38 @@ def flag_universe(parser: argparse.ArgumentParser) -> frozenset[str]:
     return frozenset(universe - EXEMPT_FLAGS)
 
 
+def _mentions_flag(section_text: str, flag: str) -> bool:
+    """True when ``flag`` occurs as a WHOLE option token in ``section_text``.
+
+    A bare substring test is not enough once one live flag is a PREFIX of
+    another: ``--out`` occurs inside ``watch --out-dir``, so a section that
+    documents only ``--out-dir`` would silently satisfy ``--out`` and the
+    forward guard would stop reporting a genuinely undocumented required flag.
+    Requiring the next character to be one that cannot continue an option name
+    keeps the match honest -- the same reasoning ``_mentions_short_form`` applies
+    to ``-v`` inside ``--version``, now applied to long options too.
+    """
+    return re.search(rf"{re.escape(flag)}(?![A-Za-z0-9-])", section_text) is not None
+
+
+def _mentions_short_form(section_text: str, alias: str) -> bool:
+    """True when a documented short alias occurs as its own token.
+
+    ``-v`` occurs inside ``--version``, so a plain substring test would let a
+    section that never teaches ``-v`` exempt ``--verbose``.
+    """
+    return re.search(rf"(?<![\w-]){re.escape(alias)}(?![A-Za-z0-9-])", section_text) is not None
+
+
 def missing_flags(section_text: str, universe: Iterable[str]) -> list[str]:
     """Sorted live flags absent from ``section_text`` (a documented short form counts)."""
     missing = [
         flag
         for flag in set(universe) - EXEMPT_FLAGS
-        if flag not in section_text
+        if not _mentions_flag(section_text, flag)
         and not any(
-            short in section_text for short in DOCUMENTED_SHORT_FORMS.get(flag, ())
+            _mentions_short_form(section_text, short)
+            for short in DOCUMENTED_SHORT_FORMS.get(flag, ())
         )
     ]
     return sorted(missing)

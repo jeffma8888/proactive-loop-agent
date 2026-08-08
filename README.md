@@ -164,7 +164,7 @@ provider when you want it to propose.
 | `explain` | Audit gate decisions from a saved slate (`--slate FILE` required) — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--run-dir DIR` required; `--json` for a full array; read-only).|
 | `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters by kind, validated against the live signal-kind registry so an unknown kind is a usage error (exit 2) at parse time rather than a silently empty listing — run `pla signals --help` for the full list of accepted kinds; `--kind` narrows **collection**, not just the view: only the collector that emits `K` runs, so a kind-filtered inspection costs what that one collector costs and `--timings` shows a single row; `--min-weight W` filters by relevance weight (>= W, inclusive); `--summary` prints a per-kind count rollup + total instead of the listing, composing with the filters; `--timings` additionally prints a per-collector cost table to **stderr** (collector name, elapsed ms, signal count, plus a `TOTAL` row, in registry order) so you can see which collector a scan spends its time in — opt-in, and stdout is byte-identical with or without it, so it is safe to add to a piped or `--json` invocation; read-only, LLM-free).|
-| `watch`   | Repeatedly re-scan a workspace on an interval and re-print the slate (`--interval S`; `--max-scans N`; live monitor, writes no slate file).|
+| `watch`   | Repeatedly re-scan a workspace on an interval and re-print the slate (`--interval S`; `--max-scans N`; a live monitor that writes no slate file unless `--out-dir DIR` opts in, persisting each tick as `DIR/slate-<NNN>.json` so the stream feeds `diff`).|
 | `diff`    | Compare two saved slates and classify goals as added/removed/changed/unchanged (`--old A.json --new B.json`; `--json` for a JSON object; matched by normalized title; read-only, LLM-free).|
 | `policy`  | Print the standing autonomy contract: the four ordered gate rules, the auto-dispatch threshold, and every category tagged sensitive/auto-eligible (`--json` for a JSON object; read-only, LLM-free, no workspace).|
 | `tools`   | Print the L1 sandbox tool surface: every registered tool, its access class (`read-only`/`create-update`/`move`/`delete`), and the sandbox read/write invariant (`--json` for a JSON object; read-only, LLM-free, no workspace).|
@@ -184,13 +184,25 @@ the ranked, gated slate as your context changes, running until interrupted with
 Ctrl-C unless `--max-scans N` bounds it. Both knobs are guarded at parse time
 like `--top`: `--interval` must be a finite non-negative number (`>= 0`; `0` is legal so offline
 runs need no real wait) and `--max-scans` must be a positive integer, so a bad
-value fails fast with an exit-2 usage error before any scan runs. It is a live
-monitor — unlike `scan` it writes no slate file and prints no `slate written:`
-trailer. A single failed scan (an exhausted retry or a non-retryable model fault)
-is logged to stderr as `scan <n> failed: …` and the watch rides on to the next
-tick, so a transient outage never kills the long-lived loop.
+value fails fast with an exit-2 usage error before any scan runs. By default it
+is a live monitor — unlike `scan` it writes no slate file and prints no
+`slate written:` trailer unless you opt in with `--out-dir DIR`. A single failed
+scan (an exhausted retry or a non-retryable model fault) is logged to stderr as
+`scan <n> failed: …` and the watch rides on to the next tick, so a transient
+outage never kills the long-lived loop.
 
-`diff` is the comparative companion to `watch`: hand it two saved slates (`--old`/`--new`) and it classifies goals as added / removed / changed (the score moved past `1e-9` or the gate decision flipped) / unchanged, matched by normalized title (`title.strip().lower()`) rather than the random per-scan id — turning a stream of point-in-time slates into a change feed. It re-gates each side live, so a goal that crossed the autonomy threshold shows up in `changed`. `--json` emits one `{old, new, added, removed, changed, unchanged_count}` object. Like the other inspectors it builds no `LLMClient`, runs nothing, and writes no file.
+`--out-dir DIR` makes the monitor the *producer* of a slate stream: each tick's
+slate is persisted as `DIR/slate-<NNN>.json` (1-based tick index, zero-padded to
+3, so up to 999 ticks sort chronologically) and that tick prints its own
+`slate written: <path>` trailer. Missing parent directories are created on
+demand; an existing non-directory at `DIR` — or anywhere on its path — is a
+usage error (exit 2) reported before the first scan runs. The names are
+index-keyed, never timestamped, so two identical runs produce identical
+filenames. Only a tick whose scan completed persists anything: a failed tick
+leaves no file and the watch rides on. Retention stays yours — a long-lived
+watch grows the directory and this flag makes no pruning promise.
+
+`diff` is the comparative companion to `watch`: hand it two saved slates (`--old`/`--new`) and it classifies goals as added / removed / changed (the score moved past `1e-9` or the gate decision flipped) / unchanged, matched by normalized title (`title.strip().lower()`) rather than the random per-scan id — turning a stream of point-in-time slates into a change feed. `pla watch --out-dir DIR` is what produces that stream (one `slate-<NNN>.json` per tick), so the pair composes with no `scan --out` invocation at all. It re-gates each side live, so a goal that crossed the autonomy threshold shows up in `changed`. `--json` emits one `{old, new, added, removed, changed, unchanged_count}` object. Like the other inspectors it builds no `LLMClient`, runs nothing, and writes no file.
 
 `policy` sits at the *top* of that arc: it prints the standing autonomy contract itself — the four ordered gate rules (first match wins: a sensitive category always needs approval, then a not-appropriate goal is blocked, then a goal at/above the auto-dispatch threshold runs, else it needs approval), the resolved threshold, and every category tagged sensitive vs. auto-eligible — with **zero input**: no `--workspace`, no slate, no LLM call. It answers "how does this decide what to auto-run vs. gate for approval?" without first running a scan. It reflects env overrides through the same `_settings` seam every verb shares, so `PLA_AUTO_DISPATCH_MIN_SCORE=6 pla policy` shows the *effective* contract. `--json` emits one `{auto_dispatch_min_score, sensitive_categories, categories, rules}` object.
 

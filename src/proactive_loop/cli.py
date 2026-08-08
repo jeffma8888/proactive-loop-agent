@@ -615,9 +615,12 @@ def build_parser() -> argparse.ArgumentParser:
     # SAME collect->synthesize->gate->render body every --interval seconds,
     # re-printing the ranked, gated slate as the workspace changes -- the
     # proactive-monitoring loop the product is named for. Unlike `scan` it is a
-    # LIVE view: it writes NO slate file and prints no `slate written:` trailer (a
-    # monitor tick's output is ephemeral, not an artifact a later `dispatch`
-    # reads). --max-scans bounds the run (default None = run until Ctrl-C, the
+    # LIVE view BY DEFAULT: with --out-dir absent it writes NO slate file and
+    # prints no `slate written:` trailer (a monitor tick's output is ephemeral,
+    # not an artifact a later `dispatch` reads). --out-dir opts INTO persistence,
+    # one file per tick, which is what makes the documented `watch` -> `diff`
+    # change feed producible without hand-rolling two `scan --out` runs.
+    # --max-scans bounds the run (default None = run until Ctrl-C, the
     # production case); --interval accepts 0 so the offline tests drive it with a
     # bounded --max-scans and no real waiting.
     #
@@ -653,6 +656,19 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Stop after N scans (default: run until interrupted with Ctrl-C). A "
             "non-positive or non-integer value is a usage error (exit 2)."
+        ),
+    )
+    p_watch.add_argument(
+        "--out-dir",
+        default=None,
+        help=(
+            "Persist each tick's slate as <DIR>/slate-<NNN>.json (1-based tick "
+            "index, zero-padded to 3) and print a `slate written:` trailer per "
+            "tick. Omitted (the default) keeps the live monitor ephemeral: no "
+            "file, no trailer. Missing parents are created; an existing "
+            "non-directory at DIR (or on its path) is a usage error (exit 2) "
+            "before the first scan. Only a tick whose scan completed writes a "
+            "file, so the stream feeds `pla diff --old ... --new ...` directly."
         ),
     )
     p_watch.set_defaults(func=_cmd_watch)
@@ -1052,6 +1068,38 @@ def _out_target_guard(out: Path) -> str | None:
         anc = anc.parent
     if not anc.is_dir():
         return f"--out parent is not a directory: {anc}"
+    return None
+
+
+def _out_dir_guard(out_dir: Path) -> str | None:
+    """Reject a ``watch --out-dir`` that cannot become a slate DIRECTORY (message-or-``None``).
+
+    WHY a distinct helper rather than reusing ``_out_target_guard``: that guard is
+    for a FILE target, so its first clause has the opposite polarity -- it
+    REJECTS ``is_dir()``, which is exactly what a valid ``--out-dir`` is. What is
+    shared is the failure MODE this pre-detects: without it, an existing
+    non-directory only surfaces at the first tick's write, as a raw OS errno
+    (``[Errno 17] File exists`` / ``[Errno 20] Not a directory``) leaked AFTER a
+    successful-looking table was already printed and a live provider's budget
+    already spent -- and on a long-lived watcher that mistake would repeat every
+    tick. So the two structural failures are caught up front:
+      * ``out_dir`` EXISTS but is not a directory (the ``_state_dir_guard``
+        polarity: the slate files must live INSIDE it).
+      * an EXISTING component of its parent chain is a NON-directory (a file
+        sitting where a directory must be).
+    A fully-absent path is LEGAL -- ``_write_slate`` creates parents on demand --
+    so the deepest existing ancestor of an all-new path is a directory and the
+    guard allows it. The ancestor walk provably terminates: ``/`` and ``.`` both
+    always ``exists()``. Structural typing only (no ``os.access`` probe), keeping
+    the guard deterministic and side-effect-free.
+    """
+    if out_dir.exists() and not out_dir.is_dir():
+        return f"--out-dir is not a directory: {out_dir}"
+    anc = out_dir.parent
+    while not anc.exists():
+        anc = anc.parent
+    if not anc.is_dir():
+        return f"--out-dir parent is not a directory: {anc}"
     return None
 
 
@@ -3085,12 +3133,25 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     This is the product's namesake capability finally wired to a verb: it reuses
     ``scan``'s collect -> synthesize -> gate -> render body verbatim, on a timer,
     so a live workspace's ranked, gated slate is re-printed as its context
-    changes. Two deliberate departures from ``scan``: (1) it is a LIVE monitor, so
-    it writes NO slate file and prints no ``slate written:`` trailer -- a watch
-    tick's output is ephemeral, not an artifact a later ``dispatch`` consumes;
-    (2) the LLM client is built ONCE, before the loop, and reused across ticks
-    (the provider never changes between scans, and rebuilding it per-tick would be
-    pointless work for a long-lived watcher).
+    changes. Two deliberate departures from ``scan``: (1) it is a LIVE monitor BY
+    DEFAULT, so with ``--out-dir`` absent it writes NO slate file and prints no
+    ``slate written:`` trailer -- a watch tick's output is ephemeral, not an
+    artifact a later ``dispatch`` consumes; (2) the LLM client is built ONCE,
+    before the loop, and reused across ticks (the provider never changes between
+    scans, and rebuilding it per-tick would be pointless work for a long-lived
+    watcher).
+
+    ``--out-dir DIR`` opts INTO persistence, writing one ``DIR/slate-<NNN>.json``
+    per tick (1-based index, zero-padded to 3) through the same ``_write_slate``
+    seam ``scan`` uses. WHY the flag exists: ``diff`` is documented as watch's
+    comparative companion, "turning a stream of point-in-time slates into a change
+    feed", but a stream had no producer -- ``scan --out`` defaults to ONE fixed
+    path, so repeated scans clobber a single file and the user had to hand-roll two
+    invocations. The index (not a timestamp) keeps the filenames DETERMINISTIC, so
+    two identical runs produce the same names and a test can assert them; for runs
+    up to 999 ticks lexicographic order is also chronological order. The write
+    happens AFTER the tick's table renders, so a tick that raised persists nothing
+    and the index advances with the TICK rather than with the write.
 
     Bounded runs (``--max-scans N``) exist for tests and one-offs; the production
     case is ``--max-scans`` omitted (``None``) -> run forever, exited with Ctrl-C,
@@ -3113,6 +3174,16 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     if not workspace.is_dir():
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
         return 2
+    # Structural check on the OPT-IN slate directory, also before the client is
+    # built: a bad --out-dir must be reported as the problem instead of surfacing
+    # as a leaked errno on every tick of a long-lived watch, and pre-detecting it
+    # here costs no scripted response and no live provider call.
+    out_dir = Path(args.out_dir) if args.out_dir is not None else None
+    if out_dir is not None:
+        problem = _out_dir_guard(out_dir)
+        if problem is not None:
+            print(f"error: {problem}", file=sys.stderr)
+            return 2
     settings = _settings(args, workspace_root=workspace)
     client = create_client(settings)  # built once, reused every tick
 
@@ -3120,8 +3191,9 @@ def _cmd_watch(args: argparse.Namespace) -> int:
 
     def scan_once() -> None:
         # run_periodic owns the timer; this closure owns one tick: a 1-based
-        # header then the SAME scan body scan/run use (minus the slate-file write),
-        # so `watch` and `scan` can never disagree on what a scan produces.
+        # header then the SAME scan body scan/run use (with the slate-file write
+        # made conditional on --out-dir), so `watch` and `scan` can never disagree
+        # on what a scan produces.
         nonlocal count
         count += 1
         print(f"=== scan {count} ===")
@@ -3129,6 +3201,16 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         slate = GoalSynthesizer(client, settings).synthesize(snapshot)
         decisions = gate_slate(slate, settings)
         print(_render_table(slate, decisions))
+        if out_dir is not None:
+            # Opt-in tick artifact. Written AFTER the render, so a tick whose
+            # synthesize() raised leaves no file behind (the exception propagates
+            # to run_periodic's on_error before reaching this line) and the file
+            # index can never run ahead of the ticks that actually produced one.
+            # Same `slate written:` trailer wording `scan` prints, so the two
+            # verbs cannot describe the same act differently.
+            target = out_dir / f"slate-{count:03d}.json"
+            _write_slate(slate, target)
+            print(f"\nslate written: {target}")
 
     def _on_scan_error(scan_number: int, exc: Exception) -> None:
         # Resilient by design (SPEC L0): a scan whose synthesize() exhausts the L0

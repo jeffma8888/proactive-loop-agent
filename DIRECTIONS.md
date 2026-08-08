@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-113
+    lenses: narrative-and-docs (iteration 113), new-capability (iteration 113)
+    - Candidate A1 -- Bump the stale `2,200+` tests floor and give the floor a real oracle
+    - Candidate A2 -- Publish the `run-<id>` state-dir layout, and fix the artifact path in the Quickstart
+    - Candidate A3 -- Drift-guard the two prose provider lists against `VALID_PROVIDERS`
+    - Candidate B1 -- `pla watch --out-dir DIR`: give the advertised watch -> diff change feed a producer
+    - Candidate B2 -- `PythonVersionDriftCollector` (roadmap row #122): the 17th collector, 2nd relational one
+    - Candidate B3 -- `pla runs --prune --status STATUS` (roadmap row #123): the first state-lifecycle capability
+    winner: B1
+    ship: unknown
   iter-112
     lenses: performance-and-throughput (iteration 112), narrative-and-docs (iteration 112)
     - Candidate A1 -- File-level cheap prefilter before the per-line regex loop in `todos`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Publish the state-dir artifact layout, guarded against the four `cli.py` filename constants
     - Candidate B3 -- Fix the Quickstart install command: `uv sync` is published where the repo's own rule is `uv sync --locked`
     winner: B1
-    ship: unknown
+    ship: PUSHED 80955d8
   iter-111
     lenses: SIMPLIFICATION-AND-DELETION, PERFORMANCE-AND-THROUGHPUT
     - Candidate A1 -- Compact `SPEC.md` (90,573 chars) into an index + `SPEC_ARCHIVE.md`, and add the missing char-budget guard (roadmap row 109, QUEUED)
@@ -135,4 +145,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-21 scouted iterations
+22 scouted iterations
