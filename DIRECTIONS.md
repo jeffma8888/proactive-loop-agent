@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-124
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- sound file-level prefilter before the todos per-line regex loop (+18.78 ms, 35% of that pass)
+    - Candidate A2 -- stop decoding the same .py file two-to-three times per scan (~34 ms redundant, ~7% of the scan)
+    - Candidate A3 -- cut the graded gate's own wall-clock: measure and fix the slowest tests
+    - Candidate B1 -- guard-then-fix the 30 confirmed in-table blank lines breaking `ROADMAP_ARCHIVE.md`
+    - Candidate B2 -- publish the run-dir artifact layout, guarded against cli.py's 4 filename constants
+    - Candidate B3 -- make the published suite-size floor self-correcting instead of silently rotting
+    winner: B2
+    ship: unknown
   iter-123
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- collapse the three divergent copies of the noise-directory vocabulary into one
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- collapse the two `working_tree` git invocations into one porcelain-v2 call
     - Candidate B3 -- persist the digest->verdict memo so a one-shot scan stops re-parsing
     winner: B1
-    ship: unknown
+    ship: PUSHED 1a80355
   iter-122
     lenses: integration-and-adoption, simplification-and-deletion (iteration 122)
     - Candidate A1 -- Ship the pre-commit hook on-ramp the exit-5 gate advertises ten times and never provides
@@ -239,4 +249,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-32 scouted iterations
+33 scouted iterations

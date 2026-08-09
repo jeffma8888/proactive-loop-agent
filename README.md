@@ -283,6 +283,29 @@ before any collection runs. Absent (the default) every collector runs, so a bare
 state, ignore TODOs and large files"), which shrinks the synthesis prompt and
 narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects); `run`/`watch` do not accept it.
 
+### What the state directory contains
+
+Every dispatched goal leaves an audit trail on disk, and `--state-dir` (default
+`.pla_runs`) is its root. The slate sits at the top of that directory; each
+dispatched goal then gets a directory of its own named `run-<goal_id>`, and that
+run dir is the unit `runs` lists, `runs --prune` retires, and `resume`/`trace`
+take as `--run-dir`:
+
+| Path | Written when | Contents |
+|------|--------------|----------|
+| `slate.json` — top of the state dir | every `scan` (unless `--out` points elsewhere) and every `run`, including `run --dry-run` | The whole slate as the synthesizer produced it — `{created_at, workspace_root, goals}` — in storage order, not display order (`ranked()` sorts on read), and with no gate verdicts, which are printed but never persisted. The record `dispatch`, `explain` and `diff` read back. |
+| `meta.json` — in the run dir | once, as the run dir is created | Exactly two keys, `{workspace_root, artifacts_dir}`. The workspace path is the one a later `resume` can get nowhere else: the checkpoint records the artifacts dir, but not the workspace the run was scanned from. |
+| `checkpoint.json` — in the run dir | rewritten atomically after **every step** | The whole run state: run id, goal, status, every PLAN/ACT/CHECK step, iterations and LLM calls used, retries, parse errors, artifacts dir, creation time. What `resume` continues from and `trace` renders. |
+| `artifacts/` — in the run dir | when the run starts, before its first tool call | The ACT sandbox's only writable root, so it holds everything the goal actually produced. `runs` reports its recursive file count per run. |
+
+`checkpoint.json` is what makes the L0 durability promise checkable rather than a
+claim: the executor appends one step and saves immediately, and the save lands in
+a temp sibling that is then moved into place, so an interrupted run leaves either
+the previous snapshot or the new one — never a truncated file — and loses at most
+one step. `artifacts/` is the other half of the sandbox invariant `tools` prints:
+writes are confined there while the workspace stays read-only, so auditing a run
+is "read its `checkpoint.json`, then list its `artifacts/`".
+
 ### Exit codes
 
 `pla` distinguishes a *deliberate refusal* from a *fault*, so a wrapper script
