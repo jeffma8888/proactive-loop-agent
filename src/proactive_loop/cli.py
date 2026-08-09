@@ -3,7 +3,8 @@
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
 into fifteen verbs a person actually runs -- scan, dispatch, run, resume, the
-read-only runs lister, the read-only explain auditor, the read-only trace
+runs lister (read-only except on its opt-in ``--prune --yes`` retention
+path), the read-only explain auditor, the read-only trace
 transcript renderer, the read-only signals perception inspector, the periodic
 watch loop, the read-only diff slate-delta inspector, the read-only policy
 autonomy-contract catalog, the read-only tools sandbox-surface catalog, the
@@ -35,6 +36,7 @@ import json
 import logging
 import math
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -457,7 +459,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_runs = sub.add_parser(
         "runs",
         parents=[globals_],
-        help="List past dispatched runs under the state dir (read-only, LLM-free).",
+        help=(
+            "List past dispatched runs under the state dir (LLM-free; read-only "
+            "unless you opt into --prune --yes, which deletes the runs it lists)."
+        ),
     )
     p_runs.add_argument(
         "--json",
@@ -474,8 +479,30 @@ def build_parser() -> argparse.ArgumentParser:
         choices=sorted(s.value for s in RunStatus),
         help=(
             "Narrow the listing to runs whose persisted status equals STATUS "
-            "(one of the RunStatus values). Composes with --json."
+            "(one of the RunStatus values). Composes with --json, --prune."
         ),
+    )
+    # The product's first retention operation (ROADMAP #123), and its first
+    # destructive path outside the L1 sandbox -- so it is a FLAG on the existing
+    # lister, not a new verb: `--prune` deletes exactly the set `runs` would have
+    # listed, reusing --status as its selector, which makes "what will be deleted"
+    # answerable by a read-only command the user already knows.
+    p_runs.add_argument(
+        "--prune",
+        action="store_true",
+        help=(
+            "Delete the selected run dirs instead of listing them. DRY RUN BY "
+            "DEFAULT: without --yes it reports what it WOULD remove, deletes "
+            "nothing, and exits 0. Selection is the listing's own -- --status "
+            "narrows it identically -- and composes with --json."
+        ),
+    )
+    # Same "opt in to the consequential action" idiom as `dispatch --yes`, and
+    # deliberately inert on its own: `runs --yes` without --prune still just lists.
+    p_runs.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm the deletion for --prune (inert without it); mirrors dispatch --yes.",
     )
     p_runs.set_defaults(func=_cmd_runs)
 
@@ -1623,6 +1650,65 @@ def _run_row(run_dir: Path) -> dict:
         "retries": state.retries if state is not None else 0,
         "parse_errors": state.parse_errors if state is not None else 0,
     }
+
+
+def _select_prunable(state_dir: Path, status: str | None) -> tuple[list[Path], list[str]]:
+    """Split *state_dir*'s run dirs into (deletable paths, refused names).
+
+    The ONLY producer of paths that ``--prune --yes`` is allowed to delete, and
+    the containment argument lives here rather than at the call site:
+
+    * Candidates come from ``_iter_run_dirs`` alone, so a prunable path is by
+      construction a DIRECT ``run-*`` child of *state_dir* -- never a nested
+      ``state_dir/other/run-x``, never a plain file named ``run-x``, never a
+      sibling of *state_dir*, and never a path built by string concatenation.
+    * ``status`` reuses ``_run_row``'s persisted status, i.e. the exact value the
+      listing prints, so prune can never select a run ``runs --status`` would not
+      show. A degraded ``(no checkpoint)`` row matches no ``RunStatus`` value and
+      is therefore excluded by any filter and included when none is given --
+      inherited from the listing, not re-implemented.
+    * Symlinks are REFUSED, not followed: ``_iter_run_dirs`` filters on
+      ``is_dir()``, which follows links, so a symlinked ``run-evil`` IS listed
+      today. ``shutil.rmtree`` on a symlink raises ``OSError``, and swallowing
+      that would be strictly worse than declining it by name.
+
+    WHY the symlink partition runs AFTER the status filter: "refused" means "we
+    would have deleted this and chose not to", so a link the selector never
+    selected is not reported as a refusal.
+
+    Both lists inherit ``_iter_run_dirs``'s ascending-by-name order, which makes
+    the report and the deletion order deterministic across invocations.
+    """
+    candidates = _iter_run_dirs(state_dir)
+    if status is not None:
+        candidates = [d for d in candidates if _run_row(d)["status"] == status]
+    selected: list[Path] = []
+    refused: list[str] = []
+    for candidate in candidates:
+        if candidate.is_symlink():
+            refused.append(candidate.name)
+        else:
+            selected.append(candidate)
+    return selected, refused
+
+
+def _render_prune(names: list[str], *, dry_run: bool) -> str:
+    """Render a prune report: a header plus one indented run-dir name per line.
+
+    A pure function of already-sorted names -- same convention as
+    ``_render_runs``, so the output is deterministic and testable without disk.
+    The header is past tense only when something was actually removed, and the
+    dry-run header carries its own escalation hint, so the safe default tells the
+    reader how to make it act instead of leaving them to find the flag.
+    """
+    if not names:
+        return "no runs to prune"
+    header = (
+        f"would prune {len(names)} run dir(s) (dry run -- re-run with --yes to delete):"
+        if dry_run
+        else f"pruned {len(names)} run dir(s):"
+    )
+    return "\n".join([header, *(f"  {name}" for name in names)])
 
 
 def _render_runs(rows: list[dict]) -> str:
@@ -3016,8 +3102,54 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     return 0
 
 
+def _prune_runs(state_dir: Path, args: argparse.Namespace) -> int:
+    """runs --prune: report, and with ``--yes`` delete, the selected run dirs.
+
+    Split out of ``_cmd_runs`` so the shipped listing path stays byte-identical:
+    the listing never evaluates a prune branch, and this function is unreachable
+    without a literal ``--prune``.
+
+    Always exits 0. Nothing here is a fault: an absent state dir, a filter that
+    matches no run, and a refused symlink are all legitimate answers, and the
+    verb introduces no new exit code.
+    """
+    selected, refused = _select_prunable(state_dir, args.status)
+    # A refusal is a stderr TRAILER-style warning (the `signals --timings`
+    # convention): it must survive --json, because suppressing "I declined to
+    # touch this" in machine mode is exactly when a human would want to see it,
+    # and stdout purity is preserved by writing to stderr rather than by staying
+    # silent. The name is also echoed in the JSON object's `refused` list.
+    for name in refused:
+        print(f"refused: {name} is a symlink, not a run dir", file=sys.stderr)
+    names = [d.name for d in selected]
+    dry_run = not args.yes
+    if not dry_run:
+        # Delete BEFORE reporting so the "pruned N" header is a statement of fact,
+        # never a prediction. Each argument is a path `_select_prunable` produced.
+        for run_dir in selected:
+            shutil.rmtree(run_dir)
+    if args.json:
+        # The ENTIRE stdout must parse as ONE JSON object; no prose, in either
+        # mode (an empty selection is a legitimate object, not the human line).
+        print(
+            json.dumps(
+                {
+                    "dry_run": dry_run,
+                    "status": args.status,
+                    "selected": names,
+                    "refused": refused,
+                    "deleted": 0 if dry_run else len(names),
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(_render_prune(names, dry_run=dry_run))
+    return 0
+
+
 def _cmd_runs(args: argparse.Namespace) -> int:
-    """runs: list past dispatched runs under the state dir (read-only, LLM-free).
+    """runs: list past dispatched runs under the state dir (LLM-free).
 
     WHY it builds no LLMClient: it is a pure, tolerant read over the run state
     dispatch/run/resume already persist, so a fresh clone can enumerate and
@@ -3026,8 +3158,15 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     so discovering a run no longer means hand-hunting an opaque path. Always
     exits 0: an absent or empty state dir is a legitimate "no runs" answer, not
     a fault.
+
+    Read-only EXCEPT on the one opted-in path: ``--prune --yes`` deletes the run
+    dirs this same command would have listed (delegated to ``_prune_runs``).
+    Without ``--prune`` no deletion code is reachable at all, so the listing
+    contract every other caller depends on is unchanged.
     """
     settings = _settings(args)
+    if args.prune:
+        return _prune_runs(settings.state_dir, args)
     rows = [_run_row(d) for d in _iter_run_dirs(settings.state_dir)]
     # Optional post-mapping status filter (ROADMAP #98). Applied AFTER building
     # rows so the default path (args.status is None) stays byte-identical, and a

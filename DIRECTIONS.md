@@ -1,10 +1,20 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-119
+    lenses: narrative-and-docs (iteration 119), new-capability (iteration 119)
+    - Candidate A1 -- Bump the README intro's stale test floor (published 2,200+, live 2,719) and give the floor a real oracle
+    - Candidate A2 -- A committed DECISIONS record for the load-bearing "why" that currently exists nowhere in the repo
+    - Candidate A3 -- Fix ROADMAP.md's own stale self-description and oracle its archive-boundary claim
+    - Candidate B1 -- `pla runs --prune`: the product's first state-dir lifecycle capability (roadmap row #123)
+    - Candidate B2 -- `PythonVersionDriftCollector`: the 17th collector and only the 2nd RELATIONAL one (roadmap row #122)
+    - Candidate B3 -- `pla trend --dir DIR`: turn a watch stream into goal persistence, not just a pairwise delta
+    winner: B1
+    ship: unknown
   iter-118
     lenses: performance-and-throughput, narrative-and-docs
     winner: B1
-    ship: unknown
+    ship: PUSHED c1d1a37
   iter-117
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Collapse the 16 hand-copied never-raises `collect()` wrappers into one typed decorator
@@ -189,4 +199,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-27 scouted iterations
+28 scouted iterations

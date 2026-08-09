@@ -160,7 +160,7 @@ provider when you want it to propose.
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--slate FILE` + `--goal-id ID` required; `--yes` confirms approval).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration).|
 | `resume`  | Load a checkpoint from a run dir and continue the loop (`--run-dir DIR` required: a `run-<id>` dir as listed by `runs`).|
-| `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array).|
+| `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array). `--prune` turns the same selection into the product's retention operation: it reports the run dirs it would delete and **deletes nothing unless `--yes` is also given** (dry run is the default, exit 0 either way), selects with the *listing's own* `--status` filter so "what will be deleted" is answerable by a read-only command, is contained to direct `run-*` children of the state dir (a nested `run-*`, a plain file named `run-*`, and any other child are never touched), refuses a `run-*` **symlink** on one `refused:` stderr line rather than following it, and under `--json` emits one `{dry_run, status, selected, refused, deleted}` object.|
 | `explain` | Audit gate decisions from a saved slate (`--slate FILE` required) — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--run-dir DIR` required; `--json` for a full array; read-only).|
 | `signals` | Print the raw context signals the collectors perceive for a workspace (`--json`; `--kind K` filters by kind, validated against the live signal-kind registry so an unknown kind is a usage error (exit 2) at parse time rather than a silently empty listing — run `pla signals --help` for the full list of accepted kinds; `--kind` narrows **collection**, not just the view: only the collector that emits `K` runs, so a kind-filtered inspection costs what that one collector costs and `--timings` shows a single row; `--min-weight W` filters by relevance weight (>= W, inclusive); `--summary` prints a per-kind count rollup + total instead of the listing, composing with the filters; `--timings` additionally prints a per-collector cost table to **stderr** (collector name, elapsed ms, signal count, plus a `TOTAL` row, in registry order) so you can see which collector a scan spends its time in — opt-in, and stdout is byte-identical with or without it, so it is safe to add to a piped or `--json` invocation; read-only, LLM-free).|
@@ -175,7 +175,9 @@ provider when you want it to propose.
 Together these verbs form a transparency arc across the pipeline —
 `signals` (what the collectors *see*) → `scan` (what the scout *proposes*) →
 `explain` (why the gate *ruled*) → `trace` (what a run *did*). `signals`,
-`explain`, `trace`, `runs`, `diff`, `policy`, and `tools` are read-only and need no LLM call;
+`explain`, `trace`, `runs`, `diff`, `policy`, and `tools` need no LLM call, and all of them are
+read-only with exactly one opted-in exception: `runs --prune --yes` (and only that combination) deletes
+the run dirs it lists;
 `scan` is the one synthesizing step — it calls the LLM and writes the slate.
 
 `watch` turns that one-shot scan into the product's namesake proactive loop: it
