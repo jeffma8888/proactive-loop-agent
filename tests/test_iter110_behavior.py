@@ -23,7 +23,7 @@ the spec designates as this iteration's black-box surfaces -- the parsed TEXT of
 ``Makefile`` and ``.github/workflows/ci.yml`` -- and (for behavior 7's
 no-new-dependency half) ``pyproject.toml``. **No file under ``src/`` was read, no
 engineer or reviewer note was read, and no ``git diff`` was consulted by the
-author**: the spec-declared strings (the pre-step, the demo state dir, the six CI
+author**: the spec-declared strings (the pre-step, the demo state dir, the CI
 gate commands, the six pre-existing target names, the CI run-step count) are
 encoded below as the CONTRACT's ground facts, NOT imported from or copied out of
 any implementation, so a silent drift goes RED.
@@ -32,8 +32,9 @@ Cap-safety: behaviors 1-7 are pure file reads and text parsing. Behavior 8 is th
 single deliberate exception -- it shells out, but ONLY the three cheap steps
 ``rm -rf`` / ``test -f`` / ``ls`` (milliseconds), taken VERBATIM from the parsed
 recipe, and ONLY inside ``tmp_path``. The install / ``uv run pytest`` / mypy /
-``make demo`` steps are NEVER executed by this suite (asserted in-test), so there
-is no nested pytest run, no ``uv``, no ``make``, and no network.
+``make demo`` / armed ``pla signals`` self-scan steps are NEVER executed by this
+suite (asserted in-test), so there is no nested pytest run, no ``uv``, no
+``make``, and no network.
 """
 
 from __future__ import annotations
@@ -58,8 +59,9 @@ PYPROJECT = REPO / "pyproject.toml"
 FRESHNESS_PRE_STEP = "rm -rf .pla_runs"
 DEMO_STATE_DIR = ".pla_runs"
 
-# The ordered six commands of the CI graded gate (unchanged from iter-102). The
-# artifact-list step is matched WITHOUT its `> /dev/null` suffix.
+# The ordered seven commands of the CI graded gate (the first six unchanged from
+# iter-102; the 7th, an armed `pla signals` self-scan, added factory iter 128).
+# The artifact-list step is matched WITHOUT its `> /dev/null` suffix.
 CI_GATE_STEPS = (
     "uv sync --locked",
     "uv run pytest",
@@ -67,17 +69,28 @@ CI_GATE_STEPS = (
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
+    "uv run pla signals --workspace . --fail-on-kind merge_conflict "
+    "--fail-on-kind syntax_error --fail-on-kind secret_file",
 )
 
 # The two demo-artifact assertions --- the steps this iteration makes honest, and
 # the only gate steps behavior 8 is permitted to execute.
-ARTIFACT_ASSERTION_STEPS = CI_GATE_STEPS[4:]
+#
+# EXPLICITLY BOUNDED `[4:6]`, not an open-ended `[4:]`: this is a POSITIONAL
+# slice over a tuple that later iterations append to, and behavior 8 SHELLS OUT
+# to every step in it. An open tail silently swept factory iter 128's
+# `uv run pla signals ...` step into the executed set, which would have broken
+# this module's own contract that the suite never invokes `uv` (a nested run
+# strands the tester stage against its 600s cap) -- while every assertion still
+# read green. Widen this bound only for a step that is genuinely cheap AND safe
+# to run inside the suite.
+ARTIFACT_ASSERTION_STEPS = CI_GATE_STEPS[4:6]
 
 # Pre-existing .PHONY targets that must survive this additive edit.
 PREEXISTING_TARGETS = ("setup", "test", "cov", "typecheck", "demo", "clean")
 
 # Graded `run:` steps ci.yml exposes today.
-EXPECTED_CI_RUN_STEPS = 5
+EXPECTED_CI_RUN_STEPS = 6
 
 # Only these command words may appear in the `check` recipe: pure shell plus
 # `$(MAKE)` and the `uv` runner. A new tool would trip behavior 7.
@@ -284,7 +297,7 @@ def test_b3_every_check_step_is_declared() -> None:
     assert steps, "`check` recipe is empty -- this direction would pass vacuously"
     offenders = [step for step in steps if _bare(step) not in allowed]
     assert not offenders, (
-        "these `check` recipe steps are neither one of the six declared CI gate "
+        "these `check` recipe steps are neither one of the declared CI gate "
         f"steps nor the single named freshness pre-step {FRESHNESS_PRE_STEP!r}: "
         f"{offenders}. The local gate may differ from CI by exactly ONE named "
         f"allowance -- it is not an escape hatch for arbitrary local steps. "
@@ -392,7 +405,10 @@ def test_b6_ci_still_exposes_exactly_the_expected_graded_run_steps() -> None:
     run_steps = re.findall(r"^\s*run:", text, re.MULTILINE)
     assert len(run_steps) == EXPECTED_CI_RUN_STEPS, (
         f"ci.yml must still expose exactly {EXPECTED_CI_RUN_STEPS} graded `run:` "
-        f"steps; found {len(run_steps)}. This iteration must not touch CI."
+        f"steps; found {len(run_steps)}. The COUNT is the contract, not CI's "
+        "immutability: a CI run-step may be added, but only together with the "
+        "matching `check` recipe step and this constant, or the local gate and "
+        "the graded gate have silently diverged."
     )
 
 
@@ -565,6 +581,8 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
         "uv run pytest",
         "uv run mypy src/proactive_loop",
         "make demo",
+        "uv run pla signals --workspace . --fail-on-kind merge_conflict "
+        "--fail-on-kind syntax_error --fail-on-kind secret_file",
     ], expensive
     source = Path(__file__).read_text(encoding="utf-8")
     for step in expensive:

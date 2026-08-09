@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-121
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Char-size budget guard for ROADMAP.md (roadmap row #138), with a measured ~2-iteration runway
+    - Candidate A2 -- Finish the atomic-write idiom: `Checkpoint.save` temp cleanup + the `meta.json` writer (roadmap row #134)
+    - Candidate A3 -- Adopt warnings-as-errors in the pytest config, measured at ZERO fallout
+    - Candidate B1 -- Dogfood the enforcement gate: make the repo's own graded gate the first consumer of `signals --fail-on-kind` (exit 5)
+    - Candidate B2 -- Close the demo round-trip: prove the gate's own artifacts are readable by the three consumer verbs
+    - Candidate B3 -- Oracle the install-time on-ramp: the `pla` console script and the `py.typed` marker (roadmap row #117, with a measured correction)
+    winner: B1
+    ship: unknown
   iter-120
     lenses: NEW-CAPABILITY (iteration 120), HARDENING / DX (iteration 120)
     - Candidate A1 -- 17th collector: `PythonVersionDriftCollector` (kind `python_version_drift`)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- finish the atomic-write idiom: `Checkpoint.save` temp cleanup + an atomic `meta.json` (roadmap row #134)
     - Candidate B3 -- oracle the packaging contract: `[project.scripts] pla` must resolve to a real callable (checkable half of roadmap row #117)
     winner: A2
-    ship: unknown
+    ship: PUSHED ac917e6
   iter-119
     lenses: narrative-and-docs (iteration 119), new-capability (iteration 119)
     - Candidate A1 -- Bump the README intro's stale test floor (published 2,200+, live 2,719) and give the floor a real oracle
@@ -209,4 +219,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-29 scouted iterations
+30 scouted iterations

@@ -10,7 +10,7 @@ assertions. Before this iteration there was NO single local command that
 reproduced that graded gate, and the two demo-artifact assertions
 (``test -f .pla_runs/slate.json`` / ``ls .pla_runs/run-*/artifacts/*.md``) lived
 ONLY inside ``ci.yml`` (nowhere runnable locally), so they could silently rot.
-The new ``.PHONY`` ``check`` target runs those five graded steps in CI's own
+The new ``.PHONY`` ``check`` target runs those graded steps in CI's own
 order, so ``make check`` == a green CI, and this drift-guard makes the
 unavoidable CI-logic duplication SAFE: if the ``check`` recipe and ``ci.yml``
 diverge, the suite goes RED. This is build-tooling ONLY: no ``src/`` runtime
@@ -25,7 +25,7 @@ drive ONLY the documented public surface (the parsed text of those two files:
 the ``.PHONY`` line, the tab-indented recipe lines of each named target, and the
 graded ``run:`` steps of the workflow). **No file under ``src/`` was read, no
 engineer/reviewer notes were read, and no ``git diff`` was consulted.** The
-spec-declared strings (the six CI gate commands, the six pre-existing target
+spec-declared strings (the CI gate commands, the six pre-existing target
 names) are encoded here as the CONTRACT's ground facts, NOT imported from any
 implementation, so the suite would go RED on a silent drift. Every test is fully
 offline and cap-safe: pure file reads and text parsing, zero network, and --- by
@@ -48,12 +48,17 @@ REPO = Path(__file__).resolve().parents[1]
 MAKEFILE = REPO / "Makefile"
 WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 
-# The ordered tuple of the six commands that make up the CI graded gate. The
+# The ordered tuple of the seven commands that make up the CI graded gate. The
 # `check` recipe must reproduce these, in this order; each must also be a real
 # CI step. `make demo` is written `$(MAKE) demo` in the recipe (normalized
 # below); the two demo-artifact assertions live in ci.yml's single `run: |`
 # block. NOTE: the artifact-list step is matched WITHOUT its `> /dev/null`
 # redirect suffix so the substring test is redirect-insensitive.
+#
+# The 7th step (added factory iter 128) is the product dogfooding its own
+# enforcement mode: an armed `pla signals --fail-on-kind` self-scan whose kinds
+# are the STATE-INDEPENDENT, must-never-appear subset, so it can only go red on
+# a broken checkout -- never on a developer's work in progress.
 CI_GATE_STEPS = (
     "uv sync --locked",
     "uv run pytest",
@@ -61,13 +66,16 @@ CI_GATE_STEPS = (
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
+    "uv run pla signals --workspace . --fail-on-kind merge_conflict "
+    "--fail-on-kind syntax_error --fail-on-kind secret_file",
 )
 
 # The number of graded `run:` steps ci.yml exposes today: locked install,
-# pytest, mypy, `make demo`, and the single `run: |` block holding the two
-# demo-artifact assertions. If a CI run-step is added/removed, behavior 4 fails,
-# forcing CI_GATE_STEPS + the `check` recipe to be updated together.
-EXPECTED_CI_RUN_STEPS = 5
+# pytest, mypy, `make demo`, the single `run: |` block holding the two
+# demo-artifact assertions, and the armed signals self-scan. If a CI run-step is
+# added/removed, behavior 4 fails, forcing CI_GATE_STEPS + the `check` recipe to
+# be updated together.
+EXPECTED_CI_RUN_STEPS = 6
 
 # Every pre-existing .PHONY target that must survive this additive edit
 # (behavior 5): each must remain declared in .PHONY AND keep a non-empty recipe.
