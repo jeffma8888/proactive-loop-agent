@@ -20,7 +20,7 @@ still exists rather than re-implementing it, so the two files cannot both rot
 in the same direction.
 
 Why the documented set is DERIVED twice and hardcoded once
-The five codes are written down once (``EXPECTED_CODES``) purely as an
+The six codes are written down once (``EXPECTED_CODES``) purely as an
 assertion ABOUT the two derivations; the comparisons that can actually catch
 drift are README-vs-docstring (behavior 4) and returns-vs-README (behavior 5),
 neither of which consults the constant. Behavior 6 closes the census: every
@@ -75,7 +75,7 @@ EXIT_CODES_HEADING_TEXT = "Exit codes"
 CLI_HEADING_TEXT = "CLI"
 
 # An assertion ABOUT the derivations, not their source of truth (see docstring).
-EXPECTED_CODES = {0, 1, 2, 3, 4}
+EXPECTED_CODES = {0, 1, 2, 3, 4, 5}
 
 
 class Heading(NamedTuple):
@@ -330,8 +330,8 @@ def test_behavior2_exit_codes_section_sits_below_the_human_owned_marker() -> Non
     )
 
 
-def test_behavior3_table_documents_five_distinct_codes_with_real_meanings() -> None:
-    """3. Five rows, no duplicates, every meaning cell non-empty."""
+def test_behavior3_table_documents_six_distinct_codes_with_real_meanings() -> None:
+    """3. Six rows, no duplicates, every meaning cell non-empty."""
     text = _readme_text()
     rows = _documented_rows(text)
     assert rows, "no pipe table follows the '### Exit codes' heading"
@@ -446,7 +446,7 @@ def test_readers_fire_on_known_bad_samples() -> None:
     heading = _exit_code_heading(text)
     assert heading is not None
     rows = _documented_rows(text)
-    assert len(rows) == 5
+    assert len(rows) == len(EXPECTED_CODES)
 
     # (a) whole section deleted -> heading reader reports absence.
     next_h2 = next(h for h in _headings(text) if h.level == 2 and h.offset > heading.offset)
@@ -459,7 +459,11 @@ def test_readers_fire_on_known_bad_samples() -> None:
     lines = text.splitlines(keepends=True)
     keep = [ln for ln in lines if ln not in (lines[rows[3].lineno - 1], lines[rows[4].lineno - 1])]
     without_34 = "".join(keep)
-    assert set(_documented_codes(without_34)) == {0, 1, 2}
+    # The surviving set is DERIVED from the two rows actually removed rather than
+    # hardcoded, so appending a code keeps this sample honest instead of stale.
+    dropped = {int(rows[i].cells[0].strip().strip("`").strip()) for i in (3, 4)}
+    assert dropped == {3, 4}, f"rows 3/4 are no longer codes 3/4: {sorted(dropped)}"
+    assert set(_documented_codes(without_34)) == EXPECTED_CODES - dropped
     assert set(_documented_codes(without_34)) != _docstring_codes()
 
     # (c) an empty meaning cell -> behavior 3's non-empty check must reject it.

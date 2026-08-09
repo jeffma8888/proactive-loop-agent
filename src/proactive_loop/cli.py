@@ -660,6 +660,47 @@ def build_parser() -> argparse.ArgumentParser:
             "otherwise a human count table (kinds ascending, 'total N' last)."
         ),
     )
+    # The product's FIRST enforcement knob, and the reason it lives here: every
+    # other flag on this verb changes WHAT IS PRINTED, so `signals` could report a
+    # committed `.env` and still exit 0 -- byte-identical, to a pre-commit hook or a
+    # CI step, to a pristine tree. Exit status is the only channel those callers can
+    # read, so gating had to be an exit-code change, not a rendering change.
+    # Repeatable (action="append") with OR semantics; choices come from the LIVE
+    # SIGNAL_KINDS registry (never a literal) so an unknown kind is a PARSE-time
+    # usage error (exit 2) before any collection runs -- the same contract --kind
+    # already has, and deliberately NO metavar so the enumerated choices in --help
+    # ARE the reference. The gate reads the SELECTED signals (post
+    # --kind/--min-weight/--collector narrowing), so the exit status can never
+    # disagree with the listing the user just read, and its one report line goes to
+    # STDERR (the --timings precedent): stdout stays byte-identical with and without
+    # the flag, so a --json pipeline keeps parsing as exactly one object.
+    p_signals.add_argument(
+        "--fail-on-kind",
+        action="append",
+        default=None,
+        choices=SIGNAL_KINDS,
+        dest="fail_on_kind",
+        help=(
+            "Exit 5 instead of 0 when the REPORTED signals include at least one "
+            "signal of this kind -- the gate for a pre-commit hook or a CI step. "
+            "Repeatable, and trips if ANY named kind is present (--fail-on-kind "
+            "secret_file --fail-on-kind todo). Accepted values are exactly the "
+            "live signal kinds (argparse enumerates them in braces); an unknown "
+            "kind is a usage error (exit 2) at PARSE time, before any collection "
+            "runs. It gates on what the view REPORTS, so --kind/--min-weight/"
+            "--collector narrowing that removes every signal of the named kind "
+            "exits 0; combining --kind K with a different --fail-on-kind V is a "
+            "usage error (exit 2), since that gate could never fire. STDOUT is "
+            "byte-identical with and without this flag -- the only added output "
+            "is one 'gate: fail-on-kind tripped -- <kind>=<count>' line on STDERR."
+        ),
+    )
+    # Declared BEFORE --timings on purpose: argparse renders the choices brace-list
+    # into the usage line, and tests/test_iter112_behavior.py reads a fixed-width
+    # window of `signals --help` starting at the first `--timings` token, so a long
+    # enumeration inserted after it pushes the text that guard looks for out of
+    # range. Grouping also reads better: this is a selection-driven knob like
+    # --kind/--min-weight, while --timings (the cost instrument) stays last.
     # A COST knob, and the only one here that writes to stderr. Everything else on
     # this verb answers "what did the collectors see?"; --timings answers "what did
     # looking cost, and which collector spent it?" -- the one dimension the product
@@ -970,6 +1011,11 @@ def main(argv: list[str] | None = None) -> int:
     * ``2`` -- not-found / no-checkpoint (a handler returned it explicitly).
     * ``3`` -- BLOCKED by the autonomy contract.
     * ``4`` -- needs-approval (re-run with ``--yes``).
+    * ``5`` -- a requested gate tripped on a finding: the command ran fine and
+      reported what it perceived, but a ``--fail-on-kind`` gate the caller armed
+      matched at least one reported signal. Distinct from ``1`` (the tool itself
+      failed) and from ``2`` (nothing to act on / bad invocation) -- this is the
+      *finding* channel a pre-commit hook or CI step branches on.
 
     WHY the top-level guard is a *narrow* tuple and not bare ``except``:
     ``LLMError`` covers a persistent throttle/timeout that escapes the L0 retry
@@ -1832,6 +1878,37 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
     return "\n".join([*header, *(_trace_step_line(step) for step in state.steps)])
 
 
+def _select_signals(
+    snapshot: WorkspaceSnapshot,
+    kind: str | None = None,
+    min_weight: float | None = None,
+) -> list[ContextSignal]:
+    """The ONE selection predicate every ``signals`` surface shares.
+
+    WHY it is extracted rather than repeated: the same ``kind`` exact match AND
+    inclusive ``weight >= min_weight`` lower bound was written out verbatim in the
+    four renderers/payload builders below, and it is now ALSO read by the
+    ``--fail-on-kind`` gate in ``_cmd_signals``. The gate's contract is that the
+    exit status can never disagree with the printed listing, which only holds
+    structurally if the gate and the view compute selection from the same code --
+    a second copy of the predicate would make that contract a review promise
+    instead of a property. Returns a FRESH list on every call because
+    ``_signals_json_payload`` sorts its result in place; the ORDERING stays with
+    each caller on purpose (the two listing surfaces sort, the two summary
+    builders do not, and hoisting a sort here would change stdout). Pure and
+    disk-free: no file is opened and no client is built, so it is unit-testable
+    from a synthetic snapshot. The ``--collector`` allowlist is NOT applied here --
+    it is an UPSTREAM filter honored by ``_collect``, so it is already reflected in
+    ``snapshot.signals``.
+    """
+    return [
+        s
+        for s in snapshot.signals
+        if (kind is None or s.kind == kind)
+        and (min_weight is None or s.weight >= min_weight)
+    ]
+
+
 def _render_signals(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
@@ -1857,12 +1934,7 @@ def _render_signals(
     no arrow. Header lines start with ``## `` and signal lines with two spaces, so
     the two are unambiguously distinguishable (a caller can count kinds by ``## ``).
     """
-    selected = [
-        s
-        for s in snapshot.signals
-        if (kind is None or s.kind == kind)
-        and (min_weight is None or s.weight >= min_weight)
-    ]
+    selected = _select_signals(snapshot, kind, min_weight)
     if not selected:
         return "(no signals collected)"
     grouped: dict[str, list[ContextSignal]] = {}
@@ -1903,12 +1975,7 @@ def _signals_json_payload(
     ``_run_row`` explicit-dict convention; kept pure/disk-free so it is
     unit-testable without touching a workspace or a client.
     """
-    selected = [
-        s
-        for s in snapshot.signals
-        if (kind is None or s.kind == kind)
-        and (min_weight is None or s.weight >= min_weight)
-    ]
+    selected = _select_signals(snapshot, kind, min_weight)
     selected.sort(key=lambda s: (s.kind, s.source, s.summary, s.path or ""))
     return {
         "workspace_root": snapshot.root,
@@ -1948,12 +2015,7 @@ def _render_signals_summary(
     listing view uses -- and, deliberately, NO ``total`` line -- rather than an
     empty table. Deterministic by construction: kinds ascending, ``total`` last.
     """
-    selected = [
-        s
-        for s in snapshot.signals
-        if (kind is None or s.kind == kind)
-        and (min_weight is None or s.weight >= min_weight)
-    ]
+    selected = _select_signals(snapshot, kind, min_weight)
     if not selected:
         return "(no signals collected)"
     counts: dict[str, int] = {}
@@ -1985,12 +2047,7 @@ def _signals_summary_payload(
     the JSON is always one object. Kept pure/disk-free so it is unit-testable from a
     synthetic snapshot with no workspace or client.
     """
-    selected = [
-        s
-        for s in snapshot.signals
-        if (kind is None or s.kind == kind)
-        and (min_weight is None or s.weight >= min_weight)
-    ]
+    selected = _select_signals(snapshot, kind, min_weight)
     counts: dict[str, int] = {}
     for signal in selected:
         counts[signal.kind] = counts.get(signal.kind, 0) + 1
@@ -3337,6 +3394,20 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     and ``--kind`` via its emitting collector) while the display-only ones
     (``--min-weight``/``--summary``) do not, and the front-door workspace guard
     above still runs FIRST, so a mistyped path exits 2 with no timing block.
+    ``--fail-on-kind KIND`` (repeatable, registry-validated at PARSE time) is the
+    only knob here that touches the EXIT STATUS: it returns ``5`` when the REPORTED
+    signals include at least one signal of a named kind, which is what lets a
+    pre-commit hook or a CI step branch on what the perception layer found -- until
+    it existed, a workspace holding a committed ``.env`` and an empty directory both
+    exited ``0``. It gates on the same ``_select_signals`` list the view rendered, so
+    narrowing that hides a finding (``--min-weight`` above its weight, a disjoint
+    ``--collector``) also disarms the gate and the exit status can never contradict
+    the listing; the report is exactly one ``gate: fail-on-kind tripped --
+    <kind>=<count>`` line on STDERR (kinds ascending, matched kinds only, no
+    ``error:`` prefix because a finding is not a fault), so every stdout surface
+    stays byte-identical with and without the flag and ``--json`` keeps parsing as
+    one object. ``--kind K`` paired with a different ``--fail-on-kind V`` is refused
+    as a usage error (exit 2) before collection: that gate could never fire.
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():
@@ -3344,6 +3415,27 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         return 2
     only = set(args.collector) if args.collector else None
     kind = getattr(args, "kind", None)
+    # The gate vocabulary, de-duplicated and sorted so a repeated flag cannot change
+    # the report line. Empty list (never None) means "no gate armed", which keeps the
+    # exit path below a single expression.
+    gate_kinds = sorted(set(getattr(args, "fail_on_kind", None) or ()))
+    # A gate that could never fire is a usage error, not a silently dead flag: with
+    # `--kind K` the view EXCLUDES every other kind by construction, so any
+    # `--fail-on-kind V` where V != K would report success on a workspace that is
+    # full of V. Refusing it (exit 2, one error line, BEFORE _collect -- next to the
+    # --workspace guard above) is the fail-CLOSED choice; a hook author who mistypes
+    # a pair like this must hear about it rather than inherit a green build forever.
+    # The AGREEING pair `--kind K --fail-on-kind K` is accepted and gates normally.
+    unreachable = [k for k in gate_kinds if k != kind] if kind is not None else []
+    if unreachable:
+        print(
+            "error: --fail-on-kind "
+            + ", ".join(unreachable)
+            + f" can never trip under --kind {kind}: that view reports only "
+            f"{kind} signals -- drop --kind or gate on {kind} instead",
+            file=sys.stderr,
+        )
+        return 2
     # UPSTREAM narrowing: --kind is read BEFORE collecting (it used to be read
     # after) and its emitting collector(s) are intersected into the --collector
     # allowlist, so a kind-filtered inspection now does a kind-filtered amount of
@@ -3393,6 +3485,25 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         # branches on `timings`, which is how "stdout is byte-identical with and
         # without --timings" is guaranteed structurally rather than by review.
         print(_render_collector_timings(timings), file=sys.stderr)
+    if gate_kinds:
+        # The gate counts over the SAME selected list the view rendered (the shared
+        # `_select_signals` predicate, applied to a snapshot the --collector
+        # allowlist already narrowed upstream), so behavior "the exit status can
+        # never disagree with the printed listing" holds structurally rather than by
+        # review: a --min-weight that hides the finding also disarms the gate.
+        # OR semantics across the named kinds; only kinds that ACTUALLY matched are
+        # named in the line, each with its own count, kinds ascending.
+        selected = _select_signals(snapshot, kind, min_weight)
+        tripped = {k: n for k in gate_kinds if (n := sum(1 for s in selected if s.kind == k))}
+        if tripped:
+            # STDERR, exactly one line, and no `error:` prefix: a tripped gate is a
+            # FINDING the user asked to be told about, not a fault in the tool -- the
+            # same distinction the exit-code table draws between 5 and 1. Printed
+            # after the stdout view (and after any --timings block) so the primary
+            # output leads when both streams share a terminal.
+            detail = ", ".join(f"{k}={tripped[k]}" for k in sorted(tripped))
+            print(f"gate: fail-on-kind tripped -- {detail}", file=sys.stderr)
+            return 5
     return 0
 
 

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-120
+    lenses: NEW-CAPABILITY (iteration 120), HARDENING / DX (iteration 120)
+    - Candidate A1 -- 17th collector: `PythonVersionDriftCollector` (kind `python_version_drift`)
+    - Candidate A2 -- `signals --fail-on-kind K`: let a detection FAIL a build (the first enforcement mode)
+    - Candidate A3 -- `pla doctor`: an offline preflight that turns settings into verdicts
+    - Candidate B1 -- registry-driven `--json` purity oracle over all 10 `--json` verbs, fail-closed on verb 11
+    - Candidate B2 -- finish the atomic-write idiom: `Checkpoint.save` temp cleanup + an atomic `meta.json` (roadmap row #134)
+    - Candidate B3 -- oracle the packaging contract: `[project.scripts] pla` must resolve to a real callable (checkable half of roadmap row #117)
+    winner: A2
+    ship: unknown
   iter-119
     lenses: narrative-and-docs (iteration 119), new-capability (iteration 119)
     - Candidate A1 -- Bump the README intro's stale test floor (published 2,200+, live 2,719) and give the floor a real oracle
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PythonVersionDriftCollector`: the 17th collector and only the 2nd RELATIONAL one (roadmap row #122)
     - Candidate B3 -- `pla trend --dir DIR`: turn a watch stream into goal persistence, not just a pairwise delta
     winner: B1
-    ship: unknown
+    ship: PUSHED 5d23443
   iter-118
     lenses: performance-and-throughput, narrative-and-docs
     winner: B1
@@ -199,4 +209,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-28 scouted iterations
+29 scouted iterations
