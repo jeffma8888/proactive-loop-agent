@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-123
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- collapse the three divergent copies of the noise-directory vocabulary into one
+    - Candidate A2 -- host the pruned `os.walk` preamble once instead of eleven hand-copies
+    - Candidate A3 -- replace the five copy-pasted read-only inspector handlers with one table-driven rule
+    - Candidate B1 -- extend the proven digest memo to the two remaining content scanners
+    - Candidate B2 -- collapse the two `working_tree` git invocations into one porcelain-v2 call
+    - Candidate B3 -- persist the digest->verdict memo so a one-shot scan stops re-parsing
+    winner: B1
+    ship: unknown
   iter-122
     lenses: integration-and-adoption, simplification-and-deletion (iteration 122)
     - Candidate A1 -- Ship the pre-commit hook on-ramp the exit-5 gate advertises ten times and never provides
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- One shared bounded walk; retire the 9 private cross-module `_SKIP_DIRS`/`_is_hidden` imports
     - Candidate B3 -- One reader-resolution rule in the sandbox `ToolRegistry`
     winner: B1
-    ship: unknown
+    ship: PUSHED 5393347
   iter-121
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Char-size budget guard for ROADMAP.md (roadmap row #138), with a measured ~2-iteration runway
@@ -229,4 +239,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-31 scouted iterations
+32 scouted iterations
