@@ -60,6 +60,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned
 # shared seam, mirroring merge_conflict.py / large_file.py) so a broken file
 # buried in node_modules/.venv/a hidden dir is invisible here too.
@@ -209,7 +210,7 @@ def _parse_verdict(text: str, filename: str) -> _Verdict:
 
 
 @dataclass
-class SyntaxErrorCollector:
+class SyntaxErrorCollector(BaseCollector):
     """Emit one ContextSignal per ``*.py`` file that fails to PARSE under *root*.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -232,19 +233,8 @@ class SyntaxErrorCollector:
     max_items: int = 30
     max_read_bytes: int = LARGE_FILE_MIN_BYTES
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per un-parseable ``*.py`` file.
-
-        Never raises: any filesystem, decode, or parser error degrades to ``[]``,
-        honouring the Collector contract so one broken tree can never abort a
-        scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one signal per un-parseable ``*.py`` file."""
         if not root.is_dir():
             return []
 

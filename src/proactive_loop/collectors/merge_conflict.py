@@ -41,6 +41,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned
 # shared seam, mirroring dependencies.py / test_posture.py) so a marked file
 # buried in node_modules/.venv/a hidden dir is invisible here too.
@@ -86,7 +87,7 @@ def _count_markers(text: str) -> int:
 
 
 @dataclass
-class MergeConflictCollector:
+class MergeConflictCollector(BaseCollector):
     """Emit one ContextSignal per file that still contains conflict markers.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -109,19 +110,8 @@ class MergeConflictCollector:
     max_items: int = 30
     max_read_bytes: int = LARGE_FILE_MIN_BYTES
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per file containing conflict markers.
-
-        Never raises: any filesystem or decode error degrades to ``[]``,
-        honouring the Collector contract so one unreadable tree can never abort a
-        scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one signal per file containing conflict markers."""
         if not root.is_dir():
             return []
 

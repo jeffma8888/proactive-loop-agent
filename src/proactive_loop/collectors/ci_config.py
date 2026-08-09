@@ -34,6 +34,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules the sibling filesystem collectors use (the
 # SPEC-sanctioned shared seam) so a source file buried in node_modules/.venv/a
 # hidden dir is invisible to the "has source" check here too.
@@ -103,7 +104,7 @@ def _has_source(root: Path) -> bool:
 
 
 @dataclass
-class CiConfigCollector:
+class CiConfigCollector(BaseCollector):
     """Emit at most ONE ContextSignal describing the workspace's CI posture.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -115,18 +116,8 @@ class CiConfigCollector:
     name: str = "ci_config"
     max_items: int = 30
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Return one CI-posture signal for *root*, or [] when there is nothing to say.
-
-        Never raises: any filesystem error degrades to ``[]``, honouring the
-        Collector contract (SPEC 4.1) so one unreadable tree can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Return one CI-posture signal for *root*, or [] when there is nothing to say."""
         if not root.is_dir():
             return []
 

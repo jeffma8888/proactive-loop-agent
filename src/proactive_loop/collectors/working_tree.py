@@ -26,6 +26,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
 
 # Relevance weights, all bounded in (0, 1]. Ordered so a tracked change (real
@@ -111,7 +112,7 @@ def _parse_ahead_count(stdout: str) -> int | None:
 
 
 @dataclass
-class WorkingTreeCollector:
+class WorkingTreeCollector(BaseCollector):
     """Emit present-state git signals: dirty paths + unpushed commits.
 
     Scans *root* and each direct child directory that contains a ``.git`` folder,
@@ -132,19 +133,8 @@ class WorkingTreeCollector:
     name: str = "working_tree"
     max_items: int = 30
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Return working-tree signals for *root* and its direct child repos.
-
-        Never raises: any error (missing dir, git absent, subprocess failure)
-        degrades to ``[]``, honouring the Collector contract so one unreadable
-        repo can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Return working-tree signals for *root* and its direct child repos."""
         if not root.is_dir():
             return []
 

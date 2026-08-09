@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
 
 # Format: hash<sep>date<sep>subject<sep>author
@@ -76,7 +77,7 @@ def _fetch_commits(directory: Path, max_commits: int) -> list[ContextSignal]:
 
 
 @dataclass
-class GitActivityCollector:
+class GitActivityCollector(BaseCollector):
     """Emit one ContextSignal per recent git commit found in *root* or its repos.
 
     WHY scan child directories: a workspace often contains several sub-projects
@@ -87,14 +88,8 @@ class GitActivityCollector:
     name: str = "git_activity"
     max_commits: int = 15
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Return commit signals for *root* and direct children that are git repos."""
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Return commit signals for *root* and direct children that are git repos."""
         if not root.is_dir():
             return []
 

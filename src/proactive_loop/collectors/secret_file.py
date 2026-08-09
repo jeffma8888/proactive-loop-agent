@@ -37,6 +37,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT dir-prune rules the sibling collectors use (the SPEC-sanctioned
 # shared seam) so a secret-shaped file buried in node_modules/.venv/.git or under
 # any hidden dir is invisible here too (spec Behavior 10). NOTE: we import
@@ -109,7 +110,7 @@ def _is_secret_shaped(name: str) -> bool:
 
 
 @dataclass
-class SecretFileCollector:
+class SecretFileCollector(BaseCollector):
     """Emit one ContextSignal per secret-shaped file (by basename) under *root*.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -122,18 +123,8 @@ class SecretFileCollector:
     name: str = "secret_file"
     max_items: int = 20
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per secret-shaped file.
-
-        Never raises: any filesystem error degrades to ``[]``, honouring the
-        Collector contract so one unreadable tree can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one signal per secret-shaped file."""
         if not root.is_dir():
             return []
 

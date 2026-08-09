@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
 from proactive_loop.models import ContextSignal
 
@@ -36,7 +37,7 @@ def _is_hidden(name: str) -> bool:
 
 
 @dataclass
-class TodoCollector:
+class TodoCollector(BaseCollector):
     """Emit one ContextSignal per TODO/FIXME/XXX comment or Markdown checkbox.
 
     Caps results at *max_items* to keep the synthesizer prompt concise.
@@ -57,14 +58,8 @@ class TodoCollector:
     max_items: int = 30
     max_read_bytes: int = LARGE_FILE_MIN_BYTES
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Scan *root* recursively for actionable todo items."""
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Scan *root* recursively for actionable todo items."""
         if not root.is_dir():
             return []
 

@@ -34,6 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
 
 # Every git_stash signal carries the same fixed weight. Shelved work is a real
@@ -45,7 +46,7 @@ _WEIGHT = 0.6
 
 
 @dataclass
-class GitStashCollector:
+class GitStashCollector(BaseCollector):
     """Detect forgotten ``git stash`` entries by reading the stash reflog.
 
     Scans ``root`` and each *direct* child directory that is itself a git repo
@@ -64,19 +65,8 @@ class GitStashCollector:
     name: str = "git_stash"
     max_items: int = 30
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Return git_stash signals for *root* and its direct child repos.
-
-        Never raises: any error (missing dir, unreadable reflog, OS error)
-        degrades to ``[]``, honouring the Collector contract so one unreadable
-        repo can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Return git_stash signals for *root* and its direct child repos."""
         if not root.is_dir():
             return []
 

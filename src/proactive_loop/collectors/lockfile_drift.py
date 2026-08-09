@@ -37,6 +37,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules the sibling filesystem collectors use so a manifest
 # buried in node_modules/.venv/a hidden dir is invisible here too (Behavior 11).
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
@@ -53,7 +54,7 @@ _MANIFEST_LOCKS: dict[str, tuple[str, ...]] = {
 
 
 @dataclass
-class LockfileDriftCollector:
+class LockfileDriftCollector(BaseCollector):
     """Emit one ContextSignal per manifest whose lockfile is missing or stale.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -64,18 +65,8 @@ class LockfileDriftCollector:
     name: str = "lockfile_drift"
     max_items: int = 30
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one drift signal per missing/stale lockfile.
-
-        Never raises: any filesystem error degrades to ``[]``, honouring the
-        Collector contract (SPEC 4.1) so one unreadable tree can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one drift signal per missing/stale lockfile."""
         if not root.is_dir():
             return []
 

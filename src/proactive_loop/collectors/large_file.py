@@ -28,6 +28,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned shared
 # seam, mirroring dependencies.py / test_posture.py) so a large file buried in
 # node_modules/.venv/a hidden dir is invisible here too (spec Behavior 6).
@@ -61,7 +62,7 @@ def _human_size(n: int) -> str:
 
 
 @dataclass
-class LargeFileCollector:
+class LargeFileCollector(BaseCollector):
     """Emit one ContextSignal per file whose size is at or above *min_bytes*.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -75,18 +76,8 @@ class LargeFileCollector:
     max_items: int = 20
     min_bytes: int = LARGE_FILE_MIN_BYTES
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per oversized file.
-
-        Never raises: any filesystem error degrades to ``[]``, honouring the
-        Collector contract so one unreadable tree can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one signal per oversized file."""
         if not root.is_dir():
             return []
 

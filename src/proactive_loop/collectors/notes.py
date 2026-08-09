@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
 
 # ATX-style heading: one or more '#' followed by the title.
@@ -110,7 +111,7 @@ def _fence_mask(lines: list[str]) -> list[bool]:
 
 
 @dataclass
-class NotesCollector:
+class NotesCollector(BaseCollector):
     """Emit one ContextSignal per heading-plus-paragraph found in notes directories.
 
     WHY capture first paragraph: it gives the synthesizer enough context to
@@ -121,14 +122,8 @@ class NotesCollector:
     name: str = "notes"
     max_items: int = 20
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Scan *root* for notes directories and extract heading/paragraph signals."""
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Scan *root* for notes directories and extract heading/paragraph signals."""
         if not root.is_dir():
             return []
 

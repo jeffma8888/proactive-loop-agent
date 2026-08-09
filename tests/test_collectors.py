@@ -7,9 +7,9 @@ Coverage:
 - NotesCollector: finds headings + paragraphs under notes/journal/docs dirs.
 - Graceful degradation (registry-driven): EVERY collector in all_collectors()
   returns [] / a list (never raises) on nonexistent, file-as-root, empty, and
-  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for all 15
-  collectors and auto-covering any future one with zero test edits.
-- all_collectors(): the registry exposes EXACTLY the 15 documented collector types.
+  hostile undecodable-content roots -- proving the SPEC §4.1 invariant for every
+  registered collector and auto-covering any future one with zero test edits.
+- all_collectors(): the registry exposes EXACTLY the documented collector types.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ def _touch_file(path: Path, content: str = "", *, mtime_offset_sec: float = 0.0)
 # collector to the registry and it is covered here with zero test edits.
 _ALL_COLLECTOR_PARAMS = [pytest.param(c, id=c.name) for c in all_collectors()]
 
-# The 15 collectors documented in SPEC §4.1. Asserting the full name-SET (not a
+# The collectors documented in SPEC §4.1. Asserting the full name-SET (not a
 # subset, not a bare count) catches BOTH a collector silently dropped from the
 # registry and a documented collector missing from it.
 _DOCUMENTED_COLLECTOR_NAMES = frozenset(
@@ -554,7 +554,7 @@ class TestNotesCollector:
 
 class TestAllCollectors:
     def test_registry_covers_all_collector_types(self) -> None:
-        """The registry must expose EXACTLY the 15 documented collectors (SPEC §4.1).
+        """The registry must expose EXACTLY the documented collectors (SPEC §4.1).
 
         WHY a full-set check (not the old 4-type subset, and not a bare count): a
         SUBSET check silently passes when a collector is dropped from the registry,
@@ -602,7 +602,7 @@ class TestGracefulDegradation:
     """Prove the SPEC §4.1 never-raise invariant for EVERY registered collector.
 
     Every test here is parametrized from _ALL_COLLECTOR_PARAMS (built from
-    all_collectors()), so all 15 current collectors -- and any future one -- are
+    all_collectors()), so every registered collector -- and any future one -- is
     covered with zero test edits. If a collector unexpectedly raises, that is a
     real §4.1 violation to FIX in the collector, not to exempt here.
     """

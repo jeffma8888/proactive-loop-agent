@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-122
+    lenses: integration-and-adoption, simplification-and-deletion (iteration 122)
+    - Candidate A1 -- Ship the pre-commit hook on-ramp the exit-5 gate advertises ten times and never provides
+    - Candidate A2 -- `pla scan --out-dir DIR`: give the advertised change feed a producer that is not `watch`
+    - Candidate A3 -- Make the graded gate consume the change feed (roadmap row #137), prerequisite discharged in the same commit
+    - Candidate B1 -- Host the fail-open `collect()` wrapper once in `base.py`, delete 16 hand-rolled copies
+    - Candidate B2 -- One shared bounded walk; retire the 9 private cross-module `_SKIP_DIRS`/`_is_hidden` imports
+    - Candidate B3 -- One reader-resolution rule in the sandbox `ToolRegistry`
+    winner: B1
+    ship: unknown
   iter-121
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Char-size budget guard for ROADMAP.md (roadmap row #138), with a measured ~2-iteration runway
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Close the demo round-trip: prove the gate's own artifacts are readable by the three consumer verbs
     - Candidate B3 -- Oracle the install-time on-ramp: the `pla` console script and the `py.typed` marker (roadmap row #117, with a measured correction)
     winner: B1
-    ship: unknown
+    ship: PUSHED 6af2321
   iter-120
     lenses: NEW-CAPABILITY (iteration 120), HARDENING / DX (iteration 120)
     - Candidate A1 -- 17th collector: `PythonVersionDriftCollector` (kind `python_version_drift`)
@@ -219,4 +229,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-30 scouted iterations
+31 scouted iterations

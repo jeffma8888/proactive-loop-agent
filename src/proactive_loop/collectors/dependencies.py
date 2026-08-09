@@ -23,6 +23,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules RecentFilesCollector uses so a manifest buried in
 # node_modules/.venv/etc or a hidden dir is invisible here too (spec Behavior 9).
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
@@ -41,7 +42,7 @@ _DETAIL_SAMPLE: int = 8
 
 
 @dataclass
-class DependencyCollector:
+class DependencyCollector(BaseCollector):
     """Emit one ContextSignal per dependency manifest found under *root*.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -52,18 +53,8 @@ class DependencyCollector:
     name: str = "dependencies"
     max_manifests: int = 20
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per recognised manifest.
-
-        Never raises: any filesystem or parse error degrades to `[]`, honouring
-        the Collector contract so one unreadable tree can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one signal per recognised manifest."""
         if not root.is_dir():
             return []
 

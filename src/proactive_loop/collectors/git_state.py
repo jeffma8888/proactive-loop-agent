@@ -32,6 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
 
 # Every git_state signal carries the same fixed weight: an interrupted/dangling
@@ -43,7 +44,7 @@ _WEIGHT = 0.8
 
 
 @dataclass
-class GitStateCollector:
+class GitStateCollector(BaseCollector):
     """Detect interrupted/dangling git operations by reading ``.git`` markers.
 
     Scans ``root`` and each *direct* child directory that is itself a git repo
@@ -61,19 +62,8 @@ class GitStateCollector:
     name: str = "git_state"
     max_items: int = 30
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Return git_state signals for *root* and its direct child repos.
-
-        Never raises: any error (missing dir, unreadable marker, OS error)
-        degrades to ``[]``, honouring the Collector contract so one unreadable
-        repo can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Return git_state signals for *root* and its direct child repos."""
         if not root.is_dir():
             return []
 

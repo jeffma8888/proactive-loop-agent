@@ -27,6 +27,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 # Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned
 # shared seam, mirroring dependencies.py) so a file buried in node_modules/.venv/
 # a hidden dir is invisible here too.
@@ -70,7 +71,7 @@ def _is_test_file(rel: Path) -> bool:
 
 
 @dataclass
-class TestPostureCollector:
+class TestPostureCollector(BaseCollector):
     """Emit one ContextSignal per top-level project dir that has source files.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
@@ -86,18 +87,8 @@ class TestPostureCollector:
     name: str = "test_posture"
     max_items: int = 20
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per project with source files.
-
-        Never raises: any filesystem error degrades to ``[]``, honouring the
-        Collector contract so one unreadable tree can never abort a scan.
-        """
-        try:
-            return self._collect(root)
-        except Exception:
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return one signal per project with source files."""
         if not root.is_dir():
             return []
 

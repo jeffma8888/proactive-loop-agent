@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
 
 # Directories that are never useful to scan
@@ -27,7 +28,7 @@ def _is_hidden(name: str) -> bool:
 
 
 @dataclass
-class RecentFilesCollector:
+class RecentFilesCollector(BaseCollector):
     """Emit one ContextSignal per recently-modified file under *root*.
 
     WHY weight by recency: files touched in the last hour deserve more
@@ -38,15 +39,8 @@ class RecentFilesCollector:
     max_files: int = 20
     within_days: float = 14.0
 
-    def collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return signals for recently modified files."""
-        try:
-            return self._collect(root)
-        except Exception:
-            # Degrade gracefully: never propagate filesystem errors.
-            return []
-
     def _collect(self, root: Path) -> list[ContextSignal]:
+        """Walk *root* and return signals for recently modified files."""
         if not root.is_dir():
             return []
 
