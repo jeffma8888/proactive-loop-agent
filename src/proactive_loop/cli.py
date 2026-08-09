@@ -30,12 +30,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import fnmatch
 import html
 import io
 import json
 import logging
 import math
 import os
+import re
 import shutil
 import sys
 import time
@@ -293,6 +295,36 @@ def _finite_float(raw: str) -> float:
     if not math.isfinite(value):
         raise argparse.ArgumentTypeError(f"must be a finite number, got {value}")
     return value
+
+
+def _nonempty_glob(raw: str) -> str:
+    """argparse ``type=`` validator: a path glob that is not empty or whitespace-only.
+
+    Guards the ``--exclude-path`` argument of the ``signals`` verb, and is the
+    non-numeric sibling of ``_finite_float`` / ``_positive_int``: it fires at PARSE
+    time -- BEFORE any collector runs -- so a bad pattern is a ``SystemExit(2)``
+    usage error with zero side effects.
+
+    WHY reject empty/whitespace-only rather than accept it as a no-op: an exclusion
+    pattern's effect is not statically knowable in general (unlike ``--kind K`` paired
+    with a different ``--fail-on-kind V``, which can be proven unreachable), so this
+    validator can only catch the ONE case that is provably inert.
+    ``fnmatch.fnmatchcase(anything, "")`` is ``False`` for every non-empty path, and a
+    whitespace-only pattern cannot match a relpath either, so ``--exclude-path ''``
+    would silently exclude NOTHING while reading -- in a hook or a CI step -- exactly
+    like an armed filter. A shell that expands an unset variable
+    (``--exclude-path "$VENDOR_DIR"``) produces precisely that, and the user would
+    inherit a permanently un-narrowed view with no signal that anything was wrong.
+    Returning the pattern UNCHANGED (no strip, no normalization) keeps the matcher's
+    input verbatim: leading/trailing spaces are legal INSIDE a pattern that also has
+    non-space characters, because a filename may legitimately contain them.
+    """
+    if not raw.strip():
+        raise argparse.ArgumentTypeError(
+            "must be a non-empty path glob (an empty or whitespace-only pattern "
+            "could never match, so it would silently exclude nothing)"
+        )
+    return raw
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -701,6 +733,47 @@ def build_parser() -> argparse.ArgumentParser:
     # enumeration inserted after it pushes the text that guard looks for out of
     # range. Grouping also reads better: this is a selection-driven knob like
     # --kind/--min-weight, while --timings (the cost instrument) stays last.
+    # The verb's FIRST location-aware selection axis: every knob above selects by
+    # KIND, COLLECTOR or WEIGHT, so on a stranger's repo one vendored, generated or
+    # fixture tree could dominate the listing with no remedy but re-running at a
+    # narrower --workspace -- which also throws away every repo-level signal (those
+    # carry path "."). It is also the missing half of --fail-on-kind: that gate is
+    # all-or-nothing per REPOSITORY, so one committed .env inside a test fixture makes
+    # an exit-5 pre-commit hook permanently red and the only escape was dropping the
+    # whole kind, i.e. turning the gate off. Exclusion is the narrow escape hatch that
+    # keeps the gate armed everywhere else.
+    #
+    # EXCLUSION-only, deliberately NOT a matched --path/--exclude-path pair:
+    # include-scoping is already served by --workspace. Repeatable (action="append")
+    # with OR semantics, and applied DOWNSTREAM inside the shared _select_signals
+    # predicate -- never upstream in _collect -- so it changes what is REPORTED and
+    # never what RUNS (--timings rows stay identical) and the exit gate can never
+    # contradict the listing.
+    p_signals.add_argument(
+        "--exclude-path",
+        action="append",
+        default=None,
+        type=_nonempty_glob,
+        metavar="GLOB",
+        dest="exclude_path",
+        help=(
+            "Hide signals whose path matches this glob -- the escape hatch for a "
+            "vendored, generated or fixture tree. Repeatable with OR semantics "
+            "(--exclude-path 'vendor/*' --exclude-path '*.min.js'). Matching is "
+            "CASE-INSENSITIVE on both sides, is anchored at the START of the path, "
+            "and '*' CROSSES '/', so 'sub/*' hides the whole sub/ subtree but not "
+            "top/sub/b.py -- an any-depth exclusion needs a leading '*' "
+            "(--exclude-path '*node_modules/*'). A trailing ':LINE' suffix does not "
+            "defeat the match, so 'notes.md', '*.md' and 'notes.md:12' all hide a "
+            "TODO reported at notes.md:12. A signal with NO path (repo-level "
+            "perception) is NEVER excluded, not even by '*'. Composes as a logical "
+            "AND with --kind/--min-weight/--collector and narrows every surface "
+            "identically (listing, --json, --summary, --summary --json) INCLUDING "
+            "the --fail-on-kind exit gate; it is a display-side filter, so the "
+            "--timings rows are untouched. An empty pattern is a usage error "
+            "(exit 2)."
+        ),
+    )
     # A COST knob, and the only one here that writes to stderr. Everything else on
     # this verb answers "what did the collectors see?"; --timings answers "what did
     # looking cost, and which collector spent it?" -- the one dimension the product
@@ -1878,10 +1951,61 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
     return "\n".join([*header, *(_trace_step_line(step) for step in state.steps)])
 
 
+# The ``:LINE`` tail a TODO-style signal appends to its path (``README.md:48``).
+# ASCII ``[0-9]`` (not ``\d``, which also matches non-ASCII digits) and ``\Z`` (not
+# ``$``, which would also match before a trailing newline) keep the strip exact.
+_PATH_LINE_SUFFIX = re.compile(r":[0-9]+\Z")
+
+
+def _path_excluded(path: str | None, patterns: list[str] | None) -> bool:
+    """Does ``path`` match any ``--exclude-path`` glob? (the exclusion predicate).
+
+    Pure, allocation-light and disk-free -- it never touches the filesystem, so it is
+    unit-testable from strings alone and cannot depend on what happens to exist.
+
+    Three load-bearing rules, each chosen against MEASURED signal paths:
+
+    * **A path-less signal is NEVER excluded**, not even by ``'*'``. ``path is None``
+      means repo-level perception (a git-activity or CI-config finding), and on this
+      repo 16 of 75 live signals are repo-scoped. A path filter that silently dropped
+      them would make ``--exclude-path`` lose findings that have nothing to do with
+      the location the user was narrowing away.
+    * **The pattern is matched against the verbatim path AND against the path with ONE
+      trailing ``:<digits>`` group removed.** WHY: 30 of those 75 signals (every
+      ``todo``, the single most numerous kind) carry a ``PATH:LINE`` path such as
+      ``README.md:48``, and ``fnmatch.fnmatchcase("readme.md:48", "*.md")`` is
+      ``False``. Matching only the whole value would ship a flag that silently misses
+      TODOs -- a footgun, not a filter. Stripping the suffix makes ``'notes.md'``,
+      ``'*.md'`` and ``'notes.md:12'`` all exclude ``notes.md:12``.
+    * **Case-folded operands + ``fnmatchcase``** (never ``fnmatch.fnmatch``, which
+      normalizes case through ``os.path.normcase`` and is therefore OS-dependent) --
+      the same determinism convention ``find_files`` uses in ``loop/tools.py``, so
+      results do not vary with the host filesystem's case sensitivity.
+
+    Documented boundary, deliberately DIVERGING from ``find_files``' basename-only
+    rule: the pattern is anchored at the START of the path and ``*`` crosses ``/``, so
+    ``'sub/*'`` excludes the whole ``sub/`` subtree while ``'top/sub/b.py'`` survives
+    it (an any-depth exclusion needs a leading ``*``). A basename match cannot express
+    "exclude this subtree", which is the entire point of the flag.
+    """
+    if path is None or not patterns:
+        return False
+    candidates = {path.lower()}
+    # ONE trailing :<digits> group, not a general split: a Windows-style drive letter
+    # or a colon inside a filename must stay part of the path.
+    candidates.add(_PATH_LINE_SUFFIX.sub("", path.lower()))
+    return any(
+        fnmatch.fnmatchcase(candidate, pattern.lower())
+        for pattern in patterns
+        for candidate in candidates
+    )
+
+
 def _select_signals(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
     min_weight: float | None = None,
+    exclude_paths: list[str] | None = None,
 ) -> list[ContextSignal]:
     """The ONE selection predicate every ``signals`` surface shares.
 
@@ -1900,12 +2024,21 @@ def _select_signals(
     from a synthetic snapshot. The ``--collector`` allowlist is NOT applied here --
     it is an UPSTREAM filter honored by ``_collect``, so it is already reflected in
     ``snapshot.signals``.
+
+    ``exclude_paths`` (the ``--exclude-path`` globs) is the third clause and the
+    first LOCATION-aware one: a signal is dropped when ``_path_excluded`` says its
+    ``path`` matches ANY pattern (OR semantics; see that helper for the matching
+    rules, including why a path-less signal always survives). It belongs HERE and
+    nowhere else for the same structural reason the other two clauses do -- the gate
+    must narrow with the view -- and it defaults to ``None`` (excludes nothing), so
+    a bare ``signals`` invocation is byte-identical to before the flag existed.
     """
     return [
         s
         for s in snapshot.signals
         if (kind is None or s.kind == kind)
         and (min_weight is None or s.weight >= min_weight)
+        and not _path_excluded(s.path, exclude_paths)
     ]
 
 
@@ -1913,10 +2046,12 @@ def _render_signals(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
     min_weight: float | None = None,
+    exclude_paths: list[str] | None = None,
 ) -> str:
     """Render the raw collector signals grouped by kind as plain text.
 
-    A pure, disk-free, deterministic function of ``(snapshot, kind, min_weight)`` -- like
+    A pure, disk-free, deterministic function of
+    ``(snapshot, kind, min_weight, exclude_paths)`` -- like
     ``_render_runs`` / ``_render_trace`` it opens no files and builds no client, so
     the exact human view is reproducible from a synthetic snapshot alone. The
     optional ``kind`` narrows the view to one collector-defined kind, and the
@@ -1925,7 +2060,9 @@ def _render_signals(
     AND over the same ``selected`` list that drives grouping/counts/ordering, so
     a threshold that excludes every signal (or a ``kind`` matching none) degrades
     to a single ``(no signals collected)`` marker rather than a bare or blank
-    block. Kind headers ``## <kind> (<count>)`` appear in ascending lexicographic
+    block. The optional ``exclude_paths`` globs subtract by LOCATION over that same
+    list (``_path_excluded``, OR semantics, path-less signals always survive), so
+    ``--exclude-path '*'`` degrades to the same marker. Kind headers ``## <kind> (<count>)`` appear in ascending lexicographic
     order, and within each section signals are ordered by
     ``(source, summary, path or "")``
     so two renders of the same snapshot are byte-identical. ``weight`` is shown as
@@ -1934,7 +2071,7 @@ def _render_signals(
     no arrow. Header lines start with ``## `` and signal lines with two spaces, so
     the two are unambiguously distinguishable (a caller can count kinds by ``## ``).
     """
-    selected = _select_signals(snapshot, kind, min_weight)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
     if not selected:
         return "(no signals collected)"
     grouped: dict[str, list[ContextSignal]] = {}
@@ -1956,6 +2093,7 @@ def _signals_json_payload(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
     min_weight: float | None = None,
+    exclude_paths: list[str] | None = None,
 ) -> dict:
     """Build the ``signals --json`` document as a pure function of inputs.
 
@@ -1967,15 +2105,16 @@ def _signals_json_payload(
     deliberately excluded so the wire schema stays a small, stable contract a
     ``jq`` pipeline can rely on. ``path`` is echoed as-is (JSON ``null`` when
     ``None``); ``weight`` stays a raw JSON number (the human view renders it
-    ``w<value:.2f>``). The optional ``kind`` (exact match) and ``min_weight``
-    (inclusive ``weight >= min_weight`` lower bound) compose as a logical AND over
+    ``w<value:.2f>``). The optional ``kind`` (exact match), ``min_weight``
+    (inclusive ``weight >= min_weight`` lower bound) and ``exclude_paths``
+    (``--exclude-path`` globs, subtractive) compose as a logical AND over
     the same ``selected`` list. A filter matching nothing degrades to
     ``signals == []`` (NOT the human ``(no signals collected)`` marker), so the
     JSON is always one object -- an empty array, never prose. Mirrors the ``_scan_json_payload`` /
     ``_run_row`` explicit-dict convention; kept pure/disk-free so it is
     unit-testable without touching a workspace or a client.
     """
-    selected = _select_signals(snapshot, kind, min_weight)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
     selected.sort(key=lambda s: (s.kind, s.source, s.summary, s.path or ""))
     return {
         "workspace_root": snapshot.root,
@@ -1997,6 +2136,7 @@ def _render_signals_summary(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
     min_weight: float | None = None,
+    exclude_paths: list[str] | None = None,
 ) -> str:
     """Render a per-kind COUNT rollup of the selected signals as plain text.
 
@@ -2006,16 +2146,17 @@ def _render_signals_summary(
     lexicographic kind order, followed by a final ``"total  {N}"`` line whose ``N``
     is the number of selected signals (== the sum of the per-kind counts). Like
     ``_render_signals`` it is a pure, disk-free, deterministic function of
-    ``(snapshot, kind, min_weight)`` -- it opens no file and builds no client -- and
-    it reuses the EXACT same ``selected`` filter (``kind`` exact match AND inclusive
-    ``weight >= min_weight``) so ``--summary`` never changes WHICH signals are
+    ``(snapshot, kind, min_weight, exclude_paths)`` -- it opens no file and builds no
+    client -- and it reuses the EXACT same ``selected`` filter (``kind`` exact match
+    AND inclusive ``weight >= min_weight`` AND not ``_path_excluded``) so
+    ``--summary`` never changes WHICH signals are
     counted, only how they are rendered; the ``--collector`` allowlist is applied
     upstream in ``_collect``. An empty selection (nothing collected, or the filters
     exclude everything) degrades to the SAME ``(no signals collected)`` marker the
     listing view uses -- and, deliberately, NO ``total`` line -- rather than an
     empty table. Deterministic by construction: kinds ascending, ``total`` last.
     """
-    selected = _select_signals(snapshot, kind, min_weight)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
     if not selected:
         return "(no signals collected)"
     counts: dict[str, int] = {}
@@ -2030,6 +2171,7 @@ def _signals_summary_payload(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
     min_weight: float | None = None,
+    exclude_paths: list[str] | None = None,
 ) -> dict:
     """Build the ``signals --summary --json`` document as a pure function of inputs.
 
@@ -2040,14 +2182,14 @@ def _signals_summary_payload(
     serialized document is deterministic), and ``total`` (the number of selected
     signals == the sum of the ``summary`` values). No ``signals`` array in summary
     mode. It reuses the SAME ``selected`` filter as ``_signals_json_payload`` (kind
-    exact match AND inclusive ``weight >= min_weight``; the ``--collector`` allowlist
-    is applied upstream in ``_collect``), so the counts are exactly consistent with
-    the human table. An empty selection degrades to ``summary == {}`` / ``total ==
+    exact match AND inclusive ``weight >= min_weight`` AND not ``_path_excluded``;
+    the ``--collector`` allowlist is applied upstream in ``_collect``), so the counts
+    are exactly consistent with the human table. An empty selection degrades to ``summary == {}`` / ``total ==
     0`` (never the human ``(no signals collected)`` marker, never a blank output) --
     the JSON is always one object. Kept pure/disk-free so it is unit-testable from a
     synthetic snapshot with no workspace or client.
     """
-    selected = _select_signals(snapshot, kind, min_weight)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
     counts: dict[str, int] = {}
     for signal in selected:
         counts[signal.kind] = counts.get(signal.kind, 0) + 1
@@ -3384,7 +3526,13 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     ``scan --collector``): its accepted values are exactly the live collector
     names, an unknown name is an argparse usage error (exit 2) BEFORE this
     handler runs, absent (the default) inspects all collectors, and it composes
-    as a logical AND with ``--kind``/``--min-weight``. ``--timings`` is the one
+    as a logical AND with ``--kind``/``--min-weight``. ``--exclude-path GLOB``
+    (repeatable, OR semantics) is the first LOCATION-aware knob and the only
+    SUBTRACTIVE one: it hides signals whose ``path`` matches a case-folded glob, so a
+    vendored/generated/fixture tree can be dropped without re-rooting ``--workspace``
+    (which would also throw away every repo-level, path-less signal). It is a
+    DOWNSTREAM display filter read after ``_collect``, so ``--timings`` is untouched;
+    an empty pattern is an argparse usage error (exit 2). ``--timings`` is the one
     knob here that is not a view filter: it arms ``_collect``'s measurement sink
     and prints a per-collector cost table (name / elapsed ms / signal count, plus
     a ``TOTAL`` row, in registry order) to STDERR only, so every stdout surface
@@ -3392,7 +3540,7 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     non-deterministic and must never enter a stdout contract. Its rows report
     which collectors RAN, so the UPSTREAM filters narrow them (``--collector``,
     and ``--kind`` via its emitting collector) while the display-only ones
-    (``--min-weight``/``--summary``) do not, and the front-door workspace guard
+    (``--min-weight``/``--summary``/``--exclude-path``) do not, and the front-door workspace guard
     above still runs FIRST, so a mistyped path exits 2 with no timing block.
     ``--fail-on-kind KIND`` (repeatable, registry-validated at PARSE time) is the
     only knob here that touches the EXIT STATUS: it returns ``5`` when the REPORTED
@@ -3401,8 +3549,8 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     it existed, a workspace holding a committed ``.env`` and an empty directory both
     exited ``0``. It gates on the same ``_select_signals`` list the view rendered, so
     narrowing that hides a finding (``--min-weight`` above its weight, a disjoint
-    ``--collector``) also disarms the gate and the exit status can never contradict
-    the listing; the report is exactly one ``gate: fail-on-kind tripped --
+    ``--collector``, an ``--exclude-path`` covering its directory) also disarms the
+    gate and the exit status can never contradict the listing; the report is exactly one ``gate: fail-on-kind tripped --
     <kind>=<count>`` line on STDERR (kinds ascending, matched kinds only, no
     ``error:`` prefix because a finding is not a fault), so every stdout surface
     stays byte-identical with and without the flag and ``--json`` keeps parsing as
@@ -3465,20 +3613,27 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     )
     snapshot = _collect(workspace, only=only, timings=timings)
     min_weight = getattr(args, "min_weight", None)
+    # Read ONCE here and threaded into every surface below (never re-derived), so the
+    # four renderers and the gate cannot disagree about what was excluded. DOWNSTREAM
+    # by construction: it is read AFTER _collect, so no exclude pattern can change
+    # which collectors ran or what --timings reports.
+    exclude_paths = getattr(args, "exclude_path", None)
     if getattr(args, "summary", False):
         # AGGREGATE view: a per-kind count rollup over the SAME selected list,
         # NOT the per-signal listing. --json emits the {workspace_root, summary,
         # total} object; otherwise the human count table (kinds ascending, total
         # last). Selection (kind/min_weight/collector) is unchanged.
         if args.json:
-            print(json.dumps(_signals_summary_payload(snapshot, kind, min_weight), indent=2))
+            payload = _signals_summary_payload(snapshot, kind, min_weight, exclude_paths)
+            print(json.dumps(payload, indent=2))
         else:
-            print(_render_signals_summary(snapshot, kind, min_weight))
+            print(_render_signals_summary(snapshot, kind, min_weight, exclude_paths))
     elif args.json:
         # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_signals_json_payload(snapshot, kind, min_weight), indent=2))
+        payload = _signals_json_payload(snapshot, kind, min_weight, exclude_paths)
+        print(json.dumps(payload, indent=2))
     else:
-        print(_render_signals(snapshot, kind, min_weight))
+        print(_render_signals(snapshot, kind, min_weight, exclude_paths))
     if timings is not None:
         # A stderr TRAILER, printed after the stdout view so the primary output
         # leads when both streams share a terminal. Nothing above this line
@@ -3493,7 +3648,7 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         # review: a --min-weight that hides the finding also disarms the gate.
         # OR semantics across the named kinds; only kinds that ACTUALLY matched are
         # named in the line, each with its own count, kinds ascending.
-        selected = _select_signals(snapshot, kind, min_weight)
+        selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
         tripped = {k: n for k in gate_kinds if (n := sum(1 for s in selected if s.kind == k))}
         if tripped:
             # STDERR, exactly one line, and no `error:` prefix: a tripped gate is a

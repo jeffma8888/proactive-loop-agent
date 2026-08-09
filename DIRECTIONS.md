@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-125
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- the published suite-size floor is stale AND the guard cannot tell truth from fiction
+    - Candidate A2 -- guard-then-fix the 30 in-table blank lines that break `ROADMAP_ARCHIVE.md` rendering
+    - Candidate A3 -- the repo ships an unexplained, unlinked decision log; link it from the README behind a link-integrity guard
+    - Candidate B1 -- `signals --exclude-path GLOB`: the product has no way to scope perception by LOCATION
+    - Candidate B2 -- `PythonVersionDriftCollector` (roadmap row #122): the 17th collector, and only the 2nd RELATIONAL one
+    - Candidate B3 -- `signals --baseline <file>`: report only findings NOT present in a saved baseline
+    winner: B1
+    ship: unknown
   iter-124
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- sound file-level prefilter before the todos per-line regex loop (+18.78 ms, 35% of that pass)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- publish the run-dir artifact layout, guarded against cli.py's 4 filename constants
     - Candidate B3 -- make the published suite-size floor self-correcting instead of silently rotting
     winner: B2
-    ship: unknown
+    ship: PUSHED d8ed387
   iter-123
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- collapse the three divergent copies of the noise-directory vocabulary into one
@@ -249,4 +259,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-33 scouted iterations
+34 scouted iterations
