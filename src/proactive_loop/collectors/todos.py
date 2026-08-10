@@ -28,6 +28,10 @@ from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
+# The MODULE is imported (not its ``read_text`` function) so all three content
+# collectors resolve the provider through ONE patchable attribute -- a test can
+# instrument or assert the shared seam in a single place.
+from proactive_loop.collectors import text_source
 from proactive_loop.models import ContextSignal
 
 # Matches TODO / FIXME / XXX anywhere in a line (case-insensitive).
@@ -268,7 +272,14 @@ class TodoCollector(BaseCollector):
                 try:
                     if full.stat().st_size > self.max_read_bytes:
                         continue
-                    text = full.read_text(encoding="utf-8", errors="replace")
+                    # Shared per-scan decode: inside ``cli._collect``'s scope the
+                    # first content collector to reach this path pays the read and
+                    # the other two are served the SAME string. ``strict=False``
+                    # keeps this collector's errors="replace" policy exactly -- it
+                    # never returns None, so an undecodable file still reports its
+                    # todos with U+FFFD in place of the bad bytes, as today. Outside
+                    # a scope the provider reads the file on every call.
+                    text = text_source.read_text(full, strict=False)
                 except OSError:
                     continue
                 found.extend(_extract_todos(text, full, root, self.name))

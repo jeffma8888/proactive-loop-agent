@@ -47,6 +47,9 @@ from proactive_loop.collectors.base import BaseCollector
 # buried in node_modules/.venv/a hidden dir is invisible here too.
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
+# The MODULE is imported (not its ``read_text`` function) so all three content
+# collectors resolve the provider through ONE patchable attribute.
+from proactive_loop.collectors import text_source
 from proactive_loop.models import ContextSignal
 
 # The two conflict-marker label prefixes git writes at column 0: exactly seven
@@ -140,7 +143,11 @@ class MergeConflictCollector(BaseCollector):
                 try:
                     if full.stat().st_size > self.max_read_bytes:
                         continue
-                    text = full.read_text(encoding="utf-8", errors="replace")
+                    # Shared per-scan decode (see text_source): ``strict=False``
+                    # preserves this collector's errors="replace" policy, so a
+                    # binary-ish text file still just yields 0 markers and a
+                    # marker inside an undecodable file is still reported.
+                    text = text_source.read_text(full, strict=False)
                 except OSError:
                     continue
                 count = _count_markers(text)

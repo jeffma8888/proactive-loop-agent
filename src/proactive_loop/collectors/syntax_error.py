@@ -66,6 +66,9 @@ from proactive_loop.collectors.base import BaseCollector
 # buried in node_modules/.venv/a hidden dir is invisible here too.
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
+# The MODULE is imported (not its ``read_text`` function) so all three content
+# collectors resolve the provider through ONE patchable attribute.
+from proactive_loop.collectors import text_source
 from proactive_loop.models import ContextSignal
 
 
@@ -289,8 +292,20 @@ class SyntaxErrorCollector(BaseCollector):
         try:
             if full.stat().st_size > self.max_read_bytes:
                 return None
-            text = full.read_text(encoding="utf-8")
+            # Shared per-scan decode (see text_source), with this collector's
+            # STRICT policy preserved: the provider attempts a strict read first,
+            # so a decodable file yields the identical string the plain
+            # ``read_text`` above produced, and undecodable bytes yield None --
+            # the same SKIP the ``UnicodeDecodeError`` clause below used to give.
+            # That clause is KEPT: it is the guarantee that a future direct read
+            # here can never leak a decode error into the walk.
+            text = text_source.read_text(full, strict=True)
         except (OSError, UnicodeDecodeError):
+            return None
+        if text is None:
+            # Not decodable UTF-8 -> "not a reportable Python file", never a
+            # crash and never a signal (the file's bytes are still scanned by
+            # todos/merge_conflict, which report replacement-charred text).
             return None
 
         # A NUL byte decodes fine as UTF-8, but `compile` rejects it -- and on

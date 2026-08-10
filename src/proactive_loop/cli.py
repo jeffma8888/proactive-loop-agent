@@ -48,6 +48,7 @@ from pydantic import ValidationError
 from . import __version__
 from .config import Settings
 from .collectors import SIGNAL_KINDS, all_collectors
+from .collectors import text_source
 from .llm import LLMClient, LLMError
 from .llm.providers import create_client
 from .loop import Checkpoint, GoalLoop, ToolRegistry
@@ -1195,45 +1196,63 @@ def _collect(
     value: the snapshot is this function's contract with four verbs and a wire
     schema, and widening it to a tuple would force every call site to change for
     a diagnostic that only one verb wants.
+
+    This seam also DEFINES the lifetime of the shared text cache: the collector
+    loop runs inside one ``text_source.scan_scope()``, so a file the content
+    collectors overlap on is read and decoded ONCE per scan and never held across
+    scans. That is scoping only -- which signals are produced, in what order, and
+    with what fields is byte-identical to before -- and it applies to every verb
+    that scans through here, since they all share this one loop.
     """
     # Explicitly annotated: the `len(signals)` read below now precedes the first
     # `extend`, so mypy can no longer infer the element type from usage.
     signals: list[ContextSignal] = []
-    for collector in all_collectors():
-        if only is not None and collector.name not in only:
-            continue
-        started = time.perf_counter()
-        before = len(signals)
-        try:
-            signals.extend(collector.collect(workspace))
-        except Exception as exc:  # noqa: BLE001 - deliberate: contain a buggy collector
-            # A raising collector VIOLATES the §4.1 "never raises -> []" contract,
-            # so it is a bug IN THAT COLLECTOR. The orchestration layer's job is to
-            # contain-and-surface it (log + skip), never propagate it and take down
-            # every verb that shares this seam. Broad by design: any exception a
-            # collector leaks must be isolated, not just a known subset.
-            _LOG.warning("collector %r raised, skipping: %s", collector.name, exc)
-        if timings is not None:
-            # Recorded AFTER the try/except, so a collector that RAISED is still
-            # timed and still gets a row -- a broken collector is exactly the one
-            # whose cost you want attributed. Its containment WARNING is inside
-            # the window by design: the row reports what this SEAM spent on that
-            # collector, not an idealized inner duration.
-            #
-            # The count is the DELTA in the shared list, never len() of a captured
-            # return value. That keeps the extend() call above VERBATIM (so a
-            # generator that yields then raises still contributes what it yielded,
-            # exactly as today) and makes the reconciliation invariant true by
-            # construction: the per-collector counts always sum to the snapshot's
-            # signal count, so the table can never quietly disagree with the
-            # listing it annotates.
-            timings.append(
-                (
-                    collector.name,
-                    (time.perf_counter() - started) * 1000.0,
-                    len(signals) - before,
+    # ONE shared read+decode per file for the whole scan. The three content
+    # collectors (todos / merge_conflict / syntax_error) walk overlapping file
+    # sets and each used to read them independently; inside this scope the first
+    # one to reach a path pays the decode and the others are served the same
+    # string. Wrapping the LOOP (not each collect() call) is what makes the
+    # sharing cross-collector, and it is the only change here: `only=` filtering,
+    # the never-raise isolation and the `timings` sink below are untouched. The
+    # scope empties the cache on both edges even if a collector raises, so no
+    # text ever survives a scan -- see collectors/text_source for why the
+    # lifetime is exactly one scan.
+    with text_source.scan_scope():
+        for collector in all_collectors():
+            if only is not None and collector.name not in only:
+                continue
+            started = time.perf_counter()
+            before = len(signals)
+            try:
+                signals.extend(collector.collect(workspace))
+            except Exception as exc:  # noqa: BLE001 - deliberate: contain a buggy collector
+                # A raising collector VIOLATES the §4.1 "never raises -> []" contract,
+                # so it is a bug IN THAT COLLECTOR. The orchestration layer's job is to
+                # contain-and-surface it (log + skip), never propagate it and take down
+                # every verb that shares this seam. Broad by design: any exception a
+                # collector leaks must be isolated, not just a known subset.
+                _LOG.warning("collector %r raised, skipping: %s", collector.name, exc)
+            if timings is not None:
+                # Recorded AFTER the try/except, so a collector that RAISED is still
+                # timed and still gets a row -- a broken collector is exactly the one
+                # whose cost you want attributed. Its containment WARNING is inside
+                # the window by design: the row reports what this SEAM spent on that
+                # collector, not an idealized inner duration.
+                #
+                # The count is the DELTA in the shared list, never len() of a captured
+                # return value. That keeps the extend() call above VERBATIM (so a
+                # generator that yields then raises still contributes what it yielded,
+                # exactly as today) and makes the reconciliation invariant true by
+                # construction: the per-collector counts always sum to the snapshot's
+                # signal count, so the table can never quietly disagree with the
+                # listing it annotates.
+                timings.append(
+                    (
+                        collector.name,
+                        (time.perf_counter() - started) * 1000.0,
+                        len(signals) - before,
+                    )
                 )
-            )
     return WorkspaceSnapshot(root=str(workspace), signals=signals)
 
 

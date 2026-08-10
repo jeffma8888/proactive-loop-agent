@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-129
+    lenses: simplification-and-deletion, performance-and-throughput (iteration 129)
+    - Candidate A1 -- collapse the two copy-pasted content-digest memoizers into one shared bounded memo
+    - Candidate A2 -- delete the two shadow copies of the directory-skip policy (a proven drift, currently masked)
+    - Candidate A3 -- replace the three sibling path guards with the one general rule
+    - Candidate B1 (primary) -- read each file ONCE per scan: a shared text+digest provider for the three content collectors
+    - Candidate B2 -- close the one-shot hole: an opt-in cross-invocation cache for the parse verdict
+    - Candidate B3 -- stop re-spawning `git log`: memoize `git_activity` on the resolved HEAD sha
+    winner: B1
+    ship: unknown
   iter-128
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- make the bundled example script drive a real 2-tick `watch`, so the stream -> `diff` change feed has a runnable on-ramp
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Replace `create_client`'s 7-arm if/elif chain with the data-driven map its own docstring already claims exists
     - Candidate B3 -- Extract the twice-copied ancestor walk out of the CLI path guards, and delete the paragraph explaining why they could not be shared
     winner: A1
-    ship: unknown
+    ship: PUSHED 9363fae
   iter-127
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Finish the atomic-write idiom: `Checkpoint.save` temp cleanup + the `meta.json` writer
@@ -289,4 +299,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-37 scouted iterations
+38 scouted iterations
