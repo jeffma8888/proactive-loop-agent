@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-128
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- make the bundled example script drive a real 2-tick `watch`, so the stream -> `diff` change feed has a runnable on-ramp
+    - Candidate A2 -- `scan --json` as the scripting-parity alias for `--format json`
+    - Candidate A3 -- `signals --baseline FILE`: the adoption ratchet the shipped exit-5 gate needs (roadmap row #150)
+    - Candidate B1 -- Collapse the 3 structurally IDENTICAL OpenAI-shaped provider factories into one parameterized builder
+    - Candidate B2 -- Replace `create_client`'s 7-arm if/elif chain with the data-driven map its own docstring already claims exists
+    - Candidate B3 -- Extract the twice-copied ancestor walk out of the CLI path guards, and delete the paragraph explaining why they could not be shared
+    winner: A1
+    ship: unknown
   iter-127
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Finish the atomic-write idiom: `Checkpoint.save` temp cleanup + the `meta.json` writer
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Make the demo-artifact gate assertions dogfood the product's own listing verb
     - Candidate B3 -- `pla runs --json` cannot be ordered: no consumer can tell which run is newest
     winner: A1
-    ship: unknown
+    ship: PUSHED 4e48072
   iter-126
     lenses: NEW CAPABILITY, hardening/DX
     - Candidate A1 -- `signals --baseline FILE`: turn the exit-5 gate from "no findings" into "no NEW findings"
@@ -279,4 +289,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-36 scouted iterations
+37 scouted iterations

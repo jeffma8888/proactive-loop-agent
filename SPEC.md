@@ -1077,10 +1077,12 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   (realistic code w/ TODO/FIXME), `projects/api-gateway/server.py`, `notes/journal.md`
   (AI-learning + job-search-flavored entries, personal-project voice, NO real names/
   employers), stray `README.md`. NO `.git` inside.
-- `examples/scripted_responses.json`: full end-to-end script — 1 synthesize response
-  (4 goals: one high-score AI-learning project goal that auto-dispatches, one career
-  goal below threshold, one sensitive-category goal, one not-appropriate-now) + plan/
-  check pairs for a 3-iteration loop that writes `learning_plan.md` +
+- `examples/scripted_responses.json`: full end-to-end script — 2 synthesize responses:
+  the 1st has 4 goals (one high-score AI-learning project goal that auto-dispatches, one
+  career goal below threshold, one sensitive-category goal, one not-appropriate-now); the
+  2nd re-assesses the same workspace, re-scoring one goal, dropping one and adding one, so
+  a 2-tick `pla watch --out-dir DIR` feeds `pla diff --dir DIR` a real change feed with no
+  API key. Plus plan/check pairs for a 3-iteration loop that writes `learning_plan.md` +
   `project_scaffold.md` artifacts, then done.
 - `Makefile`: `setup` (uv sync), `test` (uv run pytest), `demo`
   (uv run pla run --workspace examples/fixture_workspace --provider scripted
