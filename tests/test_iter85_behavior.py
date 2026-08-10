@@ -50,17 +50,31 @@ _UNPUSHED_RE = re.compile(
 def _make_run(porcelain_by_dir: dict[str, str], ahead_by_dir: dict[str, int]):
     """Build a fake ``subprocess.run`` that behaves like ``git -C <dir> ...``.
 
-    The collector runs exactly two git commands per scanned directory:
-      * ``git -C <dir> status --porcelain`` -> working-tree state
-      * ``git -C <dir> rev-list --count @{u}..HEAD`` -> local unpushed count
+    The collector runs exactly ONE git command per scanned directory:
+      * ``git -C <dir> status --porcelain --branch`` -> working-tree state, plus
+        the branch's ahead-of-upstream count in the leading ``## `` header line
 
     ``porcelain_by_dir`` maps ``str(dir)`` -> porcelain stdout (default ""
     == clean tree, so no per-path signals). ``ahead_by_dir`` maps ``str(dir)``
     -> unpushed count; a dir NOT in the map behaves like "no upstream
-    configured" (returncode 1), so it emits no unpushed-summary signal. NO real
-    subprocess (hence no ``git`` binary) is ever spawned --- the collector reads
-    only ``.returncode`` and ``.stdout``.
+    configured", so it emits no unpushed-summary signal. Both are answered by the
+    SINGLE status stdout, which this double synthesizes exactly as git does:
+    ``## <branch>...<upstream> [ahead N]`` when the dir has a count, and a bare
+    ``## <branch>`` (no ``...upstream``, hence nothing to be ahead of) when it
+    does not. NO real subprocess (hence no ``git`` binary) is ever spawned --- the
+    collector reads only ``.returncode`` and ``.stdout``.
+
+    Any OTHER git command fails closed (returncode 1). That is deliberate: if the
+    collector ever regressed to asking a second command for the unpushed count,
+    that query would answer "no upstream" and every ahead_by_dir expectation
+    below would go red rather than silently still passing.
     """
+
+    def _header_for(target: str | None) -> str:
+        """The ``--branch`` header line git would print for *target*."""
+        if target in ahead_by_dir:
+            return f"## main...origin/main [ahead {ahead_by_dir[target]}]\n"
+        return "## main\n"
 
     def _fake_run(cmd, *args, **kwargs):
         parts = [str(x) for x in cmd]
@@ -68,12 +82,8 @@ def _make_run(porcelain_by_dir: dict[str, str], ahead_by_dir: dict[str, int]):
         joined = " ".join(parts)
         if "status" in joined:
             return types.SimpleNamespace(
-                returncode=0, stdout=porcelain_by_dir.get(target, "")
-            )
-        # Any non-status git command == the local unpushed-count query.
-        if target in ahead_by_dir:
-            return types.SimpleNamespace(
-                returncode=0, stdout=f"{ahead_by_dir[target]}\n"
+                returncode=0,
+                stdout=_header_for(target) + porcelain_by_dir.get(target, ""),
             )
         return types.SimpleNamespace(returncode=1, stdout="")
 

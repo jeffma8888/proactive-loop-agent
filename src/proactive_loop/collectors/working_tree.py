@@ -14,10 +14,16 @@ new ``kind="working_tree"`` flows into synthesis automatically because the
 synthesizer iterates ``snapshot.by_kind()``, so this file plus one registry line
 is the whole wiring cost (proven zero-synthesizer-change by iter-09).
 
-Fully offline and pure-stdlib (``subprocess`` to the local ``git`` only). Unpushed
-detection reads the local tracking ref (``@{u}..HEAD``) ONLY -- it NEVER runs
-``git fetch`` / ``git ls-remote`` or any network operation (SPEC section 5, the
-fully-offline non-negotiable).
+Fully offline and pure-stdlib (``subprocess`` to the local ``git`` only). ONE
+``git status --porcelain --branch`` per scanned directory carries BOTH facts: the
+changed paths, and -- in its ``## `` header -- how far the branch is ahead of its
+upstream. WHY one command and not two: a scan pays a whole process start-up per
+git invocation per directory on EVERY tick (no cache can remove it, because the
+answer must be current), and ``--branch`` adds no measurable cost to a status
+walk the collector already performs, so the ahead count is free where a second
+process was not. Unpushed detection still reads the local remote-tracking ref
+ONLY -- it NEVER runs ``git fetch`` / ``git ls-remote`` or any network operation
+(SPEC section 5, the fully-offline non-negotiable).
 """
 
 from __future__ import annotations
@@ -41,6 +47,14 @@ _WEIGHT_UNPUSHED = 0.8
 # subprocess timeout (seconds); mirrors GitActivityCollector so a wedged git
 # call can never hang a scan.
 _TIMEOUT = 10
+
+# The whole grammar this collector depends on inside a ``--branch`` header line,
+# e.g. ``## main...origin/main [ahead 3, behind 1]``. Named constants because the
+# same three tokens are used to RECOGNISE the header (so it is never mistaken for
+# a changed path) and to READ the count out of it.
+_BRANCH_HEADER_PREFIX = "## "
+_UPSTREAM_SEPARATOR = "..."
+_AHEAD_TOKEN = "ahead "
 
 
 def _run_git(
@@ -94,21 +108,64 @@ def _classify_porcelain_line(line: str) -> tuple[str, str] | None:
     return category, path
 
 
-def _parse_ahead_count(stdout: str) -> int | None:
-    """Parse ``git rev-list --count @{u}..HEAD`` output into an int, or None.
+def _parse_ahead_count(text: str) -> int | None:
+    """Parse a bare ahead-count token into an int, or None if unparseable.
 
-    WHY: when a branch has no configured upstream, rev-list exits non-zero and we
-    never reach here; when it succeeds the output is a single integer line.
-    Anything unparseable degrades to None (treated as "no unpushed signal") so a
-    surprising git build can never crash the scan.
+    Fed the digits that follow ``ahead `` in a ``--branch`` header (see
+    ``_parse_branch_header_ahead``). Anything unparseable -- empty, blank,
+    non-numeric, or more than one token -- degrades to None (treated as "no
+    unpushed signal") so a surprising git build can never crash the scan.
     """
-    text = stdout.strip()
-    if not text:
+    stripped = text.strip()
+    if not stripped:
         return None
     try:
-        return int(text)
+        return int(stripped)
     except ValueError:
         return None
+
+
+def _parse_branch_header_ahead(line: str) -> int | None:
+    """Ahead-of-upstream count carried by a ``--branch`` header line, or None.
+
+    ``git status --porcelain --branch`` prefixes its output with exactly one
+    metadata line, e.g. ``## main...origin/main [ahead 3, behind 1]``. None means
+    "no unpushed signal" and covers exactly the cases in which an explicit
+    ``git rev-list --count @{u}..HEAD`` would exit non-zero or answer zero: no
+    upstream configured (``## main``), a detached HEAD (``## HEAD (no branch)``),
+    an unborn branch (``## No commits yet on main``), a vanished upstream ref
+    (``[gone]``), an in-sync branch (no bracket), or an unparseable count.
+
+    WHY key the count on the ``ahead `` token rather than on "a bracket is
+    present": ``[gone]`` (the upstream ref was deleted, or the repo is a clone of
+    an empty remote) and ``[different]`` (emitted under ``--no-ahead-behind``,
+    which this collector never passes) are real bracket forms that carry NO
+    count, so a bracket-keyed parser would mis-read them as a divergence report.
+
+    WHY a pure helper: the header grammar is the one fiddly part of reading the
+    count out of the status output, so it stays unit-testable with no git repo,
+    honouring the same "skip a malformed line, never crash" contract as
+    ``_classify_porcelain_line``.
+    """
+    if not line.startswith(_BRANCH_HEADER_PREFIX):
+        return None
+    body = line[len(_BRANCH_HEADER_PREFIX):]
+    refs, bracket, divergence = body.rpartition(" [")
+    if not bracket or not divergence.endswith("]"):
+        # No divergence bracket at all: either in sync with the upstream, or no
+        # upstream/branch to be ahead of. Both mean "no signal".
+        return None
+    if _UPSTREAM_SEPARATOR not in refs:
+        # A bracket with no ``branch...upstream`` pair in front of it is not a
+        # divergence report. ``git check-ref-format`` forbids both ``..`` and
+        # ``[`` inside a refname, so the separator can never be part of a branch
+        # name and the bracket can never be anything but git's own metadata.
+        return None
+    for token in divergence[:-1].split(","):
+        stripped = token.strip()
+        if stripped.startswith(_AHEAD_TOKEN):
+            return _parse_ahead_count(stripped[len(_AHEAD_TOKEN):])
+    return None
 
 
 @dataclass
@@ -124,6 +181,9 @@ class WorkingTreeCollector(BaseCollector):
       untracked file), capped at ``max_items`` per-path signals in total, and
     * at most one summary signal naming how many local commits are unpushed
       (ahead of the branch's upstream), which is independent of the per-path cap.
+
+    Both come from a SINGLE ``git status --porcelain --branch`` per directory, so
+    the number of git processes a scan starts is one per repo, not two.
 
     WHY a dataclass with defaults: mirrors the sibling collectors so
     ``all_collectors()`` can construct it with no arguments, while a caller
@@ -143,8 +203,9 @@ class WorkingTreeCollector(BaseCollector):
         seen: set[str] = set()
 
         for directory in self._dirs_to_scan(root):
-            path_signals.extend(self._dirty_path_signals(directory, seen))
-            unpushed = self._unpushed_signal(directory)
+            dirty, ahead = self._dirty_path_signals(directory, seen)
+            path_signals.extend(dirty)
+            unpushed = self._unpushed_signal(directory, ahead)
             if unpushed is not None:
                 summary_signals.append(unpushed)
 
@@ -186,19 +247,36 @@ class WorkingTreeCollector(BaseCollector):
 
     def _dirty_path_signals(
         self, directory: Path, seen: set[str]
-    ) -> list[ContextSignal]:
-        """One signal per changed path from ``git status --porcelain``.
+    ) -> tuple[list[ContextSignal], int | None]:
+        """Signals per changed path, PLUS the ahead count, from one git spawn.
 
-        A non-zero return code (not a repo) or unavailable git degrades to ``[]``
-        for this directory. Duplicate summaries (e.g. root and a nested repo both
-        surfacing the same path) are collapsed via *seen*.
+        Returns ``(path_signals, ahead)``. WHY the pair rather than two methods:
+        ``git status --porcelain --branch`` answers both questions in one process,
+        and splitting the result across two callers would mean either spawning
+        twice again or caching git output across the scan (which the spec forbids).
+        A non-zero return code (not a repo) or unavailable git degrades to
+        ``([], None)`` for this directory. Duplicate summaries (e.g. root and a
+        nested repo both surfacing the same path) are collapsed via *seen*.
+        ``ahead`` is ``None`` whenever the header reports no upstream to be ahead
+        of, or a count that will not parse; see ``_parse_branch_header_ahead``.
         """
-        result = _run_git(directory, ["status", "--porcelain"])
+        result = _run_git(directory, ["status", "--porcelain", "--branch"])
         if result is None or result.returncode != 0:
-            return []
+            return [], None
 
+        ahead: int | None = None
         signals: list[ContextSignal] = []
         for line in result.stdout.splitlines():
+            if line.startswith(_BRANCH_HEADER_PREFIX):
+                # The header is metadata, never a changed path, and it MUST be
+                # consumed here: `_classify_porcelain_line` special-cases only
+                # `??` and `!!`, so left alone it would emit a bogus
+                # "uncommitted change" signal for a path named after the branch
+                # and its upstream. A porcelain data line can never be mistaken
+                # for it, because a data line's first two bytes are always a
+                # status code, and git prints exactly one header, first.
+                ahead = _parse_branch_header_ahead(line)
+                continue
             classified = _classify_porcelain_line(line)
             if classified is None:
                 continue
@@ -225,28 +303,27 @@ class WorkingTreeCollector(BaseCollector):
                     timestamp=None,
                 )
             )
-        return signals
+        return signals, ahead
 
-    def _unpushed_signal(self, directory: Path) -> ContextSignal | None:
-        """Summary signal for local commits ahead of the branch's upstream.
+    def _unpushed_signal(
+        self, directory: Path, ahead: int | None
+    ) -> ContextSignal | None:
+        """Summary signal for *ahead* local commits, or None when there is none.
 
-        Reads ONLY the local tracking ref via ``git rev-list --count @{u}..HEAD``
-        -- no ``git fetch``, no network (SPEC section 5). A repo with no
-        configured upstream makes rev-list exit non-zero, so this returns
-        ``None`` (Behavior 8). A zero-ahead count also yields ``None`` (nothing
-        to nudge about).
+        *ahead* is the count read from the ``## `` header of this directory's
+        single ``git status --porcelain --branch`` -- a purely local comparison
+        against the remote-tracking ref, with no ``git fetch`` and no network
+        (SPEC section 5, Behavior 8). ``None`` (no upstream configured, detached
+        HEAD, unborn branch, vanished upstream ref, unparseable count) and a
+        zero-or-negative count both yield ``None``: nothing to nudge about.
         """
-        result = _run_git(directory, ["rev-list", "--count", "@{u}..HEAD"])
-        if result is None or result.returncode != 0:
-            return None
-        count = _parse_ahead_count(result.stdout)
-        if count is None or count <= 0:
+        if ahead is None or ahead <= 0:
             return None
         return ContextSignal(
             source=self.name,
             kind="working_tree",
             summary=(
-                f"{count} unpushed commit(s) in {directory.name} ahead of upstream"
+                f"{ahead} unpushed commit(s) in {directory.name} ahead of upstream"
             ),
             detail="local commits not yet pushed (@{u}..HEAD, local ref only, no network)",
             path=None,

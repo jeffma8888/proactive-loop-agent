@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-130
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- collapse `working_tree`'s 2 git spawns into 1 via `git status --porcelain --branch`
+    - Candidate A2 -- (in progress: suite wall-clock / repeatedly-paid cost) -- see refinement
+    - Candidate A3 -- (in progress) -- see refinement
+    - Candidate B1 -- the README Quickstart never names `make check`, the one command that reproduces the public gate
+    - Candidate B2 -- README declares the NARROWER of the two exit-code surfaces canonical
+    - Candidate B3 -- three shipped caching mechanisms are documented nowhere a reader will look
+    winner: A1
+    ship: unknown
   iter-129
     lenses: simplification-and-deletion, performance-and-throughput (iteration 129)
     - Candidate A1 -- collapse the two copy-pasted content-digest memoizers into one shared bounded memo
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- close the one-shot hole: an opt-in cross-invocation cache for the parse verdict
     - Candidate B3 -- stop re-spawning `git log`: memoize `git_activity` on the resolved HEAD sha
     winner: B1
-    ship: unknown
+    ship: PUSHED 0d00b5d
   iter-128
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- make the bundled example script drive a real 2-tick `watch`, so the stream -> `diff` change feed has a runnable on-ramp
@@ -299,4 +309,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-38 scouted iterations
+39 scouted iterations
