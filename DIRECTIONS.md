@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-127
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Finish the atomic-write idiom: `Checkpoint.save` temp cleanup + the `meta.json` writer
+    - Candidate A2 -- Close the last deferred mypy ratchet: flip `disallow_any_generics` and annotate the 35 `type-arg` sites
+    - Candidate A3 -- Oracle the 2 unguarded `_out_dir_guard` messages
+    - Candidate B1 -- Put the `watch --out-dir` -> `diff --dir` change feed inside the graded gate (roadmap row #137), prerequisite discharged by execution
+    - Candidate B2 -- Make the demo-artifact gate assertions dogfood the product's own listing verb
+    - Candidate B3 -- `pla runs --json` cannot be ordered: no consumer can tell which run is newest
+    winner: A1
+    ship: unknown
   iter-126
     lenses: NEW CAPABILITY, hardening/DX
     - Candidate A1 -- `signals --baseline FILE`: turn the exit-5 gate from "no findings" into "no NEW findings"
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Close the atomic-write asymmetry: `Checkpoint.save` lacks the `try/finally` its own documented twin has
     - Candidate B3 -- Oracle the 2 unguarded `--out-dir` path-guard messages
     winner: B1
-    ship: unknown
+    ship: PUSHED ebc4ff3
   iter-125
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- the published suite-size floor is stale AND the guard cannot tell truth from fiction
@@ -269,4 +279,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-35 scouted iterations
+36 scouted iterations

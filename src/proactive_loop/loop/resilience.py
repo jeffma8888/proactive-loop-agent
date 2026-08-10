@@ -84,12 +84,32 @@ class Checkpoint:
         self.path = Path(path)
 
     def save(self, state: RunState) -> None:
-        """Persist *state* atomically, creating the parent dir if needed."""
+        """Persist *state* atomically, creating the parent dir if needed.
+
+        Mechanism (identical to the slate writer's, deliberately): write a
+        SIBLING temp file, then one ``os.replace`` onto the target. Sibling
+        placement is what keeps the rename inside a single filesystem, where
+        ``os.replace`` is atomic, so a reader sees either the previous snapshot
+        or the complete new one -- never a half-written prefix.
+
+        WHY the ``finally``: this is the product's highest-frequency writer (one
+        save per step), so a raising swap would otherwise leave a stray
+        ``<name>.tmp`` in a run directory that is a documented, user-visible
+        surface. Cleanup is best-effort and swallows its own ``OSError`` so the
+        caller keeps seeing the PRIMARY failure, never a secondary error raised
+        while tidying up. After a successful replace the temp name is already
+        gone, so one ``finally`` covers both paths.
+        """
         ensure_dir(self.path.parent)
-        # Write a sibling temp file first, then atomically swap it into place.
         tmp = self.path.with_name(self.path.name + ".tmp")
-        tmp.write_text(state.to_json())
-        os.replace(tmp, self.path)
+        try:
+            tmp.write_text(state.to_json())
+            os.replace(tmp, self.path)
+        finally:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def load(self) -> RunState | None:
         """Return the checkpointed state, or None if none has been saved.

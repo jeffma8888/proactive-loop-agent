@@ -1686,13 +1686,41 @@ def _render_run_summary(
 
 
 def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> None:
-    """Record the roots a `resume` needs (RunState alone lacks workspace_root)."""
-    (run_dir / _META_NAME).write_text(
-        json.dumps(
-            {"workspace_root": str(workspace_root), "artifacts_dir": str(artifacts_dir)},
-            indent=2,
+    """Record the roots a `resume` needs (RunState alone lacks workspace_root).
+
+    Written with the same temp-sibling + ``os.replace`` + ``finally``-cleanup
+    idiom as :func:`_write_slate` and :class:`Checkpoint`, and for a sharper
+    reason than either: this file is the ONLY record of ``workspace_root``, so a
+    truncated ``meta.json`` costs a run its resumability even when the
+    checkpoint written beside it is perfectly intact. Keeping the temp a SIBLING
+    of the target holds the rename on one filesystem, where ``os.replace`` is
+    atomic, so a reader sees either the previous metadata or the complete new
+    file. The ``finally`` unlinks the temp -- best-effort, swallowing its own
+    ``OSError`` so the PRIMARY failure is what reaches the caller -- because the
+    run directory this writes into is a documented, user-visible layout that
+    must not accumulate stray ``.tmp`` entries. Parent dirs are created on
+    demand for parity with the sibling writers (the sole caller already creates
+    the run dir, so that tolerance is idiom parity, not a live-bug fix).
+    """
+    ensure_dir(run_dir)
+    path = run_dir / _META_NAME
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(
+                {
+                    "workspace_root": str(workspace_root),
+                    "artifacts_dir": str(artifacts_dir),
+                },
+                indent=2,
+            )
         )
-    )
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _read_meta(run_dir: Path) -> dict:
