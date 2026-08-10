@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-126
+    lenses: NEW CAPABILITY, hardening/DX
+    - Candidate A1 -- `signals --baseline FILE`: turn the exit-5 gate from "no findings" into "no NEW findings"
+    - Candidate A2 -- 17th collector: `DebugArtifactCollector` (`kind="debug_artifact"`), re-proposed with a new premise
+    - Candidate A3 -- user-tunable per-kind perception weights (`PLA_KIND_WEIGHTS="license=2,todo=0.5"`)
+    - Candidate B1 -- Repair `ROADMAP_ARCHIVE.md`'s broken table, whose two defects must be fixed in ONE commit
+    - Candidate B2 -- Close the atomic-write asymmetry: `Checkpoint.save` lacks the `try/finally` its own documented twin has
+    - Candidate B3 -- Oracle the 2 unguarded `--out-dir` path-guard messages
+    winner: B1
+    ship: unknown
   iter-125
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- the published suite-size floor is stale AND the guard cannot tell truth from fiction
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PythonVersionDriftCollector` (roadmap row #122): the 17th collector, and only the 2nd RELATIONAL one
     - Candidate B3 -- `signals --baseline <file>`: report only findings NOT present in a saved baseline
     winner: B1
-    ship: unknown
+    ship: PUSHED 808eb16
   iter-124
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- sound file-level prefilter before the todos per-line regex loop (+18.78 ms, 35% of that pass)
@@ -259,4 +269,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-34 scouted iterations
+35 scouted iterations
