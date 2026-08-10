@@ -775,6 +775,51 @@ def build_parser() -> argparse.ArgumentParser:
             "(exit 2)."
         ),
     )
+    # The RATCHET knob, and the flag that makes --fail-on-kind usable on a repo that
+    # already has findings. Every gated kind whose correct value is not zero
+    # (todo, recent_file, git_commit, note, ...) is RED on its first invocation and
+    # stays red, so the gate above could only be armed for the three kinds a healthy
+    # workspace never emits -- the classic linter adoption wall, whose standard answer
+    # is a baseline: record today, then fail only on what is NEW.
+    #
+    # CONSUME-ONLY on purpose: the user produces the file with `pla signals --json >
+    # base.json` (the bring-your-own-file shape `dispatch --slate` already has), so
+    # `signals` stays strictly read-only -- no --write-baseline, no state-dir cache.
+    # It is the INSTANCE-suppression complement of --exclude-path's LOCATION
+    # suppression, and neither substitutes for the other: one hides a vendored tree,
+    # the other hides the 30 TODOs that were already there so the 31st is visible.
+    # Applied DOWNSTREAM inside the shared _select_signals predicate, so it changes
+    # what is REPORTED and never what RUNS (--timings rows are untouched) and the exit
+    # gate can never contradict the listing. A malformed document is a usage error
+    # BEFORE any collection (exit 2), not a silent "suppress nothing" -- a typo'd path
+    # must not buy a green build. Declared BEFORE --timings for the same help-window
+    # reason --exclude-path is (see that comment).
+    p_signals.add_argument(
+        "--baseline",
+        default=None,
+        metavar="FILE",
+        dest="baseline",
+        help=(
+            "Hide every signal already recorded in FILE, a document you saved "
+            "earlier with `pla signals --json` -- so the listing and the "
+            "--fail-on-kind gate report only what is NEW since that snapshot. A "
+            "signal's identity is the six published keys (source, kind, summary, "
+            "detail, path, weight); extra keys are ignored, and differing in ANY "
+            "one key (including weight) makes it a different signal. Suppression "
+            "is set-based, so one baseline entry hides every live signal matching "
+            "it. It narrows every surface identically (listing, --json, --summary, "
+            "--summary --json) INCLUDING the exit gate, and composes as a logical "
+            "AND with --kind/--min-weight/--collector/--exclude-path; being a "
+            "display-side filter it leaves --timings untouched. STALENESS FAILS "
+            "TOWARD REPORTING: a baseline entry that no longer matches produces "
+            "noise, never a missed finding. An empty signals array is valid and "
+            "suppresses nothing. A missing or malformed baseline "
+            "(not JSON, not an object, no 'signals' array -- what a "
+            "--summary --json document looks like -- or an entry missing one of "
+            "the six keys) is a usage error (exit 2) reported before anything is "
+            "scanned. Default (absent) hides nothing."
+        ),
+    )
     # A COST knob, and the only one here that writes to stderr. Everything else on
     # this verb answers "what did the collectors see?"; --timings answers "what did
     # looking cost, and which collector spent it?" -- the one dimension the product
@@ -2048,11 +2093,142 @@ def _path_excluded(path: str | None, patterns: list[str] | None) -> bool:
     )
 
 
+# The six keys that DEFINE a signal on the wire, in the order ``_signals_json_payload``
+# emits them. Named ONCE, here, because two sides read them: the live signals and a
+# saved baseline document. A tuple (not a set) because an identity is ORDERED.
+_SIGNAL_IDENTITY_KEYS: tuple[str, ...] = (
+    "source",
+    "kind",
+    "summary",
+    "detail",
+    "path",
+    "weight",
+)
+
+
+def _signal_identity(signal: ContextSignal | dict[str, object]) -> tuple[object, ...]:
+    """The PUBLISHED identity of a signal: the tuple of its six wire-contract values.
+
+    WHY one function accepts BOTH a live ``ContextSignal`` and a decoded baseline
+    entry: ``--baseline`` compares what the collectors just perceived against what a
+    saved ``signals --json`` document recorded, and those two sides can only be
+    compared if they agree on WHICH keys participate and in WHAT ORDER. Two
+    extractors -- one reading attributes, one reading dict keys -- would make that
+    agreement a review promise; one function iterating one ``_SIGNAL_IDENTITY_KEYS``
+    tuple makes it structural, so a key added to (or reordered in) the wire schema
+    cannot desynchronize them. Same reasoning ``_select_signals`` gives for being
+    extracted rather than repeated.
+
+    Deliberately the SIX ``--json`` keys and never ``model_dump()``: ``timestamp`` is
+    excluded from the wire schema (the iter-08 schema-leak lesson) and a wall-clock
+    field could not match across two runs anyway, so including it would make every
+    baseline entry dead on arrival. Values are compared AS DECODED, so JSON ``null``
+    matches ``path=None`` and a JSON integer matches a float ``weight`` (``1 == 1.0``,
+    and they hash equally); a wrong-TYPED value simply fails to match, which is the
+    reporting-safe direction.
+
+    Returns ``tuple[object, ...]`` on purpose: the baseline side is arbitrary decoded
+    JSON, so annotating the elements ``str``/``float`` would be a claim this function
+    does not check.
+    """
+    if isinstance(signal, dict):
+        # Presence of every key is the loader's precondition, so a plain subscript is
+        # right here -- a KeyError would be a loader bug, not bad user input.
+        return tuple(signal[key] for key in _SIGNAL_IDENTITY_KEYS)
+    return tuple(getattr(signal, key) for key in _SIGNAL_IDENTITY_KEYS)
+
+
+def _load_signal_baseline(path: Path) -> set[tuple[object, ...]]:
+    """Load a saved ``signals --json`` document into a SET of signal identities.
+
+    The CONSUME half of ``--baseline``: the user produces the file themselves with
+    ``pla signals --json > base.json`` -- the same bring-your-own-file shape
+    ``dispatch --slate`` has -- so ``signals`` stays strictly read-only and this
+    function only ever reads.
+
+    A SET, not a list, for two reasons: suppression is SET semantics (one baseline
+    entry hides EVERY live signal sharing its identity, so a workspace with two
+    identical TODO lines needs one entry, not two), and membership stays O(1) over a
+    workspace surfacing thousands of signals.
+
+    FAIL-CLOSED on malformed input, mirroring the ``--fail-on-kind``-unreachable
+    guard in ``_cmd_signals``: every case below raises ``ValueError`` carrying a
+    ready-to-print message body, which the caller turns into ONE ``error: `` line on
+    stderr plus exit 2 BEFORE any collector runs. The alternative -- treating an
+    unreadable baseline as "suppress nothing" -- is quietly wrong in the direction
+    that matters, because a hook author who typos the path would inherit a green
+    build computed against a baseline that never loaded. The missing-``signals`` case
+    is the realistic one: it is exactly what a ``--summary --json`` document saved by
+    mistake looks like.
+
+    Extra keys on an entry are IGNORED rather than rejected, so a document written by
+    a future version that adds a field still loads -- only the six identity keys
+    participate. Value TYPES are not checked (a string ``"0.5"`` weight loads and
+    simply never matches): the schema contract enforced here is the six key NAMES.
+    The one exception is structural rather than a type rule -- a JSON array or object
+    as an identity value is UNHASHABLE, so the identity ``set`` cannot hold it, and it
+    is rejected with the other malformed-input cases rather than escaping as a
+    ``TypeError``.
+    """
+    if not path.is_file():
+        raise ValueError(f"baseline file not found or not a regular file: {path}")
+    try:
+        raw = path.read_text()
+    except UnicodeDecodeError as exc:
+        # A ValueError subclass, so it would surface anyway -- re-raised only to
+        # attach the path the vendor message omits.
+        raise ValueError(f"baseline file is not valid UTF-8 text: {path}: {exc}") from None
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"baseline file is not valid JSON: {path}: {exc}") from None
+    if not isinstance(document, dict):
+        raise ValueError(
+            f"baseline file must contain one JSON object: {path}: got "
+            f"{type(document).__name__}"
+        )
+    entries = document.get("signals")
+    if not isinstance(entries, list):
+        raise ValueError(
+            f"baseline file has no 'signals' array: {path}: expected a document saved "
+            "by `pla signals --json` (a --summary --json document carries counts, "
+            "not signals)"
+        )
+    baseline: set[tuple[object, ...]] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"baseline file entry signals[{index}] is not a JSON object: {path}"
+            )
+        missing = [key for key in _SIGNAL_IDENTITY_KEYS if key not in entry]
+        if missing:
+            raise ValueError(
+                f"baseline file entry signals[{index}] is missing "
+                + ", ".join(missing)
+                + f": {path}"
+            )
+        try:
+            baseline.add(_signal_identity(entry))
+        except TypeError:
+            # Present-but-unhashable (a JSON array or object where a scalar
+            # belongs) is a STRUCTURAL fault, not the value-type checking this
+            # loader keeps out of scope: the identity ``set`` cannot represent
+            # such a value at all. So it fails closed with its sibling
+            # malformed cases instead of escaping the narrow
+            # (LLMError, ValueError, OSError) guard in main() as a raw traceback.
+            raise ValueError(
+                f"baseline file entry signals[{index}] has a JSON array or object "
+                f"where a scalar value is expected: {path}"
+            ) from None
+    return baseline
+
+
 def _select_signals(
     snapshot: WorkspaceSnapshot,
     kind: str | None = None,
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
+    baseline: set[tuple[object, ...]] | None = None,
 ) -> list[ContextSignal]:
     """The ONE selection predicate every ``signals`` surface shares.
 
@@ -2079,6 +2255,20 @@ def _select_signals(
     nowhere else for the same structural reason the other two clauses do -- the gate
     must narrow with the view -- and it defaults to ``None`` (excludes nothing), so
     a bare ``signals`` invocation is byte-identical to before the flag existed.
+
+    ``baseline`` (the ``--baseline`` document, pre-loaded into a set of identity
+    tuples by ``_load_signal_baseline``) is the fourth clause and the first
+    INSTANCE-aware one: a signal is dropped when its ``_signal_identity`` is already
+    present in the set. It is the complement of ``exclude_paths``, not a substitute
+    -- that one suppresses by LOCATION (hide a vendored tree), this one by INSTANCE
+    (hide the 30 TODOs that were already there and report the 31st) -- which is what
+    turns the ``--fail-on-kind`` gate from "no findings" into "no NEW findings" on a
+    workspace that has any. It belongs HERE for the same structural reason the other
+    three clauses do: the gate must narrow with the view. ``None`` (the default)
+    suppresses nothing AND skips the identity computation entirely, so the no-flag
+    path is byte-identical and costs nothing; an EMPTY set is valid and also
+    suppresses nothing. Staleness fails toward REPORTING -- a baseline entry that no
+    longer matches produces noise, never a missed finding.
     """
     return [
         s
@@ -2086,6 +2276,7 @@ def _select_signals(
         if (kind is None or s.kind == kind)
         and (min_weight is None or s.weight >= min_weight)
         and not _path_excluded(s.path, exclude_paths)
+        and (baseline is None or _signal_identity(s) not in baseline)
     ]
 
 
@@ -2094,11 +2285,12 @@ def _render_signals(
     kind: str | None = None,
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
+    baseline: set[tuple[object, ...]] | None = None,
 ) -> str:
     """Render the raw collector signals grouped by kind as plain text.
 
     A pure, disk-free, deterministic function of
-    ``(snapshot, kind, min_weight, exclude_paths)`` -- like
+    ``(snapshot, kind, min_weight, exclude_paths, baseline)`` -- like
     ``_render_runs`` / ``_render_trace`` it opens no files and builds no client, so
     the exact human view is reproducible from a synthetic snapshot alone. The
     optional ``kind`` narrows the view to one collector-defined kind, and the
@@ -2109,7 +2301,10 @@ def _render_signals(
     to a single ``(no signals collected)`` marker rather than a bare or blank
     block. The optional ``exclude_paths`` globs subtract by LOCATION over that same
     list (``_path_excluded``, OR semantics, path-less signals always survive), so
-    ``--exclude-path '*'`` degrades to the same marker. Kind headers ``## <kind> (<count>)`` appear in ascending lexicographic
+    ``--exclude-path '*'`` degrades to the same marker. The optional ``baseline``
+    set subtracts by INSTANCE over that same list (a signal whose
+    ``_signal_identity`` a saved ``signals --json`` document already recorded is
+    dropped), so a baseline covering everything degrades to the same marker too. Kind headers ``## <kind> (<count>)`` appear in ascending lexicographic
     order, and within each section signals are ordered by
     ``(source, summary, path or "")``
     so two renders of the same snapshot are byte-identical. ``weight`` is shown as
@@ -2118,7 +2313,7 @@ def _render_signals(
     no arrow. Header lines start with ``## `` and signal lines with two spaces, so
     the two are unambiguously distinguishable (a caller can count kinds by ``## ``).
     """
-    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths, baseline)
     if not selected:
         return "(no signals collected)"
     grouped: dict[str, list[ContextSignal]] = {}
@@ -2141,6 +2336,7 @@ def _signals_json_payload(
     kind: str | None = None,
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
+    baseline: set[tuple[object, ...]] | None = None,
 ) -> dict:
     """Build the ``signals --json`` document as a pure function of inputs.
 
@@ -2153,15 +2349,16 @@ def _signals_json_payload(
     ``jq`` pipeline can rely on. ``path`` is echoed as-is (JSON ``null`` when
     ``None``); ``weight`` stays a raw JSON number (the human view renders it
     ``w<value:.2f>``). The optional ``kind`` (exact match), ``min_weight``
-    (inclusive ``weight >= min_weight`` lower bound) and ``exclude_paths``
-    (``--exclude-path`` globs, subtractive) compose as a logical AND over
-    the same ``selected`` list. A filter matching nothing degrades to
+    (inclusive ``weight >= min_weight`` lower bound), ``exclude_paths``
+    (``--exclude-path`` globs, subtractive by LOCATION) and ``baseline`` (the
+    ``--baseline`` identity set, subtractive by INSTANCE) compose as a logical AND
+    over the same ``selected`` list. A filter matching nothing degrades to
     ``signals == []`` (NOT the human ``(no signals collected)`` marker), so the
     JSON is always one object -- an empty array, never prose. Mirrors the ``_scan_json_payload`` /
     ``_run_row`` explicit-dict convention; kept pure/disk-free so it is
     unit-testable without touching a workspace or a client.
     """
-    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths, baseline)
     selected.sort(key=lambda s: (s.kind, s.source, s.summary, s.path or ""))
     return {
         "workspace_root": snapshot.root,
@@ -2184,6 +2381,7 @@ def _render_signals_summary(
     kind: str | None = None,
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
+    baseline: set[tuple[object, ...]] | None = None,
 ) -> str:
     """Render a per-kind COUNT rollup of the selected signals as plain text.
 
@@ -2193,9 +2391,10 @@ def _render_signals_summary(
     lexicographic kind order, followed by a final ``"total  {N}"`` line whose ``N``
     is the number of selected signals (== the sum of the per-kind counts). Like
     ``_render_signals`` it is a pure, disk-free, deterministic function of
-    ``(snapshot, kind, min_weight, exclude_paths)`` -- it opens no file and builds no
+    ``(snapshot, kind, min_weight, exclude_paths, baseline)`` -- it opens no file and builds no
     client -- and it reuses the EXACT same ``selected`` filter (``kind`` exact match
-    AND inclusive ``weight >= min_weight`` AND not ``_path_excluded``) so
+    AND inclusive ``weight >= min_weight`` AND not ``_path_excluded`` AND not
+    already present in ``baseline``) so
     ``--summary`` never changes WHICH signals are
     counted, only how they are rendered; the ``--collector`` allowlist is applied
     upstream in ``_collect``. An empty selection (nothing collected, or the filters
@@ -2203,7 +2402,7 @@ def _render_signals_summary(
     listing view uses -- and, deliberately, NO ``total`` line -- rather than an
     empty table. Deterministic by construction: kinds ascending, ``total`` last.
     """
-    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths, baseline)
     if not selected:
         return "(no signals collected)"
     counts: dict[str, int] = {}
@@ -2219,6 +2418,7 @@ def _signals_summary_payload(
     kind: str | None = None,
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
+    baseline: set[tuple[object, ...]] | None = None,
 ) -> dict:
     """Build the ``signals --summary --json`` document as a pure function of inputs.
 
@@ -2229,14 +2429,15 @@ def _signals_summary_payload(
     serialized document is deterministic), and ``total`` (the number of selected
     signals == the sum of the ``summary`` values). No ``signals`` array in summary
     mode. It reuses the SAME ``selected`` filter as ``_signals_json_payload`` (kind
-    exact match AND inclusive ``weight >= min_weight`` AND not ``_path_excluded``;
-    the ``--collector`` allowlist is applied upstream in ``_collect``), so the counts
+    exact match AND inclusive ``weight >= min_weight`` AND not ``_path_excluded`` AND
+    not already present in ``baseline``; the ``--collector`` allowlist is applied
+    upstream in ``_collect``), so the counts
     are exactly consistent with the human table. An empty selection degrades to ``summary == {}`` / ``total ==
     0`` (never the human ``(no signals collected)`` marker, never a blank output) --
     the JSON is always one object. Kept pure/disk-free so it is unit-testable from a
     synthetic snapshot with no workspace or client.
     """
-    selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
+    selected = _select_signals(snapshot, kind, min_weight, exclude_paths, baseline)
     counts: dict[str, int] = {}
     for signal in selected:
         counts[signal.kind] = counts.get(signal.kind, 0) + 1
@@ -3579,7 +3780,16 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     vendored/generated/fixture tree can be dropped without re-rooting ``--workspace``
     (which would also throw away every repo-level, path-less signal). It is a
     DOWNSTREAM display filter read after ``_collect``, so ``--timings`` is untouched;
-    an empty pattern is an argparse usage error (exit 2). ``--timings`` is the one
+    an empty pattern is an argparse usage error (exit 2). ``--baseline FILE`` is the
+    second subtractive knob and the INSTANCE-aware complement of that LOCATION-aware
+    one: it hides every signal whose six published keys already appear in a document
+    the user saved with ``signals --json``, which is what turns the ``--fail-on-kind``
+    gate from "no findings" into "no NEW findings" on a workspace that has any. It is
+    loaded ONCE below -- BEFORE ``_collect``, beside the ``--fail-on-kind``-unreachable
+    guard -- and a missing or malformed document is a fail-CLOSED usage error (one
+    ``error: `` line, exit 2, nothing scanned) rather than a silent "suppress nothing";
+    like ``--exclude-path`` it narrows every surface AND the gate identically and leaves
+    ``--timings`` alone. ``--timings`` is the one
     knob here that is not a view filter: it arms ``_collect``'s measurement sink
     and prints a per-collector cost table (name / elapsed ms / signal count, plus
     a ``TOTAL`` row, in registry order) to STDERR only, so every stdout surface
@@ -3631,6 +3841,23 @@ def _cmd_signals(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    # Read BEFORE _collect, beside the guard above, because a baseline that cannot be
+    # loaded is a USAGE error: nothing should be scanned and stdout must stay empty.
+    # Fail-CLOSED for the same reason that guard is (see _load_signal_baseline): the
+    # alternative -- degrading to "suppress nothing" -- would let a typo'd path buy a
+    # permanently green gate. Loaded ONCE into a set of identity tuples and threaded
+    # into every surface below, so the four renderers and the gate cannot disagree
+    # about what was already known. None (flag absent) suppresses nothing and skips
+    # the identity computation entirely, so a bare `signals` is byte-identical to
+    # before the flag existed.
+    baseline: set[tuple[object, ...]] | None = None
+    baseline_path = getattr(args, "baseline", None)
+    if baseline_path is not None:
+        try:
+            baseline = _load_signal_baseline(Path(baseline_path))
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
     # UPSTREAM narrowing: --kind is read BEFORE collecting (it used to be read
     # after) and its emitting collector(s) are intersected into the --collector
     # allowlist, so a kind-filtered inspection now does a kind-filtered amount of
@@ -3671,16 +3898,16 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         # total} object; otherwise the human count table (kinds ascending, total
         # last). Selection (kind/min_weight/collector) is unchanged.
         if args.json:
-            payload = _signals_summary_payload(snapshot, kind, min_weight, exclude_paths)
+            payload = _signals_summary_payload(snapshot, kind, min_weight, exclude_paths, baseline)
             print(json.dumps(payload, indent=2))
         else:
-            print(_render_signals_summary(snapshot, kind, min_weight, exclude_paths))
+            print(_render_signals_summary(snapshot, kind, min_weight, exclude_paths, baseline))
     elif args.json:
         # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        payload = _signals_json_payload(snapshot, kind, min_weight, exclude_paths)
+        payload = _signals_json_payload(snapshot, kind, min_weight, exclude_paths, baseline)
         print(json.dumps(payload, indent=2))
     else:
-        print(_render_signals(snapshot, kind, min_weight, exclude_paths))
+        print(_render_signals(snapshot, kind, min_weight, exclude_paths, baseline))
     if timings is not None:
         # A stderr TRAILER, printed after the stdout view so the primary output
         # leads when both streams share a terminal. Nothing above this line
@@ -3695,7 +3922,7 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         # review: a --min-weight that hides the finding also disarms the gate.
         # OR semantics across the named kinds; only kinds that ACTUALLY matched are
         # named in the line, each with its own count, kinds ascending.
-        selected = _select_signals(snapshot, kind, min_weight, exclude_paths)
+        selected = _select_signals(snapshot, kind, min_weight, exclude_paths, baseline)
         tripped = {k: n for k in gate_kinds if (n := sum(1 for s in selected if s.kind == k))}
         if tripped:
             # STDERR, exactly one line, and no `error:` prefix: a tripped gate is a
