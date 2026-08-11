@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-136
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- Delete one of two duplicate nested pytest runs: 33% of the suite wall, zero behavior lost
+    - Candidate A2 -- Make `--exclude-path` prune COLLECTION, not just the display: today it saves 2.5%
+    - Candidate A3 -- Land the already-measured `todos` prefilter (roadmap row #129)
+    - Candidate B1 -- The README's headline "2,700+ tests" is 657 short of live, and its guard is fail-open in BOTH directions
+    - Candidate B2 -- Two collector docstrings claim an "identical strategy" the code contradicts
+    - Candidate B3 -- `todos.py`'s performance block is 33% stale and, alone among the three, undated
+    winner: B1
+    ship: unknown
   iter-135
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- finish row #165: fold the 3 remaining inline relative-path idioms onto `BaseCollector._relative` (and correct the row's false premise)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- The `todos` cold-scan prefilter (roadmap row #129, already QUEUED with a settled shape)
     - Candidate B3 -- Cut the fresh-process startup tax on the CLI critical path
     winner: B1
-    ship: unknown
+    ship: PUSHED 6fac577
   iter-134
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- Put the `watch` -> `diff` change feed inside the graded gate (roadmap row #137, gate-step half)
@@ -356,4 +366,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-44 scouted iterations
+45 scouted iterations

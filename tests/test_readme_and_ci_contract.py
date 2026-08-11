@@ -13,9 +13,13 @@ So every quoted claim is bound here to a live source of truth:
 
 * ``"N context collectors"`` -> ``len(all_collectors())``
 * ``"N CLI verbs"``          -> the live argparse subparser choices
-* the suite-size claim       -> must be a **floor** (``1,800+ tests``), never an
-  exact count. An exact count is self-invalidating: adding this very file
-  changes it. A floor stays true as the suite grows.
+* the suite-size claim       -> must be a **floor** (``3,300+ tests``) that is
+  both TRUE and FRESH against a real collection. Three ways it can be wrong, and
+  all three now fail the build: an exact count (self-invalidating -- adding this
+  very file changes it), a floor ABOVE the live total (a false boast), and a
+  floor more than ``SUITE_SIZE_SLACK`` BELOW it (true, but rotting -- which is
+  how this very claim reached a public README understating the suite by 657
+  tests, 19.6%, having also been ~150 stale on the day it was hand-written).
 * the test signal            -> must be the live CI badge, not a hardcoded one.
 * the CI workflow            -> must still run the three commands the README and
   Makefile promise (``uv sync --locked`` / ``uv run pytest`` / ``make demo``).
@@ -36,17 +40,30 @@ The README marker carries a narrow carve-out permitting automated contributors
 to correct these NUMBERS (and only the numbers), so this guard forces a fix
 instead of deadlocking the loop.
 
-Fully offline: reads two files and imports the package. No network, no
-subprocess, no YAML dependency (the workflow is checked as text on purpose --
-``pyyaml`` is deliberately not a dependency of this project).
+Offline, and cheap by design: the guards read two files and import the package,
+plus exactly ONE local ``sys.executable -m pytest --collect-only`` subprocess over
+this suite -- the only oracle that can prove the suite-size floor. A static ``ast``
+count of ``test_*`` functions cannot: measured at ``factory iter 143`` it yields
+2,477 across 156 files against a 3,357-test collection, i.e. BELOW the published
+floor, because ``parametrize`` expands at collection time. (One further
+collect-only run, over an EMPTY temp directory, is the known-bad sample proving
+that oracle fails LOUDLY rather than falling back; it collects nothing.) Neither
+run touches the network or writes anything (``-p no:cacheprovider``), and there is
+still no YAML dependency (the workflow is checked as text on purpose -- ``pyyaml``
+is deliberately not a dependency of this project).
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
-from collections.abc import Iterable
+import subprocess
+import sys
+import tomllib
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -58,6 +75,59 @@ README = REPO / "README.md"
 WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 MARKER = "PORTFOLIO INTRO"
 CLI_HEADING = "## CLI"
+PYPROJECT = REPO / "pyproject.toml"
+
+# How far the published suite-size floor may fall BELOW the live collection before
+# the claim counts as STALE and must be re-rounded. The ONE knob: retune it here,
+# nowhere else.
+#
+# 500, deliberately not 1000. Drift measures ~+49 tests per ship, so 500 buys ~10
+# iterations before a forced digit bump while capping the worst PERMITTED
+# understatement at 499 -- strictly better than the 657-test understatement this
+# constant was introduced to end. A slack of 1000 would license a 999-test
+# understatement, i.e. a WORSE public artifact than the defect being fixed. A slack
+# of 0 is the opposite failure: it would manufacture a red badge on a PUBLIC repo
+# every ~2 ships, and a guard that cries wolf gets deleted.
+SUITE_SIZE_SLACK = 500
+
+# The intro's bolded suite-size claim: ``**3,300+ tests**`` and
+# ``**3,300+ passing tests**``. Group 1 is the digits, group 2 the trailing ``+``.
+# Deliberately the SAME pattern the removed fail-open assertion used, so the new
+# oracle inherits its proven match set (both intro claims) rather than inventing a
+# second pattern that could quietly match one of them.
+SUITE_CLAIM = re.compile(r"\*\*([\d,]+)(\+?)[^*]*tests\*\*")
+
+# The arguments after ``sys.executable`` for the one collection subprocess.
+#
+# ``-o addopts=`` is LOAD-BEARING, not tidiness: ``pyproject.toml`` sets
+# ``addopts = "-q -n auto"``, and under an inherited ``-n auto`` this command
+# prints per-file counts and NO ``NNNN tests collected`` total line at all. A guard
+# that lost the neutralization would therefore parse nothing -- and with any
+# defensive fallback it would pass VACUOUSLY, which is the exact failure class this
+# whole change exists to remove. ``test_the_collection_command_neutralizes_the_
+# inherited_addopts`` pins the coupling.
+#
+# ``-p no:cacheprovider`` is equally deliberate: the release gate reads
+# ``git status --porcelain``, so a nested run must not create ``.pytest_cache``.
+COLLECT_ONLY_ARGS: tuple[str, ...] = (
+    "-m",
+    "pytest",
+    "--collect-only",
+    "-q",
+    "-o",
+    "addopts=",
+    "-p",
+    "no:cacheprovider",
+)
+
+# pytest's serial one-line total, e.g. ``3357 tests collected in 0.52s``.
+# Multiline-anchored: it is the last line of a ``-q`` collection, never the first.
+COLLECTED_TOTAL = re.compile(r"^(\d+) tests collected", re.MULTILINE)
+
+# Generous: the measured cost is 0.52s collect / 0.91s wall warm, but a cold
+# import of 156 test modules on a loaded machine is slower, and a hang must fail
+# with a clear TimeoutExpired rather than wedging the suite.
+COLLECT_TIMEOUT = 180
 
 # argparse injects ``--help`` into every parser; the reference documents the 15
 # verbs, not 15 identical help flags, so it is exempt from both directions.
@@ -224,6 +294,172 @@ def missing_verbs(section_text: str, verbs: Iterable[str]) -> list[str]:
     return sorted(verb for verb in set(verbs) if f"`{verb}`" not in section_text)
 
 
+def _published_floor_for(live_count: int) -> int:
+    """The floor to publish for ``live_count``: rounded DOWN to the nearest 100.
+
+    Rounding DOWN is what keeps the published claim a true floor, and the
+    ``N,N00+`` shape is the operator's: never an exact count, which is stale on
+    the next commit. Every failure message names this value, so a forced bump is
+    a copy-paste rather than a judgement call.
+    """
+    return (live_count // 100) * 100
+
+
+def suite_size_problems(intro_text: str, live_count: int) -> list[str]:
+    """Human-readable problems with the intro's suite-size claim; empty when sound.
+
+    PURE -- no file read, no subprocess -- so the guard can be proven two-sided
+    from synthetic strings. That matters here more than usual: the assertion this
+    replaces checked only for a trailing ``+`` and a positive number, so it passed
+    identically on the stale ``2,700+`` it was supposed to catch and on a
+    fabricated ``9,000+``. Of the three numbers the README carve-out obliges
+    automated contributors to keep correct, the loudest was the only one whose
+    guard could not fail.
+
+    Checks, in the order a reader cares about them:
+
+    1. NO claim at all -> a problem. Without this the guard passes vacuously on an
+       intro whose claim was reworded away.
+    2. An EXACT count (no ``+``) -> a problem. Preserved from the old assertion:
+       the freshness rule must not be bought by trading away the floor rule.
+    3. ``live < floor`` -> a problem. The claim is FALSE, not merely stale; this is
+       the direction the old guard was blind to.
+    4. ``live - floor >= SUITE_SIZE_SLACK`` -> a problem. True but rotted.
+
+    ``SUITE_SIZE_SLACK`` is read as a module global at call time on purpose, so a
+    test can monkeypatch it and prove the staleness verdict really derives from
+    the named constant instead of a number inlined here.
+    """
+    claims = list(SUITE_CLAIM.finditer(intro_text))
+    suggested = _published_floor_for(live_count)
+    if not claims:
+        return [
+            "the README intro makes no bolded claim about the suite size -- expected "
+            f"something like '**{suggested:,}+ tests**'. With no claim to check, this "
+            "guard would pass vacuously while the public README says nothing about a "
+            "suite that is one of the project's headline claims."
+        ]
+
+    problems: list[str] = []
+    for match in claims:
+        claim = match.group(0)
+        floor = int(match.group(1).replace(",", ""))
+        if match.group(2) != "+":
+            problems.append(
+                f"the intro states an exact test count in {claim!r}. State a floor "
+                f"like '**{suggested:,}+ tests**' instead: an exact count is stale "
+                "the moment the next test lands, and this block is human-owned, so "
+                "the loop that breaks it cannot fix it."
+            )
+            continue
+        if floor <= 0:
+            problems.append(
+                f"nonsensical test-count floor in {claim!r}; publish "
+                f"'**{suggested:,}+ tests**'"
+            )
+            continue
+        if live_count < floor:
+            problems.append(
+                f"the intro claims {claim!r} but a live collection finds only "
+                f"{live_count:,} tests: the published floor ({floor}) is ABOVE the "
+                f"live count ({live_count}), so the claim is FALSE, not merely "
+                f"stale. Publish '**{suggested:,}+ tests**' -- the live count "
+                "rounded DOWN to the nearest 100. The README marker's carve-out "
+                "permits editing this number."
+            )
+        elif live_count - floor >= SUITE_SIZE_SLACK:
+            problems.append(
+                f"the intro's floor {claim!r} is stale: it understates the live "
+                f"suite by {live_count - floor:,} tests (live {live_count:,}, i.e. "
+                f"{live_count}), which is at or past the slack budget "
+                f"SUITE_SIZE_SLACK = {SUITE_SIZE_SLACK}. Replace it with "
+                f"'**{suggested:,}+ tests**' -- the live count rounded DOWN to the "
+                "nearest 100, so it stays a true floor. The README marker's "
+                "carve-out permits editing this number."
+            )
+    return problems
+
+
+def collect_env() -> dict[str, str]:
+    """Environment for the collection child: no inherited pytest config, no coverage.
+
+    Both removals are load-bearing, and neither is covered by ``-o addopts=``:
+
+    * ``PYTEST_ADDOPTS`` is a SEPARATE channel from the ini ``addopts`` that
+      ``-o`` overrides, so an ambient one (a developer shell, a CI step) would
+      re-inject flags -- including ``-n auto`` -- and delete the total line the
+      parse depends on. The xdist worker variables are dropped for the same
+      reason: the child must not believe it is a worker of the outer run.
+    * ``COV_CORE_*`` is how pytest-cov starts coverage inside CHILD processes. Left
+      in place, a collection run under ``make cov`` would write
+      ``.coverage.<host>.<pid>`` files into the repo root -- the tree the release
+      gate reads with ``git status --porcelain``, and the same shared artifact
+      iteration 52's oracles assert on.
+    """
+    env = dict(os.environ)
+    for key in (
+        "PYTEST_ADDOPTS",
+        "PYTEST_CURRENT_TEST",
+        "PYTEST_XDIST_WORKER",
+        "PYTEST_XDIST_WORKER_COUNT",
+    ):
+        env.pop(key, None)
+    for key in [k for k in env if k.startswith("COV_CORE")]:
+        env.pop(key, None)
+    return env
+
+
+def collect_live_test_count(
+    cwd: Path | None = None, env: Mapping[str, str] | None = None
+) -> int:
+    """The live number of collected tests, from ONE real ``--collect-only`` run.
+
+    A real collection is the only sound oracle for the published floor: static
+    counting undercounts badly because ``parametrize`` expands at collection time
+    (2,477 ``test_*`` functions across 156 files against a 3,357-test collection,
+    measured at ``factory iter 143``), and an undercount can never prove
+    ``live >= published``.
+
+    FAILS LOUDLY, with no fallback path. A non-zero exit or an unparseable total
+    raises with the exit code and a tail of the output; there is deliberately no
+    default, no cached constant and no ``skip``, because every one of those would
+    turn a broken oracle back into the fail-open guard this replaced.
+    """
+    proc = subprocess.run(
+        [sys.executable, *COLLECT_ONLY_ARGS],
+        cwd=str(REPO if cwd is None else cwd),
+        capture_output=True,
+        text=True,
+        timeout=COLLECT_TIMEOUT,
+        env=dict(collect_env() if env is None else env),
+    )
+    tail = "\n".join((proc.stdout + proc.stderr).splitlines()[-20:])
+    assert proc.returncode == 0, (
+        f"pytest --collect-only exited {proc.returncode} (expected 0), so the live "
+        "suite size is unknown and the README's floor cannot be verified. Fix the "
+        f"collection error rather than the claim. Output tail:\n{tail}"
+    )
+    match = COLLECTED_TOTAL.search(proc.stdout)
+    assert match is not None, (
+        "could not parse a '<N> tests collected' total from the collection output "
+        f"(exit code {proc.returncode}). The most likely cause is a lost "
+        f"'-o addopts=' -- under the inherited '-n auto' pytest prints per-file "
+        f"counts and no total at all. Output tail:\n{tail}"
+    )
+    return int(match.group(1))
+
+
+def pytest_ini_options() -> dict[str, Any]:
+    """The live ``[tool.pytest.ini_options]`` table, straight off ``pyproject.toml``."""
+    with PYPROJECT.open("rb") as fh:
+        data = tomllib.load(fh)
+    ini = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
+    assert isinstance(ini, dict), (
+        "pyproject.toml has no [tool.pytest.ini_options] table"
+    )
+    return ini
+
+
 def test_readme_collector_count_matches_the_live_registry() -> None:
     intro = _intro()
     m = re.search(r"([\d,]+) context collectors", intro)
@@ -248,21 +484,110 @@ def test_readme_cli_verb_count_matches_the_live_parser() -> None:
     )
 
 
-def test_readme_states_the_suite_size_as_a_floor_not_an_exact_count() -> None:
-    intro = _intro()
-    claims = list(re.finditer(r"\*\*([\d,]+)(\+?)[^*]*tests\*\*", intro))
-    assert claims, (
-        "README intro must make at least one bolded claim about the suite size"
+def test_readme_suite_size_claim_is_a_true_and_fresh_floor() -> None:
+    """The third carve-out number, bound to a real collection at last.
+
+    This replaces an assertion that checked only for a trailing ``+`` and a
+    positive number, and therefore passed on the stale ``2,700+`` (657 tests,
+    19.6% under) exactly as happily as it would on a fabricated ``9,000+``.
+    """
+    problems = suite_size_problems(_intro(), collect_live_test_count())
+    assert problems == [], (
+        "the README intro's suite-size claim no longer matches the live suite:\n  - "
+        + "\n  - ".join(problems)
     )
-    for m in claims:
-        assert m.group(2) == "+", (
-            f"README claims an exact test count ({m.group(0)!r}). State a floor "
-            "like '**1,800+ tests**' instead: an exact count is stale the moment "
-            "the next test lands, and this block is human-owned so the loop that "
-            "breaks it cannot fix it."
-        )
-        floor = int(m.group(1).replace(",", ""))
-        assert floor > 0, f"nonsensical test-count floor in {m.group(0)!r}"
+
+
+def test_suite_size_guard_rejects_a_fabricated_floor() -> None:
+    """Known-bad sample, the direction the old guard could not see."""
+    problems = suite_size_problems("**9,000+ tests** and more prose", 3357)
+    assert problems, "a floor above the live count must be rejected as FALSE"
+    assert any("9,000" in p and "3357" in p for p in problems), problems
+
+
+def test_suite_size_guard_rejects_a_true_but_stale_floor() -> None:
+    """``1,000+`` is TRUE for a 3,357-test suite -- and passed the old assertion."""
+    problems = suite_size_problems("**1,000+ tests**", 3357)
+    assert problems, "a floor 2,357 below the live count must be rejected as stale"
+    joined = " ".join(problems).lower()
+    assert "stale" in joined and "slack" in joined, problems
+    assert "3,300+" in " ".join(problems), (
+        "the failure must name the exact replacement floor, or a forced bump "
+        f"becomes a judgement call: {problems}"
+    )
+
+
+def test_suite_size_guard_still_rejects_an_exact_count() -> None:
+    """The freshness rule must not be bought by trading away the floor rule."""
+    problems = suite_size_problems("**3,357 tests**", 3357)
+    assert problems, "an exact count must still be rejected"
+    assert any("exact" in p for p in problems), problems
+
+
+def test_suite_size_guard_rejects_a_missing_claim() -> None:
+    """An intro with the claim reworded away must not pass vacuously."""
+    assert suite_size_problems("# Title\n\nno bolded suite claim here\n", 3357)
+
+
+def test_suite_size_slack_is_the_single_staleness_knob(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The verdict must derive from the named constant, not an inlined number."""
+    assert SUITE_SIZE_SLACK == 500
+    intro = _intro()
+    live = 3357  # a fixed live count keeps this test pure (no second subprocess)
+    assert suite_size_problems(intro, live) == []
+    monkeypatch.setattr(
+        "tests.test_readme_and_ci_contract.SUITE_SIZE_SLACK", 10, raising=True
+    )
+    assert suite_size_problems(intro, live), (
+        "shrinking SUITE_SIZE_SLACK did not change the verdict, so the staleness "
+        "budget is hardcoded somewhere inside the helper instead of read from the "
+        "named constant"
+    )
+    monkeypatch.undo()
+    assert suite_size_problems(intro, live) == []
+
+
+def test_the_collection_command_neutralizes_the_inherited_addopts() -> None:
+    """Pin the coupling between the live ``addopts`` and ``-o addopts=``.
+
+    Without the neutralization the same command inherits ``-n auto``, prints
+    per-file counts and NO ``NNNN tests collected`` line at all -- measured, not
+    theorised. So a guard that lost the pair would parse nothing, and any
+    defensive fallback would then read as green: the fail-open shape this
+    iteration removes, reintroduced by an unrelated config edit.
+    """
+    addopts = pytest_ini_options().get("addopts", "")
+    assert isinstance(addopts, str) and "-n auto" in addopts, (
+        "pyproject.toml no longer sets '-n auto' in addopts. If parallelism moved, "
+        "re-derive whether the collection subprocess still needs '-o addopts=' "
+        f"before deleting it; addopts is currently {addopts!r}"
+    )
+    pairs = list(zip(COLLECT_ONLY_ARGS, COLLECT_ONLY_ARGS[1:]))
+    assert ("-o", "addopts=") in pairs, (
+        f"the collection command lost its '-o addopts=' pair: {COLLECT_ONLY_ARGS}"
+    )
+    assert ("-p", "no:cacheprovider") in pairs, (
+        "the collection command lost '-p no:cacheprovider', so a nested run can "
+        f"write .pytest_cache into the tree the release gate reads: {COLLECT_ONLY_ARGS}"
+    )
+
+
+def test_collect_live_test_count_fails_loudly_on_a_broken_collection(
+    tmp_path: Path,
+) -> None:
+    """The fail-loud path, proven on a known-bad sample.
+
+    An empty directory collects nothing, so pytest exits 5. The guard must raise
+    with that exit code and an output tail -- never fall back to a default, a
+    static count or a skip, all of which would restore a fail-open guard.
+    """
+    with pytest.raises(AssertionError) as excinfo:
+        collect_live_test_count(cwd=tmp_path)
+    message = str(excinfo.value)
+    assert "exited 5" in message, message
+    assert "collect" in message.lower(), message
 
 
 def test_readme_test_signal_is_the_live_ci_badge() -> None:
