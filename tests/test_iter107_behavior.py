@@ -61,13 +61,17 @@ FLAG_TOKEN = re.compile(r"--[A-Za-z][A-Za-z0-9-]*")
 # The COMPLETE census of ``--``-shaped tokens the README publishes that no parser
 # could accept, because they are not `pla` options at all. Derived independently
 # here (this module never imports the shipped constants) and pinned as an EXACT
-# list, never folded into ``EXEMPT_FLAGS``: a THIRD such token must fail.
+# list, never folded into ``EXEMPT_FLAGS``: a FOURTH such token must fail.
 #   ``--first-success``  shields.io dash escaping in the Offline badge, inside
 #                        the human-owned intro (behavior 6).
 #   ``--locked``         the Quickstart's ``uv sync --locked`` -- a `uv` flag,
 #                        below the marker, and the thing that makes the install
 #                        line true (a bare ``uv sync`` may mutate ``uv.lock``).
-FOREIGN_FLAG_TOKENS = ["--first-success", "--locked"]
+#   ``--no-verify``      the "Pre-commit hook (opt-in)" section names git's own
+#                        escape hatch, ``git commit --no-verify`` -- a `git`
+#                        flag, below the marker, and the documented way past a
+#                        hook that fails CLOSED when the CLI cannot be resolved.
+FOREIGN_FLAG_TOKENS = ["--first-success", "--locked", "--no-verify"]
 
 # The 7 verb/flag pairs the spec requires on the ROW THAT OWNS THEM (behavior 9);
 # 4 of them are REQUIRED arguments, so an omission makes the documented command

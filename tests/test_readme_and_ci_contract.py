@@ -76,16 +76,21 @@ FLAG_TOKEN = re.compile(r"--[A-Za-z][A-Za-z0-9-]*")
 
 # The COMPLETE census of ``--``-shaped tokens the README publishes that are not
 # `pla` options at all, so no parser could ever accept them. This is why the
-# reverse guard is scoped to the ``## CLI`` section: both of these live outside
-# it. Pinned as an EXACT list rather than added to ``EXEMPT_FLAGS``, so a THIRD
-# such token still fails the build instead of being silently forgiven.
+# reverse guard is scoped to the ``## CLI`` section: all three of these live
+# outside it. Pinned as an EXACT list rather than added to ``EXEMPT_FLAGS``, so a
+# FOURTH such token still fails the build instead of being silently forgiven.
 #   ``--first-success``  shields.io escapes a literal dash as ``--`` in the
 #                        Offline badge, inside the human-owned intro.
 #   ``--locked``         the Quickstart installs with ``uv sync --locked``. It is
 #                        a `uv` flag, and it is exactly what makes that line
 #                        honest: a bare ``uv sync`` may resolve and mutate
 #                        ``uv.lock``, which is what CI forbids.
-FOREIGN_FLAG_TOKENS = ["--first-success", "--locked"]
+#   ``--no-verify``      the "Pre-commit hook (opt-in)" section names git's own
+#                        escape hatch, ``git commit --no-verify``. It is a `git`
+#                        flag, and documenting it is what keeps a hook that fails
+#                        CLOSED from being a trap: a reader whose environment
+#                        cannot resolve the CLI needs a stated way past the gate.
+FOREIGN_FLAG_TOKENS = ["--first-success", "--locked", "--no-verify"]
 
 
 def _intro() -> str:
@@ -356,8 +361,10 @@ def test_ghost_flag_guard_is_scoped_to_the_cli_section() -> None:
     dash, which looks exactly like a long option. It is inside the block this file
     may not edit, so a whole-README reverse guard would be permanently red with an
     unfixable remedy. The Quickstart's ``uv sync --locked`` is the second such
-    token and a foreign tool's flag for the same reason. Pinning both results
-    keeps that decision from being quietly "simplified" later.
+    token and a foreign tool's flag for the same reason, and the pre-commit
+    section's ``git commit --no-verify`` is the third. Pinning the exact list
+    keeps that decision from being quietly "simplified" later: a FOURTH such
+    token must fail the build and be justified here, not silently forgiven.
     """
     text = README.read_text(encoding="utf-8")
     universe = flag_universe(build_parser())

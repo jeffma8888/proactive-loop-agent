@@ -503,6 +503,35 @@ imports only that SDK. The `ollama` provider runs the full plan->act->check loop
 locally-hosted model with **no API key and no network egress** -- extending
 offline-first from the scripted test double to real runtime execution.
 
+## Pre-commit hook (opt-in)
+
+`hooks/pre-commit` points the `signals` gate at your own commits: it runs `pla signals --workspace .`
+in gate mode over the working tree and lets git abort the commit when the gate exits **5**. It is a
+plain POSIX-sh git hook -- no hook framework, no network, no dependency beyond this project's own CLI
+-- and cloning does **not** install it. Opt in per clone with one line (unset `core.hooksPath` again
+to uninstall):
+
+```bash
+git config core.hooksPath hooks
+```
+
+It arms **the same three kinds the CI self-scan arms** -- `merge_conflict`, `syntax_error`,
+`secret_file` -- and the suite parses both files and fails the build if the two ever diverge, so the
+local and CI gates cannot drift apart. That set is deliberately the state-*independent*,
+must-never-appear subset: a conflict marker, unparseable Python or a secret-shaped file breaks the
+tree for everyone who checks it out, whereas signals about uncommitted work or a fresh TODO are red
+for any developer mid-edit and arming them would just teach you to bypass the hook every time.
+
+The CLI's exit status passes through unchanged (**5** = a gate you armed tripped on a finding, **2** =
+usage error), and git aborts the commit on any non-zero value. The hook adds nothing to stdout on any
+path -- whatever the CLI printed is reproduced byte-identically -- and explains itself on stderr. If
+neither `pla` nor `uv` is on `PATH` it fails **closed** (exit 1) rather than reporting success on a
+machine where it never ran. To commit anyway, use `git commit --no-verify`.
+
+Two limits worth knowing: it inspects the **working tree**, not the staged index, so an unstaged
+finding still blocks the commit; and it is not wired into `make check`, which runs the same gate as
+its own last step.
+
 ## License
 
 MIT -- see [LICENSE](LICENSE).

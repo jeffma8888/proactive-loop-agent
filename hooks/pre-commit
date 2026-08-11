@@ -1,0 +1,67 @@
+#!/bin/sh
+# proactive-loop-agent -- opt-in pre-commit gate. Cloning does NOT install it.
+#
+#   install:    git config core.hooksPath hooks
+#   uninstall:  git config --unset core.hooksPath
+#
+# WHY this file exists. The README sells exit code 5 as "the channel a pre-commit
+# hook or a CI step branches on". The CI half has dogfooded that since factory
+# iter 128 (the last step of .github/workflows/ci.yml); this is the other half,
+# turned on the reader's own repo. It runs the product's own read-only inspector
+# in gate mode over the working tree and lets git abort the commit on any
+# non-zero status.
+#
+# WHY exactly these three kinds and no others. They are the state-INDEPENDENT,
+# must-never-appear subset: a conflict marker, unparseable Python or a
+# secret-shaped file means the tree is broken for everyone who checks it out.
+# The state-DEPENDENT kinds (uncommitted work, branch state, a fresh TODO) are
+# red for any developer mid-edit, so arming them here would teach the reader to
+# pass the bypass flag on every commit -- a gate everyone routes around enforces
+# nothing. Byte-parity with the CI self-scan's armed set is asserted by the
+# test suite, so arming a kind in one place but not the other fails the build.
+#
+# WHY the status is passed through unchanged rather than collapsed to 1. 5 (a
+# gate you armed tripped on a finding) and 2 (usage error) are published
+# contract, and git aborts the commit on ANY non-zero value, so preserving the
+# distinction costs nothing and keeps a surprising result diagnosable.
+#
+# KNOWN LIMITATION, deliberate. This inspects the WORKING TREE, which is what
+# `pla signals --workspace .` reports on -- not the staged index. An unstaged
+# finding therefore still blocks the commit. Index-only scanning would mean
+# stashing the reader's work from inside a hook, which is not a trade this
+# increment makes.
+set -u
+
+# The armed set, spelled ONCE. Taking the command as "$@" is what keeps the
+# direct and the `uv run` invocation from drifting apart: there is one argument
+# list, not two copies to maintain.
+gate() {
+    "$@" signals --workspace . \
+        --fail-on-kind merge_conflict \
+        --fail-on-kind syntax_error \
+        --fail-on-kind secret_file
+}
+
+# `command -v` resolves a name WITHOUT executing it, so the CLI runs exactly
+# once on every path. Prefer an installed console script; fall back to the
+# project's own environment via `uv run` for a contributor who never activated
+# the venv.
+if command -v pla >/dev/null 2>&1; then
+    gate pla
+    status=$?
+elif command -v uv >/dev/null 2>&1; then
+    gate uv run pla
+    status=$?
+else
+    # Fail CLOSED. A gate that passes because its tool is missing is worse than
+    # no gate at all: it reports success on exactly the machines where it never
+    # ran. Naming the bypass keeps the reader unblocked rather than stuck.
+    printf '%s\n' "pre-commit gate: cannot run -- neither 'pla' nor 'uv' was found on PATH. Install the project (uv sync), or bypass this commit with: git commit --no-verify" >&2
+    exit 1
+fi
+
+if [ "$status" -eq 5 ]; then
+    printf '%s\n' "pre-commit gate: the signals gate tripped on the working tree (exit 5) -- commit aborted. Fix the finding, or bypass with: git commit --no-verify" >&2
+fi
+
+exit "$status"

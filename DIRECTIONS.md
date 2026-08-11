@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-133
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Make the README suite-size guard prove the floor, and bump the 511-test-stale number
+    - Candidate A2 -- Row #155: the root-Markdown table guard audits the WORKING DIR, not the tracked set
+    - Candidate A3 -- Retire the tautology in the iter-73 reference oracle (premise CORRECTED, value lower than reported)
+    - Candidate B1 -- Wire the `watch --out-dir` -> `diff --dir` change feed into the graded gate (row #137)
+    - Candidate B2 -- Give `--baseline` its first consumer: commit a baseline and arm `ci_config`, the one of three "red on arrival" kinds measurement says is safe
+    - Candidate B3 -- Ship the pre-commit hook the README already sells (the missing half of the exit-5 claim)
+    winner: B3
+    ship: unknown
   iter-132
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `signals --path GLOB`, the positive half of the location axis
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Root-Markdown table guard keys on the git-TRACKED set, not the working dir (row #155)
     - Candidate B3 -- Compact `ROADMAP.md` under its operator budget and ratchet it with a size guard (rows #138 + #109)
     winner: B1
-    ship: unknown
+    ship: PUSHED a7be482
   iter-131
     lenses: narrative-and-docs, NEW CAPABILITY
     - Candidate A1 -- the guard named "every root markdown file" audits the WORKING DIRECTORY, not the repo, and the roadmap row describing it names two files a fresh clone does not have
@@ -326,4 +336,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-41 scouted iterations
+42 scouted iterations
