@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-138
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `DebugArtifactCollector` (`kind="debug_artifact"`): revive abandoned row #105
+    - Candidate A2 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`): queued row #122
+    - Candidate A3 -- `pla signals --fail-over N`: a COUNT-BUDGET gate that cannot rot
+    - Candidate B1 -- key the root-Markdown table guard on the TRACKED set, and assert set EQUALITY (row #155)
+    - Candidate B2 -- the `ROADMAP.md` char-size budget guard queued three times and never built (rows #138 + #109)
+    - Candidate B3 -- give the newest CLI path guard its first oracle (row #136)
+    winner: A3
+    ship: unknown
   iter-137
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- Give the source's embedded performance measurements a VINTAGE, and derive the guard from the corpus so it cannot be fail-open
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `--exclude-path` learns subtree (ancestor-prefix) matching, so ONE spelling can hide a directory
     - Candidate B3 -- `DebugArtifactCollector` (`kind="debug_artifact"`), scoped by measurement to real debugger scaffolding
     winner: B1
-    ship: unknown
+    ship: PUSHED 5939593
   iter-136
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Delete one of two duplicate nested pytest runs: 33% of the suite wall, zero behavior lost
@@ -376,4 +386,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-46 scouted iterations
+47 scouted iterations

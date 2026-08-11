@@ -227,6 +227,33 @@ def _positive_int(raw: str) -> int:
     return value
 
 
+def _non_negative_int(raw: str) -> int:
+    """argparse ``type=`` validator: parse a NON-negative integer (``>= 0``).
+
+    The integer sibling of ``_non_negative_float``, written for the ``signals``
+    verb and its ``--fail-over N`` count budget. Like both neighbours it fires at
+    PARSE time -- BEFORE the workspace is walked or any collector runs -- so a bad
+    budget is a ``SystemExit(2)`` usage error with zero side effects: nothing is
+    scanned and stdout stays empty, rather than a full listing followed by a late
+    complaint. ``int(raw)`` lets a non-integer (e.g. ``abc``, or the float-shaped
+    ``1.5``) raise ``ValueError``, which argparse itself converts into the exit-2
+    usage error; a parsed ``value < 0`` raises ``ArgumentTypeError`` because a
+    negative budget is unsatisfiable in the wrong direction -- no count can ever
+    fall below it, so the gate would be armed and permanently red.
+
+    WHY this exists instead of reusing ``_positive_int``: that validator rejects
+    ``0``, and ``--fail-over 0`` is a legitimate STRICT mode ("fail if anything at
+    all is reported"), not a degenerate view. WHY no non-finite guard -- the one
+    thing ``_non_negative_float`` adds: ``int()`` cannot produce ``nan``/``inf`` at
+    all (``int("nan")`` raises ``ValueError``), so the hole that validator was
+    widened to close does not exist for integers.
+    """
+    value = int(raw)
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be a non-negative integer (>= 0), got {value}")
+    return value
+
+
 def _non_negative_float(raw: str) -> float:
     """argparse ``type=`` validator: parse a FINITE, NON-negative float (``>= 0``).
 
@@ -726,6 +753,58 @@ def build_parser() -> argparse.ArgumentParser:
             "usage error (exit 2), since that gate could never fire. STDOUT is "
             "byte-identical with and without this flag -- the only added output "
             "is one 'gate: fail-on-kind tripped -- <kind>=<count>' line on STDERR."
+        ),
+    )
+    # The THIRD ratchet, and the only one that structurally cannot rot. --fail-on-kind
+    # gates on kind PRESENCE, so it is red on the first invocation of any repo that
+    # already has findings -- every kind whose correct value is not zero (todo,
+    # git_commit, note, ...) -- and the only escape so far, --baseline, needs a
+    # COMMITTED snapshot whose refresh rule nobody owns, so the file quietly decays
+    # into a blindfold. A count budget is one integer in a Makefile or a hook: no
+    # file, no snapshot, no refresh rule, and it is the shape a user reaches for
+    # first ("do not let the TODO count exceed 30").
+    #
+    # STRICTLY greater than, deliberately: N is the budget the caller is allowed to
+    # spend, so count == N is inside it and only N+1 fails. Typed with
+    # _non_negative_int rather than _positive_int because --fail-over 0 is a real
+    # STRICT mode, not a degenerate one. Counted DOWNSTREAM over the shared
+    # _select_signals predicate like every other surface, so it changes what is
+    # REPORTED and never what RUNS (--timings rows are untouched) and the exit status
+    # can never contradict the listing.
+    #
+    # Declared immediately after its SIBLING GATE and well before --timings, for two
+    # reasons. The two exit gates now read as a pair, ahead of the two display
+    # filters and the cost knob (the same grouping rule the --exclude-path comment
+    # below states). And the slot between --baseline and --timings is TAKEN: the
+    # shipped tests/test_iter138_behavior.py asserts the literal
+    # "[--baseline FILE] [--timings]" in the rendered usage line, so any flag
+    # inserted there splits a pinned pair -- a new selection knob goes ABOVE
+    # --baseline, never between it and --timings.
+    p_signals.add_argument(
+        "--fail-over",
+        default=None,
+        type=_non_negative_int,
+        metavar="N",
+        dest="fail_over",
+        help=(
+            "Exit 5 instead of 0 when the number of REPORTED signals is STRICTLY "
+            "GREATER than N -- the count budget that makes a gate usable on a repo "
+            "that already has findings, with no snapshot file to keep fresh "
+            "(--fail-over 30 stays green at 30 TODOs and fails the 31st). The "
+            "boundary is strict, so a count EQUAL to N exits 0. N must be a "
+            "non-negative integer: 0 is the legitimate strict mode (any reported "
+            "signal fails), while a negative or non-integer budget is a usage "
+            "error (exit 2) at PARSE time, before anything is scanned. It counts "
+            "what the view REPORTS, so it composes as a logical AND with "
+            "--kind/--min-weight/--collector/--exclude-path/--baseline and a "
+            "filter that hides signals lowers the count. Unlike --fail-on-kind, "
+            "pairing --kind K with --fail-over N is NOT a usage error: an "
+            "unreachable KIND gate is statically provable, an unreachable COUNT "
+            "budget is not, so there is nothing to refuse -- the gate simply reads "
+            "the narrowed count. STDOUT is byte-identical with and without this "
+            "flag; the only added output is one 'gate: fail-over tripped -- "
+            "count=<count> budget=<N>' line on STDERR, and when the --fail-on-kind "
+            "gate trips as well only that line prints, because it names WHICH kind."
         ),
     )
     # Declared BEFORE --timings on purpose: argparse renders the choices brace-list
@@ -3947,6 +4026,17 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     stays byte-identical with and without the flag and ``--json`` keeps parsing as
     one object. ``--kind K`` paired with a different ``--fail-on-kind V`` is refused
     as a usage error (exit 2) before collection: that gate could never fire.
+
+    ``--fail-over N`` is the COUNT-budget sibling of that gate and the third
+    ratchet: exit 5 when the number of reported signals is STRICTLY greater than
+    the non-negative integer ``N``, so ``count == N`` is inside the budget. It is
+    counted over the same ``_select_signals`` list, so it composes with every
+    filter, and it reports exactly one ``gate: fail-over tripped -- count=<count>
+    budget=<N>`` line on STDERR. It is checked AFTER the kind gate, so when both
+    are armed and both would trip only the kind line prints (it names WHICH kind)
+    and the status is still 5. ``--kind K --fail-over N`` is deliberately NOT
+    refused, unlike the kind pair above: an unreachable KIND gate is statically
+    provable, an unreachable COUNT budget is not.
     """
     workspace = Path(args.workspace)
     if not workspace.is_dir():
@@ -4066,6 +4156,34 @@ def _cmd_signals(args: argparse.Namespace) -> int:
             # output leads when both streams share a terminal.
             detail = ", ".join(f"{k}={tripped[k]}" for k in sorted(tripped))
             print(f"gate: fail-on-kind tripped -- {detail}", file=sys.stderr)
+            return 5
+    fail_over = getattr(args, "fail_over", None)
+    if fail_over is not None:
+        # The COUNT budget, checked AFTER the kind gate above and never merged into
+        # it: when both are armed and both would trip, the caller gets exactly ONE
+        # line and it is the more informative one (fail-on-kind names WHICH kind),
+        # which an appended block gives for free because that block has already
+        # returned. Leaving it untouched is also what makes "with --fail-over absent
+        # every existing invocation is unchanged" true structurally, not by review.
+        #
+        # Re-derives the count from the SAME shared _select_signals predicate the
+        # four renderers and the kind gate each call for themselves -- the house
+        # convention for keeping the surfaces in agreement. It is a pure filter over
+        # an already-collected snapshot, so a second pass cannot disagree with the
+        # first, and the narrowing flags (--kind/--min-weight/--collector/
+        # --exclude-path/--baseline) lower the count exactly as they lower the
+        # listing. STRICTLY greater than: N is the budget the caller may spend, so
+        # count == N is inside it and only count == N + 1 trips.
+        count = len(_select_signals(snapshot, kind, min_weight, exclude_paths, baseline))
+        if count > fail_over:
+            # STDERR, exactly one line, no `error:` prefix -- a finding is not a
+            # fault in the tool, the same distinction the sibling gate draws. Two
+            # `key=value` pairs mirror that line's `kind=count` idiom and sidestep a
+            # singular/plural branch, which would be a second code path for grammar.
+            print(
+                f"gate: fail-over tripped -- count={count} budget={fail_over}",
+                file=sys.stderr,
+            )
             return 5
     return 0
 
