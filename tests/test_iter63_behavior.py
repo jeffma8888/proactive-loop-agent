@@ -372,7 +372,10 @@ def test_b12_cli_signals_json_surfaces_ci_config(tmp_path: Path, capsys) -> None
     assert s["source"] == "ci_config"
     assert s["summary"] == "no CI configured"
     assert s["weight"] == 0.8
-    assert s["path"] == str(tmp_path)
+    # The workspace directory ITSELF, spelled `.`: `cli._collect` publishes every
+    # path relative to the scanned workspace (iter 139). The collector still builds
+    # `str(root)` -- asserted directly in test_b04/b05 above.
+    assert s["path"] == ".", s["path"]
     # The --kind filter isolates ci_config: nothing of any other kind leaks.
     assert {x["kind"] for x in sigs} == {"ci_config"}
 

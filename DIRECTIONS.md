@@ -1,13 +1,23 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-132
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `signals --path GLOB`, the positive half of the location axis
+    - Candidate A2 -- `signals --baseline FILE` also reports what was RESOLVED
+    - Candidate A3 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`), the 17th collector
+    - Candidate B1 -- Normalize `ContextSignal.path` to ONE namespace at the publication seam
+    - Candidate B2 -- Root-Markdown table guard keys on the git-TRACKED set, not the working dir (row #155)
+    - Candidate B3 -- Compact `ROADMAP.md` under its operator budget and ratchet it with a size guard (rows #138 + #109)
+    winner: B1
+    ship: unknown
   iter-131
     lenses: narrative-and-docs, NEW CAPABILITY
     - Candidate A1 -- the guard named "every root markdown file" audits the WORKING DIRECTORY, not the repo, and the roadmap row describing it names two files a fresh clone does not have
     - Candidate A2 -- the four shipped caching mechanisms are documented nowhere a reader looks, and the library and CLI entry points differ in a way no artifact records
     - Candidate A3 -- two collector docstrings publish absolute millisecond breakdowns that iter-136 invalidated, one of them undated
     winner: B1
-    ship: unknown
+    ship: PUSHED 59c4032
   iter-130
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- collapse `working_tree`'s 2 git spawns into 1 via `git status --porcelain --branch`
@@ -316,4 +326,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-40 scouted iterations
+41 scouted iterations

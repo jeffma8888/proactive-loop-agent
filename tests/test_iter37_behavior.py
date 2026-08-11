@@ -286,8 +286,12 @@ def test_b06_hidden_dir_and_hidden_file_pruned(tmp_path: Path) -> None:
 
 
 # ===========================================================================
-# Behavior 7 -- `path` is the file's ABSOLUTE path (non-empty string); the
-#               forward-slashed relpath lives only in `summary`; timestamp None.
+# Behavior 7 -- the COLLECTOR builds `path` as the file's ABSOLUTE path (non-empty
+#               string); the forward-slashed relpath lives only in `summary`;
+#               timestamp None. Published through the CLI it is re-spelled
+#               workspace-relative at the one `cli._collect` seam (iter 139), so
+#               the absoluteness contract below is asserted where it still holds:
+#               on the collector, called directly.
 # ===========================================================================
 
 
@@ -304,10 +308,15 @@ def test_b07_path_is_absolute_relpath_in_summary(tmp_path: Path) -> None:
     assert s.timestamp is None, f"timestamp must be None; got {s.timestamp!r}"
 
 
-def test_b07_path_absolute_via_cli(tmp_path: Path, capsys) -> None:
+def test_b07_path_is_workspace_relative_via_cli(tmp_path: Path, capsys) -> None:
+    """Through the CLI the same signal is published workspace-relative, not absolute:
+    `cli._collect` owns the namespace of every published `path` (iter 139). Still the
+    same file -- resolving it against the workspace lands back on it."""
     f = _mk(tmp_path / "blob.bin", DEFAULT_MIN_BYTES)
     s = _signals_json(tmp_path, capsys)[0]
-    assert os.path.isabs(s["path"]) and Path(s["path"]).resolve() == f.resolve()
+    assert s["path"] == "blob.bin", s["path"]
+    assert not os.path.isabs(s["path"])
+    assert (tmp_path / s["path"]).resolve() == f.resolve()
     assert s["summary"] == "blob.bin: 5.0 MB (large)"
 
 

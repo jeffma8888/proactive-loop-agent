@@ -180,6 +180,29 @@ read-only with exactly one opted-in exception: `runs --prune --yes` (and only th
 the run dirs it lists;
 `scan` is the one synthesizing step — it calls the LLM and writes the slate.
 
+Every signal whose location is resolved against the scanned workspace publishes
+its `path` in **one namespace**, whatever you pass for `--workspace`: the POSIX
+path *relative to the scanned workspace*, with the workspace directory itself
+spelled `.` and any trailing `:LINE` suffix preserved
+(`src/proactive_loop/cli.py:617`). A signal with no location keeps `path: null`,
+and a path that is not under the workspace at all is published unchanged rather
+than as a `../` escape. Each collector still builds whatever is natural for it —
+an absolute path, for an absolute root — and the single `_collect` seam re-spells
+it, which is what makes the two location-aware filters portable: an
+`--exclude-path` glob narrows those kinds the same way, and a `--baseline`
+document recorded on your laptop still suppresses those findings in CI instead of
+reporting them all again because the checkout lives at a different absolute path.
+
+Two exemptions, both deliberate. `workspace_root` echoes the workspace exactly as
+you typed it, because its job is to say what was scanned. And `working_tree`
+takes its paths from git's porcelain status output, which reports them relative
+to the **repository root** rather than to the scanned directory: the same
+namespace when you scan a whole repo (the default), but not when you scan a
+sub-directory of one, where a `working_tree` path can still carry the
+sub-directory prefix and so stays invocation-dependent. Roadmap row #158 tracks
+re-rooting the git kinds; until then prefer a whole-repo workspace when you rely
+on `--exclude-path` or `--baseline` for that one kind.
+
 `watch` turns that one-shot scan into the product's namesake proactive loop: it
 re-runs the scan pipeline every `--interval` seconds (default 3600) and re-prints
 the ranked, gated slate as your context changes, running until interrupted with

@@ -290,8 +290,11 @@ def test_b06_summary_has_no_file_size(tmp_path: Path) -> None:
 
 
 # ===========================================================================
-# Behavior 7 -- `path` is the file's ABSOLUTE path (non-empty string); the
-#               forward-slashed relpath lives only in `summary`.
+# Behavior 7 -- the COLLECTOR builds `path` as the file's ABSOLUTE path (non-empty
+#               string); the forward-slashed relpath lives only in `summary`.
+#               Published through the CLI it is re-spelled workspace-relative at
+#               the one `cli._collect` seam (iter 139), so the absoluteness
+#               contract below is asserted on the collector, called directly.
 # ===========================================================================
 
 
@@ -306,10 +309,16 @@ def test_b07_path_absolute_relpath_in_summary(tmp_path: Path) -> None:
     assert s.summary.startswith("config/id_rsa:"), s.summary
 
 
-def test_b07_path_absolute_via_cli(tmp_path: Path, capsys) -> None:
+def test_b07_path_is_workspace_relative_via_cli(tmp_path: Path, capsys) -> None:
+    """Through the CLI the same signal is published workspace-relative, not absolute:
+    `cli._collect` owns the namespace of every published `path` (iter 139) -- which is
+    what keeps a secret-file finding from leaking the reporter's home directory into a
+    JSON document. Still the same file."""
     f = _mk(tmp_path / ".env")
     s = _signals_json(tmp_path, capsys)[0]
-    assert os.path.isabs(s["path"]) and Path(s["path"]).resolve() == f.resolve()
+    assert s["path"] == ".env", s["path"]
+    assert not os.path.isabs(s["path"])
+    assert (tmp_path / s["path"]).resolve() == f.resolve()
     assert s["summary"] == ".env: secret-shaped file"
 
 

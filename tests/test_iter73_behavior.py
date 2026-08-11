@@ -62,7 +62,17 @@ def _proj(signals):
 def _expected_signals(workspace, only):
     """Reference orchestration: the registry-order concatenation of
     ``collect()`` for EXACTLY the collectors passing the ``only`` filter,
-    honouring the SPEC 4.1 never-raise guard (a raising collector -> [])."""
+    honouring the SPEC 4.1 never-raise guard (a raising collector -> []).
+
+    Ends with the same ``cli._normalize_signal_paths`` seam ``cli._collect``
+    applies (iter 139), because these two behaviors are about WHICH collectors run,
+    not about how a ``path`` is spelled: a collector handed an absolute workspace
+    still builds an absolute ``path`` (asserted directly in
+    ``test_iter37_behavior``/``test_iter42_behavior``), and the CLI re-spells it
+    workspace-relative at one seam. Calling the SAME seam here keeps the allowlist
+    comparison exact instead of re-asserting the pre-seam namespace, and it cannot
+    re-diverge from the CLI because it is literally the same function.
+    """
     out = []
     for collector in cli.all_collectors():
         if only is not None and collector.name not in only:
@@ -71,6 +81,7 @@ def _expected_signals(workspace, only):
             out.extend(collector.collect(workspace))
         except Exception:
             pass
+    cli._normalize_signal_paths(workspace, out)
     return _proj(out)
 
 

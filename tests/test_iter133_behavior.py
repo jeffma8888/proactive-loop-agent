@@ -473,9 +473,13 @@ def test_b6_archive_table_shapes_are_exact() -> None:
     assert [len(t.header_cells) for t in tables] == [7, 7], (
         f"both archive headers are 7-column; got {[t.header_cells for t in tables]}"
     )
-    assert [len(t.body) for t in tables] == [98, 28], (
-        "first archive table body is 98 rows and the second 28 (73 of the first "
-        f"were publishing as raw pipe text before the fix); got {[len(t.body) for t in tables]}"
+    assert [len(t.body) for t in tables] == [98, 39], (
+        "first archive table body is 98 rows and the second 39 (73 of the first "
+        "were publishing as raw pipe text before the fix). The second table grew "
+        "28 -> 39 in iter-132, which moved the 11 shipped rows #128/#134/#139/#141/"
+        "#145/#147/#148/#150/#152/#153/#154 out of the ROADMAP.md index (37,092 -> "
+        "21,892 chars) to keep the PM stage clear of the ~600s cap; got "
+        f"{[len(t.body) for t in tables]}"
     )
 
     wrong = [
@@ -485,7 +489,7 @@ def test_b6_archive_table_shapes_are_exact() -> None:
         if len(cells) != 7
     ]
     assert wrong == [], (
-        "every one of the 126 archive rows must split into exactly 7 cells on "
+        "every one of the 137 archive rows must split into exactly 7 cells on "
         f"UNESCAPED pipes; offenders (line, cells) = {wrong}"
     )
 
@@ -498,7 +502,7 @@ def test_b6_archive_table_shapes_are_exact() -> None:
 def test_b7_every_archive_row_is_semantically_aligned() -> None:
     rows = archive_rows()
 
-    assert len(rows) == 126, f"expected 126 archive body rows; got {len(rows)}"
+    assert len(rows) == 137, f"expected 137 archive body rows; got {len(rows)}"
 
     bad_value = [(ln, cells[3]) for ln, cells in rows if cells[3] not in VALUE_VOCAB]
     assert bad_value == [], (

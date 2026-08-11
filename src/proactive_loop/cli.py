@@ -1204,6 +1204,124 @@ def _load_slate(path: Path) -> GoalSlate:
         raise ValueError(sanitize_validation_error("slate", path, exc)) from None
 
 
+def _workspace_path_bases(workspace: Path) -> tuple[Path, ...]:
+    """The prefixes a signal path may legitimately carry for *workspace*, in strip order.
+
+    Two of them, because the collectors compose ``path`` two different ways and BOTH
+    are live: the content collectors publish a path already relative to the workspace
+    (``todo``/``note``/``syntax_error``/``merge_conflict``), while the rest prefix
+    whatever string the caller passed as the workspace (``str(root / rel)``). The
+    workspace AS GIVEN is tried first, so the exact lexical prefix those collectors
+    built is stripped without asking the filesystem anything; the ABSOLUTIZED form is
+    tried second, which is what catches an absolute signal path published under a
+    relative workspace (and, at ``--workspace .``, the whole absolute family).
+
+    Deliberately LEXICAL (``os.path.abspath``, never ``Path.resolve``): resolving would
+    stat the filesystem once per signal AND would make the published spelling depend on
+    symlinks (on macOS ``/tmp`` -> ``/private/tmp``), i.e. on the host rather than on
+    the input. A perception layer whose output key varies by host is not one a user can
+    check into git, which is the whole point of normalizing here.
+    """
+    bases = [workspace]
+    absolute = Path(os.path.abspath(workspace))
+    if absolute != workspace:
+        bases.append(absolute)
+    return tuple(bases)
+
+
+def _relative_signal_path(bases: tuple[Path, ...], path: str) -> str:
+    """*path* re-spelled relative to the workspace, its ``:LINE`` tail preserved.
+
+    The workspace directory itself comes back as ``.`` (that is what
+    ``PurePath.relative_to`` yields for an equal path), which is already the spelling
+    the default ``--workspace .`` scan publishes for repo-level findings -- so the root
+    scan does not move.
+
+    Two rules, both load-bearing:
+
+    * **The trailing ``:<digits>`` group is split off before relativizing and
+      re-appended byte-for-byte**, so a ``todo`` path stays a ``PATH:LINE`` pair
+      instead of having its line number eaten by path arithmetic. It reuses
+      ``_PATH_LINE_SUFFIX``, the SAME regex ``_path_excluded`` strips with, so
+      normalization and ``--exclude-path`` can never disagree about what a line
+      suffix is.
+    * **A path that is not under the workspace is returned UNCHANGED** -- never an
+      ``os.path.relpath``-style ``../..`` escape, and never an exception. Live
+      example: ``working_tree`` publishes git-porcelain paths relative to the repo
+      ROOT, which under a sub-directory workspace is an ancestor, not a descendant.
+      Republishing those as ``../`` walks would invent a namespace that is neither
+      the collector's nor the workspace's, so the honest answer is to leave the
+      string alone; ``relative_to`` raising ``ValueError`` is the test for it.
+
+      Observable consequence, and the exact BOUNDARY of this seam's guarantee: at a
+      sub-directory workspace spelled ABSOLUTELY, no base matches the porcelain
+      string, so ``working_tree`` keeps the repo-root spelling (``sub/pkg/mod.py``)
+      while every workspace-resolved kind publishes ``pkg/mod.py`` for the SAME
+      file; spelled RELATIVELY from the repo root the as-given base strips that
+      prefix by lexical coincidence. So that one kind stays invocation-dependent,
+      and it is the only one: ``git_activity`` publishes the directory itself,
+      ``git_state``/``git_stash`` publish ``None``, and
+      ``syntax_error``/``merge_conflict`` already relativize. Deliberately NOT
+      fixed here -- the correct base is the repository root, which needs
+      ``git rev-parse --show-toplevel`` I/O in a function whose contract is lexical,
+      and that command returns a symlink-RESOLVED path (on macOS ``/var`` ->
+      ``/private/var``), so it would also reintroduce exactly the host-dependence
+      documented above. Owned by roadmap row #158.
+    """
+    match = _PATH_LINE_SUFFIX.search(path)
+    body = path[: match.start()] if match else path
+    suffix = match.group(0) if match else ""
+    if not body:
+        # A path that is nothing but a ``:LINE`` tail is not a location; leave it.
+        return path
+    for base in bases:
+        try:
+            relative = Path(body).relative_to(base)
+        except ValueError:
+            continue  # not under this base -- try the next spelling of the workspace
+        # ``as_posix`` fixes the separator so the published key is identical on every
+        # host, and ``Path`` has already collapsed a leading ``./`` for us.
+        return relative.as_posix() + suffix
+    return path
+
+
+def _normalize_signal_paths(workspace: Path, signals: list[ContextSignal]) -> None:
+    """Rewrite every non-null ``signal.path`` into ONE workspace-relative namespace.
+
+    WHY this exists at all, and WHY here: ``path`` is a PUBLISHED key of every signal
+    and two shipped features key on it -- ``--exclude-path`` filters by it and
+    ``--baseline`` puts it inside the identity tuple that decides whether a finding is
+    already known. With the collectors composing it two ways (see
+    ``_workspace_path_bases``) the spelling depended on the workspace string the CALLER
+    typed, so the two namespaces coincided only at ``--workspace .``: a baseline
+    recorded from one checkout suppressed none of the prefixer family's findings in
+    another, one ``--exclude-path`` glob narrowed the two families differently, and an
+    absolute ``--workspace`` published ``/Users/<name>/...`` into a file the README
+    invites the user to commit.
+
+    WHY one seam instead of eight collectors: each collector would have to re-derive
+    the same relativization, and any new collector could silently re-diverge. Here
+    exactly one function owns the namespace, so "what does ``path`` mean" has one
+    answer for every kind, present and future. The collectors keep publishing whatever
+    is natural for them (an absolute path is the honest thing for a collector handed an
+    absolute root, and ``LargeFileCollector`` is still unit-tested for exactly that);
+    the SEAM owns what the user sees.
+
+    Mutates in place rather than rebuilding the models: the list is freshly built by
+    this scan and owned by the caller, so there is nothing else aliasing these
+    objects, and a copy would double the allocation for a one-field rewrite. Note
+    what is deliberately NOT touched -- ``path is None`` stays ``None`` (a repo-level
+    finding has no location; ``.`` would be a lie and would also expose it to
+    ``--exclude-path``), and ``WorkspaceSnapshot.root`` still records the workspace
+    exactly as given, since that field's job is to say what was scanned.
+    """
+    bases = _workspace_path_bases(workspace)
+    for signal in signals:
+        if signal.path is None:
+            continue
+        signal.path = _relative_signal_path(bases, signal.path)
+
+
 def _collect(
     workspace: Path,
     only: set[str] | None = None,
@@ -1241,6 +1359,16 @@ def _collect(
     value: the snapshot is this function's contract with four verbs and a wire
     schema, and widening it to a tuple would force every call site to change for
     a diagnostic that only one verb wants.
+
+    This seam also OWNS the namespace of every published ``path``: after the loop,
+    ``_normalize_signal_paths`` rewrites each non-null path to the POSIX path relative
+    to *workspace* (the workspace itself spelled ``.``), preserving any ``:LINE`` tail.
+    That is a spelling change only -- which signals are produced, in what order, and
+    with what other fields is untouched, and at the default ``--workspace .`` the two
+    namespaces already coincided, so the root scan is byte-identical. It lives here,
+    not in the collectors, because ``path`` is a wire key that ``--exclude-path`` and
+    ``--baseline`` both compare on: see ``_normalize_signal_paths`` for why one owner
+    is the point.
 
     This seam also DEFINES the lifetime of the shared text cache: the collector
     loop runs inside one ``text_source.scan_scope()``, so a file the content
@@ -1298,6 +1426,10 @@ def _collect(
                         len(signals) - before,
                     )
                 )
+    # One namespace for the published key, applied AFTER the loop so every collector
+    # -- including any added later -- is normalized by construction, and BEFORE the
+    # snapshot so no caller can ever observe the un-normalized form.
+    _normalize_signal_paths(workspace, signals)
     return WorkspaceSnapshot(root=str(workspace), signals=signals)
 
 
