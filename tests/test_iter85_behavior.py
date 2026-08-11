@@ -331,7 +331,7 @@ def test_eb7_registry_counts_and_version_frozen() -> None:
     from proactive_loop.llm.providers import VALID_PROVIDERS
     from proactive_loop.loop.tools import ToolRegistry
 
-    assert len(all_collectors()) == 16
+    assert len(all_collectors()) == 17
     assert len(ToolRegistry.tool_names()) == 14
     assert len(VALID_PROVIDERS) == 7
 

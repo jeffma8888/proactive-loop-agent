@@ -423,7 +423,7 @@ def test_b13_collectors_json_lists_ci_config_and_matches_registry(capsys) -> Non
     assert names == registry_names, (
         f"catalog names must equal registry names; catalog={names} registry={registry_names}"
     )
-    assert len(registry_names) == 16, f"registry must now list 16 collectors; got {len(registry_names)}"
+    assert len(registry_names) == 17, f"registry must now list 17 collectors; got {len(registry_names)}"
 
 
 def test_b13_collectors_human_lists_ci_config(capsys) -> None:

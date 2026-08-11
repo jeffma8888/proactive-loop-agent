@@ -3153,6 +3153,7 @@ def _render_tools() -> str:
 # (never another collector's job). Ordering here is irrelevant -- both renders
 # sort by name.
 _COLLECTOR_CATALOG: dict[str, str] = {
+    "broken_link": "Markdown links whose relative target is missing from the workspace.",
     "ci_config": "Continuous-integration posture: a recognized CI config, or source code with none.",
     "dependencies": "Dependency manifests declared in the workspace (pyproject, package.json, etc.).",
     "git_activity": "Recent commits across the workspace's git repositories.",
@@ -3175,7 +3176,7 @@ _COLLECTOR_CATALOG: dict[str, str] = {
 # The collector name -> emitted `ContextSignal.kind` mapping, published so the
 # transparency arc's FRONT DOOR hands a reader a token the NEXT command accepts.
 #
-# WHY this exists at all: five of the sixteen collector NAMES are not valid
+# WHY this exists at all: five of the seventeen collector NAMES are not valid
 # `pla signals --kind` values (`dependencies`->`dependency`, `git_activity`->
 # `git_commit`, `notes`->`note`, `recent_files`->`recent_file`, `todos`->`todo`).
 # Since `--kind` became fail-closed (an unknown kind is a parse-time exit 2, so a
@@ -3192,8 +3193,8 @@ _COLLECTOR_CATALOG: dict[str, str] = {
 # an existing structure (and both dicts stay independently greppable and diffable).
 #
 # WHY a scalar `str` and not a set/list of kinds: measured, not assumed -- an `ast`
-# pass over `collectors/*.py` finds each of the 16 collectors emitting EXACTLY ONE
-# distinct string-literal `kind=`, and the 16 kinds are distinct, so name <-> kind
+# pass over `collectors/*.py` finds each of the 17 collectors emitting EXACTLY ONE
+# distinct string-literal `kind=`, and the 17 kinds are distinct, so name <-> kind
 # is a genuine BIJECTION onto `SIGNAL_KINDS`. A list would be dishonest about a 1:1
 # relation, and the bijection is what makes the reverse `--kind` lookup total:
 # every value `choices=SIGNAL_KINDS` admits matches exactly one collector, so the
@@ -3210,6 +3211,7 @@ _COLLECTOR_CATALOG: dict[str, str] = {
 # class-scoped scan finds zero kinds for them; and `filesystem.py` hosts
 # `recent_files`, so the filename is not the collector name either.
 _COLLECTOR_KINDS: dict[str, str] = {
+    "broken_link": "broken_link",
     "ci_config": "ci_config",
     "dependencies": "dependency",
     "git_activity": "git_commit",
@@ -4344,7 +4346,7 @@ def _cmd_collectors(args: argparse.Namespace) -> int:
     """collectors: print the L2 perception surface (read-only, LLM-free, zero-input).
 
     WHY it consults NOTHING -- not even the ``_settings`` seam ``policy`` uses:
-    the collector SET is STATIC (the sixteen registered collectors and their
+    the collector SET is STATIC (the seventeen registered collectors and their
     curated descriptions do not depend on any env override, workspace, signal, or
     LLM). So this handler resolves no settings, builds no ``create_client`` (an
     inert/bad ``--scripted-responses`` path is simply never opened -- exit 0, not

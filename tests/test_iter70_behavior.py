@@ -476,7 +476,7 @@ def test_b15_collectors_json_14_objects_includes_lockfile_drift(capsys) -> None:
     assert isinstance(doc, dict) and "collectors" in doc
     entries = doc["collectors"]
     assert isinstance(entries, list)
-    assert len(entries) == 16, f"catalog must list 16 collectors; got {len(entries)}"
+    assert len(entries) == 17, f"catalog must list 17 collectors; got {len(entries)}"
 
     for e in entries:
         assert isinstance(e.get("name"), str) and e["name"]
@@ -491,4 +491,4 @@ def test_b15_collectors_json_14_objects_includes_lockfile_drift(capsys) -> None:
         f"catalog name-set must equal registry name-set; "
         f"catalog={set(names)} registry={registry_names}"
     )
-    assert len(registry_names) == 16, f"registry must now list 16 collectors; got {len(registry_names)}"
+    assert len(registry_names) == 17, f"registry must now list 17 collectors; got {len(registry_names)}"

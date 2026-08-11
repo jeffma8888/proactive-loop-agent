@@ -30,8 +30,8 @@ class TestCatalogDriftGuard:
         assert set(_COLLECTOR_CATALOG) == {c.name for c in all_collectors()}
 
     def test_catalog_has_sixteen_entries(self) -> None:
-        assert len(_COLLECTOR_CATALOG) == 16
-        assert len(all_collectors()) == 16
+        assert len(_COLLECTOR_CATALOG) == 17
+        assert len(all_collectors()) == 17
 
     def test_every_description_is_a_non_empty_string(self) -> None:
         for name, description in _COLLECTOR_CATALOG.items():

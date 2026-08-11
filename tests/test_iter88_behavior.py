@@ -301,7 +301,7 @@ def test_b07_invalid_fires_before_workspace_check(capsys):
 
 
 def test_b08_registry_counts_and_version_unchanged():
-    assert len(all_collectors()) == 16
+    assert len(all_collectors()) == 17
     assert len(ToolRegistry.tool_names()) == 14
     assert len(VALID_PROVIDERS) == 7
     assert __version__ == "0.1.1"

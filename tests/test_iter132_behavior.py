@@ -618,5 +618,5 @@ def test_b14_the_signals_verb_row_documents_the_flag() -> None:
 def test_b14_intro_carve_out_counts_are_unchanged() -> None:
     above, _ = _readme_split()
     text = "\n".join(above)
-    assert "16 context collectors" in text, "this change adds no collector"
+    assert "17 context collectors" in text, "this change adds no collector"
     assert "15 CLI verbs" in text, "this change adds no verb"

@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from proactive_loop.collectors import (
+    BrokenDocLinkCollector,
     CiConfigCollector,
     DependencyCollector,
     GitActivityCollector,
@@ -107,6 +108,7 @@ _DOCUMENTED_COLLECTOR_NAMES = frozenset(
         "secret_file",
         "git_stash",
         "syntax_error",
+        "broken_link",
     }
 )
 _EXPORTED_COLLECTOR_CLASSES = frozenset(
@@ -127,6 +129,7 @@ _EXPORTED_COLLECTOR_CLASSES = frozenset(
         LicenseCollector,
         SecretFileCollector,
         SyntaxErrorCollector,
+        BrokenDocLinkCollector,
     }
 )
 

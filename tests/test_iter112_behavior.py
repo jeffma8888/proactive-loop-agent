@@ -173,7 +173,7 @@ def _readme_halves() -> tuple[str, str]:
 # Local test doubles satisfying the Collector shape (name + collect(root)).
 # The injection seam is ``proactive_loop.cli.all_collectors`` -- the same one
 # test_iter19 uses -- so behaviors 4 and 9 can be proven without depending on
-# the real 16-collector registry.
+# the real 17-collector registry.
 # ---------------------------------------------------------------------------
 class _RaisingCollector:
     """A buggy collector violating the SPEC 4.1 never-raise convention."""

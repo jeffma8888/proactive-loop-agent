@@ -487,7 +487,7 @@ def test_b10_signal_count_capped_at_max_items(tmp_path: Path) -> None:
 def test_b11_registry_has_fifteen_with_git_stash(capsys) -> None:
     collectors = all_collectors()
 
-    assert len(collectors) == 16, f"registry must now list 16 collectors; got {len(collectors)}"
+    assert len(collectors) == 17, f"registry must now list 17 collectors; got {len(collectors)}"
     matches = [c for c in collectors if c.name == "git_stash"]
     assert len(matches) == 1, "exactly one git_stash collector in the registry"
     assert type(matches[0]) is GitStashCollector

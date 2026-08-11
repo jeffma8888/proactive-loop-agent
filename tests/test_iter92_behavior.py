@@ -265,7 +265,7 @@ def test_b6_fenced_code_heading_suppression_unchanged(tmp_path):
 
 
 def test_b7_collector_count_unchanged():
-    assert len(all_collectors()) == 16, "collector set changed (expected 16)"
+    assert len(all_collectors()) == 17, "collector set changed (expected 17)"
 
 
 def test_b7_tool_count_unchanged():

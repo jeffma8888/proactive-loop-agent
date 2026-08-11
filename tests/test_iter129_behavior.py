@@ -1,7 +1,7 @@
 """Behavior tests for iteration 129: ONE shared fail-open ``collect()`` wrapper.
 
 Iteration 129 relocates the byte-identical never-raises ``collect()`` wrapper out
-of all 16 collectors and into a single concrete base class in
+of all 17 collectors and into a single concrete base class in
 ``proactive_loop.collectors.base``, then guards the duplication so it cannot grow
 back. The fail-open contract itself is unchanged -- every collector still swallows
 its own exceptions; only the *implementation site* moves.

@@ -4,7 +4,7 @@ Feature under test: a repeatable ``--fail-on-kind KIND`` flag on the shipped
 ``pla signals`` verb that leaves stdout byte-identical and exits with the new
 code ``5`` when the command REPORTS at least one signal of a named kind, so
 ``pla signals`` can gate a pre-commit hook or a CI step. This is the product's
-first ENFORCEMENT mode: sixteen collectors could previously only be read.
+first ENFORCEMENT mode: seventeen collectors could previously only be read.
 
 ISOLATION CONTRACT (honored): every assertion is written strictly against this
 iteration's spec (``pm.md`` "Expected Behaviors" 1-9) and the published

@@ -361,7 +361,7 @@ def test_b8_committed_fixture_note_signals_unaffected(capsys):
 # Anchors -- this is a traversal fix, so nothing count-coupled may move.
 # ===========================================================================
 def test_anchor_collector_count_and_version_unchanged():
-    assert len(all_collectors()) == 16, (
+    assert len(all_collectors()) == 17, (
         "a pruning fix inside one collector must not change the collector count "
         "(README carve-out number); got %d" % len(all_collectors())
     )

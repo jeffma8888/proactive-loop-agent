@@ -186,13 +186,13 @@ def test_b07b_file_path_returns_empty(tmp_path: Path) -> None:
 # Behavior 8 -- Registered + catalogued (drift guards stay green): importable,
 #   registered exactly once, registry size 16, catalog carries a non-empty
 #   ``license`` description, the CLI ``collectors`` catalog lists a license row,
-#   and the README intro states "16 context collectors".
+#   and the README intro states "17 context collectors".
 # ===========================================================================
 
 
 def test_b08a_importable_and_registered_once(tmp_path: Path) -> None:
     reg = all_collectors()
-    assert len(reg) == 16, f"registry must list 16 collectors; got {len(reg)}"
+    assert len(reg) == 17, f"registry must list 17 collectors; got {len(reg)}"
     names = [c.name for c in reg]
     assert names.count("license") == 1, "license must appear exactly once"
     matches = [c for c in reg if c.name == "license"]
@@ -207,7 +207,7 @@ def test_b08b_cli_collectors_catalog_lists_license(capsys) -> None:
     assert rc == 0, f"collectors --json must exit 0; stderr={err!r}"
     doc = json.loads(out)
     entries = doc["collectors"]
-    assert len(entries) == 16, f"catalog must list 16 collectors; got {len(entries)}"
+    assert len(entries) == 17, f"catalog must list 17 collectors; got {len(entries)}"
     by_name = {e["name"]: e for e in entries}
     assert "license" in by_name, "catalog missing the 'license' collector"
     desc = by_name["license"]["description"]
@@ -226,4 +226,4 @@ def test_b08c_cli_collectors_text_lists_license_row(capsys) -> None:
 
 def test_b08d_readme_intro_states_16_collectors() -> None:
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    assert "16 context collectors" in readme, "README intro must say '16 context collectors'"
+    assert "17 context collectors" in readme, "README intro must say '17 context collectors'"

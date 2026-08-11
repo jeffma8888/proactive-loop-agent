@@ -30,7 +30,7 @@ uses), so no test writes 5 MB to disk.
 DELIBERATE OMISSION: this file asserts NO collector-count and NO CLI-verb-count
 literal. The spec's Out of Scope forbids changing either, and the operator's
 learnings record a 41-site count cascade that has already cost two iterations;
-adding a 27th hardcoded ``== 16`` would widen it for zero oracle value here.
+adding a 27th hardcoded ``== 17`` would widen it for zero oracle value here.
 Registry coverage is asserted by NAME MEMBERSHIP instead.
 """
 

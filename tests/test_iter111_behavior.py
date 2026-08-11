@@ -8,7 +8,7 @@ Why that mattered: ``collectors`` is the documented front door of the
 transparency arc (``collectors`` -> ``signals`` -> ``scan`` -> ``explain`` ->
 ``trace``), but it published only ``{name, description}``. Since iter-108 made an
 unknown ``signals --kind`` a parse-time usage error, copying a collector NAME out
-of the front door into the next command exited 2 for five of sixteen collectors
+of the front door into the next command exited 2 for five of seventeen collectors
 (``dependencies``, ``git_activity``, ``notes``, ``recent_files``, ``todos``) --
 two individually-correct features that were jointly misleading. Publishing the
 kind closes the arc's first joint without relaxing iter-108's validation.
@@ -60,6 +60,7 @@ COLLECTORS_DIR = REPO / "src" / "proactive_loop" / "collectors"
 # --------------------------------------------------------------------------
 
 CANONICAL_COLLECTORS = {
+    "broken_link",
     "ci_config",
     "dependencies",
     "git_activity",
@@ -403,7 +404,7 @@ def test_b04_reverse_lookup_round_trips_for_every_pinned_pair(name: str, kind: s
     assert [r[0] for r in _catalog_rows(out)] == [name]
 
 
-def test_b04_reverse_lookup_round_trips_for_all_sixteen() -> None:
+def test_b04_reverse_lookup_round_trips_for_all_seventeen() -> None:
     published = _published_mapping()
     for name, kind in sorted(published.items()):
         code, out, _err = _run(["collectors", "--kind", kind, "--json"])
@@ -490,7 +491,7 @@ def test_b07c_published_values_are_pairwise_distinct() -> None:
     dupes = sorted({v for v in values if values.count(v) > 1})
     assert dupes == [], f"kind published by more than one collector: {dupes}"
     # (a) + (b) + (c) == bijection.
-    assert len(published) == len(set(values)) == len(SIGNAL_KINDS) == 16
+    assert len(published) == len(set(values)) == len(SIGNAL_KINDS) == 17
 
 
 def test_b07d_published_kind_equals_the_kind_the_collector_actually_emits() -> None:

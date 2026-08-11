@@ -39,6 +39,7 @@ from proactive_loop.collectors import all_collectors
 # --------------------------------------------------------------------------
 
 CANONICAL_COLLECTORS = {
+    "broken_link",
     "ci_config",
     "lockfile_drift",
     "dependencies",
@@ -237,7 +238,7 @@ def test_b05_json_names_equal_sorted_canonical(capsys):
         f"json names must equal sorted canonical 15 (no dups/extras, ascending); "
         f"got {names}"
     )
-    assert len(names) == 16
+    assert len(names) == 17
 
 
 # ==========================================================================
@@ -350,7 +351,7 @@ def test_b10_version_unchanged():
 
 
 def test_b10_registry_unchanged_fifteen_collectors():
-    assert len(all_collectors()) == 16, "the collector registry must still have 16 entries"
+    assert len(all_collectors()) == 17, "the collector registry must still have 17 entries"
     assert {c.name for c in all_collectors()} == CANONICAL_COLLECTORS, (
         "the collector registry name set must be unchanged (verb adds no collector)"
     )

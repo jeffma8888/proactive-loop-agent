@@ -1002,7 +1002,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     Human form lists every collector name-ascending, one per line as
     `name  description`. `--json` emits one object of EXACTLY one top-level key
     `{collectors}` — an explicit allowlist (never `model_dump`; the iter-08
-    schema-leak discipline): `collectors` is a name-ascending array of 16
+    schema-leak discipline): `collectors` is a name-ascending array of 17
     `{name, description}` objects (exactly those two keys each). The catalog
     (`name → description`) is a hand-maintained map (mirroring `_TOOL_CATALOG` for
     `tools`); a test drift-guards its key set to equal `{c.name for c in

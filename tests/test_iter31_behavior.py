@@ -45,6 +45,7 @@ _COLLECTOR_PARAMS = [pytest.param(c, id=c.name) for c in _ALL_COLLECTORS]
 # silently dropped from the registry AND a documented collector missing from it.
 _DOCUMENTED_COLLECTOR_NAMES = frozenset(
     {
+        "broken_link",
         "ci_config",
         "lockfile_drift",
         "recent_files",

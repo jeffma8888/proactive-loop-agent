@@ -39,6 +39,7 @@ _CLI_LOGGER = "proactive_loop.cli"
 # ``all_collectors()`` so it cannot drift from a hardcoded literal.
 _LIVE_NAMES = frozenset(
     {
+        "broken_link",
         "recent_files", "git_activity", "git_state", "git_stash", "todos",
         "notes", "dependencies", "working_tree", "test_posture",
         "merge_conflict", "large_file", "license", "secret_file", "ci_config",

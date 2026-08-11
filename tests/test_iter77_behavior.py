@@ -67,9 +67,10 @@ SCRIPT = REPO / "examples" / "scripted_responses.json"
 # so the tests encode the CONTRACT and catch silent drift.
 # ---------------------------------------------------------------------------
 
-EXPECTED_COLLECTOR_COUNT = 16
+EXPECTED_COLLECTOR_COUNT = 17
 
 CANONICAL_COLLECTORS = {
+    "broken_link",
     "ci_config",
     "dependencies",
     "git_activity",

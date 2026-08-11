@@ -7,6 +7,7 @@ Importers can use this list directly or filter/extend it as needed.
 from __future__ import annotations
 
 from proactive_loop.collectors.base import Collector
+from proactive_loop.collectors.broken_link import BrokenDocLinkCollector
 from proactive_loop.collectors.ci_config import CiConfigCollector
 from proactive_loop.collectors.dependencies import DependencyCollector
 from proactive_loop.collectors.filesystem import RecentFilesCollector
@@ -47,6 +48,7 @@ from proactive_loop.collectors.working_tree import WorkingTreeCollector
 # vocabulary at a distance. Sorted ascending so ``--help`` and the exit-2 error
 # enumerate the kinds in a stable, reviewable order.
 SIGNAL_KINDS: tuple[str, ...] = (
+    "broken_link",
     "ci_config",
     "dependency",
     "git_commit",
@@ -90,6 +92,7 @@ def all_collectors() -> list[Collector]:
         LockfileDriftCollector(),
         SyntaxErrorCollector(),
         LicenseCollector(),
+        BrokenDocLinkCollector(),
     ]
 
 
@@ -111,6 +114,7 @@ __all__ = [
     "LockfileDriftCollector",
     "SyntaxErrorCollector",
     "LicenseCollector",
+    "BrokenDocLinkCollector",
     "all_collectors",
     "SIGNAL_KINDS",
 ]

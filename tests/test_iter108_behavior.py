@@ -59,6 +59,7 @@ _EMPTY_MARKER = "(no signals collected)"
 # The universe as the SPEC states it (behavior 1). Written out here so this file
 # is an independent oracle: if the shipped tuple drifts, this literal disagrees.
 _SPEC_KINDS: tuple[str, ...] = (
+    "broken_link",
     "ci_config",
     "dependency",
     "git_commit",
@@ -207,11 +208,11 @@ def test_b01_signal_kinds_is_an_exact_sorted_deduped_tuple() -> None:
     assert list(SIGNAL_KINDS) == sorted(SIGNAL_KINDS), f"must be sorted; got {SIGNAL_KINDS}"
     assert len(set(SIGNAL_KINDS)) == len(SIGNAL_KINDS), "must contain no duplicates"
     assert SIGNAL_KINDS == _SPEC_KINDS, (
-        "SIGNAL_KINDS disagrees with the spec's measured 16-kind universe; "
+        "SIGNAL_KINDS disagrees with the spec's measured 17-kind universe; "
         f"extra={sorted(set(SIGNAL_KINDS) - set(_SPEC_KINDS))} "
         f"missing={sorted(set(_SPEC_KINDS) - set(SIGNAL_KINDS))}"
     )
-    assert len(SIGNAL_KINDS) == 16
+    assert len(SIGNAL_KINDS) == 17
 
 
 def test_b01_signal_kinds_is_a_public_export() -> None:
@@ -376,7 +377,7 @@ def test_b06_help_enumerates_every_kind_and_drops_the_3_value_teaser() -> None:
     assert not missing, f"pla signals --help must name every kind; missing {missing}"
     assert "todo|note|git_commit" not in out, (
         "help still advertises the old closed 3-value teaser 'todo|note|git_commit', "
-        "which understates a 16-value vocabulary"
+        "which understates a 17-value vocabulary"
     )
 
 
@@ -540,7 +541,7 @@ def test_b11_portfolio_intro_numbers_still_match_the_live_registries() -> None:
     intro, _body = _readme_intro_and_body()
     m = re.search(r"(\d+) context collectors", intro)
     assert m, "intro must state the collector count"
-    assert int(m.group(1)) == len(all_collectors()) == 16, m.group(0)
+    assert int(m.group(1)) == len(all_collectors()) == 17, m.group(0)
     m = re.search(r"(\d+) CLI verbs", intro)
     assert m, "intro must state the CLI-verb count"
     assert int(m.group(1)) == 15, m.group(0)

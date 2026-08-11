@@ -19,7 +19,7 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
    (plus, while ``HEAD`` is still the pre-bump revision, the strict form -- putting
    ``2,700`` back reproduces ``HEAD`` byte-for-byte).
 3. The sibling carve-out numbers stay live-accurate against independently computed
-   oracles: ``16 context collectors`` == ``len(all_collectors())`` and ``15 CLI
+   oracles: ``17 context collectors`` == ``len(all_collectors())`` and ``15 CLI
    verbs`` == the live parser's subcommand count.
 4. A pure, importable module-level helper decides the claim -- proven pure by
    breaking its module's ``subprocess`` handle and its file paths and calling it.

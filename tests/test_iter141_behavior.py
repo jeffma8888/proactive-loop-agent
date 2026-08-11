@@ -569,7 +569,7 @@ class TestNoDataclassFieldWasInjected:
         own_annotations = vars(BaseCollector).get("__annotations__", {})
         assert own_annotations == {}, (
             f"BaseCollector declares {sorted(own_annotations)}, which reorders the "
-            "generated __init__ of all 16 collectors"
+            "generated __init__ of all 17 collectors"
         )
 
     def test_shared_base_is_not_itself_a_dataclass(self) -> None:

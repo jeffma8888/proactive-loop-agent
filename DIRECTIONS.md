@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-137
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- Give the source's embedded performance measurements a VINTAGE, and derive the guard from the corpus so it cannot be fail-open
+    - Candidate A2 -- Overturn roadmap row #163's premise: the two "identical strategy" docstrings are defensible, and give the word "identical" a real oracle
+    - Candidate A3 -- Correct the Makefile's gate rationale, one third of which live measurement disproves
+    - Candidate B1 -- `BrokenDocLinkCollector` (`kind="broken_link"`): the 17th collector, and the 2nd relational one
+    - Candidate B2 -- `--exclude-path` learns subtree (ancestor-prefix) matching, so ONE spelling can hide a directory
+    - Candidate B3 -- `DebugArtifactCollector` (`kind="debug_artifact"`), scoped by measurement to real debugger scaffolding
+    winner: B1
+    ship: unknown
   iter-136
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Delete one of two duplicate nested pytest runs: 33% of the suite wall, zero behavior lost
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Two collector docstrings claim an "identical strategy" the code contradicts
     - Candidate B3 -- `todos.py`'s performance block is 33% stale and, alone among the three, undated
     winner: B1
-    ship: unknown
+    ship: PUSHED 48378fa
   iter-135
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- finish row #165: fold the 3 remaining inline relative-path idioms onto `BaseCollector._relative` (and correct the row's false premise)
@@ -366,4 +376,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-45 scouted iterations
+46 scouted iterations

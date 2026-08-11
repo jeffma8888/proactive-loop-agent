@@ -186,9 +186,9 @@ def test_b6_missing_directory_returns_empty(tmp_path: Path) -> None:
 
 
 def test_b6_collector_registry_count_unchanged() -> None:
-    assert len(all_collectors()) == 16, (
+    assert len(all_collectors()) == 17, (
         "a weight-clamp fix on RecentFilesCollector must add NO collector; "
-        f"expected 16, got {len(all_collectors())}"
+        f"expected 17, got {len(all_collectors())}"
     )
 
 
