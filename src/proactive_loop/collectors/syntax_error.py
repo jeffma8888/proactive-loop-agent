@@ -352,11 +352,3 @@ class SyntaxErrorCollector(BaseCollector):
             timestamp=None,
         )
         return rel, signal
-
-    @staticmethod
-    def _relative(root: Path, full: Path) -> str:
-        """Path of *full* relative to *root*, always forward-slashed."""
-        try:
-            return full.relative_to(root).as_posix()
-        except ValueError:
-            return full.as_posix()

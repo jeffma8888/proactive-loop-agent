@@ -58,6 +58,11 @@ class BaseCollector:
     * Not a decorator: ``mypy strict`` runs with ``disallow_untyped_decorators``, and
       a base class is simpler to read than a correctly-typed generic decorator.
 
+    It also hosts ``_relative`` for the same reason and by the same precedent: a
+    path-shape rule every path-emitting collector must satisfy had been hand-copied
+    into six of them. Anything added here must stay a plain method or a
+    ``staticmethod`` -- never an annotated attribute -- for the dataclass reason above.
+
     Subclasses stay structurally compatible with ``Collector``: a ``runtime_checkable``
     Protocol is satisfied by an INHERITED ``collect``, so ``isinstance(c, Collector)``
     remains True.
@@ -85,3 +90,26 @@ class BaseCollector:
         is a quiet empty scan rather than a crash.
         """
         raise NotImplementedError(f"{type(self).__name__} must override _collect()")
+
+    @staticmethod
+    def _relative(root: Path, path: Path) -> str:
+        """Render *path* as a workspace-relative, forward-slashed string.
+
+        Every path-emitting collector must publish ``ContextSignal.path`` in exactly
+        this shape -- relative to the scanned root and POSIX-separated -- so a slate
+        reads and diffs identically whichever platform produced it. That is ONE
+        invariant, so it gets ONE implementation: it was previously hand-copied into
+        six collectors whose docstrings cited FOUR different SPEC behavior numbers for
+        the same three lines, which is why the wording here is deliberately generic --
+        it serves each subclass's own path-shape behavior, not any single one of them.
+
+        WHY the fallback instead of letting ``ValueError`` escape: callers pass the
+        absolute results of a directory walk, so a path that lands outside *root*
+        (a symlink target, a caller-supplied absolute path) must still be reported.
+        Raising here would be swallowed by ``collect`` above and would silently empty
+        the whole collector rather than degrade one signal.
+        """
+        try:
+            return path.relative_to(root).as_posix()
+        except ValueError:
+            return path.as_posix()

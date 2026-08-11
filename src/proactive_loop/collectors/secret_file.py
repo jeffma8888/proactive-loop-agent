@@ -156,14 +156,6 @@ class SecretFileCollector(BaseCollector):
             self._signal_for(rel, full) for rel, full in candidates[: self.max_items]
         ]
 
-    @staticmethod
-    def _relative(root: Path, path: Path) -> str:
-        """Path of *path* relative to *root*, always forward-slashed (Behavior 6)."""
-        try:
-            return path.relative_to(root).as_posix()
-        except ValueError:
-            return path.as_posix()
-
     def _signal_for(self, rel: str, full: Path) -> ContextSignal:
         """Build one secret-file signal.
 

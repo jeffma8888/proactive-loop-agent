@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-134
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- Put the `watch` -> `diff` change feed inside the graded gate (roadmap row #137, gate-step half)
+    - Candidate A2 -- Give `signals --baseline` its first consumer: commit a one-entry baseline and arm `ci_config` (roadmap row #161)
+    - Candidate A3 -- Make the shipped `hooks/pre-commit` something a person would keep installed: quiet on success, plus a `make hooks` on-ramp
+    - Candidate B1 -- Delete 5 of the 6 verbatim `_relative` copies by inheriting one from `BaseCollector`
+    - Candidate B2 -- Collapse the "root + direct children" repo walk that four collectors each hand-maintain
+    - Candidate B3 -- Fold the 3 identical OpenAI-wire `_complete` closures into the `_SdkAdapter` seam that already exists
+    winner: B1
+    ship: unknown
   iter-133
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Make the README suite-size guard prove the floor, and bump the 511-test-stale number
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Give `--baseline` its first consumer: commit a baseline and arm `ci_config`, the one of three "red on arrival" kinds measurement says is safe
     - Candidate B3 -- Ship the pre-commit hook the README already sells (the missing half of the exit-5 claim)
     winner: B3
-    ship: unknown
+    ship: PUSHED 86a0d7f
   iter-132
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `signals --path GLOB`, the positive half of the location axis
@@ -336,4 +346,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-42 scouted iterations
+43 scouted iterations

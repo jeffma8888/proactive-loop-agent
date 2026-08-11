@@ -84,14 +84,6 @@ class DependencyCollector(BaseCollector):
         found.sort(key=lambda pair: pair[0])
         return [signal for _, signal in found[: self.max_manifests]]
 
-    @staticmethod
-    def _relative(root: Path, path: Path) -> str:
-        """Path of *path* relative to *root*, always forward-slashed (Behavior 5)."""
-        try:
-            return path.relative_to(root).as_posix()
-        except ValueError:
-            return path.as_posix()
-
     def _signal_for(self, path: Path, rel: str, fname: str) -> ContextSignal:
         """Build one dependency signal, dispatching on the manifest filename.
 

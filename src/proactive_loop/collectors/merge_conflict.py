@@ -161,14 +161,6 @@ class MergeConflictCollector(BaseCollector):
         found.sort(key=lambda pair: pair[0])
         return [signal for _, signal in found[: self.max_items]]
 
-    @staticmethod
-    def _relative(root: Path, full: Path) -> str:
-        """Path of *full* relative to *root*, always forward-slashed."""
-        try:
-            return full.relative_to(root).as_posix()
-        except ValueError:
-            return full.as_posix()
-
     def _signal_for(self, rel: str, count: int) -> ContextSignal:
         """Build one merge-conflict signal for *rel* with *count* markers.
 

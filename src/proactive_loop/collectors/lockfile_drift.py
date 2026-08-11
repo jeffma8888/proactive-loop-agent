@@ -147,11 +147,3 @@ class LockfileDriftCollector(BaseCollector):
             weight=0.6,
             timestamp=None,
         )
-
-    @staticmethod
-    def _relative(root: Path, path: Path) -> str:
-        """Path of *path* relative to *root*, always forward-slashed (Behavior 12)."""
-        try:
-            return path.relative_to(root).as_posix()
-        except ValueError:
-            return path.as_posix()
