@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-135
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- finish row #165: fold the 3 remaining inline relative-path idioms onto `BaseCollector._relative` (and correct the row's false premise)
+    - Candidate A2 -- collapse the three near-duplicate path-target guards into one parameterized guard
+    - Candidate A3 -- table-drive the five static-info `_cmd_*` handlers
+    - Candidate B1 -- Parallelize the suite: `pytest-xdist` + `-n auto` in `addopts`
+    - Candidate B2 -- The `todos` cold-scan prefilter (roadmap row #129, already QUEUED with a settled shape)
+    - Candidate B3 -- Cut the fresh-process startup tax on the CLI critical path
+    winner: B1
+    ship: unknown
   iter-134
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- Put the `watch` -> `diff` change feed inside the graded gate (roadmap row #137, gate-step half)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Collapse the "root + direct children" repo walk that four collectors each hand-maintain
     - Candidate B3 -- Fold the 3 identical OpenAI-wire `_complete` closures into the `_SdkAdapter` seam that already exists
     winner: B1
-    ship: unknown
+    ship: PUSHED e368632
   iter-133
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Make the README suite-size guard prove the floor, and bump the 511-test-stale number
@@ -346,4 +356,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-43 scouted iterations
+44 scouted iterations

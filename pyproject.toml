@@ -17,6 +17,15 @@ pla = "proactive_loop.cli:main"
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    # pytest-xdist parallelizes the suite (see `addopts` below). It is declared
+    # because suite wall-clock had become a build risk, not a taste preference:
+    # the fresh-clone time climbed 61s -> ~106s in three days and at 120s the
+    # release check flips to BROKEN. Measured on this 12-CPU box, 88.80s serial
+    # -> 25.72s under `-n auto` (3.45x) with all 3334 tests passing unchanged;
+    # on a 2-core runner (`-n 2`) it is still 52.52s (1.69x), so the win
+    # survives the smaller CI machines too. Dev-group only: never imported by
+    # `src/`, and the runtime dependency set stays pydantic-only.
+    "pytest-xdist>=3.6",
     # mypy is the machine oracle for the "fully type-hinted" README claim.
     # It is LOCKED (not run via `uv run --with mypy`) so `make typecheck` and
     # the CI type step run a reproducible, pinned checker from the project
@@ -33,7 +42,14 @@ packages = ["src/proactive_loop"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# `-n auto` distributes the suite across every logical CPU via pytest-xdist (see
+# the dev-group comment for the measured 3.45x). Setting it HERE, rather than in
+# a Makefile recipe or a CI step, is deliberate: every call site -- `make test`,
+# `make check`, the CI step, a bare `uv run pytest`, an IDE runner -- inherits
+# the same parallelism, so no invocation is silently left serial. Coverage is
+# still strictly opt-in and MUST NOT appear here; the three subprocess oracles
+# in tests/test_iter52_behavior.py pass an explicit `-n0` to opt back OUT.
+addopts = "-q -n auto"
 
 [tool.coverage.run]
 # Measure only our package, with branch coverage so the report reflects

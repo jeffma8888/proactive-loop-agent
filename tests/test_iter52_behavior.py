@@ -27,12 +27,17 @@ temp copy so it never mutates the live working tree.
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import tomllib
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -48,7 +53,8 @@ MAKEFILE = REPO / "Makefile"
 COV_SOURCE = "proactive_loop"                     # [tool.coverage.run].source entry
 COV_FLAG = "--cov=proactive_loop"                 # the package-scoping cov flag
 COV_REPORT_FLAG = "--cov-report=term-missing"     # the terminal-report flag
-EXPECTED_ADDOPTS = "-q"                            # addopts MUST stay exactly this
+EXPECTED_ADDOPTS = "-q -n auto"                   # addopts MUST stay exactly this
+SERIAL = "-n0"                                    # opt a subprocess run back OUT of xdist
 COV_MODULE = "tests/test_scheduler.py"            # the BOUNDED single-module subset
 # A coverage summary row: a line beginning with TOTAL that carries a `<n>%` token.
 _TOTAL_PCT = re.compile(r"^TOTAL\b.*?\b\d+%")
@@ -83,9 +89,19 @@ def _run_pytest(extra_args: list[str]) -> subprocess.CompletedProcess:
     ``uv run pytest`` (same venv interpreter that carries pytest-cov, same
     ``pyproject.toml`` config), so it exercises the exact coverage config the
     spec describes without a PATH dependency on the ``uv`` wrapper.
+
+    ``-n0`` is passed FIRST, ahead of ``extra_args``, to opt this subprocess back
+    OUT of the ``-n auto`` that ``addopts`` now inherits into every pytest call.
+    Two reasons, both load-bearing: (a) these three runs measure SERIAL coverage
+    behavior --- the ``.coverage`` artifact hygiene and the exact ``TOTAL`` row
+    are what the iteration-52 contract is about, so distributing them would
+    change what is being measured; (b) the outer suite is itself parallel now, so
+    without this each call would start a fresh worker pool nested inside a worker,
+    paying ~3.4s of startup three times over for no signal. Callers may still
+    override it by putting their own ``-n`` in ``extra_args`` (last flag wins).
     """
     return subprocess.run(
-        [sys.executable, "-m", "pytest", *extra_args],
+        [sys.executable, "-m", "pytest", SERIAL, *extra_args],
         cwd=str(REPO),
         capture_output=True,
         text=True,
@@ -93,9 +109,96 @@ def _run_pytest(extra_args: list[str]) -> subprocess.CompletedProcess:
     )
 
 
+# --------------------------------------------------------------------------
+# Cross-worker serialization for the ONE shared repo-root coverage artifact.
+#
+# EB6/EB7/EB9 each drive a pytest subprocess in the REAL repo root, and
+# coverage.py keeps its data in a single sqlite file at ``<repo>/.coverage``.
+# Since the suite runs under ``-n auto`` those three tests can land on different
+# xdist workers and execute at the same instant, at which point they fight over
+# that one file. Both halves of the collision were MEASURED, not imagined: two
+# concurrent coverage runs abort the inner pytest with
+# ``coverage.exceptions.DataError: Couldn't use data file '<repo>/.coverage': no
+# such table: other_db.file`` (rc=3), and one test's teardown wipe can delete the
+# artifact another test is still asserting on. That path is process-external
+# global state, and it cannot be relocated into ``tmp_path`` without changing
+# what EB7 measures (that the REPO-ROOT artifact exists and is git-ignored), so
+# the three tests take an exclusive advisory lock instead of being rewritten.
+#
+# Deliberately stdlib-only and OS-agnostic --- ``O_CREAT | O_EXCL`` is atomic on
+# POSIX and Windows alike, unlike ``fcntl`` --- and the lock file lives in the
+# system temp dir, NEVER in the repo, so it can never appear in the
+# ``git status --porcelain`` set EB7 asserts on. The key is a digest of the
+# repo's absolute path, so two checkouts on one machine do not block each other.
+# --------------------------------------------------------------------------
+_LOCK_PATH = Path(tempfile.gettempdir()) / (
+    "pla-iter52-coverage-"
+    + hashlib.blake2b(str(REPO).encode(), digest_size=8).hexdigest()
+    + ".lock"
+)
+_LOCK_TIMEOUT = 300.0  # generous: the guarded body shells out to pytest
+# Ordering invariant: _LOCK_STALE_AFTER < _LOCK_TIMEOUT, so a waiter ALWAYS reaps an
+# orphaned lock before it despairs. Inverting the two makes the reaping branch below
+# unreachable -- the waiter raises TimeoutError at 300s having never reaped -- so a
+# single SIGKILL of the session (e.g. a CI/stage timeout) would leave the lock file
+# behind and wedge each of the three guarded tests for the full 300s on every later
+# run. The gap is bounded on BOTH sides: measured, the guarded body holds the lock for
+# <= 0.70s, so 120s is ~170x margin and a LIVE holder can never be robbed.
+_LOCK_STALE_AFTER = 120.0
+
+
+@contextlib.contextmanager
+def _exclusive_repo_coverage_artifact() -> Iterator[None]:
+    """Hold an exclusive advisory lock on the repo-root coverage-artifact path."""
+    deadline = time.monotonic() + _LOCK_TIMEOUT
+    while True:
+        try:
+            fd = os.open(_LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            try:
+                orphaned = time.time() - _LOCK_PATH.stat().st_mtime > _LOCK_STALE_AFTER
+            except FileNotFoundError:
+                continue  # the holder released it between our open() and our stat()
+            if orphaned:
+                # Steal the stale lock ATOMICALLY. A bare unlink() here is a TOCTOU
+                # race: two waiters can both stat() the same stale file and both
+                # decide it is orphaned, then the first unlink() clears the stale
+                # file, the winner creates a fresh lock via O_EXCL -- and the second
+                # unlink() deletes THE WINNER'S LIVE LOCK, so both bodies run at once
+                # and the coverage-data collision this lock exists to prevent returns.
+                # os.replace() is atomic, so exactly one racer can rename a given
+                # source path: the winner retries its open immediately, the loser
+                # falls through to the ordinary deadline-and-sleep path below.
+                stolen = _LOCK_PATH.with_name(f"{_LOCK_PATH.name}.stale.{os.getpid()}")
+                try:
+                    os.replace(_LOCK_PATH, stolen)
+                except OSError:
+                    pass  # lost the steal (gone already, or held open on Windows)
+                else:
+                    stolen.unlink(missing_ok=True)
+                    continue
+            if time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"waited {_LOCK_TIMEOUT}s for the repo coverage-artifact lock at "
+                    f"{_LOCK_PATH}; another xdist worker is still holding it"
+                )
+            time.sleep(0.02)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        _LOCK_PATH.unlink(missing_ok=True)
+
+
 @pytest.fixture
 def repo_coverage_cleanup():
-    """Guarantee repo-root coverage artifacts are absent before AND after the test."""
+    """Guarantee repo-root coverage artifacts are absent before AND after the test.
+
+    The fixture also HOLDS the cross-worker lock for the whole test, so each
+    wipe-run-assert sequence is atomic with respect to the sibling tests that
+    drive the same repo-root artifact.
+    """
     def _wipe() -> None:
         cov = REPO / ".coverage"
         if cov.exists():
@@ -106,9 +209,10 @@ def repo_coverage_cleanup():
         if html.is_dir():
             shutil.rmtree(html)
 
-    _wipe()
-    yield
-    _wipe()
+    with _exclusive_repo_coverage_artifact():
+        _wipe()
+        yield
+        _wipe()
 
 
 # --------------------------------------------------------------------------
@@ -145,9 +249,15 @@ def test_eb2_coverage_report_config_present():
 
 
 # --------------------------------------------------------------------------
-# EB3 --- pytest addopts UNCHANGED (coverage never global): exactly "-q"
+# EB3 --- pytest addopts pinned exactly, and coverage still never global.
+#
+# The pinned VALUE moved once, in iteration 142, from "-q" to "-q -n auto" when
+# pytest-xdist was adopted; the INVARIANT this test exists to defend did not move
+# at all --- coverage stays strictly opt-in and may never enter addopts under any
+# spelling. Pinning the whole string (not just the --cov absence) is what makes a
+# silent revert of the measured 3.45x parallel speedup impossible.
 # --------------------------------------------------------------------------
-def test_eb3_pytest_addopts_is_exactly_dash_q():
+def test_eb3_pytest_addopts_is_pinned_and_coverage_free():
     data = _load_pyproject()
     addopts = (
         data.get("tool", {})
@@ -156,8 +266,8 @@ def test_eb3_pytest_addopts_is_exactly_dash_q():
         .get("addopts")
     )
     assert addopts == EXPECTED_ADDOPTS, (
-        "addopts must stay EXACTLY '-q' (coverage is opt-in, never global); "
-        f"got {addopts!r}"
+        f"addopts must stay EXACTLY {EXPECTED_ADDOPTS!r} (quiet + xdist-parallel, "
+        f"and coverage opt-in, never global); got {addopts!r}"
     )
     # The load-bearing constraint restated as a substring guard: no --cov flag
     # may leak into addopts under any spelling.

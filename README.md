@@ -96,7 +96,7 @@ code.
 ## Quickstart
 
 ```bash
-uv sync --locked # install the exact locked dependency set (pydantic + pytest, pytest-cov, mypy)
+uv sync --locked # install the exact locked dependency set (pydantic + pytest, pytest-cov, pytest-xdist, mypy)
 make demo      # scan the fixture workspace and auto-dispatch the top goal
 make test      # run the full offline test suite
 make cov       # run the suite with a coverage report (term-missing)
