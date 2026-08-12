@@ -531,11 +531,29 @@ def test_b12_the_single_readme_signals_row_documents_the_flag() -> None:
 
 
 def test_b12_the_roadmap_records_the_row_as_selected_for_this_iteration() -> None:
-    rows = [
-        line
-        for line in (_REPO / "ROADMAP.md").read_text(encoding="utf-8").splitlines()
-        if line.startswith("| 168 ")
-    ]
-    assert len(rows) == 1, "roadmap row #168 must exist exactly once"
-    assert "fail-over" in rows[0]
-    assert "iter-138" in rows[0]
+    """Row #168 must stay RECORDED in `ROADMAP.md` -- as an index row while it is
+    live, or as a Done-ledger line once the PM retires it to `ROADMAP_ARCHIVE.md`.
+
+    WHY two accepted shapes: `ROADMAP.md` is a required-reading file that the PM
+    rewrites every iteration, so it gets COMPACTED whenever it nears the operator's
+    40,000-char stall threshold, and shipped rows are moved out. The roadmap's own
+    contract states the invariant that survives that move -- a shipped row "keeps a
+    one-line record in the Done ledger at the foot of this file, so `grep` still
+    answers 'did we ship that?'". Pinning only the index row made this oracle
+    assert a TRANSIENT pre-retirement shape, so routine maintenance broke it (row
+    #168 was retired in factory iter 151). Both shapes still fail CLOSED if the row
+    stops being recorded at all, and every record must still name the flag and the
+    iteration that sourced it, so the provenance claim is unweakened.
+    """
+    lines = (_REPO / "ROADMAP.md").read_text(encoding="utf-8").splitlines()
+    index_rows = [line for line in lines if line.startswith("| 168 ")]
+    ledger_rows = [line for line in lines if line.startswith("- #168 ")]
+    assert len(index_rows) <= 1, f"at most one index row for #168, got {index_rows!r}"
+    assert len(ledger_rows) <= 1, f"at most one Done-ledger line for #168, got {ledger_rows!r}"
+    records = index_rows + ledger_rows
+    assert records, "roadmap row #168 must be recorded (index row or Done-ledger line)"
+    for record in records:
+        assert "fail-over" in record, f"the #168 record must name the flag; got {record!r}"
+        assert "iter-138" in record or "iter 138" in record, (
+            f"the #168 record must name the sourcing iteration; got {record!r}"
+        )

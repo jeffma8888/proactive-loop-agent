@@ -62,14 +62,20 @@ _EMPTY_MARKER = "(no signals collected)"
 _ABSENT_KIND = "merge_conflict"
 
 
-def _assert_vehicle_absent() -> None:
-    """Fail closed if the empty-selection vehicle kind starts appearing.
+def _assert_vehicle_absent(workspace: str) -> None:
+    """Fail closed if the empty-selection vehicle kind starts appearing in *workspace*.
 
     WHY: an empty result is indistinguishable from a filter that matched
     everything-but-nothing-was-there. Anchoring on the UNFILTERED listing keeps
     the degrade assertions honest if the fixture ever grows a merge conflict.
+
+    `workspace` is REQUIRED and carries NO default. A default would hand a caller
+    a run over the in-repo fixture by omission, which is exactly the shared
+    mutable-tree dependence this module is removing (see `_isolated_fixture_copy`).
+    It also has to be the SAME workspace as the test it guards, or the absence it
+    proves is about some other selection.
     """
-    present = _listing_counts_via_cli([])
+    present = _listing_counts_via_cli(workspace, [])
     assert _ABSENT_KIND not in present, (
         f"vehicle kind {_ABSENT_KIND!r} is now emitted by the fixture "
         f"({sorted(present)}); pick another absent kind"
@@ -152,11 +158,18 @@ def _parse_human_summary(stdout: str) -> tuple[dict[str, int], int, list[str]]:
     return counts, total, order
 
 
-def _listing_counts_via_cli(argv_filters: list[str]) -> dict[str, int]:
+def _listing_counts_via_cli(workspace: str, argv_filters: list[str]) -> dict[str, int]:
     """Ground truth: per-kind counts derived from the NON-summary --json listing
     over the same workspace/filters. Cross-checks the summary against the
-    already-shipped listing without hardcoding the fixture's mutable counts."""
-    code, out, err = _run(["signals", "--workspace", str(FIXTURE), "--json", *argv_filters])
+    already-shipped listing without hardcoding the fixture's mutable counts.
+
+    `workspace` is REQUIRED and carries NO default, so a caller cannot obtain a
+    run over the in-repo fixture by omission. Every value this helper returns is
+    compared against a SECOND run, so both runs must observe the same private
+    tree; see `_isolated_fixture_copy` for the measured reason the in-repo path
+    makes such a comparison depend on the product repo's mutable git state.
+    """
+    code, out, err = _run(["signals", "--workspace", workspace, "--json", *argv_filters])
     assert code == 0, f"listing must exit 0; stderr={err!r}"
     doc = json.loads(out)
     assert set(doc.keys()) == {"workspace_root", "signals"}, doc.keys()
@@ -189,14 +202,20 @@ def test_b01_human_summary_format_order_and_total_pure():
     assert not text.endswith("\n")
 
 
-def test_b01_human_summary_end_to_end_via_cli():
-    code, out, err = _run(["signals", "--workspace", str(FIXTURE), "--summary"])
+def test_b01_human_summary_end_to_end_via_cli(tmp_path):
+    # BOTH compared runs go over an ISOLATED COPY, never the in-repo fixture:
+    # see _isolated_fixture_copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
+    code, out, err = _run(["signals", "--workspace", ws, "--summary"])
     assert code == 0, f"--summary must exit 0; stderr={err!r}"
     counts, total, order = _parse_human_summary(out)
     assert order == sorted(order), f"kinds must be ascending; got {order}"
     assert total == sum(counts.values()), f"total ({total}) must equal sum of counts {counts}"
+    # Fail closed rather than pass vacuously: two empty selections would satisfy
+    # the equality below while proving nothing.
+    assert counts and total > 0, f"the copy must still surface signals; got {counts!r}"
     # Cross-check against the shipped per-signal listing (no hardcoded fixture counts).
-    assert counts == _listing_counts_via_cli([]), "summary counts must match the listing view"
+    assert counts == _listing_counts_via_cli(ws, []), "summary counts must match the listing view"
 
 
 # ===========================================================================
@@ -210,10 +229,14 @@ def test_b02_human_empty_selection_marker_no_total_pure():
     assert _render_signals_summary(snap, "no_such_kind") == _EMPTY_MARKER
 
 
-def test_b02_human_empty_selection_via_cli():
-    _assert_vehicle_absent()
+def test_b02_human_empty_selection_via_cli(tmp_path):
+    # The precondition run and the guarded run must observe the SAME tree, and an
+    # isolated copy keeps both off the shared mutable one: see
+    # _isolated_fixture_copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
+    _assert_vehicle_absent(ws)
     code, out, err = _run(
-        ["signals", "--workspace", str(FIXTURE), "--summary", "--kind", _ABSENT_KIND]
+        ["signals", "--workspace", ws, "--summary", "--kind", _ABSENT_KIND]
     )
     assert code == 0, f"empty-selection --summary must exit 0; stderr={err!r}"
     assert out == _EMPTY_MARKER + "\n", f"must be exactly the empty marker; got {out!r}"
@@ -238,19 +261,23 @@ def test_b03_json_summary_schema_and_total_pure():
     assert keys == sorted(keys), f"summary keys must be ascending; got {keys}"
 
 
-def test_b03_json_summary_end_to_end_via_cli():
-    code, out, err = _run(["signals", "--workspace", str(FIXTURE), "--summary", "--json"])
+def test_b03_json_summary_end_to_end_via_cli(tmp_path):
+    # BOTH compared runs go over an ISOLATED COPY: see _isolated_fixture_copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
+    code, out, err = _run(["signals", "--workspace", ws, "--summary", "--json"])
     assert code == 0, f"--summary --json must exit 0; stderr={err!r}"
     doc = json.loads(out)  # ENTIRE stdout parses as exactly one object
     assert set(doc.keys()) == {"workspace_root", "summary", "total"}, doc.keys()
     assert "signals" not in doc
-    assert isinstance(doc["workspace_root"], str) and doc["workspace_root"] == str(FIXTURE)
+    assert isinstance(doc["workspace_root"], str) and doc["workspace_root"] == ws
     assert isinstance(doc["total"], int)
     assert all(isinstance(v, int) for v in doc["summary"].values())
     assert doc["total"] == sum(doc["summary"].values())
     assert _summary_key_order(out) == sorted(doc["summary"].keys()), "keys serialized ascending"
+    # Fail closed rather than pass vacuously (see test_b01).
+    assert doc["summary"] and doc["total"] > 0, f"the copy must still surface signals; got {doc!r}"
     # Cross-check the aggregate against the shipped listing view.
-    assert doc["summary"] == _listing_counts_via_cli([])
+    assert doc["summary"] == _listing_counts_via_cli(ws, [])
 
 
 # ===========================================================================
@@ -262,16 +289,18 @@ def test_b04_json_empty_selection_pure():
     assert payload == {"workspace_root": "/w", "summary": {}, "total": 0}
 
 
-def test_b04_json_empty_selection_via_cli():
-    _assert_vehicle_absent()
+def test_b04_json_empty_selection_via_cli(tmp_path):
+    # Same reason as test_b02: precondition and guarded run over one isolated copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
+    _assert_vehicle_absent(ws)
     code, out, err = _run(
-        ["signals", "--workspace", str(FIXTURE), "--summary", "--json", "--kind", _ABSENT_KIND]
+        ["signals", "--workspace", ws, "--summary", "--json", "--kind", _ABSENT_KIND]
     )
     assert code == 0, f"empty --summary --json must exit 0; stderr={err!r}"
     doc = json.loads(out)
     assert doc["summary"] == {} and doc["total"] == 0
     assert set(doc.keys()) == {"workspace_root", "summary", "total"}
-    assert doc["workspace_root"] == str(FIXTURE)
+    assert doc["workspace_root"] == ws
     assert _EMPTY_MARKER not in out, "JSON mode must never emit the human marker"
 
 
@@ -292,16 +321,20 @@ def test_b05_kind_composition_pure():
     assert _signals_summary_payload(snap, "no_such")["total"] == 0
 
 
-def test_b05_kind_composition_via_cli():
+def test_b05_kind_composition_via_cli(tmp_path):
+    # BOTH compared runs go over an ISOLATED COPY: see _isolated_fixture_copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
     # Pick a kind the fixture actually surfaces (do not hardcode the count).
-    listing = _listing_counts_via_cli([])
+    listing = _listing_counts_via_cli(ws, [])
     assert listing, "fixture must surface at least one kind"
     kind = sorted(listing)[0]
     code, out, err = _run(
-        ["signals", "--workspace", str(FIXTURE), "--summary", "--json", "--kind", kind]
+        ["signals", "--workspace", ws, "--summary", "--json", "--kind", kind]
     )
     assert code == 0, f"stderr={err!r}"
     doc = json.loads(out)
+    # Fail closed rather than pass vacuously (see test_b01).
+    assert doc["summary"] and doc["total"] > 0, f"the selected kind must be non-empty; got {doc!r}"
     assert doc["summary"] == {kind: listing[kind]}, doc["summary"]
     assert doc["total"] == listing[kind]
 
@@ -338,15 +371,19 @@ def test_b06_min_weight_extreme_empties_via_cli():
 # UNKNOWN --collector value remains an argparse usage error (exit 2) BEFORE the
 # handler runs, unchanged from today.
 # ===========================================================================
-def test_b07_collector_composition_via_cli():
+def test_b07_collector_composition_via_cli(tmp_path):
+    # BOTH compared runs go over an ISOLATED COPY: see _isolated_fixture_copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
     # Restrict to the `notes` collector; the summary must equal the
     # collector-restricted listing counts (same `selected` set, AND semantics).
-    restricted_listing = _listing_counts_via_cli(["--collector", "notes"])
+    restricted_listing = _listing_counts_via_cli(ws, ["--collector", "notes"])
     code, out, err = _run(
-        ["signals", "--workspace", str(FIXTURE), "--summary", "--json", "--collector", "notes"]
+        ["signals", "--workspace", ws, "--summary", "--json", "--collector", "notes"]
     )
     assert code == 0, f"--summary --collector notes must exit 0; stderr={err!r}"
     doc = json.loads(out)
+    # Fail closed rather than pass vacuously (see test_b01).
+    assert restricted_listing and doc["total"] > 0, f"the notes collector must fire; got {doc!r}"
     assert doc["summary"] == restricted_listing, (doc["summary"], restricted_listing)
     assert doc["total"] == sum(restricted_listing.values())
 

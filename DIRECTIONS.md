@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-144
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`), the 18th collector and 3rd relational perceiver
+    - Candidate A2 -- `resume --workspace PATH`: stop resuming a checkpointed run against the current directory
+    - Candidate A3 -- `--exclude-path` ancestor matching: make a bare directory mean its subtree
+    - Candidate B1 -- Close the rest of the shared-mutable-tree class: 4 more in-repo-fixture comparisons, and a census that can see helper-indirect runs
+    - Candidate B2 -- Key the root-Markdown guard on the TRACKED file set (roadmap row #155)
+    - Candidate B3 -- The char-size budget guard for the per-iteration required-reading docs (rows #109 + #138), with ~1 iteration of headroom left
+    winner: B1
+    ship: unknown
   iter-143
     lenses: narrative-and-docs, new-capability
     - Candidate A1 (primary) -- Exit code 5 has TWO producers; the exit-code contract names one, and the guard that should have caught it pins only the incomplete half
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Ancestor-prefix matching for `--exclude-path`, so one pattern means the subtree (roadmap row #149)
     - Candidate B3 -- `DebugArtifactCollector` (`kind="debug_artifact"`): the 18th collector, AST-only, provably silent here (roadmap row #105)
     winner: A1
-    ship: unknown
+    ship: PUSHED 83b89d6
   iter-142
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 (primary) -- Bound the nested-pytest fan-out: two child runs bring up 12 workers inside the 12-worker suite
@@ -436,4 +446,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-52 scouted iterations
+53 scouted iterations
