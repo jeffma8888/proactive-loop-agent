@@ -59,6 +59,7 @@ _Settled rows are dropped from this index once shipped -- rows 1-70 in iter-101,
 | 171 | **The 120s BROKEN cliff is steered by a WARM number that reads ~20s low** -- measured iter-141: first-run-in-a-tree 49.98s vs 30.01s warm (1.66x), and post-release runs in a FRESH CLONE while every figure the repo cites about itself is warm. Slice = a `make test-cold` recipe plus correcting the 2-3 warm citations. An INSTRUMENT, not a speed-up; the delta is not yet attributed to bytecode. | DX/integrity | Med | Very Low | PM scout-B B3 (iter-141) | **QUEUED** |
 | 172 | **Nothing detects a roadmap row that misreports its own ship** -- no `roadmap_ledger_gaps` brake exists here (the sibling `_platform` has one), so SIX rows (#156, #159, #160, #162, #166, #168) read the PRE-ship `SELECTED` while their commits were already in `git log`, none with a Done-ledger line. Repaired by hand in iter-141; the guard is what stops the recurrence. | PM maintenance/integrity | Med | Low | PM-lead (iter-141) | **QUEUED** |
 | 173 | **README's intro names 4 of the 6 live providers** (omits `groq` and `together`, both fully branched and stub-tested). BLOCKED, not queued: that line sits ABOVE the `PORTFOLIO INTRO` marker, where the operator carve-out permits exactly three NUMBERS to change and a provider list is not one -- so no iteration may fix it. Recorded so a public docs-vs-code understatement is not invisible. | Docs/integrity | Low-Med | n/a | PM-lead (iter-141) | **BLOCKED -- human-owned README region** |
+| 174 | **Two nested `pytest` children bring up 12 xdist workers INSIDE the 12-worker suite** -- `test_iter142_behavior.py:292`/`:326` run `cwd=REPO` with no `-n`, so each inherits row #166's `addopts = "-q -n auto"`. Measured iter-142: suite 37.82s / 19.23s slowest test vs 31.82s / 3.88s with just those 2 deselected (6.00s = 15.9% of wall clock; the test is 2.77s alone, so it is contention). Worse on 2-4 core CI. Fix = pin `-n 2`, NOT `-n0` (the oracle IS cross-worker `--cov` combination) + an unconditional AST guard over all nested pytest calls in `tests/`. Rationale in iter-142's `pm.md`. | DX/throughput | Med | Low | PM scout-A A1 (iter-142) | **SHIPPED -- iter-142** (factory iter 149) |
 
 ## Done ledger (shipped rows whose verbatim detail now lives in `ROADMAP_ARCHIVE.md`)
 
@@ -85,5 +86,6 @@ Moved out of the index in iter-132 to buy stage headroom (see below). One line e
 - #166 Parallelize the suite: pytest-xdist + addopts -n auto (iter 135, factory iter 142, 6fac577)
 - #167 Arm broken_link in the self-scan gate: the 4th armed kind, all 3 sites (iter 140, factory iter 147)
 - #168 signals --fail-over N: a count-budget exit gate (iter 138, factory iter 145, 004f037)
+- #174 Pin -n 2 on the 2 nested pytest children so they stop nesting 12 xdist workers (iter 142, factory iter 149)
 
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._

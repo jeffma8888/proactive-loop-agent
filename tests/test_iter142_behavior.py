@@ -30,9 +30,12 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
    interpreter running this suite.
 8. Distribution actually works, offline, in a clean throwaway project that does
    NOT inherit this repo's ini.
-9. Coverage under the inherited ``-n auto`` still reports a REAL total. This is
-   the one silent-failure mode xdist introduces: per-worker coverage data that is
-   never combined reports 0% (or no ``TOTAL`` row) while the build stays green.
+9. Coverage under xdist still reports a REAL total. This is the one silent-failure
+   mode xdist introduces: per-worker coverage data that is never combined reports
+   0% (or no ``TOTAL`` row) while the build stays green. Both child runs PIN
+   ``-n 2`` rather than inheriting ``-n auto`` (see the comment at each call
+   site): the assertion is unchanged and still cross-worker, it is simply no
+   longer nesting a second 12-worker pool inside the parallel parent suite.
 12. ``Makefile`` and ``.github/workflows/ci.yml`` carry no worker flag -- the win
     comes from ``addopts`` inheritance alone, and both still invoke a bare
     ``uv run pytest``.
@@ -131,7 +134,13 @@ def _addopts() -> str:
 
 
 def _clean_env(coverage_file: Path) -> dict[str, str]:
-    """Environment for a child pytest: no inherited addopts, coverage kept in tmp_path."""
+    """Environment for a child pytest: no inherited PYTEST_ADDOPTS, coverage in tmp_path.
+
+    NOTE the precision: this clears the PYTEST_ADDOPTS *env var* only. A child with
+    ``cwd=REPO`` still reads this repo ini ``addopts`` (that is exactly why the two
+    Behavior-9 children below pin their own ``-n``), so do not read this helper as
+    making a nested run opt out of the repo parallelism -- it does not.
+    """
     env = dict(os.environ)
     env.pop("PYTEST_ADDOPTS", None)
     env.pop("PYTEST_CURRENT_TEST", None)
@@ -294,6 +303,17 @@ class TestCoverageSurvivesParallelism:
                 sys.executable,
                 "-m",
                 "pytest",
+                # PINNED worker count, deliberately NOT inherited: this child runs with
+                # cwd=REPO, so it reads this repo pyproject and would otherwise inherit
+                # addopts = "-q -n auto", bringing up a SECOND full worker pool (12 on a
+                # 12-core box) nested inside the already-parallel parent suite. That ~3x
+                # oversubscription measured a 19.23s critical-path spike locally and is
+                # strictly worse on the 2-4 core CI runners. 2 is the smallest count that
+                # still exercises what this test is FOR: per-worker coverage data COMBINED
+                # across workers -- "-n0" would delete that oracle. Last -n wins, so this
+                # overrides the inherited "auto".
+                "-n",
+                "2",
                 "--cov=proactive_loop",
                 "--cov-report=term-missing",
                 "-p",
@@ -307,14 +327,14 @@ class TestCoverageSurvivesParallelism:
             env=_clean_env(tmp_path / ".coverage-eb9"),
         )
         combined = proc.stdout + proc.stderr
-        assert proc.returncode == 0, f"inherited-parallel coverage run failed:\n{combined}"
+        assert proc.returncode == 0, f"parallel coverage run failed:\n{combined}"
         match = _TOTAL_PCT.search(proc.stdout)
         assert match is not None, (
             "no TOTAL row in the coverage report -- per-worker data was not "
             f"combined:\n{combined}"
         )
         assert int(match.group(1)) > 0, (
-            "coverage TOTAL is 0% under -n auto: worker data was collected but "
+            "coverage TOTAL is 0% under -n 2: worker data was collected but "
             f"never combined:\n{proc.stdout}"
         )
 
@@ -328,6 +348,13 @@ class TestCoverageSurvivesParallelism:
                 sys.executable,
                 "-m",
                 "pytest",
+                # PINNED for the same reason as the test above: a cwd=REPO child inherits
+                # addopts = "-q -n auto" from this repo pyproject and would nest a second
+                # 12-worker pool inside the already-parallel parent suite. 2 keeps the run
+                # genuinely cross-worker, so the COVERAGE_FILE redirection is still proven
+                # under the multi-worker conditions that make it necessary.
+                "-n",
+                "2",
                 "--cov=proactive_loop",
                 "--cov-report=term-missing",
                 "-p",

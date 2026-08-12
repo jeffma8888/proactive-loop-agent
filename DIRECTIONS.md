@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-142
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 (primary) -- Bound the nested-pytest fan-out: two child runs bring up 12 workers inside the 12-worker suite
+    - Candidate A2 -- placeholder, being measured
+    - Candidate A3 -- placeholder, being measured
+    - Candidate B1 (primary) -- Two collector docstrings assert a walk parity the code disproves; fix the prose and pin the parity with an AST guard
+    - Candidate B2 -- The README's own architecture description names 12 of the 17 collectors; the 5 newest are missing
+    - Candidate B3 -- Three of the 21 shipped-row ledger lines cannot be resolved to a commit, and the shas are mechanically derivable
+    winner: A1
+    ship: unknown
   iter-141
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Fold the 3 byte-identical OpenAI-wire `_complete` closures into the `_SdkAdapter` seam that already exists
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Stop the armed self-scan gate paying for 13 collectors it cannot fail on
     - Candidate B3 -- Make the 120s cliff measurable: publish the COLD (fresh-clone) suite number
     winner: A1
-    ship: unknown
+    ship: PUSHED fe395dd
   iter-140
     lenses: integration-and-adoption (iteration 140), simplification-and-deletion (iteration 140)
     - Candidate A1 -- Arm `broken_link` in the shared armed set, wiring the 17th collector's first consumer
@@ -416,4 +426,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-50 scouted iterations
+51 scouted iterations
