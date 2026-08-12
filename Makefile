@@ -76,11 +76,15 @@ clean:
 # not police the repo that ships it. Arming it here makes the exit-5 path a
 # graded, end-to-end-exercised contract on every push.
 #
-# WHY exactly these three kinds, and no more: the arm set must be
+# WHY exactly these four kinds, and no more: the arm set must be
 # STATE-INDEPENDENT -- a finding can only mean "this checkout is broken", never
 # "this developer has work in progress". `merge_conflict` / `syntax_error` /
-# `secret_file` are must-never-appear properties of the tree itself and are all
-# zero here. Deliberately NOT armed: `working_tree` / `git_state` / `git_stash`
+# `secret_file` / `broken_link` are must-never-appear properties of the tree
+# itself and are all zero here. `broken_link` joined the set in factory iter 147:
+# a relative Markdown link the filesystem disproves is a reader-facing defect on
+# a repo whose whole value is being publicly readable, and it is decided by the
+# committed tree alone -- no developer's work-in-progress can produce one.
+# Deliberately NOT armed: `working_tree` / `git_state` / `git_stash`
 # (measured: ONE uncommitted edit exits 5, so the LOCAL gate would be red for
 # every developer mid-edit while CI -- always a fresh checkout -- stayed green,
 # i.e. a gate that is green in the only place it is measured and red everywhere
@@ -96,4 +100,4 @@ check:
 	$(MAKE) demo
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null
-	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file
+	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link

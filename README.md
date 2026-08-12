@@ -517,12 +517,13 @@ to uninstall):
 git config core.hooksPath hooks
 ```
 
-It arms **the same three kinds the CI self-scan arms** -- `merge_conflict`, `syntax_error`,
-`secret_file` -- and the suite parses both files and fails the build if the two ever diverge, so the
-local and CI gates cannot drift apart. That set is deliberately the state-*independent*,
-must-never-appear subset: a conflict marker, unparseable Python or a secret-shaped file breaks the
-tree for everyone who checks it out, whereas signals about uncommitted work or a fresh TODO are red
-for any developer mid-edit and arming them would just teach you to bypass the hook every time.
+It arms **the same four kinds the CI self-scan arms** -- `merge_conflict`, `syntax_error`,
+`secret_file`, `broken_link` -- and the suite parses both files and fails the build if the two ever
+diverge, so the local and CI gates cannot drift apart. That set is deliberately the
+state-*independent*, must-never-appear subset: a conflict marker, unparseable Python, a secret-shaped
+file or a Markdown link pointing at a path the filesystem disproves breaks the tree for everyone who
+checks it out, whereas signals about uncommitted work or a fresh TODO are red for any developer
+mid-edit and arming them would just teach you to bypass the hook every time.
 
 The CLI's exit status passes through unchanged (**5** = a gate you armed tripped on a finding, **2** =
 usage error), and git aborts the commit on any non-zero value. The hook adds nothing to stdout on any

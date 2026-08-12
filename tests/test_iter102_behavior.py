@@ -67,7 +67,8 @@ CI_GATE_STEPS = (
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
-    "--fail-on-kind syntax_error --fail-on-kind secret_file",
+    "--fail-on-kind syntax_error --fail-on-kind secret_file "
+    "--fail-on-kind broken_link",
 )
 
 # The number of graded `run:` steps ci.yml exposes today: locked install,

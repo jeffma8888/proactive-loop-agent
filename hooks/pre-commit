@@ -11,9 +11,10 @@
 # in gate mode over the working tree and lets git abort the commit on any
 # non-zero status.
 #
-# WHY exactly these three kinds and no others. They are the state-INDEPENDENT,
-# must-never-appear subset: a conflict marker, unparseable Python or a
-# secret-shaped file means the tree is broken for everyone who checks it out.
+# WHY exactly these four kinds and no others. They are the state-INDEPENDENT,
+# must-never-appear subset: a conflict marker, unparseable Python, a
+# secret-shaped file or a relative Markdown link the filesystem disproves means
+# the tree is broken for everyone who checks it out.
 # The state-DEPENDENT kinds (uncommitted work, branch state, a fresh TODO) are
 # red for any developer mid-edit, so arming them here would teach the reader to
 # pass the bypass flag on every commit -- a gate everyone routes around enforces
@@ -39,7 +40,8 @@ gate() {
     "$@" signals --workspace . \
         --fail-on-kind merge_conflict \
         --fail-on-kind syntax_error \
-        --fail-on-kind secret_file
+        --fail-on-kind secret_file \
+        --fail-on-kind broken_link
 }
 
 # `command -v` resolves a name WITHOUT executing it, so the CLI runs exactly

@@ -12,9 +12,10 @@ self-scan as the FINAL step of ``make check`` and mirrors it as a graded CI
 console script on every push, and the advertised integration has a demonstrated
 consumer instead of a documented one.
 
-The arm set is the whole design and it is what these tests pin hardest. Of the 16
-signal kinds, only the STATE-INDEPENDENT, must-never-appear subset
-``{merge_conflict, syntax_error, secret_file}`` is safe to make a build gate:
+The arm set is the whole design and it is what these tests pin hardest. Of the
+registered signal kinds, only the STATE-INDEPENDENT, must-never-appear subset
+``{merge_conflict, syntax_error, secret_file, broken_link}`` is safe to make a
+build gate (``broken_link`` was armed as the 4th kind in factory iter 147):
 ``lockfile_drift`` / ``test_posture`` / ``ci_config`` are non-zero in this repo
 today (red on arrival), and ``working_tree`` / ``git_state`` / ``git_stash`` are
 LOCAL-STATE dependent -- arming those makes the gate red for every developer
@@ -66,11 +67,14 @@ EXPECTED_GATE_STEP = (
     "uv run pla signals --workspace . "
     "--fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error "
-    "--fail-on-kind secret_file"
+    "--fail-on-kind secret_file "
+    "--fail-on-kind broken_link"
 )
 
 # Behavior 5: the state-independent, must-never-appear arm set...
-ARMED_KINDS = frozenset({"merge_conflict", "syntax_error", "secret_file"})
+ARMED_KINDS = frozenset(
+    {"merge_conflict", "syntax_error", "secret_file", "broken_link"}
+)
 
 # ...and the six kinds that may NEVER be armed by a build gate. The first three
 # are non-zero in this repo today; the last three are local-state dependent.
@@ -441,7 +445,7 @@ def test_b4_trip_reports_exactly_one_stderr_line_naming_both_kinds(
 # ==========================================================================
 
 
-def test_b5_gate_arms_exactly_the_state_independent_trio() -> None:
+def test_b5_gate_arms_exactly_the_state_independent_kinds() -> None:
     armed = _armed_kinds(_check_steps()[-1])
     assert armed, "the final gate step arms no kind at all -- it cannot ever fail"
     assert set(armed) == ARMED_KINDS, (

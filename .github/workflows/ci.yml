@@ -76,9 +76,10 @@ jobs:
       # exit code as the channel a CI step branches on -- so THIS is that step.
       # The armed set is deliberately the state-independent, must-never-appear
       # subset: a red build here means the checkout is broken (a conflict marker,
-      # unparseable Python, a committed secret file), never that someone has work
-      # in progress. Kept byte-for-byte identical to the last step of `make
-      # check` by tests/test_iter102_behavior.py + tests/test_iter110_behavior.py,
+      # unparseable Python, a committed secret file, a Markdown link pointing at a
+      # path the filesystem disproves), never that someone has work in progress.
+      # Kept byte-for-byte identical to the last step of `make check` by
+      # tests/test_iter102_behavior.py + tests/test_iter110_behavior.py,
       # so the local and CI gates cannot silently diverge.
       - name: Self-scan the checkout for must-never-appear signal kinds
-        run: uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file
+        run: uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link

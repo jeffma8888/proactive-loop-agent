@@ -70,7 +70,8 @@ CI_GATE_STEPS = (
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
-    "--fail-on-kind syntax_error --fail-on-kind secret_file",
+    "--fail-on-kind syntax_error --fail-on-kind secret_file "
+    "--fail-on-kind broken_link",
 )
 
 # The two demo-artifact assertions --- the steps this iteration makes honest, and
@@ -582,7 +583,8 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
         "uv run mypy src/proactive_loop",
         "make demo",
         "uv run pla signals --workspace . --fail-on-kind merge_conflict "
-        "--fail-on-kind syntax_error --fail-on-kind secret_file",
+        "--fail-on-kind syntax_error --fail-on-kind secret_file "
+        "--fail-on-kind broken_link",
     ], expensive
     source = Path(__file__).read_text(encoding="utf-8")
     for step in expensive:

@@ -53,7 +53,8 @@ WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 README = REPO / "README.md"
 
 # Behavior 2: the state-independent, must-never-appear subset, in CI's order.
-EXPECTED_ARMED_KINDS = ["merge_conflict", "syntax_error", "secret_file"]
+# `broken_link` was armed as the 4th kind in factory iter 147.
+EXPECTED_ARMED_KINDS = ["merge_conflict", "syntax_error", "secret_file", "broken_link"]
 
 # Behavior 1: git's mode for an executable blob.
 EXPECTED_INDEX_MODE = "100755"
@@ -160,18 +161,18 @@ def _index_of(tokens: list[str], needle: list[str]) -> int:
 
 
 def _assert_gate_argv(tokens: list[str], *, offset: int) -> None:
-    """The shared argv tail of behaviors 4 and 6: ``signals --workspace .`` + the trio."""
+    """The shared argv tail of behaviors 4 and 6: ``signals --workspace .`` + the armed set."""
     assert tokens[offset : offset + 3] == ["signals", "--workspace", "."], (
         f"expected the gate invocation to start at argv[{offset}] with "
         f"'signals --workspace .'; got {tokens!r}"
     )
-    trio: list[str] = []
+    armed: list[str] = []
     for kind in EXPECTED_ARMED_KINDS:
-        trio += ["--fail-on-kind", kind]
-    at = _index_of(tokens, trio)
+        armed += ["--fail-on-kind", kind]
+    at = _index_of(tokens, armed)
     assert at > offset, (
-        f"expected the three --fail-on-kind arguments contiguously and in order after "
-        f"'signals --workspace .'; got {tokens!r}"
+        f"expected all {len(EXPECTED_ARMED_KINDS)} --fail-on-kind arguments contiguously "
+        f"and in order after 'signals --workspace .'; got {tokens!r}"
     )
 
 
@@ -221,8 +222,9 @@ def test_b2_hook_arms_exactly_the_kinds_ci_arms_in_the_same_order() -> None:
 def test_b2_the_armed_set_is_the_state_independent_subset() -> None:
     assert _armed_from_ci() == EXPECTED_ARMED_KINDS
     assert _armed_from_hook() == EXPECTED_ARMED_KINDS, (
-        "widening the armed set is out of scope for this increment: only the "
-        "must-never-appear, state-independent kinds may gate a commit."
+        "the hook arms the four must-never-appear, state-independent kinds "
+        "(broken_link joined in factory iter 147); only kinds measured to be zero "
+        "AND independent of local state may gate a commit."
     )
 
 

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-140
+    lenses: integration-and-adoption (iteration 140), simplification-and-deletion (iteration 140)
+    - Candidate A1 -- Arm `broken_link` in the shared armed set, wiring the 17th collector's first consumer
+    - Candidate A2 -- Give `signals --fail-over N` its first consumer: a code-TODO budget step in the graded gate
+    - Candidate A3 -- Let the shipped pre-commit hook carry the two ratchets (`PLA_HOOK_FAIL_OVER` / `PLA_HOOK_BASELINE`)
+    - Candidate B1 -- Collapse the duplicated `_has_source` + `_SOURCE_EXTS` (roadmap row #125), design question settled by measurement
+    - Candidate B2 -- placeholder, refined below
+    - Candidate B3 -- placeholder, refined below
+    winner: A1
+    ship: unknown
   iter-139
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Arm the self-scan kinds that measurement now shows are ZERO, and delete the stale "red on arrival" rationale
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Complete the exit-code contract: exit 5 now has TWO producers and the table names one
     - Candidate B3 -- Give `--fail-over` its first consumer, or record that this repo has no state-independent slice for it
     winner: A2
-    ship: unknown
+    ship: PUSHED c4ad01f
   iter-138
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `DebugArtifactCollector` (`kind="debug_artifact"`): revive abandoned row #105
@@ -396,4 +406,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-48 scouted iterations
+49 scouted iterations
