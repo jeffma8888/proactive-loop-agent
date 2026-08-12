@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable
+from typing import Any, Callable
 
 from proactive_loop.config import Settings
 from proactive_loop.llm.client import LLMClient, parse_json_block
@@ -242,7 +242,7 @@ class GoalLoop:
     # --- parsing --------------------------------------------------------
 
     @staticmethod
-    def _parse_action(plan_raw: str) -> dict | None:
+    def _parse_action(plan_raw: str) -> dict[str, Any] | None:
         """Extract ``{"tool", "args"}`` from a PLAN reply, or None if malformed."""
         try:
             data = parse_json_block(plan_raw)

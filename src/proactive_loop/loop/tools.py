@@ -15,6 +15,7 @@ import fnmatch
 import os
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ensure_dir
@@ -83,7 +84,7 @@ class ToolRegistry:
         # Relpaths under artifacts_dir written this run, in first-write order.
         self._artifacts: list[str] = []
 
-    def execute(self, tool: str, args: dict) -> str:
+    def execute(self, tool: str, args: dict[str, Any]) -> str:
         """Run *tool* with *args* and return an observation string.
 
         Never raises: an unknown tool or a rejected/failed operation becomes an
@@ -136,7 +137,7 @@ class ToolRegistry:
 
     # --- tool handlers --------------------------------------------------
 
-    def _write_file(self, args: dict) -> str:
+    def _write_file(self, args: dict[str, Any]) -> str:
         """Write *content* to *path* under artifacts_dir; refuse escapes."""
         path = str(args.get("path", ""))
         content = str(args.get("content", ""))
@@ -155,7 +156,7 @@ class ToolRegistry:
             self._artifacts.append(rel)
         return f"wrote {len(content)} chars to artifacts/{rel}"
 
-    def _append_file(self, args: dict) -> str:
+    def _append_file(self, args: dict[str, Any]) -> str:
         """Append *content* to *path* under artifacts_dir; refuse escapes.
 
         WHY a distinct append primitive: ``write_file`` overwrites, so growing
@@ -187,7 +188,7 @@ class ToolRegistry:
             self._artifacts.append(rel)
         return f"appended {len(content)} chars to artifacts/{rel}"
 
-    def _remove_file(self, args: dict) -> str:
+    def _remove_file(self, args: dict[str, Any]) -> str:
         """Delete a file under artifacts_dir ONLY; refuse escapes/dirs/missing.
 
         WHY a destructive verb: ``write_file``/``append_file`` complete
@@ -231,7 +232,7 @@ class ToolRegistry:
             self._artifacts.remove(rel)
         return f"removed artifacts/{rel}"
 
-    def _move_file(self, args: dict) -> str:
+    def _move_file(self, args: dict[str, Any]) -> str:
         """Atomically relocate/rename ONE file under artifacts_dir; refuse
         escapes, directories, a missing src, and any existing dst.
 
@@ -302,7 +303,7 @@ class ToolRegistry:
             self._artifacts.append(dst_rel)
         return f"moved artifacts/{src_rel} -> artifacts/{dst_rel}"
 
-    def _read_file(self, args: dict) -> str:
+    def _read_file(self, args: dict[str, Any]) -> str:
         """Read *path* from artifacts_dir or the read-only workspace_root."""
         path = str(args.get("path", ""))
         rejection = self._reject_unsafe(path)
@@ -315,7 +316,7 @@ class ToolRegistry:
                 return candidate.read_text()
         return f"error: file not found under artifacts or workspace: {path!r}"
 
-    def _head_file(self, args: dict) -> str:
+    def _head_file(self, args: dict[str, Any]) -> str:
         """Return the first *max_lines* lines of *path* -- a bounded top-of-file
         peek so a goal can judge relevance BEFORE committing context to a full
         ``read_file``.
@@ -391,7 +392,7 @@ class ToolRegistry:
                 return f"{head}... (showing first {max_lines} of {total} lines)"
         return f"error: file not found under artifacts or workspace: {path!r}"
 
-    def _tail_file(self, args: dict) -> str:
+    def _tail_file(self, args: dict[str, Any]) -> str:
         """Return the last *max_lines* lines of *path* -- a bounded
         bottom-of-file peek, the mirror of ``head_file`` (iter-29).
 
@@ -470,7 +471,7 @@ class ToolRegistry:
                 return f"... (showing last {max_lines} of {total} lines)\n{tail}"
         return f"error: file not found under artifacts or workspace: {path!r}"
 
-    def _read_lines(self, args: dict) -> str:
+    def _read_lines(self, args: dict[str, Any]) -> str:
         """Return the 1-based INCLUSIVE line range ``[start, end]`` of *path* --
         a FREE-anchor interior window, the fourth and final reader anchor that
         completes the sandbox reader family as full (``read_file``) / top
@@ -568,7 +569,7 @@ class ToolRegistry:
                 return "".join(lines[start - 1 : end])
         return f"error: file not found under artifacts or workspace: {path!r}"
 
-    def _list_files(self, args: dict) -> str:
+    def _list_files(self, args: dict[str, Any]) -> str:
         """List entries of *path* (default '.') in workspace_root or artifacts_dir."""
         path = str(args.get("path", "."))
         rejection = self._reject_unsafe(path)
@@ -581,7 +582,7 @@ class ToolRegistry:
                 return "\n".join(names) if names else "(empty)"
         return f"error: directory not found: {path!r}"
 
-    def _search_files(self, args: dict) -> str:
+    def _search_files(self, args: dict[str, Any]) -> str:
         """Grep-like, read-only substring search over a sandbox directory.
 
         WHY this tool exists: without it the ACT phase can only ``read_file`` a
@@ -666,7 +667,7 @@ class ToolRegistry:
             lines.append(f"... (truncated at {_SEARCH_MAX_HITS} matches)")
         return "\n".join(lines)
 
-    def _find_files(self, args: dict) -> str:
+    def _find_files(self, args: dict[str, Any]) -> str:
         """Recursive basename-glob file discovery over a sandbox directory.
 
         WHY this tool exists: ``search_files`` greps file *content* and
@@ -756,7 +757,7 @@ class ToolRegistry:
             lines.append(f"... (truncated at {_SEARCH_MAX_HITS} matches)")
         return "\n".join(lines)
 
-    def _stat_file(self, args: dict) -> str:
+    def _stat_file(self, args: dict[str, Any]) -> str:
         """Describe ONE path in a single bounded line -- the read-only triage
         primitive that lets a goal decide whether a path is worth a full read.
 
@@ -821,7 +822,7 @@ class ToolRegistry:
                 return f"{relpath}  type=dir  entries={entries}"
         return f"error: no such path: {path!r}"
 
-    def _diff_files(self, args: dict) -> str:
+    def _diff_files(self, args: dict[str, Any]) -> str:
         """Return a bounded unified diff of two sandbox files -- the read-only
         COMPARE primitive that lets a goal verify WHAT CHANGED between two files.
 
@@ -928,7 +929,7 @@ class ToolRegistry:
             return f"{body}... (diff truncated at {_DIFF_MAX_LINES} lines)"
         return "".join(diff)
 
-    def _replace_in_file(self, args: dict) -> str:
+    def _replace_in_file(self, args: dict[str, Any]) -> str:
         """Replace every literal occurrence of *old* with *new* in ONE artifact
         -- the surgical in-place EDIT primitive, completing the write-side
         mutation family create (``write_file``) / append (``append_file``) /

@@ -42,6 +42,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
+from typing import Any, TextIO
 
 from pydantic import ValidationError
 
@@ -145,7 +146,7 @@ def _stream_slate_index(name: str) -> int | None:
 # ---------------------------------------------------------------------------
 
 
-class _CliLogHandler(logging.StreamHandler):
+class _CliLogHandler(logging.StreamHandler[TextIO]):
     """The single stderr handler the CLI attaches under ``-v``/``-vv``.
 
     WHY a dedicated subclass and not a bare ``StreamHandler``: it lets
@@ -153,6 +154,13 @@ class _CliLogHandler(logging.StreamHandler):
     idempotent -- re-invoking ``main()`` within one process (as the test suite
     does hundreds of times) must reuse this handler, never stack a second one on
     the package logger.
+
+    WHY the base class carries an explicit ``[TextIO]`` parameter: under full
+    ``strict`` mypy a bare generic base class is an error, and this handler only
+    ever wraps ``sys.stderr`` (see ``_configure_logging``). It is also the ONE
+    annotation in this file Python evaluates EAGERLY -- a base-class expression,
+    not a lazily-stringified annotation -- so ``TextIO`` is a real runtime
+    import; the subscript is verified to import on both CI Pythons (3.12, 3.13).
     """
 
 
@@ -1736,7 +1744,7 @@ def _render_markdown(
 
 def _scan_json_payload(
     slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
-) -> dict:
+) -> dict[str, Any]:
     """Build the ``scan --format json`` document as a pure function of inputs.
 
     Exactly two top-level keys -- ``workspace_root`` (the scanned path) and
@@ -1998,7 +2006,7 @@ def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> Non
             pass
 
 
-def _read_meta(run_dir: Path) -> dict:
+def _read_meta(run_dir: Path) -> dict[str, Any]:
     """Load run metadata, or ``{}`` if none was written."""
     path = run_dir / _META_NAME
     return json.loads(path.read_text()) if path.is_file() else {}
@@ -2029,7 +2037,7 @@ def _count_artifacts(run_dir: Path) -> int:
     return sum(1 for p in artifacts_dir.rglob("*") if p.is_file())
 
 
-def _run_row(run_dir: Path) -> dict:
+def _run_row(run_dir: Path) -> dict[str, Any]:
     """Summarize one run dir into a plain, JSON-serializable row.
 
     Tolerant by construction: a run dir whose ``checkpoint.json`` is missing OR
@@ -2133,7 +2141,7 @@ def _render_prune(names: list[str], *, dry_run: bool) -> str:
     return "\n".join([header, *(f"  {name}" for name in names)])
 
 
-def _render_runs(rows: list[dict]) -> str:
+def _render_runs(rows: list[dict[str, Any]]) -> str:
     """Render run rows as a plain-text table, or a legible "no runs" line.
 
     A pure function of its (already id-sorted) input rows -- mirrors the
@@ -2548,7 +2556,7 @@ def _signals_json_payload(
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
     baseline: set[tuple[object, ...]] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Build the ``signals --json`` document as a pure function of inputs.
 
     Exactly two top-level keys -- ``workspace_root`` (== ``snapshot.root``) and
@@ -2630,7 +2638,7 @@ def _signals_summary_payload(
     min_weight: float | None = None,
     exclude_paths: list[str] | None = None,
     baseline: set[tuple[object, ...]] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Build the ``signals --summary --json`` document as a pure function of inputs.
 
     The machine twin of ``_render_signals_summary`` and the AGGREGATE analogue of
@@ -2714,7 +2722,7 @@ def _render_collector_timings(timings: list[tuple[str, float, int]]) -> str:
 
 def _explain_json_payload(
     goal: CandidateGoal, decision: DispatchDecision, settings: Settings
-) -> dict:
+) -> dict[str, Any]:
     """Build the ``explain --json`` document as a pure function of inputs.
 
     The machine-readable twin of ``_render_explain``: one object of EXACTLY the
@@ -2786,7 +2794,7 @@ def _index_by_title(slate: GoalSlate) -> dict[str, CandidateGoal]:
     return index
 
 
-def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict:
+def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict[str, Any]:
     """Classify goals across two slates into added / removed / changed / unchanged.
 
     A pure function of ``(old, new, settings)`` -- builds no client, runs nothing,
@@ -2811,7 +2819,7 @@ def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict:
     old_index = _index_by_title(old)
     new_index = _index_by_title(new)
 
-    added: list[dict] = []
+    added: list[dict[str, Any]] = []
     for key in sorted(new_index.keys() - old_index.keys()):
         goal = new_index[key]
         added.append(
@@ -2822,7 +2830,7 @@ def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict:
             }
         )
 
-    removed: list[dict] = []
+    removed: list[dict[str, Any]] = []
     for key in sorted(old_index.keys() - new_index.keys()):
         goal = old_index[key]
         removed.append(
@@ -2833,7 +2841,7 @@ def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict:
             }
         )
 
-    changed: list[dict] = []
+    changed: list[dict[str, Any]] = []
     unchanged_count = 0
     for key in sorted(old_index.keys() & new_index.keys()):
         old_goal = old_index[key]
@@ -2862,7 +2870,7 @@ def _compute_diff(old: GoalSlate, new: GoalSlate, settings: Settings) -> dict:
     }
 
 
-def _render_diff(result: dict) -> str:
+def _render_diff(result: dict[str, Any]) -> str:
     """Render a slate diff as plain text (behaviors 9-11).
 
     A pure, disk-free function of the ``_compute_diff`` result -- like every other
@@ -2905,7 +2913,7 @@ def _render_diff(result: dict) -> str:
     return "\n".join(lines)
 
 
-def _diff_json_payload(old_path: str, new_path: str, result: dict) -> dict:
+def _diff_json_payload(old_path: str, new_path: str, result: dict[str, Any]) -> dict[str, Any]:
     """Build the ``diff --json`` document: one object of EXACTLY six top-level keys.
 
     An explicit allowlist (never ``model_dump`` -- the iter-08 schema-leak
@@ -2955,7 +2963,7 @@ _POLICY_RULES: tuple[str, ...] = (
 )
 
 
-def _policy_json_payload(settings: Settings) -> dict:
+def _policy_json_payload(settings: Settings) -> dict[str, Any]:
     """Build the ``policy --json`` document as a pure function of ``settings``.
 
     One object of EXACTLY the four contract keys
@@ -3031,7 +3039,7 @@ def _render_policy(settings: Settings) -> str:
     return "\n".join(lines)
 
 
-def _config_json_payload(settings: Settings) -> dict:
+def _config_json_payload(settings: Settings) -> dict[str, Any]:
     """Build the ``config --json`` document as a pure function of ``settings``.
 
     One object of an EXPLICIT key allowlist -- never ``settings.model_dump()`` (the
@@ -3159,7 +3167,7 @@ _SANDBOX_WRITABLE_ROOT = "artifacts_dir"
 _SANDBOX_READ_ONLY_ROOT = "workspace_root"
 
 
-def _tools_json_payload() -> dict:
+def _tools_json_payload() -> dict[str, Any]:
     """Build the ``tools --json`` document -- a pure, input-free function.
 
     One object of EXACTLY two top-level keys ``{sandbox, tools}``, built from an
@@ -3352,7 +3360,7 @@ def _collector_rows(kind: str | None = None) -> list[tuple[str, str, str]]:
     ]
 
 
-def _collectors_json_payload(kind: str | None = None) -> dict:
+def _collectors_json_payload(kind: str | None = None) -> dict[str, Any]:
     """Build the ``collectors --json`` document -- a pure, input-free function.
 
     One object of EXACTLY one top-level key ``{collectors}``, built from an
@@ -3435,7 +3443,7 @@ _PROVIDER_CATALOG: dict[str, tuple[str, str | None, str]] = {
 }
 
 
-def _providers_json_payload() -> dict:
+def _providers_json_payload() -> dict[str, Any]:
     """Build the ``providers --json`` document -- a pure, input-free function.
 
     One object of EXACTLY one top-level key ``{providers}``, built from an

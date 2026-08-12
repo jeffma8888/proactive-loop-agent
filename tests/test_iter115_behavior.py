@@ -17,13 +17,20 @@ clothes. These tests therefore pin three separate things: that the ratchet is
 SET (config), that it FIRES (a synthetic bad module is rejected), and that the
 shipped package is actually CLEAN under it (an independent ``ast`` sweep).
 
-Why the deferral is tested as hard as the ratchet
-``disallow_any_generics`` owns 35 of the 38 strict errors, so it is deferred to a
-queued roadmap row. A deferral that is not asserted is indistinguishable from an
-accident, and a deferral that is not RECORDED is indistinguishable from being
-forgotten --- so behavior 3 pins the deferred set to EXACTLY one flag, behavior 5
-proves a bare generic really is still accepted (the deferral is real, not a
-mis-measurement), and behavior 8 requires the roadmap row that owes the cleanup.
+Why the deferral assertions are INVERTED here rather than deleted (iter 146)
+``disallow_any_generics`` owned 35 of the 38 strict errors, so iter 115 deferred it
+to queued roadmap row #121 and then asserted that deferral as hard as the ratchet
+itself: a deferral that is not asserted is indistinguishable from an accident, and
+one that is not RECORDED is indistinguishable from being forgotten. Row #121
+shipped in factory iter 146 --- all 35 bare-generic sites are parameterized and the
+key is GONE from ``[tool.mypy]``, so ``strict = true`` now stands unqualified. The
+two behavior-3 guards and the behavior-5 probe that pinned the deferral are
+therefore INVERTED IN PLACE: behavior 3 now pins the deferred set to EMPTY and
+requires the key to be absent rather than ``false``, and behavior 5 now proves a
+bare generic is REJECTED, naming the ``type-arg`` code. Inverting instead of
+deleting is what keeps the ratchet fail-closed --- re-adding
+``disallow_any_generics = false`` turns these guards RED instead of quietly
+narrowing what the published ``py.typed`` marker promises.
 
 Why the ``ast`` sweep is deliberately STRICTER than mypy
 mypy special-cases ``__init__`` and accepts a missing ``-> None`` when at least
@@ -74,9 +81,10 @@ PYPROJECT = REPO / "pyproject.toml"
 PKG = REPO / "src" / "proactive_loop"
 ROADMAP = REPO / "ROADMAP.md"
 
-# Spec behavior 3: exactly ONE strict component may be switched off, and it is
-# named. Anything else off is a silent weakening of the advertised oracle.
-DEFERRED_FLAG = "disallow_any_generics"
+# Spec behavior 3 (iter 146): NO strict component may be switched off. This flag
+# is the one that ever was -- kept as a named constant because the guards below
+# assert its ABSENCE, so re-introducing it as `false` fails by name.
+FORMERLY_DEFERRED_FLAG = "disallow_any_generics"
 
 # The flags ``strict`` turns ON (mypy >= 1.11). Used ONLY to classify a config
 # key as "weakening when False" --- the proof that the strict flags are really
@@ -152,6 +160,9 @@ UNTYPED_DEF_CODE = "no-untyped-def"
 # The code behind the ``loop/tools.py`` fix --- proving it fires proves
 # ``warn_return_any`` is really on, which is what that fix was for.
 ANY_RETURN_CODE = "no-any-return"
+# The code the LAST deferred flag owns. Asserted positively since factory iter
+# 146 closed that deferral: a bare generic must now be reported, not tolerated.
+TYPE_ARG_CODE = "type-arg"
 
 # Spec behavior 7: the unknown-tool observation contract, unchanged by the
 # typing fix on the dispatch line.
@@ -332,11 +343,12 @@ def test_b2_python_version_is_pinned() -> None:
 
 
 # ==========================================================================
-# Behavior 3 --- EXACTLY one flag is deferred, and it is named.
+# Behavior 3 --- NO flag is deferred (iter 146 closed the last one).
 # ==========================================================================
 
 
-def test_b3_exactly_one_strict_component_is_deferred() -> None:
+def test_b3_no_strict_component_is_deferred() -> None:
+    """``strict = true`` must stand UNQUALIFIED: zero components switched off."""
     table = mypy_table()
 
     deferred = {
@@ -345,21 +357,35 @@ def test_b3_exactly_one_strict_component_is_deferred() -> None:
         if key in STRICT_COMPONENTS and value is False
     }
 
-    assert deferred == {DEFERRED_FLAG}, (
-        f"exactly one strict component may be deferred, and it must be "
-        f"{DEFERRED_FLAG!r} (it owns 35 of the 38 strict errors, queued as "
-        f"roadmap row #{DEFERRAL_ROW_NUMBER}); got {sorted(deferred)}"
+    assert deferred == set(), (
+        f"no strict component may be switched off: `strict = true` is the whole "
+        f"oracle behind the README's 'fully type-hinted' claim, and the last "
+        f"deferral ({FORMERLY_DEFERRED_FLAG!r}, roadmap row "
+        f"#{DEFERRAL_ROW_NUMBER}) was closed in factory iter 146; got "
+        f"{sorted(deferred)}"
     )
 
 
-def test_b3_deferred_flag_is_explicitly_false_not_merely_absent() -> None:
-    """An ABSENT flag under ``strict`` is ON; the deferral must be deliberate."""
+def test_b3_the_closed_deferral_is_absent_never_false() -> None:
+    """An ABSENT flag under ``strict`` is ON --- which is now the required state.
+
+    The inverse of this file's original assertion. ``strict`` supplies the flag,
+    so the key must simply not be there; spelling it ``false`` again would
+    re-open the exemption that factory iter 146 closed, and re-declaring it
+    ``true`` would be a redundant line naming a rule ``strict`` already sets.
+    """
     table = mypy_table()
 
-    assert table.get(DEFERRED_FLAG) is False, (
-        f"{DEFERRED_FLAG} must be spelled out as false so the deferral is a "
-        f"reviewed decision rather than an oversight; got "
-        f"{table.get(DEFERRED_FLAG)!r}"
+    assert table.get(FORMERLY_DEFERRED_FLAG) is not False, (
+        f"{FORMERLY_DEFERRED_FLAG} is back as `false`, which silently re-admits "
+        "every bare generic into a package that advertises a PEP 561 py.typed "
+        "marker. Delete the key (strict already supplies it) and parameterize "
+        "the sites it surfaces"
+    )
+    assert FORMERLY_DEFERRED_FLAG not in table, (
+        f"{FORMERLY_DEFERRED_FLAG} must be ABSENT, not restated: `strict = true` "
+        f"already implies it, so the key can only ever weaken or duplicate the "
+        f"oracle; got {table.get(FORMERLY_DEFERRED_FLAG)!r}"
     )
 
 
@@ -506,13 +532,14 @@ def test_b5_returning_any_from_a_typed_function_is_rejected(tmp_path: Path) -> N
     )
 
 
-def test_b5_bare_generic_is_still_accepted_the_deferral_is_real(
+def test_b5_bare_generic_is_rejected_the_deferral_is_closed(
     tmp_path: Path,
 ) -> None:
-    """The negative half: prove the DEFERRED flag is genuinely deferred.
+    """The inverted half: prove the LAST deferred flag now genuinely fires.
 
-    Without this, ``disallow_any_generics = false`` could be a no-op typo and
-    every other assertion in this module would still pass.
+    Without a probe, deleting ``disallow_any_generics = false`` could be a no-op
+    (a typo'd key name, a flag ``strict`` does not actually imply) and every
+    config assertion in this module would still pass over a dead oracle.
     """
     result = probe(
         tmp_path,
@@ -520,11 +547,14 @@ def test_b5_bare_generic_is_still_accepted_the_deferral_is_real(
         "def size(mapping: dict) -> int:\n    return len(mapping)\n",
     )
 
-    assert result.returncode == 0, (
-        f"{DEFERRED_FLAG} is documented as DEFERRED, so a bare `dict` "
-        "annotation must still pass. If this now fails the flag was enabled "
-        "without clearing roadmap row #"
-        f"{DEFERRAL_ROW_NUMBER}.\nstdout={result.stdout!r}"
+    assert result.returncode != 0, (
+        f"{FORMERLY_DEFERRED_FLAG} was closed in factory iter 146 (roadmap row "
+        f"#{DEFERRAL_ROW_NUMBER}), so a bare `dict` annotation must now be "
+        f"REJECTED; mypy exited 0.\nstdout={result.stdout!r}"
+    )
+    assert TYPE_ARG_CODE in result.stdout, (
+        f"the rejection must name the {TYPE_ARG_CODE} error code so the failure "
+        f"is actionable; got stdout={result.stdout!r}"
     )
 
 
@@ -666,11 +696,14 @@ def test_b8_roadmap_row_owns_the_deferred_flag() -> None:
 
     assert len(rows) == 1, (
         f"ROADMAP.md must hold exactly one row #{DEFERRAL_ROW_NUMBER} (the "
-        f"queued {DEFERRED_FLAG} cleanup); found {len(rows)}"
+        f"{FORMERLY_DEFERRED_FLAG} cleanup, shipped in factory iter 146); found "
+        f"{len(rows)}. That row is load-bearing for THIS guard: if it is retired "
+        f"from the index into the archive file, retarget or delete this test in "
+        f"the SAME commit"
     )
     row = rows[0]
-    assert DEFERRED_FLAG in row, (
-        f"row #{DEFERRAL_ROW_NUMBER} must NAME the deferred flag so the debt is "
+    assert FORMERLY_DEFERRED_FLAG in row, (
+        f"row #{DEFERRAL_ROW_NUMBER} must NAME the flag so the closed debt stays "
         f"searchable; got {row!r}"
     )
     assert "type-arg" in row, (

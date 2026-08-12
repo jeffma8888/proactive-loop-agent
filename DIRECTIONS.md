@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-139
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Arm the self-scan kinds that measurement now shows are ZERO, and delete the stale "red on arrival" rationale
+    - Candidate A2 -- Close the one deliberately-deferred mypy flag: flip `disallow_any_generics` and annotate the 35 bare generics (queued row #121)
+    - Candidate A3 -- Close the `resume`-vs-`runs` corrupt-`meta.json` asymmetry (queued row #151)
+    - Candidate B1 -- `make hooks`: put the shipped pre-commit gate on the project's own command surface
+    - Candidate B2 -- Complete the exit-code contract: exit 5 now has TWO producers and the table names one
+    - Candidate B3 -- Give `--fail-over` its first consumer, or record that this repo has no state-independent slice for it
+    winner: A2
+    ship: unknown
   iter-138
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `DebugArtifactCollector` (`kind="debug_artifact"`): revive abandoned row #105
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the `ROADMAP.md` char-size budget guard queued three times and never built (rows #138 + #109)
     - Candidate B3 -- give the newest CLI path guard its first oracle (row #136)
     winner: A3
-    ship: unknown
+    ship: PUSHED 004f037
   iter-137
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- Give the source's embedded performance measurements a VINTAGE, and derive the guard from the corpus so it cannot be fail-open
@@ -386,4 +396,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-47 scouted iterations
+48 scouted iterations
