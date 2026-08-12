@@ -35,6 +35,7 @@ import contextlib
 import io
 import json
 import re
+import shutil
 from collections import Counter
 from pathlib import Path
 
@@ -103,6 +104,31 @@ def _run(argv) -> tuple[int, str, str]:
         except SystemExit as e:
             code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
     return code, out.getvalue(), err.getvalue()
+
+
+def _isolated_fixture_copy(dest: Path) -> Path:
+    """Copy the bundled fixture to `dest` (a `tmp_path` child) and return it, so
+    a run over it cannot observe THIS repo's git state.
+
+    WHY: the bundled fixture directory carries no `.git` of its own, so it
+    inherits the enclosing product repo and every git-family collector reports
+    the REPO rather than the fixture. Measured on the same tree: the in-repo
+    path emits `git_commit  15` and `total  34`, while an identical copy with no
+    enclosing repo emits `total  23` and no git kind at all -- and the extra
+    `working_tree  1` row appears only while the repo happens to be dirty.
+    Byte-comparing two runs over the in-repo path therefore compares a SHARED
+    MUTABLE tree: any concurrent process that dirties the repo between the two
+    runs flips the counts and the comparison fails for a reason that has nothing
+    to do with the product's determinism. A copy under `tmp_path` removes that
+    input entirely, so the compared bytes depend only on the fixture's content.
+
+    `.git` and byte-cache directories are ignored so the copy is the fixture as
+    committed, even when a local working tree carries build cruft.
+    """
+    shutil.copytree(
+        FIXTURE, dest, ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc")
+    )
+    return dest
 
 
 def _parse_human_summary(stdout: str) -> tuple[dict[str, int], int, list[str]]:
@@ -346,13 +372,24 @@ def test_b08_determinism_pure():
     assert _render_signals_summary(snap) == "a  1\nm  1\nz  1\ntotal  3"
 
 
-def test_b08_determinism_via_cli():
-    _, human_a, _ = _run(["signals", "--workspace", str(FIXTURE), "--summary"])
-    _, human_b, _ = _run(["signals", "--workspace", str(FIXTURE), "--summary"])
+def test_b08_determinism_via_cli(tmp_path):
+    # Drive an ISOLATED COPY, never the in-repo fixture: see
+    # _isolated_fixture_copy for the measured reason the in-repo path made this
+    # byte-comparison depend on the product repo's mutable git state.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
+    _, human_a, _ = _run(["signals", "--workspace", ws, "--summary"])
+    _, human_b, _ = _run(["signals", "--workspace", ws, "--summary"])
     assert human_a == human_b, "two human --summary runs must be byte-identical"
-    _, json_a, _ = _run(["signals", "--workspace", str(FIXTURE), "--summary", "--json"])
-    _, json_b, _ = _run(["signals", "--workspace", str(FIXTURE), "--summary", "--json"])
+    _, json_a, _ = _run(["signals", "--workspace", ws, "--summary", "--json"])
+    _, json_b, _ = _run(["signals", "--workspace", ws, "--summary", "--json"])
     assert json_a == json_b, "two --summary --json runs must be byte-identical"
+    # Fail closed rather than pass vacuously: two byte-identical EMPTY slates
+    # would satisfy both assertions above without proving anything. Same
+    # fail-closed discipline as _assert_vehicle_absent.
+    assert human_a != _EMPTY_MARKER + "\n", (
+        "the isolated copy must still surface signals, or this determinism "
+        f"comparison is vacuous; got {human_a!r}"
+    )
 
 
 # ===========================================================================
@@ -444,9 +481,13 @@ def test_b12_human_and_json_consistent_pure():
     assert total == payload["total"]
 
 
-def test_b12_human_and_json_consistent_via_cli():
-    _, human, _ = _run(["signals", "--workspace", str(FIXTURE), "--summary"])
-    _, js, _ = _run(["signals", "--workspace", str(FIXTURE), "--summary", "--json"])
+def test_b12_human_and_json_consistent_via_cli(tmp_path):
+    # Same isolation reason as test_b08_determinism_via_cli: the two runs
+    # below are COMPARED, so they must not observe the enclosing repo's
+    # mutable git state. See _isolated_fixture_copy.
+    ws = str(_isolated_fixture_copy(tmp_path / "fixture_copy"))
+    _, human, _ = _run(["signals", "--workspace", ws, "--summary"])
+    _, js, _ = _run(["signals", "--workspace", ws, "--summary", "--json"])
     hcounts, htotal, _order = _parse_human_summary(human)
     doc = json.loads(js)
     assert hcounts == doc["summary"], "human table counts must equal the JSON summary counts"

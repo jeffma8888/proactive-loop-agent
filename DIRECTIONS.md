@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-143
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 (primary) -- Exit code 5 has TWO producers; the exit-code contract names one, and the guard that should have caught it pins only the incomplete half
+    - Candidate A2 -- The architecture bullet describes 12 of the 17 collectors, four lines under an intro that says 17
+    - Candidate A3 -- Two collector docstrings assert a walk parity the code disproves, and the false claim points at the exact merge that would change behavior
+    - Candidate B1 (primary) -- `signals --baseline FILE --resolved`: report what the snapshot recorded and the workspace no longer shows
+    - Candidate B2 -- Ancestor-prefix matching for `--exclude-path`, so one pattern means the subtree (roadmap row #149)
+    - Candidate B3 -- `DebugArtifactCollector` (`kind="debug_artifact"`): the 18th collector, AST-only, provably silent here (roadmap row #105)
+    winner: A1
+    ship: unknown
   iter-142
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 (primary) -- Bound the nested-pytest fan-out: two child runs bring up 12 workers inside the 12-worker suite
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- The README's own architecture description names 12 of the 17 collectors; the 5 newest are missing
     - Candidate B3 -- Three of the 21 shipped-row ledger lines cannot be resolved to a commit, and the shas are mechanically derivable
     winner: A1
-    ship: unknown
+    ship: PUSHED 533db40
   iter-141
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Fold the 3 byte-identical OpenAI-wire `_complete` closures into the `_SdkAdapter` seam that already exists
@@ -426,4 +436,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-51 scouted iterations
+52 scouted iterations
