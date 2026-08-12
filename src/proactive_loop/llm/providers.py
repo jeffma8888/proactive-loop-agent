@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import importlib
 from types import ModuleType
-from typing import Protocol
+from typing import Any, Protocol
 
 from ..config import Settings
 from .client import (
@@ -216,14 +216,54 @@ def _create_anthropic(settings: Settings) -> LLMClient:
     )
 
 
-def _create_openai(settings: Settings) -> LLMClient:
-    """Build an OpenAI-backed client (SDK imported lazily, by design)."""
-    openai = _require("openai", "openai")  # actionable LLMError if absent
+def _openai_wire_complete_fn(*, sdk: Any, model: str) -> _CompleteFn:
+    """Return the `_CompleteFn` for any OpenAI-shaped chat-completions SDK.
 
-    sdk = openai.OpenAI()
-    model = settings.model or "gpt-4o-mini"
+    WHY this is one module-level factory instead of a closure re-typed per
+    branch: `openai`, `groq` and `together` all speak the SAME wire. The
+    `groq` and `together` SDKs are OpenAI-SDK-shaped clones -- same
+    `sdk.chat.completions.create(model=..., messages=[...])` call, same
+    `choices[0].message.content` reply and same
+    `usage.prompt_tokens`/`.completion_tokens` accounting -- which those two
+    branches' own docstrings already declared ("this branch is
+    `_create_openai` with the namespace and model default swapped"). Typing
+    that wire out three times gave it three places to drift, and coverage had
+    already drifted: the `usage is None` path was exercised for some vendors and
+    not others, because each copy needed its own test. Written once, both
+    reply-shape normalizations -- absent `usage` -> `{}` so `LLMResponse.usage`
+    is never `None`, absent `content` -> `""` so `.text` is always a `str` --
+    are ONE branch, which every vendor's stub necessarily exercises.
 
-    def _complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
+    WHY it takes `sdk` and `model` as plain arguments and references NO vendor
+    module: each live branch's construction invariant is that building a client
+    touches ONLY that vendor's namespace (never `openai`, never `httpx`), which
+    is what lets a single self-contained stub module prove the present-SDK path
+    fully offline. A shared helper that imported or named any vendor would
+    break that invariant for the other two; this one names none, so the fold is
+    invisible to the isolation tests.
+
+    WHY the per-vendor exception tuples stay at the CALL SITE: the throttle and
+    timeout classes are the one thing that genuinely differs per vendor (they
+    are distinct classes even where the names match), so they remain arguments
+    to `_SdkAdapter` in each branch. Only the wire is shared, not the taxonomy.
+
+    `sdk` is `Any` because it originates from `_require`, which returns a
+    `ModuleType` whose attributes are untyped -- the optional SDKs are not
+    installed offline, so there is nothing more precise to promise. This is the
+    same `Any` the inline closures already closed over.
+    """
+
+    def _wire_complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
+        """Issue one chat completion over the OpenAI wire.
+
+        Deliberately NOT named `_complete`: the regrowth guard counts the
+        nested `_complete` definitions in this module, and the three that must
+        survive are the anthropic, bedrock and ollama branches, which speak
+        genuinely different wires. Reusing the name here would make that count
+        read 4 and fail the guard this fold exists to satisfy. The guard reads
+        SOURCE TEXT, so it cannot tell a definition from prose -- do not write
+        the definition keyword beside that name in a comment either.
+        """
         completion = sdk.chat.completions.create(
             model=model,
             messages=[
@@ -232,7 +272,7 @@ def _create_openai(settings: Settings) -> LLMClient:
             ],
         )
         text = completion.choices[0].message.content or ""
-        usage = {}
+        usage: dict[str, int] = {}
         if completion.usage is not None:
             usage = {
                 "input_tokens": completion.usage.prompt_tokens,
@@ -240,8 +280,18 @@ def _create_openai(settings: Settings) -> LLMClient:
             }
         return LLMResponse(text=text, model=model, usage=usage)
 
+    return _wire_complete
+
+
+def _create_openai(settings: Settings) -> LLMClient:
+    """Build an OpenAI-backed client (SDK imported lazily, by design)."""
+    openai = _require("openai", "openai")  # actionable LLMError if absent
+
+    sdk = openai.OpenAI()
+    model = settings.model or "gpt-4o-mini"
+
     return _SdkAdapter(
-        complete_fn=_complete,
+        complete_fn=_openai_wire_complete_fn(sdk=sdk, model=model),
         throttle_excs=(openai.RateLimitError,),
         timeout_excs=(openai.APITimeoutError,),
     )
@@ -413,40 +463,23 @@ def _create_groq(settings: Settings) -> LLMClient:
     `completion.usage.prompt_tokens`/`.completion_tokens`), and the same
     throttle/timeout exception NAMES (`groq.RateLimitError` /
     `groq.APITimeoutError`). So this branch is `_create_openai` with the
-    namespace and model default swapped, reusing `_require` and `_SdkAdapter`
-    with zero change. Groq is a cloud backend that serves open models
-    (Llama, Mixtral, ...) on its LPU inference stack, so it needs an API key
-    and network egress at CALL time -- but, exactly like every other live
-    branch, construction opens no connection.
+    namespace and model default swapped, which is why it now reuses `_require`,
+    `_openai_wire_complete_fn` and `_SdkAdapter` with zero change. Groq is a
+    cloud backend that serves open models (Llama, Mixtral, ...) on its LPU
+    inference stack, so it needs an API key and network egress at CALL time --
+    but, exactly like every other live branch, construction opens no connection.
     """
     groq = _require("groq", "groq")  # actionable LLMError if absent
 
     sdk = groq.Groq()
     model = settings.model or "llama-3.3-70b-versatile"
 
-    def _complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
-        completion = sdk.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        text = completion.choices[0].message.content or ""
-        usage = {}
-        if completion.usage is not None:
-            usage = {
-                "input_tokens": completion.usage.prompt_tokens,
-                "output_tokens": completion.usage.completion_tokens,
-            }
-        return LLMResponse(text=text, model=model, usage=usage)
-
     # CRITICAL (same invariant as the ollama branch): source BOTH exception
     # tuples from the `groq` namespace ONLY, never `httpx` or any other module,
     # so `_create_groq` construction depends solely on `groq` and a single
     # self-contained stub module can exercise the present-SDK path fully offline.
     return _SdkAdapter(
-        complete_fn=_complete,
+        complete_fn=_openai_wire_complete_fn(sdk=sdk, model=model),
         throttle_excs=(groq.RateLimitError,),
         timeout_excs=(groq.APITimeoutError,),
     )
@@ -465,39 +498,23 @@ def _create_together(settings: Settings) -> LLMClient:
     throttle/timeout exception NAMES (`together.RateLimitError` /
     `together.APITimeoutError`, verified against the published `together` package's
     documented error taxonomy). So this branch is `_create_groq` with the namespace
-    and model default swapped, reusing `_require` and `_SdkAdapter` with zero change.
-    Together AI is a CLOUD backend serving open models (Llama, Mixtral, ...) on its
-    inference stack, so it needs an API key and network egress at CALL time -- but,
-    exactly like every other live branch, construction opens no connection.
+    and model default swapped, which is why it now reuses `_require`,
+    `_openai_wire_complete_fn` and `_SdkAdapter` with zero change. Together AI is
+    a CLOUD backend serving open models (Llama, Mixtral, ...) on its inference
+    stack, so it needs an API key and network egress at CALL time -- but, exactly
+    like every other live branch, construction opens no connection.
     """
     together = _require("together", "together")  # actionable LLMError if absent
 
     sdk = together.Together()
     model = settings.model or "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 
-    def _complete(*, system: str, prompt: str, tag: str) -> LLMResponse:
-        completion = sdk.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        text = completion.choices[0].message.content or ""
-        usage = {}
-        if completion.usage is not None:
-            usage = {
-                "input_tokens": completion.usage.prompt_tokens,
-                "output_tokens": completion.usage.completion_tokens,
-            }
-        return LLMResponse(text=text, model=model, usage=usage)
-
     # CRITICAL (same invariant as the ollama/groq branches): source BOTH exception
     # tuples from the `together` namespace ONLY, never `httpx` or any other module,
     # so `_create_together` construction depends solely on `together` and a single
     # self-contained stub module can exercise the present-SDK path fully offline.
     return _SdkAdapter(
-        complete_fn=_complete,
+        complete_fn=_openai_wire_complete_fn(sdk=sdk, model=model),
         throttle_excs=(together.RateLimitError,),
         timeout_excs=(together.APITimeoutError,),
     )

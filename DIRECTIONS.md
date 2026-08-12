@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-141
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Fold the 3 byte-identical OpenAI-wire `_complete` closures into the `_SdkAdapter` seam that already exists
+    - Candidate A2 -- Collapse the two twin bounded digest-memos into one shared helper
+    - Candidate A3 -- Delete the verbatim `_has_source` twin and the third copy of the source-extension set
+    - Candidate B1 -- `addopts` gains `--dist worksteal`: 30.01s -> 26.05s measured
+    - Candidate B2 -- Stop the armed self-scan gate paying for 13 collectors it cannot fail on
+    - Candidate B3 -- Make the 120s cliff measurable: publish the COLD (fresh-clone) suite number
+    winner: A1
+    ship: unknown
   iter-140
     lenses: integration-and-adoption (iteration 140), simplification-and-deletion (iteration 140)
     - Candidate A1 -- Arm `broken_link` in the shared armed set, wiring the 17th collector's first consumer
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- placeholder, refined below
     - Candidate B3 -- placeholder, refined below
     winner: A1
-    ship: unknown
+    ship: PUSHED 6bc2b80
   iter-139
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Arm the self-scan kinds that measurement now shows are ZERO, and delete the stale "red on arrival" rationale
@@ -406,4 +416,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-49 scouted iterations
+50 scouted iterations
