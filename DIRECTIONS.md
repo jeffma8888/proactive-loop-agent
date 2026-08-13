@@ -1,13 +1,23 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-151
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Audit the TRACKED root-Markdown set, not the working directory (roadmap row #155)
+    - Candidate A2 -- Oracle the 2 unguarded CLI path-guard messages (roadmap row #136)
+    - Candidate A3 -- Packaging-contract oracle, RE-SCOPED: the declared console script is never resolved (roadmap row #117)
+    - Candidate B1 -- Give `--fail-over N` its first real consumer: ratchet the 3 kinds `--fail-on-kind` cannot arm
+    - Candidate B2 -- Prove the demo's artifacts are CONSUMABLE, not merely present (writer -> reader round-trip)
+    - Candidate B3 -- Stop `signals --kind` from silently discarding all but the last value
+    winner: B3
+    ship: unknown
   iter-150
     lenses: NEW-CAPABILITY, HARDENING / DX
     - Candidate A1 -- `pla signals --max-items N`: make the perception depth a user knob
     - Candidate A2 -- publish that a collector TRUNCATED: a `capped` field on the `--json` and `--summary` surfaces
     - Candidate A3 -- `DebugArtifactCollector` (`kind="debug_artifact"`): the 18th collector, AST-parse-only
     winner: B1
-    ship: unknown
+    ship: PUSHED f26288d
   iter-149
     lenses: narrative-and-docs (iteration 149), new-capability (iteration 149)
     - Candidate A1 -- The Done ledger tells the reader to look 28 rows up in the archive; 5 are not there and 3 appear nowhere in it
@@ -503,4 +513,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-59 scouted iterations
+60 scouted iterations

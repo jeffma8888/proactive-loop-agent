@@ -42,6 +42,7 @@ import shutil
 import sys
 import textwrap
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -362,6 +363,74 @@ def _nonempty_glob(raw: str) -> str:
             "could never match, so it would silently exclude nothing)"
         )
     return raw
+
+
+def _at_most_once_error(option_string: str) -> str:
+    """The ONE wording a repeated single-valued filter is rejected with.
+
+    Built from the option string, and defined once, so the two ``--kind``
+    declarations (``signals`` and ``collectors``) cannot drift apart. Worded to be
+    true on BOTH verbs: ``pla collectors`` has no ``--collector`` flag of its own,
+    so the union instrument is named as the flag of ``pla signals`` rather than as
+    one the failing verb would accept.
+    """
+    return (
+        f"{option_string} may be given at most once -- it is a single-kind filter, "
+        "not a repeatable one; to select several kinds use the repeatable "
+        "--collector flag of `pla signals` (each collector name maps to exactly "
+        "one kind)"
+    )
+
+
+class _AtMostOnceAction(argparse.Action):
+    """argparse ``action=``: a SECOND occurrence of a single-valued flag is a usage error.
+
+    Guards ``--kind`` on both ``signals`` and ``collectors``. argparse's default
+    ``store`` action is LAST-WINS, so ``--kind todo --kind ci_config`` silently kept
+    only ``ci_config`` -- and here that silence was load-bearing rather than
+    cosmetic: ``--fail-over N`` budgets the signals the view REPORTS, so a repeated
+    ``--kind`` armed a count gate over a view narrower than the operator asked for
+    and then exited 0. Measured before this guard existed: four ``--kind`` flags plus
+    ``--fail-over 4`` reported ``total 1`` and exited 0. A gate that passes for the
+    wrong reason is worse than no gate.
+
+    WHY singular-plus-loud rather than making ``--kind`` repeatable (a union):
+
+    * the union already HAS a spelling -- ``--collector`` is repeatable, and
+      name <-> kind is a bijection onto ``SIGNAL_KINDS``, so every kind is
+      reachable through the collector that emits it;
+    * ``--kind`` is specified as an UPSTREAM filter: only the one collector that
+      emits the kind is run, which is why ``--timings`` shows a single row. A
+      set-valued ``--kind`` would change that perception cost model, not merely
+      widen a display filter;
+    * the unreachability proof for ``--kind K`` paired with a DIFFERENT
+      ``--fail-on-kind V`` is derived for exactly one kind and would have to be
+      re-derived for a set.
+
+    The rejection goes through the owning (sub)parser's ``error()``, so it costs
+    exit 2 with argparse's normal ``usage:``/``error:`` stderr and an EMPTY stdout --
+    the same shape an unknown kind already produces, and no new exit code. Because
+    ``choices`` validation runs BEFORE the action, an unknown value is still
+    reported as ``invalid choice`` whichever position it sits in.
+
+    The "already seen" bit lives on the NAMESPACE (the ``dest`` argparse has
+    already stored), never on the Action instance: one parser may serve several
+    ``parse_args`` calls in the same process, and instance state would leak a
+    phantom "second occurrence" into the next parse.
+    """
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        # ``default=None`` on both guarded flags is what makes "not None" mean
+        # "already given"; ``option_string`` is the spelling the user actually typed.
+        if getattr(namespace, self.dest, None) is not None:
+            parser.error(_at_most_once_error(option_string or f"--{self.dest}"))
+        setattr(namespace, self.dest, values)
 
 
 # The exit-code contract, written down ONCE here and rendered onto `pla --help`
@@ -754,10 +823,13 @@ def build_parser() -> argparse.ArgumentParser:
     # reading src/. This also makes --kind consistent with --collector, the only
     # other value-taking filter here, which has always validated this way.
     # Deliberately NO metavar: the enumerated choices in --help ARE the reference.
+    # Also AT MOST ONCE (_AtMostOnceAction): a repeat used to last-win in silence,
+    # which armed --fail-over over a view narrower than the operator asked for.
     p_signals.add_argument(
         "--kind",
         default=None,
         choices=SIGNAL_KINDS,
+        action=_AtMostOnceAction,
         help=(
             "Show only signals of this collector-defined kind. Accepted values "
             "are exactly the live signal kinds (argparse enumerates them in "
@@ -768,7 +840,10 @@ def build_parser() -> argparse.ArgumentParser:
             "filter like --collector, not a display-only one: only the "
             "collector that emits this kind is run, so --timings shows one "
             "row and the scan costs what that one collector costs. Default "
-            "(absent) shows every kind."
+            "(absent) shows every kind. This flag may be given at most once: a "
+            "second --kind is a usage error (exit 2), never a last-wins "
+            "narrowing -- to select several kinds use the repeatable --collector "
+            "flag (each collector name maps to exactly one kind)."
         ),
     )
     p_signals.add_argument(
@@ -1230,17 +1305,24 @@ def build_parser() -> argparse.ArgumentParser:
     # exists to fix. Because name <-> kind is a bijection onto `SIGNAL_KINDS`, a
     # validated value always selects exactly one collector -- never an empty list.
     # Deliberately NO metavar: the enumerated choices in --help ARE the reference.
+    # AT MOST ONCE for the same reason as `signals --kind` (_AtMostOnceAction):
+    # one shared rule, one shared message, so the two verbs cannot drift apart.
     p_collectors.add_argument(
         "--kind",
         default=None,
         choices=SIGNAL_KINDS,
+        action=_AtMostOnceAction,
         help=(
             "Show only the collector that emits this signal kind (the reverse of "
             "the kind column). Accepted values are exactly the live signal kinds "
             "(argparse enumerates them in braces) -- the same vocabulary "
             "`signals --kind` takes, so an unknown kind is a usage error (exit 2) "
             "at PARSE time. Note a collector NAME is not always a kind (`todos` "
-            "emits `todo`). Default (absent) lists every collector."
+            "emits `todo`). This flag may be given at most once: a second "
+            "--kind is a usage error (exit 2), never a last-wins narrowing -- "
+            "`signals --collector` is the repeatable flag that covers several "
+            "kinds (each collector name maps to exactly one kind). Default "
+            "(absent) lists every collector."
         ),
     )
     p_collectors.set_defaults(func=_cmd_collectors)
