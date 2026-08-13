@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-149
+    lenses: narrative-and-docs (iteration 149), new-capability (iteration 149)
+    - Candidate A1 -- The Done ledger tells the reader to look 28 rows up in the archive; 5 are not there and 3 appear nowhere in it
+    - Candidate A2 -- Give `filesystem.py`'s walk-policy charter an oracle: "Eleven modules already import that seam" plus its enumerated list
+    - Candidate A3 -- `DIRECTIONS.md` is a 34.6KB tracked public artifact that explains nothing about itself, and it misreports a shipped iteration
+    - Candidate B1 (primary) -- The inspector can narrow perception; the two verbs that PRODUCE the slate cannot
+    - Candidate B2 -- `PythonVersionDriftCollector`: the 18th collector, and it is measurably SILENT on this repo
+    - Candidate B3 -- Ancestor-directory matching for `--exclude-path`, where the measured defect is worse than the roadmap row says
+    winner: B3
+    ship: unknown
   iter-148
     lenses: performance-and-throughput (iteration 148), narrative-and-docs (iteration 148)
     - Candidate A1 -- settle roadmap row #169 (`--dist worksteal`) with the repeats it was blocked on
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Give filesystem.py's "Eleven modules already import that seam" claim a live oracle
     - Candidate B3 -- A roadmap-ledger drift check: fail when a row's status contradicts the shipped record (row #172)
     winner: B1
-    ship: unknown
+    ship: PUSHED ab532dc
   iter-147
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Delete the verbatim second `_has_source` + the third copy of its constant, hoisting into the seam 11 modules already import (roadmap row #125)
@@ -486,4 +496,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-57 scouted iterations
+58 scouted iterations

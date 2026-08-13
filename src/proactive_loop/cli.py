@@ -946,9 +946,13 @@ def build_parser() -> argparse.ArgumentParser:
             "vendored, generated or fixture tree. Repeatable with OR semantics "
             "(--exclude-path 'vendor/*' --exclude-path '*.min.js'). Matching is "
             "CASE-INSENSITIVE on both sides, is anchored at the START of the path, "
-            "and '*' CROSSES '/', so 'sub/*' hides the whole sub/ subtree but not "
-            "top/sub/b.py -- an any-depth exclusion needs a leading '*' "
-            "(--exclude-path '*node_modules/*'). A trailing ':LINE' suffix does not "
+            "and is tried against the whole path AND against every ANCESTOR "
+            "DIRECTORY of it, so a bare directory name hides that whole SUBTREE "
+            "(--exclude-path vendor hides vendor/lib.js and the bare vendor signal "
+            "too). '*' CROSSES '/', so 'sub/*' hides the sub/ subtree as well but "
+            "keeps the bare sub signal, and neither spelling reaches top/sub/b.py "
+            "-- an any-depth exclusion needs a leading '*' "
+            "(--exclude-path '*node_modules'). A trailing ':LINE' suffix does not "
             "defeat the match, so 'notes.md', '*.md' and 'notes.md:12' all hide a "
             "TODO reported at notes.md:12. A signal with NO path (repo-level "
             "perception) is NEVER excluded, not even by '*'. Composes as a logical "
@@ -2375,7 +2379,7 @@ def _path_excluded(path: str | None, patterns: list[str] | None) -> bool:
     Pure, allocation-light and disk-free -- it never touches the filesystem, so it is
     unit-testable from strings alone and cannot depend on what happens to exist.
 
-    Three load-bearing rules, each chosen against MEASURED signal paths:
+    Four load-bearing rules, each chosen against MEASURED signal paths:
 
     * **A path-less signal is NEVER excluded**, not even by ``'*'``. ``path is None``
       means repo-level perception (a git-activity or CI-config finding), and on this
@@ -2389,23 +2393,53 @@ def _path_excluded(path: str | None, patterns: list[str] | None) -> bool:
       ``False``. Matching only the whole value would ship a flag that silently misses
       TODOs -- a footgun, not a filter. Stripping the suffix makes ``'notes.md'``,
       ``'*.md'`` and ``'notes.md:12'`` all exclude ``notes.md:12``.
+    * **The pattern is ALSO matched against every ANCESTOR DIRECTORY of that
+      ``:LINE``-stripped path**, so a bare directory name excludes the whole SUBTREE
+      under it: ``'sub'`` excludes ``sub/a.py`` and ``sub/a/b.py``, whose ancestors are
+      ``'sub'`` and ``'sub/a'``. WHY: without this arm the gitignore spelling every user
+      already has in their fingers was ACCEPTED, exited 0, printed no diagnostic and
+      excluded NOTHING -- measured on this repo, ``--exclude-path tests`` left a
+      75-signal listing at 75 while ``--exclude-path 'tests/*'`` took it to 66, so a
+      user needed both spellings to express one intent. That silent no-op is the exact
+      outcome ``_nonempty_glob`` rejects at parse time for an empty pattern, so
+      accepting it here contradicted the flag's own stated standard. Ancestors are
+      WHOLE path prefixes and are globbed like any other candidate, never string
+      prefixes: ``'sub/a.py'`` does not hide ``sub/a/b.py`` (neither ancestor equals
+      it) and ``'su'`` hides no ``sub/...`` path, while ``'*sub'`` hides
+      ``top/sub/b.py``.
     * **Case-folded operands + ``fnmatchcase``** (never ``fnmatch.fnmatch``, which
       normalizes case through ``os.path.normcase`` and is therefore OS-dependent) --
       the same determinism convention ``find_files`` uses in ``loop/tools.py``, so
       results do not vary with the host filesystem's case sensitivity.
 
     Documented boundary, deliberately DIVERGING from ``find_files``' basename-only
-    rule: the pattern is anchored at the START of the path and ``*`` crosses ``/``, so
-    ``'sub/*'`` excludes the whole ``sub/`` subtree while ``'top/sub/b.py'`` survives
-    it (an any-depth exclusion needs a leading ``*``). A basename match cannot express
-    "exclude this subtree", which is the entire point of the flag.
+    rule: EVERY candidate is anchored at the START of the path and ``*`` crosses ``/``,
+    so ``'sub'`` and ``'sub/*'`` both exclude the ``sub/`` subtree while
+    ``'top/sub/b.py'`` survives either one (an any-depth exclusion still needs a leading
+    ``*``, as in ``'*sub'``). The two spellings are NOT redundant: only the bare
+    directory also excludes the directory's OWN path-carrying signal -- the bare ``sub``
+    a ``test_posture`` finding reports -- because a top-level path has no ancestors for
+    ``'sub/*'`` to match. An UNANCHORED basename match, by contrast, would hide a
+    same-named directory nested anywhere, which is why anchoring is kept and the leading
+    ``*`` stays the opt-in.
     """
     if path is None or not patterns:
         return False
-    candidates = {path.lower()}
+    folded = path.lower()
+    candidates = {folded}
     # ONE trailing :<digits> group, not a general split: a Windows-style drive letter
     # or a colon inside a filename must stay part of the path.
-    candidates.add(_PATH_LINE_SUFFIX.sub("", path.lower()))
+    stripped = _PATH_LINE_SUFFIX.sub("", folded)
+    candidates.add(stripped)
+    # The ancestor arm, derived from the STRIPPED value: a ``:LINE`` tail can only sit
+    # on the FINAL component, so the verbatim path yields the identical ancestors and a
+    # second pass over it would only duplicate work. ``range(1, len(components))`` is a
+    # PROPER-prefix range, which is what keeps a top-level path from contributing an
+    # ancestor -- so ``'sub/*'`` still reports the bare ``sub`` signal (iter-132 b07).
+    components = stripped.split("/")
+    candidates.update(
+        "/".join(components[:depth]) for depth in range(1, len(components))
+    )
     return any(
         fnmatch.fnmatchcase(candidate, pattern.lower())
         for pattern in patterns
