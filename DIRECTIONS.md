@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-147
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Delete the verbatim second `_has_source` + the third copy of its constant, hoisting into the seam 11 modules already import (roadmap row #125)
+    - Candidate A2 -- Collapse the 2 near-identical bounded digest-memo mechanisms into one shared helper (roadmap row #146)
+    - Candidate A3 -- Fold the last 2 hand-copied `_SKIP_DIRS`/`_is_hidden` walk policies into the same seam -- as a COSMETIC fold plus a drift guard, NOT a behavior fix (roadmap row #178)
+    - Candidate B1 -- Cut the suite's single 24.75s long-pole test, which is 58% of the wall clock
+    - Candidate B2 -- Prune the armed self-scan gate to the collectors its 4 armed kinds can reach (roadmap row #170)
+    - Candidate B3 -- Stop paying the whole library's import on every CLI process: 128 ms of fixed cost per spawn
+    winner: A1
+    ship: unknown
   iter-146
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- re-land the reverted exit-code epilog on `pla --help`, with a py3.13-safe docstring parse
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- collapse the two git-subprocess invocation paths into one helper
     - Candidate B3 -- compact `SPEC.md` toward an index, the operator's own named watch item
     winner: A1
-    ship: unknown
+    ship: PUSHED 5cc70e5
   iter-145
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Key the root-Markdown table guard on the TRACKED file set, and close the ambient-glob census at zero
@@ -466,4 +476,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-55 scouted iterations
+56 scouted iterations

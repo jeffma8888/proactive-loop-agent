@@ -1,8 +1,21 @@
-"""RecentFilesCollector: surfaces recently modified files in a workspace.
+"""RecentFilesCollector, plus the package's single shared filesystem walk policy.
 
 Only pure stdlib is used. The collector skips hidden directories and
 common noise directories (node_modules, .venv, __pycache__) so the
 signal list stays relevant to developer work.
+
+WHY sibling collectors import private names from here: this module is the ONE
+home of the package's walk policy -- ``_SKIP_DIRS`` and ``_is_hidden`` ("which
+parts of a tree are worth looking at") and ``_has_source`` ("does this tree
+contain source code"). Eleven modules already import that seam (``broken_link``,
+``ci_config``, ``dependencies``, ``large_file``, ``license``,
+``lockfile_drift``, ``merge_conflict``, ``secret_file``, ``syntax_error``,
+``test_posture``, and ``loop/tools.py``'s L1 ACT sandbox), so a policy question
+answered here is answered once. ``_has_source`` was hoisted here because it had
+been answered TWICE -- ``ci_config`` and ``license`` each carried a verbatim copy
+behind a comment asking a human to keep them equal by hand, and both copies
+decide whether their collector emits an actionable L2 gap signal, so a split
+would have changed emitted signals.
 """
 
 from __future__ import annotations
@@ -25,6 +38,46 @@ _SKIP_DIRS: frozenset[str] = frozenset(
 def _is_hidden(name: str) -> bool:
     """Return True if a file or directory name starts with '.'."""
     return name.startswith(".")
+
+
+# Extensions that count as "code" when a collector asks whether a tree holds
+# anything worth building or licensing. Deliberately narrow and
+# language-agnostic; anything else (docs, config, data) is ignored.
+#
+# WHY `test_posture._CANDIDATE_EXTS` is deliberately NOT folded in here even
+# though it holds the same five suffixes today: it answers a DIFFERENT question
+# ("could this file hold a test?"), so aliasing the two would couple two
+# independent policies that are merely equal -- widening one would silently
+# widen the other. Equal values are not one concept.
+_SOURCE_EXTS: frozenset[str] = frozenset({".py", ".ts", ".js", ".go", ".rs"})
+
+
+def _has_source(root: Path) -> bool:
+    """True iff any non-pruned file under *root* has a source extension.
+
+    WHY this lives here rather than in either caller: ``CiConfigCollector`` and
+    ``LicenseCollector`` both gate an actionable L2 gap ("no CI configured", "no
+    license file") on there being code to act on, so that gate must have exactly
+    ONE definition -- while it had two, an edit to either copy could silently
+    change which signals the other collector emits.
+
+    Walks the tree once, pruning noise + hidden dirs in place exactly like
+    ``RecentFilesCollector``, so a source file that lives ONLY inside
+    ``node_modules``/``.venv``/a hidden dir does not count (SPEC skip rule).
+    Reads only filenames -- never file content -- so it cannot raise on
+    undecodable bytes. Deliberately does NOT skip hidden FILES and is
+    deliberately case-sensitive on the suffix: both are the long-standing
+    behavior of the two copies this replaces, so changing either would be a
+    behavior change, not a cleanup.
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
+        ]
+        for fname in filenames:
+            if Path(fname).suffix in _SOURCE_EXTS:
+                return True
+    return False
 
 
 @dataclass

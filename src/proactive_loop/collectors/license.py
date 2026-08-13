@@ -31,32 +31,25 @@ Detection mirrors ``ci_config`` exactly:
   license; an empty or docs-only directory is never flagged (exactly like
   ``ci_config``'s source gate).
 
-Pure stdlib (os/pathlib) only, keeping the runtime pydantic-v2-only and fully
-offline. A new ``kind="license"`` flows into the synthesis prompt automatically
-because ``synthesizer._build_prompt`` iterates ``snapshot.by_kind()``, so this
-file plus the registry/catalog wiring is the whole cost (additive, no version
-bump).
+Pure stdlib only (pathlib here, plus the shared ``os.walk`` source check in the
+filesystem seam), keeping the runtime pydantic-v2-only and fully offline. A new
+``kind="license"`` flows into the synthesis prompt automatically because
+``synthesizer._build_prompt`` iterates ``snapshot.by_kind()``, so this file plus
+the registry/catalog wiring is the whole cost (additive, no version bump).
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules the sibling filesystem collectors use (the
-# SPEC-sanctioned shared seam) so a source file buried in node_modules/.venv/a
-# hidden dir is invisible to the "has source" check here too -- identical to
-# ci_config._has_source.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# The "does this tree hold source code?" walk is the SPEC-sanctioned shared seam
+# in the filesystem collector -- the SAME object ``ci_config`` gates on, so the
+# two source gates cannot drift, and a file buried in node_modules/.venv/a hidden
+# dir stays invisible to both.
+from proactive_loop.collectors.filesystem import _has_source
 from proactive_loop.models import ContextSignal
-
-# Extensions we treat as "code" when deciding whether an un-licensed repo has
-# anything to license. Deliberately narrow and language-agnostic, matching the
-# sibling ``ci_config._SOURCE_EXTS`` / ``test_posture`` set exactly; anything
-# else (docs, config, data) is ignored so a docs-only dir is never flagged.
-_SOURCE_EXTS: frozenset[str] = frozenset({".py", ".ts", ".js", ".go", ".rs"})
 
 # Case-folded basenames recognized as an open-source LICENSE file at the repo
 # root. Curated + presence-only (we match the NAME, never parse content): the
@@ -94,24 +87,6 @@ def _has_license_file(root: Path) -> bool:
     for entry in root.iterdir():
         if entry.is_file() and entry.name.casefold() in _LICENSE_BASENAMES:
             return True
-    return False
-
-
-def _has_source(root: Path) -> bool:
-    """True iff any non-pruned file under *root* has a source extension.
-
-    Walks the tree once, pruning noise + hidden dirs in place exactly like the
-    sibling collectors, so a source file living ONLY inside ``node_modules``/
-    ``.venv``/a hidden dir does not count. Reads only filenames -- never file
-    content -- so it cannot raise on undecodable bytes.
-    """
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [
-            d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-        ]
-        for fname in filenames:
-            if Path(fname).suffix in _SOURCE_EXTS:
-                return True
     return False
 
 

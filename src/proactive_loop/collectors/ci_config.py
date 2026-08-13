@@ -24,27 +24,22 @@ root), so a single root-level signal is emitted -- never one per subdirectory
 (per-project CI granularity is SPEC Out of Scope). Markers are matched purely by
 path/basename via pathlib; the collector NEVER opens file content, so it cannot be
 broken by binary/non-UTF-8 files and no CI-file contents can ever leak into a
-signal. Pure stdlib (os/pathlib) only, keeping the runtime pydantic-v2-only and
-fully offline.
+signal. Pure stdlib only (pathlib here, plus the shared `os.walk` source check
+in the filesystem seam), keeping the runtime pydantic-v2-only and fully offline.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules the sibling filesystem collectors use (the
-# SPEC-sanctioned shared seam) so a source file buried in node_modules/.venv/a
-# hidden dir is invisible to the "has source" check here too.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# The "does this tree hold source code?" walk is the SPEC-sanctioned shared seam
+# in the filesystem collector -- one definition, so this collector and
+# LicenseCollector can never drift on what counts as source, and a file buried in
+# node_modules/.venv/a hidden dir stays invisible to both.
+from proactive_loop.collectors.filesystem import _has_source
 from proactive_loop.models import ContextSignal
-
-# Extensions we treat as "code" when deciding whether a CI-less repo has anything
-# to build. Deliberately narrow and language-agnostic, matching the sibling
-# `test_posture._CANDIDATE_EXTS`; anything else (docs, config, data) is ignored.
-_SOURCE_EXTS: frozenset[str] = frozenset({".py", ".ts", ".js", ".go", ".rs"})
 
 # File suffixes that count as a GitHub Actions workflow inside
 # `.github/workflows/`. Matches the `*.yml`/`*.yaml` glob presence-only (we never
@@ -83,24 +78,6 @@ def _detect_ci_system(root: Path) -> str | None:
             return system
 
     return None
-
-
-def _has_source(root: Path) -> bool:
-    """True iff any non-pruned file under *root* has a source extension.
-
-    Walks the tree once, pruning noise + hidden dirs in place exactly like the
-    sibling collectors, so a source file that lives ONLY inside `node_modules`/
-    `.venv`/a hidden dir does not count (SPEC skip rule). Reads only filenames --
-    never file content -- so it cannot raise on undecodable bytes.
-    """
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [
-            d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-        ]
-        for fname in filenames:
-            if Path(fname).suffix in _SOURCE_EXTS:
-                return True
-    return False
 
 
 @dataclass
