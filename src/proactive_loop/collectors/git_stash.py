@@ -83,15 +83,26 @@ class GitStashCollector(BaseCollector):
 
     @staticmethod
     def _dirs_to_scan(root: Path) -> list[Path]:
-        """*root* itself, plus each of its direct child directories.
+        """*root* itself, plus EVERY direct child directory, in ``iterdir`` order.
 
         WHY only root + direct children: a workspace often nests several
         sub-projects, each its own repo; scanning each direct child lets the
-        scout surface stashes across all of them (identical strategy to the
-        other git collectors). A reflog two levels deep is NOT surfaced — only
-        the top level and its direct children are inspected. Whether a candidate
-        dir is actually a repo with a stash is decided in ``_signal_for_repo``,
-        so a non-repo dir simply yields ``None``.
+        scout surface stashes across all of them. A reflog two levels deep is
+        NOT surfaced -- only the top level and its direct children are
+        inspected.
+
+        WHY this permissive flavor is safe here, and must not be merged with
+        the strict one: ``_collect`` sorts every signal by ``summary`` before
+        applying ``max_items``, so the order of this list is unobservable in
+        the output and an arbitrary ``iterdir`` order cannot make the slate
+        non-deterministic. That is what buys the cheap unfiltered walk --
+        whether a candidate dir is really a repo holding a stash is decided in
+        ``_signal_for_repo``, so a non-repo child costs one ``stat`` and
+        yields ``None``. ``GitActivityCollector`` and ``WorkingTreeCollector``
+        instead take their cross-repo output order FROM the directory order,
+        so their walks must be ``sorted()`` and ``.git``-gated; folding the two
+        flavors together would change the directory set scanned here -- see
+        roadmap row #163.
         """
         dirs: list[Path] = [root]
         try:

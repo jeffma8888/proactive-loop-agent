@@ -223,9 +223,20 @@ class WorkingTreeCollector(BaseCollector):
     def _dirs_to_scan(root: Path) -> list[Path]:
         """*root* itself, plus each direct child directory holding a ``.git``.
 
-        WHY scan children: a workspace often nests several sub-projects, each its
-        own repo; scanning each lets the scout see dirty/unpushed state across
-        all of them (identical strategy to GitActivityCollector).
+        WHY scan children: a workspace often nests several sub-projects, each
+        its own repo; scanning each lets the scout see dirty/unpushed state
+        across all of them.
+
+        WHY this walk is the STRICT flavor -- ``sorted()``, gated on ``.git``
+        existing, deduped against dirs already queued -- while
+        ``GitStashCollector``/``GitStateCollector`` walk every child unsorted:
+        ``_collect`` re-sorts only the per-path signals, while the cross-repo
+        unpushed summaries are appended in WALK order and never re-sorted, so
+        the order of this list IS directly observable in the output. An
+        arbitrary ``iterdir`` order would therefore make the slate
+        non-deterministic. The permissive pair can afford its cheaper walk
+        because it sorts every signal by ``summary`` before the cap; the two
+        flavors are not interchangeable -- see roadmap row #163.
         """
         dirs: list[Path] = [root]
         # Scan child repos in ascending name order (`sorted`) so a multi-repo

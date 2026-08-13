@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-148
+    lenses: performance-and-throughput (iteration 148), narrative-and-docs (iteration 148)
+    - Candidate A1 -- settle roadmap row #169 (`--dist worksteal`) with the repeats it was blocked on
+    - Candidate A2 -- ship roadmap row #129 (`todos` cheap prefilter) on re-validated numbers
+    - Candidate A3 -- pytest collection cost: measure it, then cut the fixed leg of every suite run
+    - Candidate B1 -- Two collector docstrings claim a walk parity the code contradicts; correct them and pin the flavors
+    - Candidate B2 -- Give filesystem.py's "Eleven modules already import that seam" claim a live oracle
+    - Candidate B3 -- A roadmap-ledger drift check: fail when a row's status contradicts the shipped record (row #172)
+    winner: B1
+    ship: unknown
   iter-147
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Delete the verbatim second `_has_source` + the third copy of its constant, hoisting into the seam 11 modules already import (roadmap row #125)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Prune the armed self-scan gate to the collectors its 4 armed kinds can reach (roadmap row #170)
     - Candidate B3 -- Stop paying the whole library's import on every CLI process: 128 ms of fixed cost per spawn
     winner: A1
-    ship: unknown
+    ship: PUSHED db84abc
   iter-146
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- re-land the reverted exit-code epilog on `pla --help`, with a py3.13-safe docstring parse
@@ -476,4 +486,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-56 scouted iterations
+57 scouted iterations
