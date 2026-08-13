@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-146
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- re-land the reverted exit-code epilog on `pla --help`, with a py3.13-safe docstring parse
+    - Candidate A2 -- give `runs --prune` its first executable consumer: a graded DRY-RUN step in `make check` + `ci.yml`
+    - Candidate A3 -- `make hooks` / `make hooks-uninstall`: a one-command on-ramp for the shipped opt-in gate
+    - Candidate B1 -- delete the TWO private copies of `_SKIP_DIRS` + `_is_hidden` in `notes.py` and `todos.py`
+    - Candidate B2 -- collapse the two git-subprocess invocation paths into one helper
+    - Candidate B3 -- compact `SPEC.md` toward an index, the operator's own named watch item
+    winner: A1
+    ship: unknown
+  iter-145
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Key the root-Markdown table guard on the TRACKED file set, and close the ambient-glob census at zero
+    - Candidate A2 -- Oracle the packaging contract: prove the DECLARED `pla` entry point resolves, offline
+    - Candidate A3 -- Char-size budget guard for the per-iteration required-reading docs
+    - Candidate B1 -- Give `--baseline` its first consumer: commit a one-entry `ci_config` baseline and arm that kind in the existing gate
+    - Candidate B2 -- Publish the exit-code contract in `pla --help`, the surface a scripting consumer reads first
+    - Candidate B3 -- `signals --annotate github`: render findings in the workflow-command format CI already consumes
+    winner: B2
+    ship: REVERTED
   iter-144
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`), the 18th collector and 3rd relational perceiver
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Key the root-Markdown guard on the TRACKED file set (roadmap row #155)
     - Candidate B3 -- The char-size budget guard for the per-iteration required-reading docs (rows #109 + #138), with ~1 iteration of headroom left
     winner: B1
-    ship: unknown
+    ship: PUSHED e0ce3a4
   iter-143
     lenses: narrative-and-docs, new-capability
     - Candidate A1 (primary) -- Exit code 5 has TWO producers; the exit-code contract names one, and the guard that should have caught it pins only the incomplete half
@@ -446,4 +466,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-53 scouted iterations
+55 scouted iterations

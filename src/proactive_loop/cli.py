@@ -40,6 +40,7 @@ import os
 import re
 import shutil
 import sys
+import textwrap
 import time
 from pathlib import Path
 from typing import Any, TextIO
@@ -363,6 +364,90 @@ def _nonempty_glob(raw: str) -> str:
     return raw
 
 
+# The exit-code contract, written down ONCE here and rendered onto `pla --help`
+# by `_exit_code_epilog()` below. The CLI is the surface a scripting consumer
+# actually reaches for: someone who wires `pla` into a pre-commit hook, gets a
+# non-zero code and runs `pla --help` should learn what it means without leaving
+# the tool.
+#
+# WHY a real constant and NOT `main.__doc__`, which enumerates the same six codes
+# as RST bullets: `python -OO` strips docstrings, so a docstring-derived epilog
+# would render EMPTY under exactly the lean, scripted invocation most likely to
+# branch on an exit code -- a contract that disappears where it matters most. The
+# docstring and the README table remain the prose derivations, and
+# `tests/test_iter117_behavior.py` is the drift guard that keeps all three
+# surfaces agreeing on the code SET.
+#
+# Each meaning is ONE unwrapped sentence-run; the renderer wraps it at a FIXED
+# width, so the block does not vary with the terminal (`COLUMNS`).
+_EXIT_CODES: tuple[tuple[int, str], ...] = (
+    (0, "success."),
+    (
+        1,
+        "operational fault -- a foreseeable operator or environment error "
+        "(an unknown --provider, a missing or malformed input file, or a "
+        "model-boundary failure once the retry budget is spent). Reported as "
+        "one 'error: ...' line on stderr, never a traceback.",
+    ),
+    (
+        2,
+        "nothing to act on, or the invocation was wrong -- a path you passed "
+        "does not exist, a --run-dir holds no checkpoint.json, or argparse "
+        "rejected an unknown flag or an invalid value.",
+    ),
+    (
+        3,
+        "BLOCKED by the autonomy contract -- a policy refusal, so --yes does "
+        "not help and re-running changes nothing. Rewrite or drop the goal.",
+    ),
+    (
+        4,
+        "NEEDS_APPROVAL -- legitimate but sensitive, so it stops and waits for "
+        "a person. Re-run the same command with --yes.",
+    ),
+    (
+        5,
+        "a gate you armed tripped on a finding -- either --fail-on-kind "
+        "matched at least one reported signal, or --fail-over saw more "
+        "reported signals than its budget. The command itself succeeded and "
+        "printed its normal output; the gate names itself on one line on "
+        "stderr and stdout is unchanged.",
+    ),
+)
+# Rendered width of the epilog. The raw-description formatter prints the epilog
+# VERBATIM, so the wrapping is ours to do -- which is the point: the block is
+# width-INDEPENDENT, so `pla --help` reads the same in a narrow terminal and in a
+# piped capture. 78 keeps every line inside the conventional 80.
+_EPILOG_WIDTH = 78
+
+
+def _exit_code_epilog() -> str:
+    """Render `_EXIT_CODES` as an argparse-style ``exit codes:`` help section.
+
+    Mirrors argparse's own section shape -- a lowercase ``name:`` heading, then
+    two-space-indented items -- so the block reads as part of the help rather
+    than an appended footnote. A code is always the FIRST non-whitespace token
+    of its line and continuation lines are indented past it, which is what lets
+    a reader (or a drift guard) parse the section back into code/meaning pairs.
+    """
+    lines = ["exit codes:"]
+    for code, meaning in _EXIT_CODES:
+        lines.extend(
+            textwrap.wrap(
+                meaning,
+                width=_EPILOG_WIDTH,
+                initial_indent=f"  {code}  ",
+                subsequent_indent="     ",
+                break_long_words=False,
+                # Keeps `--fail-on-kind` and `plan->act->check` intact: a flag
+                # split across a line break is not greppable by the reader who
+                # opened the help precisely to look it up.
+                break_on_hyphens=False,
+            )
+        )
+    return "\n".join(lines)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Assemble the ``pla`` parser with fifteen subcommands and shared globals.
 
@@ -372,11 +457,23 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="pla",
+        # HARD-WRAPPED to the exact three lines argparse renders at the
+        # conventional 80 columns today, because RawDescriptionHelpFormatter
+        # (needed so the epilog's line structure survives) also stops
+        # re-wrapping this string. Pinning the wrap is a small upgrade rather
+        # than a compromise: the top of `pla --help` becomes width-independent
+        # instead of terminal-dependent, which is what a piped capture wants.
         description=(
-            "Proactive loop agent: scan a workspace, synthesize a ranked goal "
-            "slate, gate it for autonomy, and dispatch approved goals into a "
-            "resilient plan->act->check loop."
+            "Proactive loop agent: scan a workspace, synthesize a ranked goal slate, gate\n"
+            "it for autonomy, and dispatch approved goals into a resilient plan->act->check\n"
+            "loop."
         ),
+        # TOP-LEVEL only. A subcommand's help stays about that verb's flags; the
+        # process-wide exit-code contract belongs where the whole tool is
+        # described, and duplicating it onto fifteen subparsers would be fifteen
+        # more copies to keep honest.
+        epilog=_exit_code_epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     # Top-level --version short-circuits parsing (argparse's built-in version
     # action prints then raises SystemExit(0)) so it works with NO subcommand,
@@ -1218,10 +1315,14 @@ def main(argv: list[str] | None = None) -> int:
     * ``3`` -- BLOCKED by the autonomy contract.
     * ``4`` -- needs-approval (re-run with ``--yes``).
     * ``5`` -- a requested gate tripped on a finding: the command ran fine and
-      reported what it perceived, but a ``--fail-on-kind`` gate the caller armed
-      matched at least one reported signal. Distinct from ``1`` (the tool itself
-      failed) and from ``2`` (nothing to act on / bad invocation) -- this is the
-      *finding* channel a pre-commit hook or CI step branches on.
+      reported what it perceived, but a gate the caller armed refused the
+      result -- either ``--fail-on-kind`` matched at least one reported signal,
+      or ``--fail-over`` saw more reported signals than its budget allows. Both
+      producers are named deliberately: the code is the only thing a script
+      sees, so a second route to it that the contract omits is an undocumented
+      contract. Distinct from ``1`` (the tool itself failed) and from ``2``
+      (nothing to act on / bad invocation) -- this is the *finding* channel a
+      pre-commit hook or CI step branches on.
 
     WHY the top-level guard is a *narrow* tuple and not bare ``except``:
     ``LLMError`` covers a persistent throttle/timeout that escapes the L0 retry
