@@ -11,8 +11,11 @@ reproduced that graded gate, and the two demo-artifact assertions
 (``test -f .pla_runs/slate.json`` / ``ls .pla_runs/run-*/artifacts/*.md``) lived
 ONLY inside ``ci.yml`` (nowhere runnable locally), so they could silently rot.
 The new ``.PHONY`` ``check`` target runs those graded steps in CI's own
-order, so ``make check`` == a green CI, and this drift-guard makes the
-unavoidable CI-logic duplication SAFE: if the ``check`` recipe and ``ci.yml``
+order, so ONE local command reproduces ONE leg of what CI grades (the original
+wording here claimed the target equalled the whole CI build; factory iter 156
+corrected that -- CI runs these six steps under both matrix interpreters, and
+``make check-matrix`` covers the second leg's SUITE). This drift-guard
+makes the unavoidable CI-logic duplication SAFE: if the ``check`` recipe and ``ci.yml``
 diverge, the suite goes RED. This is build-tooling ONLY: no ``src/`` runtime
 change, no ``SPEC.md`` / ``README.md`` / ``pyproject.toml`` / ``uv.lock`` change,
 no dependency change, no new CLI verb / tool / collector / provider, and no

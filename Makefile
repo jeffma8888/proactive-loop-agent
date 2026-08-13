@@ -1,5 +1,5 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: setup test cov typecheck demo clean check
+.PHONY: setup test cov typecheck demo clean check check-matrix
 
 # Resolve and install the locked dependency set into a project virtualenv.
 # Uses --locked (not bare 'uv sync') so a local install resolves the EXACT
@@ -41,6 +41,7 @@ clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache
 	rm -rf .coverage htmlcov
+	rm -rf .venv-py*
 
 # Reproduce the EXACT CI graded gate locally, in CI's own order, in one command.
 # CI (.github/workflows/ci.yml) grades six run-steps on every push: locked
@@ -48,9 +49,22 @@ clean:
 # armed signals self-scan.
 # Before this target there was no single local command to run that gate, and the
 # two demo-artifact assertions lived ONLY in ci.yml (nowhere runnable locally),
-# so they could silently rot. `make check` == a green CI. It reuses `$(MAKE)
-# demo` (no re-inline) so the demo command stays single-sourced. Kept in lockstep
-# with ci.yml by tests/test_iter102_behavior.py (a red test == recipe/CI drift).
+# so they could silently rot. It reuses `$(MAKE) demo` (no re-inline) so the demo
+# command stays single-sourced. Kept in lockstep with ci.yml by
+# tests/test_iter102_behavior.py (a red test == recipe/CI drift).
+#
+# WHAT `check` IS NOT: everything CI grades. CI's `test` job is a
+# `fail-fast: false` matrix over python-version ["3.12", "3.13"], so it grades
+# those six steps TWICE -- twelve run-steps -- while `make check` runs them ONCE,
+# under whichever interpreter uv last left in `.venv`. There is no
+# `.python-version` in this repo, so which leg runs locally is an accident
+# rather than a choice, and the gap is not hypothetical: a failure reproducible
+# only on the newer interpreter has already reached CI unseen. `make check-matrix`
+# (below) runs the SUITE under both matrix interpreters, which is the leg-varying
+# half of that gap; the second leg's demo, demo-artifact assertions and armed
+# self-scan stay CI-only, and mypy is leg-invariant by config
+# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 8 of CI's 12
+# run-steps rather than all 12.
 #
 # WHY the recipe OPENS with `rm -rf .pla_runs` (the demo's own state dir): the
 # last two steps are EXISTENCE checks (`test -f` / `ls`) against a persistent,
@@ -101,3 +115,33 @@ check:
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null
 	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
+
+# Run the suite under EVERY interpreter CI's matrix grades -- the SUITE half of the
+# interpreter-coverage gap `check` above cannot close (see "WHAT `check` IS NOT").
+# Opt-in, and deliberately NOT wired into `check` or into ci.yml: CI already IS the
+# matrix, and `check` stays the fast single-leg gate.
+#
+# WHY each leg gets its own UV_PROJECT_ENVIRONMENT instead of a bare
+# `uv run --python X.Y`: a bare `uv run --python` DELETES and recreates the
+# DEFAULT `.venv` (measured), so this target would silently hand the next command
+# a different interpreter than the one it just reported. Pointing each leg at its
+# own throwaway `.venv-py<XY>` leaves `.venv` untouched, so no restore epilogue is
+# needed and the target is safe to run at any moment. Those dirs are hidden, so
+# the collectors' skip rule keeps them invisible to the armed self-scan; the
+# .gitignore entry keeps them out of `git status`, and `clean` removes them.
+#
+# WHY --locked and --offline on every leg: --locked installs the EXACT dependency
+# set CI grades (the same reason `setup` uses it, and it fails loudly on uv.lock
+# drift instead of resolving something new), and --offline makes a network fetch
+# impossible, so a leg cannot quietly buy its own green with a fresh download.
+#
+# WHY a missing interpreter FAILS rather than being skipped: the same rule the
+# `check` pre-step above is built on -- a trusted fail-open gate is worse than no
+# gate. Install the leg (`uv python install 3.13`) rather than skipping it.
+#
+# The leg set here is pinned to ci.yml's `strategy.matrix.python-version` by
+# tests/test_iter156_behavior.py, so adding a leg to CI (or here) alone is a red
+# test rather than a silent hole.
+check-matrix:
+	UV_PROJECT_ENVIRONMENT=.venv-py312 uv run --offline --locked --python 3.12 pytest
+	UV_PROJECT_ENVIRONMENT=.venv-py313 uv run --offline --locked --python 3.13 pytest

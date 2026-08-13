@@ -4,8 +4,11 @@ NAMED state-dir freshness pre-step (``rm -rf .pla_runs``) as its first recipe
 step, and the iter-102 drift-guard gains the missing recipe -> declared-set
 direction (ROADMAP #114).
 
-Feature under test (``pm.md``): row #102 shipped ``make check`` claiming
-"``make check`` == a green CI", but the gate's last two steps
+Feature under test (``pm.md``): row #102 shipped ``make check`` as a local
+reproduction of the graded CI gate (it overclaimed a full equivalence with CI,
+which factory iter 156 corrected: CI grades those steps under both matrix
+interpreters and ``make check-matrix`` covers the second leg's SUITE), but its
+last two steps
 (``test -f .pla_runs/slate.json`` / ``ls .pla_runs/run-*/artifacts/*.md``) are
 pure EXISTENCE checks against a PERSISTENT gitignored dir. In CI that is a
 freshness check by accident of environment (every run is a fresh checkout);

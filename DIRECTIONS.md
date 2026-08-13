@@ -1,6 +1,13 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-150
+    lenses: NEW-CAPABILITY, HARDENING / DX
+    - Candidate A1 -- `pla signals --max-items N`: make the perception depth a user knob
+    - Candidate A2 -- publish that a collector TRUNCATED: a `capped` field on the `--json` and `--summary` surfaces
+    - Candidate A3 -- `DebugArtifactCollector` (`kind="debug_artifact"`): the 18th collector, AST-parse-only
+    winner: B1
+    ship: unknown
   iter-149
     lenses: narrative-and-docs (iteration 149), new-capability (iteration 149)
     - Candidate A1 -- The Done ledger tells the reader to look 28 rows up in the archive; 5 are not there and 3 appear nowhere in it
@@ -10,7 +17,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PythonVersionDriftCollector`: the 18th collector, and it is measurably SILENT on this repo
     - Candidate B3 -- Ancestor-directory matching for `--exclude-path`, where the measured defect is worse than the roadmap row says
     winner: B3
-    ship: unknown
+    ship: PUSHED e2f0dce
   iter-148
     lenses: performance-and-throughput (iteration 148), narrative-and-docs (iteration 148)
     - Candidate A1 -- settle roadmap row #169 (`--dist worksteal`) with the repeats it was blocked on
@@ -496,4 +503,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-58 scouted iterations
+59 scouted iterations
