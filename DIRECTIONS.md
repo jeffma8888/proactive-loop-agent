@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-153
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Single-source the duplicated CLI/sandbox test helpers: delete 128 redundant lines across 12 modules
+    - Candidate A2 -- Retire the 5 settled ROADMAP.md rows: only 2,252 chars of headroom remain before the documented loop-stall trigger
+    - Candidate A3 -- Collapse the only exact structural duplicate in src/: the two permissive `_dirs_to_scan` walkers
+    - B1 -- Collapse the duplicated nested clean-project pytest bootstrap (largest measured wall win)
+    - B2 -- Persist the parse memo across invocations, so a repeated scan skips the 232 ms of re-parsing
+    - B3 -- Cut the ~130 ms import tax paid by every `pla` invocation
+    winner: B1
+    ship: unknown
   iter-152
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla signals --github`: turn the armed gate's finding into a GitHub annotation
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- collapse the two hand-copied memo snapshot/eviction pairs into one shared memo
     - Candidate B3 -- one `--json` flag declaration instead of ten
     winner: A2
-    ship: unknown
+    ship: PUSHED 52b8a4f
   iter-151
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Audit the TRACKED root-Markdown set, not the working directory (roadmap row #155)
@@ -26,6 +36,9 @@ foundry directions -- proactive-loop-agent
     - Candidate A1 -- `pla signals --max-items N`: make the perception depth a user knob
     - Candidate A2 -- publish that a collector TRUNCATED: a `capped` field on the `--json` and `--summary` surfaces
     - Candidate A3 -- `DebugArtifactCollector` (`kind="debug_artifact"`): the 18th collector, AST-parse-only
+    - B1 -- `make check-matrix`: make the local gate reproduce BOTH CI matrix legs, not one accidental one
+    - B2 -- `resume` must name the file when `meta.json` is corrupt (roadmap row #151), instead of leaking a raw stdlib parser message
+    - B3 -- Key the root-Markdown table guard on the git-TRACKED set, and assert set EQUALITY (roadmap row #155)
     winner: B1
     ship: PUSHED f26288d
   iter-149
@@ -213,6 +226,9 @@ foundry directions -- proactive-loop-agent
     - Candidate A1 -- the guard named "every root markdown file" audits the WORKING DIRECTORY, not the repo, and the roadmap row describing it names two files a fresh clone does not have
     - Candidate A2 -- the four shipped caching mechanisms are documented nowhere a reader looks, and the library and CLI entry points differ in a way no artifact records
     - Candidate A3 -- two collector docstrings publish absolute millisecond breakdowns that iter-136 invalidated, one of them undated
+    - B1 -- `signals --baseline FILE`: suppress signals already present in a saved snapshot
+    - B2 -- 17th collector: `BrokenDocLinkCollector` (`kind="broken_link"`)
+    - B3 -- `--max-iterations N` on `run` / `dispatch`: the L1 budget has no CLI control
     winner: B1
     ship: PUSHED 59c4032
   iter-130
@@ -337,6 +353,12 @@ foundry directions -- proactive-loop-agent
     ship: PUSHED 5d23443
   iter-118
     lenses: performance-and-throughput, narrative-and-docs
+    - A1 -- Memoize `todos`' per-line extraction on a content digest
+    - A2 -- One shared per-scan read+digest pass for the three whole-corpus text collectors
+    - A3 -- Cross-process persistence of the syntax verdict memo
+    - B1 -- Oracle the README config table: the 14 published defaults and the flag-equivalent column
+    - B2 -- Publish the `.pla_runs/run-<id>/` artifact layout (roadmap row #128)
+    - B3 -- Make `ROADMAP.md` state what actually shipped, and add the row-coverage guard
     winner: B1
     ship: PUSHED c1d1a37
   iter-117
@@ -411,14 +433,32 @@ foundry directions -- proactive-loop-agent
     ship: PUSHED a479e02
   iter-110
     lenses: integration-and-adoption, simplification-and-deletion
+    - A1 -- Document the CLI exit-code contract in the README (codes 3 and 4 are undocumented) + a source-derived reverse guard
+    - A2 -- Oracle for the `[project.scripts] pla` console-script entry point
+    - A3 -- Make the freshly shipped "works on a bare `uv sync`" promise exact (7, not 10) and guard the distinction
+    - B1 -- Delete the 2 divergent private copies of the collector skip-dir seam (`_SKIP_DIRS` + `_is_hidden`) in `notes.py` / `todos.py`; import the canonical pair + an AST single-definition guard
+    - B2 -- Delete the verbatim second copy of `_has_source` + `_SOURCE_EXTS` (`license.py` duplicates `ci_config.py`), including the hand-written "keep these in sync" comment
+    - B3 -- Delete the stale collector/verb counts written in test PROSE, and collapse the count-locks onto one canonical constant
     winner: A1
     ship: PUSHED 193ac4d
   iter-109
     lenses: HARDENING / DX, INTEGRATION AND ADOPTION
+    - H1 -- Close the deferred `disallow_any_generics` flag: annotate the 35 bare generics and flip the ratchet to full `strict` (roadmap row #121)
+    - H2 -- Document the `pla dispatch` exit-code contract (3 = BLOCKED, 4 = NEEDS_APPROVAL) below the README marker, with a source-derived reverse guard (roadmap row #115)
+    - H3 -- One offline oracle for the console-script contract `pla = proactive_loop.cli:main` (the measured residual of roadmap row #117)
+    - I1 -- The one README command aimed at the reader's OWN repo exits 1; make the zero-config first run the LLM-free path and grade every published `pla` line against it
+    - I2 -- One machine-readable-stdout purity contract across every JSON emitter, so `pla X --json | jq` is a guaranteed seam
+    - I3 -- `pla scan --json` is exit 2 while ten sibling verbs accept `--json`: close the flag-vocabulary inconsistency
     winner: unknown
     ship: PUSHED b83621f
   iter-108
     lenses: NEW CAPABILITY, HARDENING / DX
+    - A1 -- `pla runs --prune`: the product's first persisted-state LIFECYCLE capability
+    - A2 -- 17th collector `PythonVersionDriftCollector` (`kind="python_version_drift"`): the 2nd RELATIONAL collector
+    - A3 -- `pla signals --format {table,json,markdown,csv,html}`: render parity for the perception inspector
+    - B1 -- Tighten the mypy oracle to strict-minus-generics: the "fully type-hinted" claim currently passes with an unannotated parameter on the L1 dispatch seam
+    - B2 -- ROADMAP row #115: document the CLI exit-code contract + a source-derived reverse guard
+    - B3 -- ROADMAP row #109: char-size budget test for the per-iteration required-reading docs
     - Candidates I checked and DROPPED (recorded so they are not re-proposed)
     winner: B1
     ship: PUSHED f5212e2
@@ -463,30 +503,72 @@ foundry directions -- proactive-loop-agent
     ship: PUSHED b79c1aa
   iter-103
     lenses: HARDENING / DX, INTEGRATION AND ADOPTION
+    - H1 -- Make the `make check` demo assertions freshness-aware (they are fail-OPEN locally today)
+    - H2 -- Correct the README ACT-sandbox tool enumeration + bind the prose to `_TOOL_NAMES` (roadmap row #112, QUEUED)
+    - H3 -- Char-size budget guard for the per-iteration required-reading docs (roadmap row #109, QUEUED)
+    - I1 -- Document + drift-guard the CLI EXIT-CODE contract (exit 3 and exit 4 exist, are load-bearing, and are documented NOWHERE)
+    - I2 -- Give the package a documented top-level import surface -- today `import proactive_loop` yields only `__version__`
+    - I3 -- Fix the FIRST command in the Quickstart: bare `uv sync` under a comment claiming "the locked dependency set", with a stale dep list
     winner: unknown
     ship: PUSHED 9cae927
   iter-102
     lenses: NEW CAPABILITY -- iteration 102, HARDENING / DX -- iteration 102
+    - A1 -- Publish each collector's emitted signal `kind` in `pla collectors` (+ `--kind` reverse lookup)
+    - A2 -- `copy_file`: the 15th L1 ACT-sandbox tool (non-destructive snapshot before a mutation)
+    - A3 -- Re-propose `DebugArtifactCollector` (`kind="debug_artifact"`, the 17th collector)
+    - B1 -- Correct the README ACT-sandbox tool enumeration + bind it to `ToolRegistry` with a drift guard (roadmap row #112)
+    - B2 -- Prune noise directories inside `NotesCollector`'s inner walk (roadmap row #108, top of backlog)
+    - B3 -- Char-size budget guard for the per-iteration required-reading docs (roadmap row #109)
     winner: B2
     ship: PUSHED 407f3c0
   iter-101
     lenses: narrative-and-docs, new-capability
+    - A1 (RECOMMENDED) -- Publish the 16 `kind` strings that `pla signals --kind` requires, with a source-derived drift guard
+    - A2 -- Correct the README's ACT-sandbox tool enumeration: it presents a closed list of 11 while 14 ship, and the 3 missing include a MUTATING tool
+    - A3 -- Keep `ROADMAP.md` under the stall budget by ARCHIVING OLD ROWS WHOLESALE (my first framing was wrong; corrected here)
+    - B1 (RECOMMENDED) -- Make `--kind` a validated, self-describing vocabulary: derive the 16 kinds into one registry constant and wire it as argparse `choices=`
+    - B2 -- `pla scan --min-weight W`: a relevance floor on what the synthesizer is allowed to see
+    - B3 -- 17th collector: `SuppressionCollector` (kind=`suppression`) -- surface silenced checkers as latent work
     winner: B1
     ship: PUSHED 268a588
   iter-100
     lenses: performance-and-throughput, narrative-and-docs
+    - A1 (STRONGLY RECOMMENDED) -- Prune noise directories inside `NotesCollector`'s inner `rglob("*.md")`
+    - A3 -- `pla runs --limit N`, applied BEFORE `_run_row` (bound the per-invocation artifact walk)
+    - A2 (DEMOTED after measurement) -- give `NotesCollector` the `max_read_bytes` cap the other text collectors got
+    - B1 (STRONGLY RECOMMENDED) -- Close the README's undocumented-flag gap and bind every live CLI long option to the docs with a drift guard
+    - B3 -- Turn the operator's docs-growth WATCH ITEM into a machine check (size budget for the per-iteration required-reading docs)
+    - B2 (fold into B1, do not pick alone) -- Bind the README CLI TABLE's verb rows to the live subparser set
     winner: B1
     ship: PUSHED d3f97ec
   iter-99
     lenses: SIMPLIFICATION-AND-DELETION, performance-and-throughput
+    - A1 (RECOMMENDED) -- Collapse the count-drift cascade to a single pinned expectation
+    - A2 (SAFE FALLBACK) -- Delete the two duplicate `_SKIP_DIRS` / `_is_hidden` copies
+    - A3 (OPERATOR WATCH ITEM) -- Compact `SPEC.md` into an index + `SPEC_ARCHIVE.md`
+    - B1 (RECOMMEND) -- Pre-read byte-size cap in the whole-tree text collectors
+    - B3 -- Deterministic I/O-budget guard (counting oracle, test-only)
+    - B2 -- Scan-scoped walk+read dedup (single-pass workspace index)
     winner: B1
     ship: PUSHED 83fa8e0
   iter-98
     lenses: NEW-CAPABILITY, HARDENING / DX
+    - A1 (RECOMMEND) -- `DebugArtifactCollector` (kind="debug_artifact")
+    - A2 -- `pla signals --top N` ranked-limited view
+    - A3 -- `EnvExampleCollector` (kind="env_example") -- onboarding-hygiene gap
+    - B1 (RECOMMEND) -- Extend the offline-first import guard from `src/` to `tests/`
+    - B2 -- License-badge integrity oracle (bind README badge <-> LICENSE file <-> pyproject)
+    - B3 -- Pin the "green in CI on Python 3.12 AND 3.13" claim to the CI matrix
     winner: A1
     ship: unknown
   iter-97
     lenses: unknown
+    - A1 (recommend) -- `pla config [--json]`: resolved-Settings inspector
+    - A2 -- `copy_file(src, dst)` L1 ACT-sandbox tool
+    - A3 -- `GitignoreCollector` (`kind="gitignore"`): new L2 perception axis
+    - B1 (recommend) -- extend the offline-first import guard to the `tests/` tree
+    - B2 -- whole-pipeline determinism regression guard (run-twice-identical)
+    - B3 -- `make check` clean-slate hardening (no stale-artifact false pass)
     winner: A1
     ship: PUSHED dc10934
   iter-96
@@ -497,10 +579,22 @@ foundry directions -- proactive-loop-agent
     ship: PUSHED 52242cc
   iter-95
     lenses: unknown
+    - A1 (recommend) — `copy_file(src, dst)` L1 ACT-sandbox tool
+    - A2 — `pla config [--json]` resolved-settings introspection verb
+    - A3 — `GitignoreCollector` (`kind="gitignore"`)
+    - B1 (build front-door) -- `make check`: one local target that reproduces the exact CI gate
+    - B2 (distribution packaging) -- CHEAP oracle that the PEP 561 `py.typed` marker actually SHIPS
+    - B3 (type oracle) -- mypy hygiene flags `warn_unused_ignores` + `warn_redundant_casts`
     winner: B1
     ship: PUSHED 19ea19b
   iter-94
     lenses: unknown
+    - A1 (L2 perception -- NEW collector): `LicenseCollector` (`kind="license"`)
+    - A2 (L1 action -- NEW sandbox tool): `copy_file(src, dst)`
+    - A3 (CLI -- NEW query knob): `pla diff --only {added,removed,changed,unchanged}`
+    - B1 (build front-door): `make check` -- one local target that reproduces the exact CI gate
+    - B2 (distribution packaging): assert the PEP 561 `py.typed` marker actually SHIPS in the wheel
+    - B3 (type oracle): mypy hygiene flags `warn_unused_ignores` + `warn_redundant_casts`
     winner: A1
     ship: PUSHED 07d650f
   iter-93
@@ -523,4 +617,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-61 scouted iterations
+62 scouted iterations
