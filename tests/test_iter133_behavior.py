@@ -34,25 +34,42 @@ FOUR false findings in ``README.md``. A guard that manufactures a red build on
 the public README is worse than no guard, and a guard that discovers no files
 passes vacuously. Behaviors 2 and 3 therefore fire the detector on a known-BAD
 sample and on a known-GOOD sample written into ``tmp_path``, and behavior 4
-carries anti-vacuous assertions (non-empty file set, three named files present,
->= 10 tables actually parsed).
+carries anti-vacuous assertions (non-empty file set, all 5 tracked root docs
+present, >= 10 tables actually parsed).
 
-Isolation: black-box. This module reads only Markdown files at the repo root
-(the artifacts under test), its own synthetic samples in ``tmp_path``, and the
-TEXT of a sibling test module for behavior 8 (a test-suite contract, explicitly
-in scope: ``tests/`` is readable by the tester role). No implementation source
-was read while writing this file, and no engineer, reviewer or fix note was
-opened.
+Why the audited set comes from git and not from a glob (iter-156, row #155)
+Globbing the repo root for Markdown audits the WORKING DIRECTORY: measured at
+that iteration, 7 root ``*.md`` files sat on disk while git tracked 5, the two
+extras hidden only by ``.git/info/exclude`` -- a per-clone, UNCOMMITTED
+mechanism. So the public suite was auditing two files that no other clone, no
+CI checkout and no reviewer has, and a table inside either one would red the
+build on exactly one machine. The floor was one-sided too: it named 3 files, so
+tracked public ``SPEC.md`` and ``DIRECTIONS.md`` could leave the audited set
+entirely and the guard would still pass green. The domain is therefore git's
+tracked ROOT set, asserted EQUAL to a pinned tuple, so drift in either
+direction has to be announced in the commit that causes it.
+
+Isolation: black-box. This module reads the tracked root Markdown files (the
+artifacts under test), its own synthetic samples in ``tmp_path``, and the TEXT
+of a sibling test module for behavior 8 (a test-suite contract, explicitly in
+scope: ``tests/`` is readable by the tester role). No implementation source was
+read while writing this file, and no engineer, reviewer or fix note was opened.
 
 Offline and deterministic: pure text parsing, no imports from the product, no
-subprocess, no network, no clock, no writes outside ``tmp_path``.
+network, no clock, no writes outside ``tmp_path``. ONE subprocess, and only to
+name the domain: a read-only ``git ls-files "*.md"``, which skips with a stated
+reason where there is no index (a tarball export) instead of auditing nothing.
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
@@ -68,6 +85,19 @@ VALUE_VOCAB = frozenset({"High", "Med-High", "Med", "Low-Med", "Low"})
 
 #: Rows whose stray content pipes were escaped; each must KEEP its Status text.
 REPAIRED_ROWS = ("27", "37", "49", "51", "52", "58", "60", "71")
+
+#: The ROOT-level Markdown docs this repo TRACKS, i.e. the ones every clone and
+#: every CI checkout actually has. Behavior 4 asserts SET EQUALITY against git's
+#: own listing, so adding or retiring a public root doc reds the build until it
+#: is announced by editing this tuple in the same commit -- the drift discipline
+#: the suite already applies to the CI gate steps and the armed baseline kinds.
+TRACKED_ROOT_DOCS = (
+    "DIRECTIONS.md",
+    "README.md",
+    "ROADMAP.md",
+    "ROADMAP_ARCHIVE.md",
+    "SPEC.md",
+)
 
 _FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
 _DELIM_CELL_RE = re.compile(r"^:?-+:?$")
@@ -397,19 +427,79 @@ def test_b3_known_good_sample_yields_zero_findings(tmp_path: Path) -> None:
 
 
 # ==========================================================================
+# The audited DOMAIN (behavior 4). Keyed on git's TRACKED set, never on a
+# working-directory glob: a glob audits whatever scratch files happen to sit in
+# ONE clone, so a table defect in an untracked file reds `uv run pytest` on one
+# machine and is unreproducible on every other -- and the reverse hole is worse,
+# because a tracked public doc could leave the audited set with nothing said.
+# ==========================================================================
+
+
+def root_markdown_names(listing: str | Iterable[str]) -> list[str]:
+    """ROOT-level names of a ``git ls-files "*.md"`` listing, sorted.
+
+    Pure over the LISTING rather than over the repo, because that is the only
+    way BOTH sides of the domain rule are provable. git's pathspec ``*`` also
+    matches ``/``, so the real listing carries nested fixture documents whose
+    content is deliberately arbitrary; and a fresh clone has no untracked file
+    at all, so the "an untracked file is never audited" side cannot be shown
+    against the ambient tree. A synthetic listing makes both deterministic.
+
+    Blank and whitespace-only lines are dropped. Names are de-duplicated because
+    ``ls-files`` prints one line per index stage, so an unmerged path appears up
+    to three times and would otherwise be audited three times.
+    """
+    lines = listing.splitlines() if isinstance(listing, str) else list(listing)
+    return sorted({name for line in lines if (name := line.strip()) and "/" not in name})
+
+
+def tracked_root_markdown(root: Path = REPO_ROOT) -> list[str]:
+    """The tracked root Markdown of ``root``, or skip if git cannot say.
+
+    ``root`` is a parameter for one reason: it makes the degrade path reachable
+    from a test without deleting ``.git``. A tarball export has no index, and a
+    guard that silently audited NOTHING there would be worse than a skip -- it
+    would report health while examining zero files.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "*.md"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except OSError as exc:  # no git binary at all
+        pytest.skip(f"git is unavailable ({exc}); the tracked set is unknowable here")
+    if listed.returncode != 0:
+        pytest.skip(f"{root} is not a git checkout; the tracked set is unknowable here")
+    return root_markdown_names(listed.stdout)
+
+
+# ==========================================================================
 # Behavior 4 --- the repo-root guard is green, and cannot pass vacuously.
 # ==========================================================================
 
 
 def test_b4_every_root_markdown_file_is_table_clean() -> None:
-    files = sorted(REPO_ROOT.glob("*.md"))
-    names = [p.name for p in files]
+    names = tracked_root_markdown()
+    pinned = set(TRACKED_ROOT_DOCS)
 
-    assert files, "glob found no root *.md files -- the guard would pass vacuously"
-    for required in ("README.md", "ROADMAP.md", "ROADMAP_ARCHIVE.md"):
+    # Anti-vacuity FIRST: an empty or unrecognisable listing would make the
+    # table assertion below pass for the wrong reason.
+    assert names, "git listed no root *.md files -- the guard would pass vacuously"
+    for required in TRACKED_ROOT_DOCS:
         assert required in names, f"{required} missing from the audited set {names}"
+    assert set(names) == pinned, (
+        "the audited set must equal the tracked root Markdown set EXACTLY: a "
+        "superset audits a file no other clone has, a subset lets a public doc "
+        "leave the guard silently. Announce the change here, in this commit. "
+        f"tracked-only={sorted(set(names) - pinned)} "
+        f"pinned-only={sorted(pinned - set(names))}"
+    )
 
-    report = {p.name: audit_markdown(read(p)) for p in files}
+    report = {name: audit_markdown(read(REPO_ROOT / name)) for name in names}
     offenders = {name: found for name, found in report.items() if found}
 
     assert offenders == {}, (

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-156
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `run --max-goals N`: dispatch the top N AUTO goals, not only the head
+    - Candidate A2 -- `scan --suppress FILE`: let the user retire a goal that keeps coming back
+    - Candidate A3 -- Ground each goal's `sources` against the signals actually perceived
+    - Candidate B1 -- Key the root-Markdown table guard on git's TRACKED set, not the working dir (row #155)
+    - Candidate B2 -- A char-budget guard for `ROADMAP.md`, now measured 1,641 chars from the trigger (rows #138 + #109)
+    - Candidate B3 -- Pin the last 2 unpinned CLI guard messages and make the census two-sided (row #136)
+    winner: B1
+    ship: unknown
   iter-155
     lenses: narrative-and-docs (iteration 155), new-capability (iteration 155)
     - Candidate A1 -- The README documents 12 of the 17 collectors it advertises; give L2 the drift-guarded table L1 already has
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla trend --dir DIR`: which goals PERSIST across a watch stream (`diff` only ever reads the two newest slates)
     - Candidate B3 -- Per-category autonomy thresholds: `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0`
     winner: A1
-    ship: unknown
+    ship: PUSHED 4a6c833
   iter-154
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- pin `--dist` to a MEASURED xdist scheduler instead of inheriting the default `load`
@@ -637,4 +647,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-64 scouted iterations
+65 scouted iterations
