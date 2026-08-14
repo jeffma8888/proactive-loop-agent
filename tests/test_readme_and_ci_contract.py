@@ -13,7 +13,7 @@ So every quoted claim is bound here to a live source of truth:
 
 * ``"N context collectors"`` -> ``len(all_collectors())``
 * ``"N CLI verbs"``          -> the live argparse subparser choices
-* the suite-size claim       -> must be a **floor** (``3,300+ tests``) that is
+* the suite-size claim       -> must be a **floor** (``3,800+ tests``) that is
   both TRUE and FRESH against a real collection. Three ways it can be wrong, and
   all three now fail the build: an exact count (self-invalidating -- adding this
   very file changes it), a floor ABOVE the live total (a false boast), and a
@@ -90,8 +90,8 @@ PYPROJECT = REPO / "pyproject.toml"
 # every ~2 ships, and a guard that cries wolf gets deleted.
 SUITE_SIZE_SLACK = 500
 
-# The intro's bolded suite-size claim: ``**3,300+ tests**`` and
-# ``**3,300+ passing tests**``. Group 1 is the digits, group 2 the trailing ``+``.
+# The intro's bolded suite-size claim: ``**3,800+ tests**`` and
+# ``**3,800+ passing tests**``. Group 1 is the digits, group 2 the trailing ``+``.
 # Deliberately the SAME pattern the removed fail-open assertion used, so the new
 # oracle inherits its proven match set (both intro claims) rather than inventing a
 # second pattern that could quietly match one of them.
@@ -535,7 +535,17 @@ def test_suite_size_slack_is_the_single_staleness_knob(
     """The verdict must derive from the named constant, not an inlined number."""
     assert SUITE_SIZE_SLACK == 500
     intro = _intro()
-    live = 3357  # a fixed live count keeps this test pure (no second subprocess)
+    # A synthetic live count keeps this test pure (no second subprocess), but it must
+    # be DERIVED from what the intro actually publishes rather than frozen: the claim
+    # is sound only when the live count sits at or just above the published floor, so
+    # a hardcoded number pins the carve-out to one revision of the README. Measured at
+    # factory iter 158 -- a 3357 frozen in from the ``3,300+`` era made the true,
+    # fresh ``3,800+`` floor read as FALSE here. The +57 keeps the value TRUE
+    # (>= the floor) and FRESH (well inside SUITE_SIZE_SLACK) while staying above the
+    # tightened budget below, which must still flip the verdict.
+    claim = SUITE_CLAIM.search(intro)
+    assert claim is not None, "the intro lost its bolded suite-size claim"
+    live = int(claim.group(1).replace(",", "")) + 57
     assert suite_size_problems(intro, live) == []
     monkeypatch.setattr(
         "tests.test_readme_and_ci_contract.SUITE_SIZE_SLACK", 10, raising=True

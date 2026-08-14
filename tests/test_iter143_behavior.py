@@ -5,19 +5,24 @@ The intro's ``**N,N00+ tests**`` claim is one of exactly three numbers the
 correct, and it was the only one of the three with no live source of truth: the guard
 it replaces asserted a trailing ``+`` and a positive number, so it passed identically
 on a stale ``2,700+`` (understating a 3,357-test suite by 657, 19.6%) and on a
-fabricated ``9,000+``. This iteration bumps the published floor to ``3,300+`` in both
-intro sentences and replaces that fail-open assertion with a two-sided oracle: the
+fabricated ``9,000+``. This iteration bumped the published floor to ``3,300+`` in both
+intro sentences and replaced that fail-open assertion with a two-sided oracle: the
 floor must be TRUE (``live >= published``) and FRESH (``live - published < 500``),
 with the live number measured by one real ``--collect-only`` subprocess.
 
+The floor is a LIVE number, so this module owns re-bumping it: ``PUBLISHED_FLOOR``
+and ``STALE_FLOOR_TOKEN`` move together every time suite growth pushes the published
+claim past the slack budget (2,700+ -> 3,300+ at factory iter 143, 3,300+ -> 3,800+ at
+factory iter 158, when the live suite reached 3,810).
+
 Coverage (numbered to match the iteration spec's Expected Behaviors):
 
-1. The published floor is ``3,300+`` in BOTH intro sentences and the string
-   ``2,700`` is gone from ``README.md`` entirely.
+1. The published floor is ``3,800+`` in BOTH intro sentences and the string
+   ``3,300`` is gone from ``README.md`` entirely.
 2. Nothing else above the marker changed: with the digits of the three permitted
    claims neutralized, the intro is byte-identical to the same slice at ``HEAD``
    (plus, while ``HEAD`` is still the pre-bump revision, the strict form -- putting
-   ``2,700`` back reproduces ``HEAD`` byte-for-byte).
+   ``STALE_FLOOR_TOKEN`` back reproduces ``HEAD`` byte-for-byte).
 3. The sibling carve-out numbers stay live-accurate against independently computed
    oracles: ``17 context collectors`` == ``len(all_collectors())`` and ``15 CLI
    verbs`` == the live parser's subcommand count.
@@ -33,8 +38,8 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
 11. The live count comes from a real collection subprocess and fails LOUDLY: a
     non-zero exit reports the exit code, and an unparseable total reports the exit
     code plus an output tail -- with no fallback, no static default and no skip.
-12. The measured live count agrees with the published floor: ``live >= 3300`` and
-    ``live - 3300 < SUITE_SIZE_SLACK``.
+12. The measured live count agrees with the published floor:
+    ``live >= PUBLISHED_FLOOR`` and ``live - PUBLISHED_FLOOR < SUITE_SIZE_SLACK``.
 13. The ``-o addopts=`` neutralization is pinned as load-bearing against
     ``pyproject.toml``'s live ``-n auto``.
 14. The collection subprocess leaves the tree clean -- no ``.pytest_cache``, no
@@ -70,8 +75,20 @@ PYPROJECT = REPO / "pyproject.toml"
 MAKEFILE = REPO / "Makefile"
 MARKER = "PORTFOLIO INTRO"
 
-PUBLISHED_FLOOR = 3300
-STALE_FLOOR_TOKEN = "2,700"
+PUBLISHED_FLOOR = 3800
+STALE_FLOOR_TOKEN = "3,300"
+
+# The synthetic live count for the checks that feed the REAL published intro to the
+# pure helper, so they need no second ``--collect-only`` subprocess. DERIVED from the
+# published floor, never frozen: the intro is judged sound only when the live count
+# sits at or just above that floor, so a hardcoded number silently pins the carve-out
+# to one revision. Measured at factory iter 158 -- the 3357 frozen in from the
+# ``3,300+`` era made the true, fresh ``3,800+`` floor read as FALSE and failed three
+# tests across two modules. The offset is bounded on BOTH sides by the guard own
+# rules: >= 0 or the claim is FALSE, < ``guard.SUITE_SIZE_SLACK`` (500) or it is
+# STALE, and above the tightened budgets the staleness tests monkeypatch in (5 here,
+# 10 in the sibling module) or those tests could not flip the verdict.
+FRESH_LIVE_COUNT = PUBLISHED_FLOOR + 57
 
 # The three numeric claims the README marker's carve-out permits an automated
 # contributor to correct. Everything else above the marker is human-owned prose.
@@ -155,12 +172,12 @@ def _joined(problems: object) -> str:
 
 def test_readme_intro_publishes_the_bumped_floor_in_both_sentences() -> None:
     intro = _intro_of(README.read_text(encoding="utf-8"))
-    assert "**3,300+ tests**" in intro
-    assert "**3,300+ passing tests**" in intro
+    assert "**3,800+ tests**" in intro
+    assert "**3,800+ passing tests**" in intro
 
 
 def test_the_stale_floor_token_is_gone_from_the_readme() -> None:
-    """``2,700`` occurred exactly twice in the repo, both above the marker."""
+    """``3,300`` occurred exactly twice in the repo, both above the marker."""
     assert STALE_FLOOR_TOKEN not in README.read_text(encoding="utf-8")
 
 
@@ -194,7 +211,7 @@ def test_only_the_carve_out_numbers_moved_above_the_marker() -> None:
 def test_the_bump_is_exactly_two_digit_tokens_while_head_is_pre_bump() -> None:
     """Strict form of behavior 2, self-disarming once the bump is committed.
 
-    Before the commit lands, ``HEAD`` still carries ``2,700``: putting it back must
+    Before the commit lands, ``HEAD`` still carries ``STALE_FLOOR_TOKEN``: putting it back must
     reproduce ``HEAD`` byte-for-byte, which proves the diff is the two digit tokens
     and nothing else. After the commit, ``HEAD`` == the worktree and the
     normalized comparison above is the whole contract, so this degenerates rather
@@ -207,7 +224,7 @@ def test_the_bump_is_exactly_two_digit_tokens_while_head_is_pre_bump() -> None:
             head_intro
         )
         return
-    assert intro.replace("3,300", STALE_FLOOR_TOKEN) == head_intro
+    assert intro.replace("3,800", STALE_FLOOR_TOKEN) == head_intro
 
 
 # --------------------------------------------------------------------------- #
@@ -249,7 +266,7 @@ def test_the_floor_decision_is_a_pure_importable_helper(
         guard.collect_live_test_count()
 
     intro = _intro_of(README.read_text(encoding="utf-8"))
-    assert _joined(helper(intro, 3357)) == ""
+    assert _joined(helper(intro, FRESH_LIVE_COUNT)) == ""
     assert _joined(helper(intro, 99)) != ""
 
 
@@ -263,7 +280,7 @@ def _real_intro() -> str:
 
 
 def test_a_fabricated_floor_is_rejected_and_both_numbers_are_named() -> None:
-    fabricated = _real_intro().replace("3,300+", "9,000+")
+    fabricated = _real_intro().replace("3,800+", "9,000+")
     problems = _joined(guard.suite_size_problems(fabricated, 3357))
     assert problems != "", "a floor ABOVE the live count must be rejected"
     assert "9,000" in problems or "9000" in problems
@@ -271,7 +288,7 @@ def test_a_fabricated_floor_is_rejected_and_both_numbers_are_named() -> None:
 
 
 def test_a_true_but_stale_floor_is_rejected() -> None:
-    stale = _real_intro().replace("3,300+", "1,000+")
+    stale = _real_intro().replace("3,800+", "1,000+")
     problems = _joined(guard.suite_size_problems(stale, 3357))
     assert problems != "", "a floor 2,357 below the live count must be rejected"
     lowered = problems.lower()
@@ -279,7 +296,7 @@ def test_a_true_but_stale_floor_is_rejected() -> None:
 
 
 def test_an_exact_count_is_still_rejected() -> None:
-    exact = _real_intro().replace("3,300+", "3,357")
+    exact = _real_intro().replace("3,800+", "3,857")
     problems = _joined(guard.suite_size_problems(exact, 3357))
     assert problems != "", "an exact count is self-invalidating and must be rejected"
 
@@ -302,12 +319,12 @@ def test_slack_is_one_named_constant_the_verdict_derives_from(
 ) -> None:
     assert guard.SUITE_SIZE_SLACK == 500
     intro = _real_intro()
-    assert _joined(guard.suite_size_problems(intro, 3357)) == ""
+    assert _joined(guard.suite_size_problems(intro, FRESH_LIVE_COUNT)) == ""
     monkeypatch.setattr(guard, "SUITE_SIZE_SLACK", 5)
-    tightened = _joined(guard.suite_size_problems(intro, 3357))
+    tightened = _joined(guard.suite_size_problems(intro, FRESH_LIVE_COUNT))
     assert tightened != "", "the staleness verdict does not derive from SUITE_SIZE_SLACK"
     monkeypatch.undo()
-    assert _joined(guard.suite_size_problems(intro, 3357)) == ""
+    assert _joined(guard.suite_size_problems(intro, FRESH_LIVE_COUNT)) == ""
 
 
 # --------------------------------------------------------------------------- #

@@ -29,6 +29,7 @@ Layout of a dispatched run under ``state_dir``::
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import fnmatch
 import html
@@ -677,6 +678,11 @@ def build_parser() -> argparse.ArgumentParser:
             "`run` WOULD auto-dispatch (with a paste-ready `pla dispatch` command), "
             "then STOP before executing the loop -- no run dir, no loop iteration."
         ),
+    )
+    p_run.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the run result as one JSON object on stdout; the human progress goes to stderr.",
     )
     p_run.set_defaults(func=_cmd_run)
 
@@ -2153,6 +2159,68 @@ def _render_run_summary(
     else:
         lines.append("artifacts  : (none)")
     return "\n".join(lines)
+
+
+def _run_json_payload(
+    slate: GoalSlate,
+    slate_path: Path,
+    top: CandidateGoal | None,
+    needs_approval: list[CandidateGoal],
+    dispatched: tuple[RunState, Path, ToolRegistry] | None,
+) -> dict[str, Any]:
+    """Build the ``run --json`` result document as a pure function of its inputs.
+
+    The machine-readable twin of the two things ``run`` prints -- the ranked slate
+    render and, when it auto-dispatches, :func:`_render_run_summary` -- so a script
+    never has to re-glob the state dir and guess at ``run-*`` names to learn what an
+    invocation produced.
+
+    Exactly six top-level keys, ALWAYS present so a consumer can index without
+    ``.get`` gymnastics: ``workspace_root``, ``slate_path``, ``goal_count``,
+    ``needs_approval``, ``top_goal``, ``dispatched``. The two "did it happen" facts
+    are carried by VALUE, not by absence -- ``top_goal``/``dispatched`` are ``null``
+    when there is no auto-dispatchable goal or the dispatch was skipped
+    (``--dry-run``).
+
+    WHY ``goal_count`` and not ``goals``: ``scan --format json`` already publishes
+    ``goals`` as an ARRAY of goal objects, and one key name meaning two types across
+    the same CLI surface is exactly the kind of drift a machine surface must not
+    ship. ``workspace_root`` is adopted verbatim from that payload (the same
+    ``slate.workspace_root`` value) so the two documents agree where they overlap.
+
+    WHY *dispatched* arrives as the whole ``_execute_goal`` triple rather than three
+    separate optional parameters: the three facts are true together or not at all, so
+    one argument makes an inconsistent call unrepresentable. Enum status is emitted as
+    ``.value`` (never a ``RunStatus.`` repr) to match ``checkpoint.json``, which is
+    ``RunState.to_json()`` -- that is what lets a consumer compare the reported status
+    against the checkpoint on disk. Kept pure/disk-free, like
+    :func:`_scan_json_payload`, so it is testable without running a loop.
+    """
+    payload: dict[str, Any] = {
+        "workspace_root": slate.workspace_root,
+        "slate_path": str(slate_path),
+        "goal_count": len(slate.goals),
+        "needs_approval": [{"id": goal.id, "title": goal.title} for goal in needs_approval],
+        "top_goal": None if top is None else {"id": top.id, "title": top.title},
+        "dispatched": None,
+    }
+    if dispatched is not None:
+        state, run_dir, tools = dispatched
+        payload["dispatched"] = {
+            "goal_id": state.goal.id,
+            "run_id": state.run_id,
+            "status": state.status.value,
+            "run_dir": str(run_dir),
+            # Absolute-ish paths (artifacts_dir joined with each relpath), the SAME
+            # composition the human summary prints, so both renderings name the same
+            # files and a consumer can open them without knowing the run layout.
+            "artifacts": [str(tools.artifacts_dir / rel) for rel in tools.artifacts()],
+            "iterations_used": state.iterations_used,
+            "llm_calls_used": state.llm_calls_used,
+            "retries": state.retries,
+            "parse_errors": state.parse_errors,
+        }
+    return payload
 
 
 def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> None:
@@ -3716,14 +3784,22 @@ def _render_providers() -> str:
     return "\n".join(lines)
 
 
-def _dispatch_goal(
+def _execute_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client: LLMClient
-) -> int:
+) -> tuple[RunState, Path, ToolRegistry]:
     """Execute one already-approved goal through a checkpointed GoalLoop.
 
     Callers MUST gate *goal* before calling this -- the sandbox and the autonomy
     contract are enforced upstream (in the verb handlers); this helper only runs
     what it is handed.
+
+    WHY this is split out of :func:`_dispatch_goal`: a finished run holds three facts
+    a caller may need as DATA rather than as text -- the terminal ``RunState``, the
+    run directory it was checkpointed into, and the ``ToolRegistry`` that knows which
+    artifacts were written. ``run --json`` reports them; the ``dispatch`` verb only
+    prints them. Executing here and rendering in the wrapper means both callers drive
+    the IDENTICAL loop code, so the machine-readable result can never drift from what
+    the human summary says about the same run.
     """
     run_dir = settings.state_dir / f"run-{goal.id}"
     artifacts_dir = run_dir / _ARTIFACTS_NAME
@@ -3733,8 +3809,18 @@ def _dispatch_goal(
     tools = ToolRegistry(workspace_root=workspace_root, artifacts_dir=artifacts_dir)
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
     loop = GoalLoop(client, settings, tools, checkpoint)
-    state = loop.run(goal)
+    return loop.run(goal), run_dir, tools
 
+
+def _dispatch_goal(
+    goal: CandidateGoal, workspace_root: Path, settings: Settings, client: LLMClient
+) -> int:
+    """Execute a gated goal, then print the human run summary (the `dispatch` path).
+
+    A thin printing wrapper over :func:`_execute_goal`, kept so the stdout of the
+    ``dispatch`` verb stays exactly what it has always been.
+    """
+    state, run_dir, tools = _execute_goal(goal, workspace_root, settings, client)
     print(_render_run_summary(goal, state, run_dir, tools))
     # DONE and BUDGET_EXHAUSTED are both valid loop terminations, not CLI faults.
     return 0
@@ -3899,67 +3985,110 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     Approval-gated goals are listed for the user with a ready-to-paste dispatch
     command but are NEVER auto-run -- that is the whole point of the L2 gate.
+
+    ``--json`` makes the sole autonomous verb SCRIPTABLE without changing anything it
+    DOES: the identical scan/gate/write/dispatch runs, and its result is published as
+    one JSON object instead of having to be re-globbed out of the state dir. WHY the
+    whole body runs inside ``redirect_stdout(sys.stderr)`` rather than guarding a dozen
+    print sites: the human progress must survive VERBATIM (someone watching a
+    ``--json`` run still wants the ranked table, the needs-approval list and the run
+    summary) while stdout stays a SINGLE parseable document. Redirecting once means no
+    print site is deleted, no wording changes, and no print site added later can leak
+    into the JSON stream. The object goes to ``result_stream`` -- the stdout captured
+    BEFORE the redirect -- so a fault emits nothing at all and stdout is left EMPTY
+    rather than holding a half-formed document a consumer might try to parse.
+
+    WHY the body stays inline here instead of being hoisted into a shared helper: the
+    README's "which verbs need a provider" claim is DERIVED by an ast sweep for
+    ``create_client`` inside each ``_cmd_*`` handler (tests/test_iter116_behavior.py),
+    so moving that call into a helper would silently reclassify ``run`` as LLM-free.
     """
-    workspace = Path(args.workspace)
-    # Same front-door guard as scan (run == scan + auto-dispatch): reject a
-    # missing/non-directory workspace with exit 2 before any client/collect,
-    # so a bad path never produces an empty slate + a no-op auto-dispatch.
-    if not workspace.is_dir():
-        print(f"error: workspace not found: {workspace}", file=sys.stderr)
-        return 2
-    settings = _settings(args, workspace_root=workspace)
-    # Same fail-fast OUTPUT guard as scan: run writes the slate AND the run
-    # directory under state_dir, so an existing non-directory state_dir would
-    # spend the LLM budget then leak a raw errno at the first write. Reject
-    # before create_client so nothing expensive runs on a doomed target.
-    msg = _state_dir_guard(settings.state_dir)
-    if msg is not None:
-        print(f"error: {msg}", file=sys.stderr)
-        return 2
-    client = create_client(settings)
+    # The real stdout, captured before the redirect below: under --json the human
+    # text goes to stderr, but the result object must still reach the stream the
+    # caller is piping. Holding the object is what lets each `return` stay one
+    # expression instead of having to unwind the redirect first.
+    result_stream: TextIO = sys.stdout
+    with contextlib.ExitStack() as stack:
+        if args.json:
+            stack.enter_context(contextlib.redirect_stdout(sys.stderr))
+        workspace = Path(args.workspace)
+        # Same front-door guard as scan (run == scan + auto-dispatch): reject a
+        # missing/non-directory workspace with exit 2 before any client/collect,
+        # so a bad path never produces an empty slate + a no-op auto-dispatch.
+        if not workspace.is_dir():
+            print(f"error: workspace not found: {workspace}", file=sys.stderr)
+            return 2
+        settings = _settings(args, workspace_root=workspace)
+        # Same fail-fast OUTPUT guard as scan: run writes the slate AND the run
+        # directory under state_dir, so an existing non-directory state_dir would
+        # spend the LLM budget then leak a raw errno at the first write. Reject
+        # before create_client so nothing expensive runs on a doomed target.
+        msg = _state_dir_guard(settings.state_dir)
+        if msg is not None:
+            print(f"error: {msg}", file=sys.stderr)
+            return 2
+        client = create_client(settings)
 
-    snapshot = _collect(workspace)
-    slate = GoalSynthesizer(client, settings).synthesize(snapshot)
-    decisions = gate_slate(slate, settings)
+        snapshot = _collect(workspace)
+        slate = GoalSynthesizer(client, settings).synthesize(snapshot)
+        decisions = gate_slate(slate, settings)
 
-    print(_render_table(slate, decisions))
-    slate_path = settings.state_dir / _SLATE_NAME
-    _write_slate(slate, slate_path)
+        print(_render_table(slate, decisions))
+        slate_path = settings.state_dir / _SLATE_NAME
+        _write_slate(slate, slate_path)
 
-    ranked = slate.ranked()
-    top: CandidateGoal | None = None
-    needs_approval: list[CandidateGoal] = []
-    for goal, decision in zip(ranked, decisions):
-        if decision.decision == AutonomyDecision.AUTO_DISPATCH and top is None:
-            top = goal
-        elif decision.decision == AutonomyDecision.NEEDS_APPROVAL:
-            needs_approval.append(goal)
+        ranked = slate.ranked()
+        top: CandidateGoal | None = None
+        needs_approval: list[CandidateGoal] = []
+        for goal, decision in zip(ranked, decisions):
+            if decision.decision == AutonomyDecision.AUTO_DISPATCH and top is None:
+                top = goal
+            elif decision.decision == AutonomyDecision.NEEDS_APPROVAL:
+                needs_approval.append(goal)
 
-    if needs_approval:
-        print(f"\n{len(needs_approval)} goal(s) need approval and were NOT auto-run:")
-        for goal in needs_approval:
-            print(
-                f"  - {goal.title}\n"
-                f"      pla dispatch --slate {slate_path} --goal-id {goal.id} --yes"
-            )
+        if needs_approval:
+            print(f"\n{len(needs_approval)} goal(s) need approval and were NOT auto-run:")
+            for goal in needs_approval:
+                print(
+                    f"  - {goal.title}\n"
+                    f"      pla dispatch --slate {slate_path} --goal-id {goal.id} --yes"
+                )
 
-    if top is None:
-        print("\nno auto-dispatchable goal in this slate; nothing to run.")
+        if top is None:
+            print("\nno auto-dispatchable goal in this slate; nothing to run.")
+            if args.json:
+                payload = _run_json_payload(slate, slate_path, None, needs_approval, None)
+                print(json.dumps(payload, indent=2), file=result_stream)
+            return 0
+
+        # --dry-run is the confirm-before-you-act preview twin of this sole
+        # autonomous verb: it has already done the identical scan+gate+render+write
+        # (and the needs-approval listing above), so the ONLY thing it skips is the
+        # dispatch itself. Print the goal `run` WOULD auto-dispatch plus a paste-ready
+        # command, then return 0 WITHOUT building a GoalLoop, a run dir, or spending a
+        # loop iteration -- the core safety property this flag exists to provide.
+        if args.dry_run:
+            print(f"\n[dry-run] would auto-dispatch top goal: {top.title}")
+            print(f"  pla dispatch --slate {slate_path} --goal-id {top.id}")
+            if args.json:
+                # `top_goal` names the goal a real run WOULD dispatch while
+                # `dispatched` stays null: the preview reports its INTENT, never a
+                # run that happened.
+                payload = _run_json_payload(slate, slate_path, top, needs_approval, None)
+                print(json.dumps(payload, indent=2), file=result_stream)
+            return 0
+
+        print(f"\nauto-dispatching top goal: {top.title}")
+        # Drive the SAME execution `dispatch` drives and print the SAME summary it
+        # prints, so the reported facts and the printed ones cannot diverge.
+        dispatched = _execute_goal(top, workspace, settings, client)
+        state, run_dir, tools = dispatched
+        print(_render_run_summary(top, state, run_dir, tools))
+        if args.json:
+            payload = _run_json_payload(slate, slate_path, top, needs_approval, dispatched)
+            print(json.dumps(payload, indent=2), file=result_stream)
+        # DONE and BUDGET_EXHAUSTED are both valid loop terminations, not CLI faults.
         return 0
-
-    # --dry-run is the confirm-before-you-act preview twin of this sole
-    # autonomous verb: it has already done the identical scan+gate+render+write
-    # (and the needs-approval listing above), so the ONLY thing it skips is the
-    # dispatch itself. Print the goal `run` WOULD auto-dispatch plus a paste-ready
-    # command, then return 0 WITHOUT building a GoalLoop, a run dir, or spending a
-    # loop iteration -- the core safety property this flag exists to provide.
-    if args.dry_run:
-        print(f"\n[dry-run] would auto-dispatch top goal: {top.title}")
-        print(f"  pla dispatch --slate {slate_path} --goal-id {top.id}")
-        return 0
-
-    print(f"\nauto-dispatching top goal: {top.title}")
-    return _dispatch_goal(top, workspace, settings, client)
 
 
 def _cmd_resume(args: argparse.Namespace) -> int:

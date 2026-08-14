@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-152
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `pla signals --github`: turn the armed gate's finding into a GitHub annotation
+    - Candidate A2 -- `run --json`: a machine-readable result, so the gate stops globbing
+    - Candidate A3 -- `[tool.pla]` in `pyproject.toml`: commit the armed set once instead of three times
+    - Candidate B1 -- discharge roadmap row #163: one parameterized child-dir walk instead of three hand-maintained ones
+    - Candidate B2 -- collapse the two hand-copied memo snapshot/eviction pairs into one shared memo
+    - Candidate B3 -- one `--json` flag declaration instead of ten
+    winner: A2
+    ship: unknown
   iter-151
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Audit the TRACKED root-Markdown set, not the working directory (roadmap row #155)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Prove the demo's artifacts are CONSUMABLE, not merely present (writer -> reader round-trip)
     - Candidate B3 -- Stop `signals --kind` from silently discarding all but the last value
     winner: B3
-    ship: unknown
+    ship: PUSHED 97e70ca
   iter-150
     lenses: NEW-CAPABILITY, HARDENING / DX
     - Candidate A1 -- `pla signals --max-items N`: make the perception depth a user knob
@@ -513,4 +523,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-60 scouted iterations
+61 scouted iterations

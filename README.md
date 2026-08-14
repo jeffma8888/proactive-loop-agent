@@ -10,13 +10,13 @@
 
 Most agentic systems are **reactive**: they sit idle until prompted, run the task, and stop. `proactive-loop-agent` inverts that. It is a reference implementation of a three-layer **proactivity stack** that turns raw working context into a *ranked slate of candidate goals*, gates each one through an **autonomy contract**, and dispatches only the approved goals into a resilient, sandboxed **plan → act → check** execution loop.
 
-The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **3,300+ tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
+The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **3,800+ tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
 
 ### What this project demonstrates
 
 - **A 0→1 idea, not a prompt trick** — proactivity modeled as an explicit architectural layer (perceive → propose → gate → execute), with clear seams between deciding *what* to do and *how* to do it.
 - **Safety by construction** — the autonomy gate is a hard rule engine: sensitive categories (finance, legal, health) *always* require human approval, no matter how high a goal scores. Autonomy comes from a sandbox, not from trust; the execution loop can only write inside a scratch directory through path-guarded tools.
-- **Production-grade rigor on a portfolio codebase** — **3,300+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 17 context collectors, 15 CLI verbs, deterministic and offline end to end.
+- **Production-grade rigor on a portfolio codebase** — **3,800+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 17 context collectors, 15 CLI verbs, deterministic and offline end to end.
 - **Auditability as a first-class feature** — a transparency arc of read-only, LLM-free inspector commands: see what the collectors *perceive* → what the scout *proposed* → *why* the gate ruled → exactly what a run *did*.
 
 <!-- ============================================================================
@@ -158,7 +158,7 @@ provider when you want it to propose.
 |-----------|---------------------------------------------------------------------------|
 | `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete; `--collector NAME` repeatable, restricts which collectors feed synthesis), write slate JSON to `--out PATH` (default `<state_dir>/slate.json`).|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--slate FILE` + `--goal-id ID` required; `--yes` confirms approval).|
-| `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration).|
+| `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration; `--json` makes the whole invocation scriptable -- stdout becomes one `{workspace_root, slate_path, goal_count, needs_approval, top_goal, dispatched}` object and the human progress moves to stderr).|
 | `resume`  | Load a checkpoint from a run dir and continue the loop (`--run-dir DIR` required: a `run-<id>` dir as listed by `runs`).|
 | `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array). `--prune` turns the same selection into the product's retention operation: it reports the run dirs it would delete and **deletes nothing unless `--yes` is also given** (dry run is the default, exit 0 either way), selects with the *listing's own* `--status` filter so "what will be deleted" is answerable by a read-only command, is contained to direct `run-*` children of the state dir (a nested `run-*`, a plain file named `run-*`, and any other child are never touched), refuses a `run-*` **symlink** on one `refused:` stderr line rather than following it, and under `--json` emits one `{dry_run, status, selected, refused, deleted}` object.|
 | `explain` | Audit gate decisions from a saved slate (`--slate FILE` required) — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
@@ -320,6 +320,28 @@ before any collection runs. Absent (the default) every collector runs, so a bare
 `scan` is byte-identical to before. Use it to focus the scout ("only look at git
 state, ignore TODOs and large files"), which shrinks the synthesis prompt and
 narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects); `run`/`watch` do not accept it.
+
+`run --json` publishes what an invocation of the sole autonomous verb actually
+produced, so a script never has to re-glob the state dir and guess at `run-*`
+names. Stdout becomes exactly one JSON object with six always-present keys ---
+`workspace_root`, `slate_path`, `goal_count` (how many goals the slate holds),
+`needs_approval` (`[{id, title}]`, the goals the L2 gate withheld), `top_goal`
+(`{id, title}`, or `null` when the slate has no auto-dispatchable goal) and
+`dispatched` --- and everything the default run prints to stdout goes to
+**stderr** instead, verbatim, so a `--json` run is still watchable while
+`pla run ... --json | jq` sees one clean document. On a real dispatch
+`dispatched` is `{goal_id, run_id, status, run_dir, artifacts, iterations_used,
+llm_calls_used, retries, parse_errors}` --- the machine-readable twin of the
+`dispatched :` summary, reporting the same run dir and the same artifact paths,
+with `run_id`/`status` matching that run dir's `checkpoint.json`. Under
+`--dry-run` it is `null` while `top_goal` still names the goal a real run would
+have dispatched, so the preview reports its intent and never a run that
+happened. The count key is `goal_count`, not `goals`, because `scan --format
+json` already publishes `goals` as an array of goal objects and one key name
+must not mean two types across the CLI. A failed invocation emits no JSON at
+all: `run --json` against a missing `--workspace` still exits 2 with
+`error: workspace not found: <path>` on stderr and leaves stdout **empty**,
+rather than a half-formed document a consumer might parse.
 
 ### What the state directory contains
 
