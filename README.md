@@ -42,17 +42,12 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
                              atomic JSON checkpoints -> resumable runs
 ```
 
-- **L2 scout** turns raw context (recent files, git activity, uncommitted &
-  unpushed working-tree changes, interrupted git operations (merge / rebase /
-  cherry-pick / revert, detached HEAD), forgotten `git stash` entries,
-  `TODO`/`FIXME` comments, notes (headings outside fenced code blocks),
-  dependency manifests, untested source directories, leftover merge-conflict
-  markers in committed files, large files past a size threshold,
-  secret-shaped files (`.env`, private keys, credentials)) into a ranked list of
-  candidate goals,
-  then applies a policy
-  gate. Sensitive categories (finance/legal, health/admin) *always* require
-  human approval, no matter how high they score.
+- **L2 scout** turns raw context into a ranked list of candidate goals, then
+  applies a policy gate. Every perceiver it draws that context from is named,
+  with the signal `kind` it emits, in
+  [L2 perception surface](#l2-perception-surface) below. Sensitive categories
+  (finance/legal, health/admin) *always* require human approval, no matter how
+  high they score.
 - **L1 goal loop** drives one approved goal through bounded plan/act/check
   iterations. The ACT phase can only touch a sandboxed artifacts directory,
   and only through a closed allowlist of 14 path-guarded tools — creating,
@@ -64,6 +59,37 @@ L0  RESILIENCE               retry + exponential backoff + jitter on throttle/ti
   the run state after every step, so a throttle blip or a crash never loses more
   than the in-flight step. Each recovered retry is counted on the run and shown
   in the run summary and the `pla trace` header, so the self-healing is visible.
+
+### L2 perception surface
+
+The scout's whole perception surface is this closed set of collectors: a scan
+runs them over the workspace and each one emits signals of exactly one `kind`.
+That `kind` is not always the collector's name, and it -- not the name -- is the
+token `pla signals --kind` and `--fail-on-kind` accept, so the second column is
+the vocabulary for filtering and gating on what was perceived. `pla collectors`
+prints this same surface at runtime (`--json` for the machine-readable form), and
+a drift guard binds every row below to the collector registry by name AND by
+kind, so the table cannot fall behind the code.
+
+| collector | kind | perceives |
+|-----------|------|-----------|
+| `broken_link` | `broken_link` | Markdown links whose relative target is missing from the workspace. |
+| `ci_config` | `ci_config` | Continuous-integration posture: a recognized CI config, or source code with none. |
+| `dependencies` | `dependency` | Dependency manifests declared in the workspace (pyproject, package.json, etc.). |
+| `git_activity` | `git_commit` | Recent commits across the workspace's git repositories. |
+| `git_stash` | `git_stash` | Forgotten entries sitting in the git stash reflog. |
+| `git_state` | `git_state` | Interrupted or dangling git operations read from .git markers. |
+| `large_file` | `large_file` | Files at or above a byte-size threshold worth a second look. |
+| `license` | `license` | Open-source hygiene: a code-carrying workspace with no recognized root LICENSE file. |
+| `lockfile_drift` | `lockfile_drift` | Manifest/lockfile drift: a manifest whose lockfile is missing or older than it. |
+| `merge_conflict` | `merge_conflict` | Files still carrying unresolved conflict markers. |
+| `notes` | `note` | Heading-and-paragraph blocks found in notes directories. |
+| `recent_files` | `recent_file` | Files modified most recently under the workspace. |
+| `secret_file` | `secret_file` | Secret-shaped files matched by basename (.env, credentials, keys). |
+| `syntax_error` | `syntax_error` | Python files that fail to parse (stdlib compile, parse-only). |
+| `test_posture` | `test_posture` | Top-level project directories that contain source files. |
+| `todos` | `todo` | TODO/FIXME/XXX comments and unchecked Markdown checkboxes. |
+| `working_tree` | `working_tree` | Present-state git signals: dirty paths and unpushed commits. |
 
 ### ACT sandbox tool allowlist
 

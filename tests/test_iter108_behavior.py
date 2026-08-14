@@ -547,12 +547,54 @@ def test_b11_portfolio_intro_numbers_still_match_the_live_registries() -> None:
     assert int(m.group(1)) == 15, m.group(0)
 
 
-def test_b11_no_16_row_kind_table_was_added() -> None:
-    """The deferred half of roadmap row 110 must stay deferred: no new heading
-    and no full kind table in this iteration."""
+def _reference_row_counts(text: str, first_cells: tuple[str, ...]) -> dict[str, int]:
+    """How many Markdown table rows lead with each backticked value in ``first_cells``.
+
+    Pure over ``text`` so the census can be fired on a known-bad sample instead of
+    only ever running over one document. The TRAILING backtick in the pattern is
+    load-bearing: without it ``todo`` also matches the ``todos`` row, which is the
+    very collector/kind confusion this module exists to make impossible.
+    """
+    rows = text.splitlines()
+    return {
+        cell: sum(1 for ln in rows if re.match(rf"^\|\s*`{re.escape(cell)}`", ln))
+        for cell in first_cells
+    }
+
+
+def test_b11_row110_deferred_table_is_paid_off_once_and_only_once() -> None:
+    """Row 110's deferred half SHIPPED (factory iter 161), so this guard is INVERTED.
+
+    Iteration 101 deferred the README's per-kind reference table and froze that
+    deferral here -- no ``kind``-named heading, no such table row. Factory iter 161
+    paid the deferral off from the collector side: a ``collector`` / ``kind`` /
+    ``perceives`` table under ``### L2 perception surface``, which finally publishes
+    the name -> kind mapping this module made load-bearing. Asserting the ABSENCE of
+    that table would now permanently red-build a shipped, PM-sanctioned docs fix, so
+    it is inverted in place rather than deleted -- the same treatment
+    ``test_iter115_behavior.py`` gave its deferral guards when roadmap row 121 shipped.
+
+    What survives is the half that still fires on a real defect: the payoff must be
+    ONE table (not a second kind-keyed section bolted alongside it), and the KIND
+    ``todo`` must never head a row, because the first column is collector names and
+    ``todos``-vs-``todo`` is the exact typo iteration 101 turned into a usage error.
+    The row set, the ordering and the name -> kind mapping are deliberately NOT
+    re-derived here; they belong to the shipping iteration's own oracle, and two
+    guards over one table drift apart and then disagree.
+    """
     text = README.read_text(encoding="utf-8")
     headings = [ln for ln in text.splitlines() if re.match(r"^#{2,}\s", ln)]
     offenders = [h for h in headings if "kind" in h.lower()]
-    assert not offenders, f"a new kind-table heading was added out of scope: {offenders}"
-    table_rows = [ln for ln in text.splitlines() if re.match(r"^\|\s*`(ci_config|todo)`", ln)]
-    assert not table_rows, f"a per-kind reference table was added out of scope: {table_rows}"
+    assert not offenders, (
+        f"a separate kind-keyed reference section was added: {offenders}; the "
+        "collector table is the one place this mapping is published"
+    )
+    counts = _reference_row_counts(text, ("ci_config", "todos", "todo"))
+    assert counts["ci_config"] == 1 and counts["todos"] == 1, (
+        "row 110's payoff must document each collector in exactly ONE reference "
+        f"row; counts={counts}"
+    )
+    assert counts["todo"] == 0, (
+        "`todo` is a signal KIND, not a collector: it must never head a row in a "
+        f"collector-keyed table (the `todos` collector emits it); counts={counts}"
+    )

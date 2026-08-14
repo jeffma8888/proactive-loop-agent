@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-155
+    lenses: narrative-and-docs (iteration 155), new-capability (iteration 155)
+    - Candidate A1 -- The README documents 12 of the 17 collectors it advertises; give L2 the drift-guarded table L1 already has
+    - Candidate A2 -- The ROADMAP's Done-ledger warning cites six rows as evidence and all six are now wrong
+    - Candidate A3 -- README's exit-1 enumeration omits meta.json, the one input `resume` reads unguarded
+    - Candidate B1 -- The L1 execution budget is REPORTABLE but not SETTABLE: give the three loop verbs `--max-iterations` / `--max-llm-calls`
+    - Candidate B2 -- `pla trend --dir DIR`: which goals PERSIST across a watch stream (`diff` only ever reads the two newest slates)
+    - Candidate B3 -- Per-category autonomy thresholds: `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0`
+    winner: A1
+    ship: unknown
+  iter-154
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- pin `--dist` to a MEASURED xdist scheduler instead of inheriting the default `load`
+    - Candidate A2 -- stop the parent pool from starving the nested-pytest children (oversubscription)
+    - Candidate A3 -- stop paying mypy's cold start 18 times
+    - Candidate B1 -- `pyproject.toml` still publishes "all 3334 tests" as present-tense fact (live: 3845)
+    - Candidate B2 -- exit 1 has a THIRD malformed-input file, `meta.json`, that neither prose surface names
+    - Candidate B3 -- the repo answers "how fast is the suite" five different ways in four tracked files
+    winner: A1
+    ship: REVERTED
   iter-153
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Single-source the duplicated CLI/sandbox test helpers: delete 128 redundant lines across 12 modules
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - B2 -- Persist the parse memo across invocations, so a repeated scan skips the 232 ms of re-parsing
     - B3 -- Cut the ~130 ms import tax paid by every `pla` invocation
     winner: B1
-    ship: unknown
+    ship: PUSHED 3d42a19
   iter-152
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla signals --github`: turn the armed gate's finding into a GitHub annotation
@@ -617,4 +637,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-62 scouted iterations
+64 scouted iterations
