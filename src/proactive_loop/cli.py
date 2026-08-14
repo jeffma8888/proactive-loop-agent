@@ -662,6 +662,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Confirm dispatch of a goal that needs approval (never overrides BLOCKED).",
     )
+    p_dispatch.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Emit the dispatched run as one JSON object on stdout; the human "
+            "summary goes to stderr. Stdout stays EMPTY on every refusal."
+        ),
+    )
     p_dispatch.set_defaults(func=_cmd_dispatch)
 
     p_run = sub.add_parser(
@@ -2161,6 +2169,47 @@ def _render_run_summary(
     return "\n".join(lines)
 
 
+def _dispatched_json_payload(
+    dispatched: tuple[RunState, Path, ToolRegistry],
+) -> dict[str, Any]:
+    """Build the machine-readable document for ONE finished dispatch.
+
+    The nine keys are ALWAYS present so a consumer can index without ``.get``
+    gymnastics: ``goal_id``, ``run_id``, ``status``, ``run_dir``, ``artifacts``,
+    ``iterations_used``, ``llm_calls_used``, ``retries``, ``parse_errors``.
+
+    WHY this is its own pure function rather than a dict literal inline in
+    :func:`_run_json_payload`: TWO verbs publish this same fact set --- ``run --json``
+    nests it under ``dispatched``, and ``dispatch --json`` publishes it at top level
+    --- and a copied literal is how one CLI grows two dialects of one document. One
+    builder makes divergence unrepresentable rather than merely discouraged.
+
+    WHY the whole ``_execute_goal`` triple arrives as ONE argument: the terminal
+    ``RunState``, the run directory and the ``ToolRegistry`` are true together or not
+    at all, so a single parameter makes an inconsistent call impossible to write.
+    Enum status is emitted as ``.value`` (never a ``RunStatus.`` repr) to match
+    ``checkpoint.json``, which is ``RunState.to_json()`` --- that is what lets a
+    consumer compare the reported status against the checkpoint on disk. Kept
+    pure/disk-free, like :func:`_scan_json_payload`, so it is testable without
+    running a loop.
+    """
+    state, run_dir, tools = dispatched
+    return {
+        "goal_id": state.goal.id,
+        "run_id": state.run_id,
+        "status": state.status.value,
+        "run_dir": str(run_dir),
+        # Absolute-ish paths (artifacts_dir joined with each relpath), the SAME
+        # composition the human summary prints, so both renderings name the same
+        # files and a consumer can open them without knowing the run layout.
+        "artifacts": [str(tools.artifacts_dir / rel) for rel in tools.artifacts()],
+        "iterations_used": state.iterations_used,
+        "llm_calls_used": state.llm_calls_used,
+        "retries": state.retries,
+        "parse_errors": state.parse_errors,
+    }
+
+
 def _run_json_payload(
     slate: GoalSlate,
     slate_path: Path,
@@ -2190,10 +2239,9 @@ def _run_json_payload(
 
     WHY *dispatched* arrives as the whole ``_execute_goal`` triple rather than three
     separate optional parameters: the three facts are true together or not at all, so
-    one argument makes an inconsistent call unrepresentable. Enum status is emitted as
-    ``.value`` (never a ``RunStatus.`` repr) to match ``checkpoint.json``, which is
-    ``RunState.to_json()`` -- that is what lets a consumer compare the reported status
-    against the checkpoint on disk. Kept pure/disk-free, like
+    one argument makes an inconsistent call unrepresentable. The sub-document itself is
+    built by :func:`_dispatched_json_payload`, which ``dispatch --json`` also calls, so
+    the two verbs cannot drift into two dialects of one fact. Kept pure/disk-free, like
     :func:`_scan_json_payload`, so it is testable without running a loop.
     """
     payload: dict[str, Any] = {
@@ -2205,21 +2253,7 @@ def _run_json_payload(
         "dispatched": None,
     }
     if dispatched is not None:
-        state, run_dir, tools = dispatched
-        payload["dispatched"] = {
-            "goal_id": state.goal.id,
-            "run_id": state.run_id,
-            "status": state.status.value,
-            "run_dir": str(run_dir),
-            # Absolute-ish paths (artifacts_dir joined with each relpath), the SAME
-            # composition the human summary prints, so both renderings name the same
-            # files and a consumer can open them without knowing the run layout.
-            "artifacts": [str(tools.artifacts_dir / rel) for rel in tools.artifacts()],
-            "iterations_used": state.iterations_used,
-            "llm_calls_used": state.llm_calls_used,
-            "retries": state.retries,
-            "parse_errors": state.parse_errors,
-        }
+        payload["dispatched"] = _dispatched_json_payload(dispatched)
     return payload
 
 
@@ -3936,6 +3970,15 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
 
     Re-gating on dispatch (not trusting the slate's earlier decision) keeps the
     autonomy contract authoritative even if the slate file was hand-edited.
+
+    ``--json`` makes the APPROVAL-GATED execution path scriptable. That matters more
+    here than on any other verb: the autonomy contract makes human approval MANDATORY
+    for a sensitive goal, so ``dispatch`` is the path an orchestrator must use for
+    exactly the goals a human just approved -- and until now its result could only be
+    scraped out of prose or guessed at by re-globbing ``run-*``. The published document
+    is the same one :func:`_dispatched_json_payload` gives ``run --json``, so the two
+    verbs report one fact set. Every refusal above keeps its exit code AND its empty
+    stdout, because ``--json`` is only ever emitted after the gate has allowed the goal.
     """
     slate_path = Path(args.slate)
     if not slate_path.is_file():
@@ -3977,6 +4020,22 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         return 4
 
     client = create_client(settings)
+    if args.json:
+        # The gate has already allowed this goal, so the ONLY remaining output is
+        # the finished run. Executing through `_execute_goal` (rather than the
+        # printing wrapper) is what lets the human summary move to STDERR while
+        # stdout carries exactly one document -- and it is the SAME execution the
+        # default path drives, so the reported facts cannot diverge from the
+        # printed ones. No `redirect_stdout` is needed here (unlike `run --json`,
+        # which prints a slate table mid-body): every earlier return in this
+        # handler already writes to stderr, which is what keeps stdout EMPTY on
+        # exits 2, 3 and 4.
+        dispatched = _execute_goal(goal, workspace_root, settings, client)
+        state, run_dir, tools = dispatched
+        print(_render_run_summary(goal, state, run_dir, tools), file=sys.stderr)
+        print(json.dumps(_dispatched_json_payload(dispatched), indent=2))
+        # DONE and BUDGET_EXHAUSTED are both valid loop terminations, not CLI faults.
+        return 0
     return _dispatch_goal(goal, workspace_root, settings, client)
 
 

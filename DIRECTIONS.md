@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-157
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `resume` dies on a corrupt `meta.json` that `runs` tolerates
+    - Candidate A2 -- char-size budget guard for `ROADMAP.md` (the file that has already stalled this loop)
+    - Candidate A3 -- the self-grading gate asserts the demo artifacts EXIST; nothing READS one back
+    - Candidate B1 -- `dispatch --json`: the approval path is the only execution path with no machine result
+    - Candidate B2 -- `scan --exclude-path`: two shipped iterations of suppression the LLM path cannot reach
+    - Candidate B3 -- `--baseline` and `--fail-over` still have ZERO consumers, in all three gate sites
+    winner: B1
+    ship: unknown
   iter-156
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `run --max-goals N`: dispatch the top N AUTO goals, not only the head
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- A char-budget guard for `ROADMAP.md`, now measured 1,641 chars from the trigger (rows #138 + #109)
     - Candidate B3 -- Pin the last 2 unpinned CLI guard messages and make the census two-sided (row #136)
     winner: B1
-    ship: unknown
+    ship: PUSHED 9fa85e7
   iter-155
     lenses: narrative-and-docs (iteration 155), new-capability (iteration 155)
     - Candidate A1 -- The README documents 12 of the 17 collectors it advertises; give L2 the drift-guarded table L1 already has
@@ -647,4 +657,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-65 scouted iterations
+66 scouted iterations

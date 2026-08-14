@@ -183,7 +183,7 @@ provider when you want it to propose.
 | Command   | What it does                                                              |
 |-----------|---------------------------------------------------------------------------|
 | `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete; `--collector NAME` repeatable, restricts which collectors feed synthesis), write slate JSON to `--out PATH` (default `<state_dir>/slate.json`).|
-| `dispatch`| Re-gate one goal from a saved slate and run it (`--slate FILE` + `--goal-id ID` required; `--yes` confirms approval).|
+| `dispatch`| Re-gate one goal from a saved slate and run it (`--slate FILE` + `--goal-id ID` required; `--yes` confirms approval; `--json` publishes the finished run as one `{goal_id, run_id, status, run_dir, artifacts, iterations_used, llm_calls_used, retries, parse_errors}` object on stdout -- the same document `run --json` nests under `dispatched` -- and moves the human summary to stderr, leaving stdout EMPTY on a refusal).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration; `--json` makes the whole invocation scriptable -- stdout becomes one `{workspace_root, slate_path, goal_count, needs_approval, top_goal, dispatched}` object and the human progress moves to stderr).|
 | `resume`  | Load a checkpoint from a run dir and continue the loop (`--run-dir DIR` required: a `run-<id>` dir as listed by `runs`).|
 | `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array). `--prune` turns the same selection into the product's retention operation: it reports the run dirs it would delete and **deletes nothing unless `--yes` is also given** (dry run is the default, exit 0 either way), selects with the *listing's own* `--status` filter so "what will be deleted" is answerable by a read-only command, is contained to direct `run-*` children of the state dir (a nested `run-*`, a plain file named `run-*`, and any other child are never touched), refuses a `run-*` **symlink** on one `refused:` stderr line rather than following it, and under `--json` emits one `{dry_run, status, selected, refused, deleted}` object.|
@@ -368,6 +368,16 @@ must not mean two types across the CLI. A failed invocation emits no JSON at
 all: `run --json` against a missing `--workspace` still exits 2 with
 `error: workspace not found: <path>` on stderr and leaves stdout **empty**,
 rather than a half-formed document a consumer might parse.
+
+`dispatch --json` publishes that same `dispatched` document at the *top* level ---
+the identical nine keys, built by one shared function so the two verbs cannot drift
+into two dialects of one fact --- with the human summary on **stderr**. That makes
+the approval-gated path scriptable, which matters more than it does on `run`: the
+autonomy contract makes human approval MANDATORY for a sensitive goal, so `dispatch`
+is the verb an orchestrator must use for exactly the goals a human just approved. The
+gate is untouched, so stdout stays **empty** on every refusal --- a BLOCKED goal still
+exits 3 and an approval-needing goal without `--yes` still exits 4, each with its
+message on stderr.
 
 ### What the state directory contains
 

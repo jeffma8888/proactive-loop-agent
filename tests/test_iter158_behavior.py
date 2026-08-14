@@ -439,18 +439,27 @@ def test_b07_default_path_stdout_is_the_human_rendering(plain_run) -> None:
 
 
 def test_b07_json_is_declared_on_run_only(tmp_path: Path) -> None:
-    """`--json` is a `run` flag: `dispatch` and `resume` reject it at parse time."""
-    for verb in ("dispatch", "resume"):
-        helped = _run(verb, "--help", cwd=tmp_path)
-        assert helped.returncode == 0, f"`{verb} --help` must exit 0"
-        assert "--json" not in helped.stdout, (
-            f"`{verb}` must not declare --json this iteration; got:\n{helped.stdout}"
-        )
-        rejected = _run(verb, "--json", cwd=tmp_path)
-        assert rejected.returncode == 2, (
-            f"`{verb} --json` must be a usage error (exit 2); got {rejected.returncode}"
-        )
-        assert rejected.stdout == "", f"a usage error writes nothing to stdout; got {rejected.stdout!r}"
+    """`resume` rejects `--json` at parse time, for a REASON rather than by date.
+
+    Narrowed from ("dispatch", "resume") when `dispatch --json` shipped: `dispatch`
+    publishes the very document this iteration built, so the flag is now correct there.
+    `resume` is different in kind, not in schedule -- it has no slate and no gate, so
+    its machine surface would be a smaller, differently-shaped document (queued as its
+    own roadmap row). The original message said "not this iteration", and a dated fence
+    that outlives its date reads to the next engineer as a settled prohibition.
+    """
+    verb = "resume"
+    helped = _run(verb, "--help", cwd=tmp_path)
+    assert helped.returncode == 0, f"`{verb} --help` must exit 0"
+    assert "--json" not in helped.stdout, (
+        f"`{verb}` has no slate and no gate, so its JSON document is a different one "
+        f"and is not built yet; it must not declare --json. Got:\n{helped.stdout}"
+    )
+    rejected = _run(verb, "--json", cwd=tmp_path)
+    assert rejected.returncode == 2, (
+        f"`{verb} --json` must be a usage error (exit 2); got {rejected.returncode}"
+    )
+    assert rejected.stdout == "", f"a usage error writes nothing to stdout; got {rejected.stdout!r}"
 
 
 def test_b07_dispatch_human_summary_is_unchanged(plain_run, tmp_path: Path) -> None:
