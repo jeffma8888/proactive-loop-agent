@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-158
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `resume --json`, the third call site of the shared dispatch payload builder
+    - Candidate A2 -- `pla scan --json`, the convention-conformant spelling of `--format json`
+    - Candidate A3 -- make the graded gate PARSE the machine-readable document instead of blind-checking two paths
+    - Candidate B1 -- Retire the 5 settled `ROADMAP.md` rows into the archive: 264 bytes of headroom remain before the measured stall trigger
+    - Candidate B2 -- Single-source the 12 byte-identical `_registry` test helpers: 88 deletable lines, zero variants
+    - Candidate B3 -- One shared permissive `root + direct children` walk, and ONE canonical rationale instead of two that have already drifted
+    winner: B1
+    ship: unknown
   iter-157
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `resume` dies on a corrupt `meta.json` that `runs` tolerates
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `scan --exclude-path`: two shipped iterations of suppression the LLM path cannot reach
     - Candidate B3 -- `--baseline` and `--fail-over` still have ZERO consumers, in all three gate sites
     winner: B1
-    ship: unknown
+    ship: PUSHED f8dd8ad
   iter-156
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `run --max-goals N`: dispatch the top N AUTO goals, not only the head
@@ -657,4 +667,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-66 scouted iterations
+67 scouted iterations
