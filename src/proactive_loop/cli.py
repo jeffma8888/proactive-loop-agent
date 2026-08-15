@@ -650,6 +650,23 @@ def build_parser() -> argparse.ArgumentParser:
             "Default (absent) runs all collectors."
         ),
     )
+    # Persist the PERCEPTION the slate was synthesized from. scan-only and absent by
+    # default, so a bare scan is byte-identical (no trailer, no extra stdout). The
+    # document is `signals --json`-shaped, which makes it directly loadable as a
+    # `signals --baseline` ratchet -- see _write_snapshot_document for why the shared
+    # builder (not model_dump) is what buys that plus determinism.
+    p_scan.add_argument(
+        "--snapshot",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Also write the collected workspace snapshot to FILE as one JSON "
+            "document ({workspace_root, signals[]}, the same shape `signals "
+            "--json` emits, no timestamps), so the slate ships with the evidence "
+            "it was synthesized from. The file is directly usable as a `signals "
+            "--baseline` document. Default (absent) writes nothing."
+        ),
+    )
     p_scan.set_defaults(func=_cmd_scan)
 
     p_dispatch = sub.add_parser(
@@ -1753,6 +1770,52 @@ def _write_slate(slate: GoalSlate, out: Path) -> None:
             pass
 
 
+def _write_snapshot_document(snapshot: WorkspaceSnapshot, out: Path) -> None:
+    """Persist what a scan PERCEIVED as one ``signals --json``-shaped document, atomically.
+
+    WHY the record exists at all: ``_cmd_scan`` collects a snapshot, hands it to the
+    synthesizer, and then DROPS it -- so a written slate is a claim with no evidence,
+    and its goals' free-text ``sources`` cannot be checked against anything. ``signals
+    --json`` is NOT a substitute, because it is a SECOND collect over a possibly-changed
+    tree and several collectors are mtime-driven, so it answers a different question at a
+    different time. This writes the very snapshot the slate was synthesized FROM.
+
+    WHY it reuses :func:`_signals_json_payload` with no filters rather than dumping the
+    model: that builder is already the published wire contract -- exactly the two top-level
+    keys ``workspace_root`` and ``signals``, each entry exactly the six
+    ``_SIGNAL_IDENTITY_KEYS`` -- and it deliberately excludes the model's ``timestamp`` and
+    the snapshot's ``collected_at`` (the iter-08 schema-leak discipline). Two consequences
+    are free rather than newly decided: the document is DETERMINISTIC, so two scans of an
+    unchanged tree diff clean, and it is accepted verbatim by the shipped
+    :func:`_load_signal_baseline`, so one ``scan --snapshot base.json`` yields both the
+    slate and a ready ``signals --baseline`` ratchet document. A ``model_dump`` would leak
+    ``timestamp`` and break both.
+
+    WHY temp sibling + ``os.replace`` + ``finally`` cleanup: the same discipline
+    :func:`_write_slate` documents (and :class:`Checkpoint` before it). ``os.replace`` is
+    atomic on one filesystem and the temp file is a SIBLING of *out*, which is what keeps
+    the rename on that filesystem, so a reader -- here a later ``--baseline`` load -- sees
+    either the previous document or the complete new one, never a truncated prefix that
+    would fail-closed with a schema error. Parents are created on demand, matching the
+    ``--out`` guard's promise that a fully-absent parent chain is legal.
+    """
+    ensure_dir(out.parent)
+    tmp = out.with_name(out.name + ".tmp")
+    try:
+        tmp.write_text(json.dumps(_signals_json_payload(snapshot), indent=2))
+        os.replace(tmp, out)
+    finally:
+        # Best-effort, and identical in intent to _write_slate's: a failed swap must not
+        # litter a user-chosen directory with a stray `.tmp`, and after a successful
+        # replace the temp name is already gone, so one `finally` covers both paths.
+        # Cleanup errors are swallowed so the caller keeps seeing the PRIMARY OS error
+        # at the `main()` boundary, never a secondary failure raised while tidying up.
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def _state_dir_guard(state_dir: Path) -> str | None:
     """Reject a ``--state-dir`` that exists but is not a directory (message-or-``None``).
 
@@ -1773,8 +1836,8 @@ def _state_dir_guard(state_dir: Path) -> str | None:
     return None
 
 
-def _out_target_guard(out: Path) -> str | None:
-    """Reject a ``--out`` slate target that cannot become a writable file (message-or-``None``).
+def _out_target_guard(out: Path, *, flag: str = "--out") -> str | None:
+    """Reject a FILE output target that cannot become a writable file (message-or-``None``).
 
     Pre-detects the two STRUCTURAL failures that otherwise surface only at the
     real write -- after the whole pipeline renders a success-looking table --
@@ -1792,14 +1855,22 @@ def _out_target_guard(out: Path) -> str | None:
     read-only-mount pre-detection (a correctly-typed but unwritable path still
     surfaces its real error at the write via ``main()``), keeping the guard
     deterministic and side-effect-free.
+
+    ``flag`` is the OPTION NAME the message blames, keyword-only and defaulting to
+    ``"--out"`` so every pre-existing message stays byte-identical (three of them are
+    pinned verbatim by ``test_iter44_behavior.py``). It exists because the structural
+    failure is a property of a FILE TARGET, not of one option: ``scan --snapshot`` has
+    the same two failure modes and must not be told its ``--out`` is wrong. Parameterizing
+    the blame keeps ONE guard authoritative for both, which is the same
+    one-definition-two-readers reasoning ``_SIGNAL_IDENTITY_KEYS`` gives.
     """
     if out.is_dir():
-        return f"--out is a directory: {out}"
+        return f"{flag} is a directory: {out}"
     anc = out.parent
     while not anc.exists():
         anc = anc.parent
     if not anc.is_dir():
-        return f"--out parent is not a directory: {anc}"
+        return f"{flag} parent is not a directory: {anc}"
     return None
 
 
@@ -3904,6 +3975,19 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     if msg is not None:
         print(f"error: {msg}", file=sys.stderr)
         return 2
+    # --snapshot is a SECOND file target, so it gets the same structural pre-check as
+    # --out and for the same reason: an unusable path must not be discovered AFTER the
+    # collect + synthesize pipeline already ran and printed a success-looking table. It
+    # is guarded here -- before the client exists and before any collector runs -- so a
+    # bad --snapshot writes neither a snapshot nor a slate and spends no LLM budget. The
+    # blame is parameterized (`flag=`) so the message names --snapshot; the three
+    # pre-existing --out/--state-dir messages are unchanged.
+    snapshot_out = Path(args.snapshot) if args.snapshot else None
+    if snapshot_out is not None:
+        msg = _out_target_guard(snapshot_out, flag="--snapshot")
+        if msg is not None:
+            print(f"error: {msg}", file=sys.stderr)
+            return 2
     client = create_client(settings)
 
     # --collector is a repeatable allowlist (argparse action="append" -> a list or
@@ -3913,6 +3997,15 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     # _collect seam under run/signals/watch still calls _collect(workspace).
     only = set(args.collector) if args.collector else None
     snapshot = _collect(workspace, only=only)
+    # Written ONCE, here: after the collect that produced it and BEFORE synthesis. That
+    # position is load-bearing twice over. It is above every --format branch, so all five
+    # inherit the behavior by construction rather than by five copies staying in sync; and
+    # it is above synthesis, so the perception record survives a synthesis failure -- the
+    # run that fails is exactly the one whose evidence is worth having. It also honors
+    # --collector by construction, because `snapshot` already holds only what this scan
+    # perceived. No stdout: the success path stays byte-identical to a bare scan.
+    if snapshot_out is not None:
+        _write_snapshot_document(snapshot, snapshot_out)
     slate = GoalSynthesizer(client, settings).synthesize(snapshot)
     decisions = gate_slate(slate, settings)
 

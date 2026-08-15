@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-161
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- The README's LLM-free sentence names 7 of the 10 LLM-free verbs, and the oracle to fix it already exists
+    - Candidate A2 -- ROADMAP row #122 misstates its own scope twice, contradicted by its own file and the live registry
+    - Candidate A3 -- The README publishes three mutually incompatible spellings of "the transparency arc", two of them claiming to be the whole thing
+    - Candidate B1 -- `dispatch --allow-tool NAME` (repeatable): a per-run tool allowlist, the L1 half of the autonomy contract
+    - Candidate B2 -- `scan --snapshot FILE`: persist the signals the scan actually perceived
+    - Candidate B3 -- 18th collector: zero-byte source file (`kind="empty_file"`)
+    winner: B2
+    ship: unknown
   iter-160
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Cut the suite's wall-clock FLOOR: one nested-pytest test is 26.16s of a 42.77s suite
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- The README's LLM-free verb sentence hand-enumerates 7 of the 10 live LLM-free verbs, and nothing guards it
     - Candidate B3 -- ROADMAP row #122 misstates its own scope twice, contradicted by its own file and the live registry
     winner: B1
-    ship: unknown
+    ship: PUSHED e1fdc4c
   iter-159
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Reclaim ROADMAP.md char headroom: retire the one retirable SHIPPED row and relocate the settled Done-ledger tail
@@ -687,4 +697,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-69 scouted iterations
+70 scouted iterations

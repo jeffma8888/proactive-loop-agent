@@ -57,6 +57,7 @@ _Settled rows are dropped from this index once shipped -- rows 1-70 in iter-101,
 | 197 | **Content-digest memo for `merge_conflict`, the last full-price pure-text collector** -- warm `watch` tick 114.9 ms, of which this collector is 15.6 ms (13.6%), falling only 18% cold->warm (page cache alone) while the memoized `syntax_error`/`todos` collapse 97%/71%. `broken_link` EXCLUDED: target-existence verdict, armed in CI. Full measurement in iter-159's `pm.md`. | L2/throughput | Med | Low | PM scout-B B2 (iter-159) | **SHIPPED -- iter 159** (factory iter 165) |
 | 198 | **Reclaim `ROADMAP.md` char headroom: retire index row #138 + the settled Done-ledger tail (~5,700 chars)** -- measured iter-160 at 37,679 chars = **2,321 of headroom** under the 40,000 ceiling, against +1,859 average per-iteration growth. Three oracle pins to respect (#168, #121, `test_roadmap_size_budget.py`'s docstring) -- enumerated in iter-159's `pm.md`. | DX/integrity | High | Low | PM scout-A A1 (iter-159) | **QUEUED -- next default pick.** RE-PRICED iter-160: a breach REVERTS an iteration (the size test is in the suite), it does not red a public badge |
 | 199 | **Retire the 5 FALSE "~Nx this repo's own N files" cap justifications in `collectors/`** -- re-derived iter-160: todos 189->228 files, syntax_error 173->219, merge_conflict ~21x->17.8x, text_source 3.17->4.36 MB. Restated as absolute bounds or a ratio against a named code constant; a 4-pattern `src/` census guards the shape. Reasoning: iter-160 `pm.md` | Docs/integrity | Med | Very Low | PM scout-B B1 (iter-160) | **SHIPPED -- iter 160** (factory iter 166) |
+| 200 | **`scan --snapshot FILE` -- persist the signals the scan perceived** -- `_cmd_scan` dropped the snapshot, so a slate was a claim with no evidence and row #193 had no ground truth to resolve `sources` against. The document is `_signals_json_payload(snapshot)` verbatim (`{workspace_root, signals[]}`, six keys, no timestamp), so it equals `signals --json` and loads as a `--baseline`. | L2/trust | Med-High | Low | PM scout-B B2 (iter-161) | **SHIPPED -- iter 161** (factory iter 167) |
 
 ## Done ledger (one terse line per row recorded since iter-132 -- NOT every shipped row)
 
@@ -101,5 +102,6 @@ Started in iter-132 to buy stage headroom (see below). A line here records only 
 - #138 ROADMAP.md char budget: hard ceiling 40,000 + anti-vacuity floor, literal limit; 4 settled rows retired to the archive (iter 158, factory iter 164)
 - #197 Content-digest memo for merge_conflict: one line-scan per distinct content, entries-capped, scoped clear (iter 159, factory iter 165)
 - #199 Retire the 5 stale "~Nx this repo" cap justifications; 4-pattern src/ census guard, two-sided (iter 160, factory iter 166)
+- #200 scan --snapshot FILE: perceived signals as a signals--json-shaped doc, loads as a --baseline (iter 161, factory iter 167)
 
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._
