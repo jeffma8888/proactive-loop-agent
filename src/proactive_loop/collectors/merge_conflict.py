@@ -129,10 +129,13 @@ def _count_markers(text: str) -> int:
 # ---------------------------------------------------------------------------
 
 # Hard cap on retained marker counts, so scanning an unbounded monorepo cannot
-# grow this map without limit. 4096 is ~21x this repo's own scanned-file count and
-# covers a typical service repo outright, at well under 1 MB of small ints; past
-# the cap the oldest entries are evicted, which costs speed and NEVER
-# correctness. Read at call time, so a test may lower it.
+# grow this map without limit. 4096 marker counts, each a single ``int``, keep
+# this map well under 1 MB, and 4096 scanned files covers a typical service repo
+# outright. The bound is absolute rather than a ratio against this checkout's own
+# scanned-file count, which would decay on every commit -- see
+# ``tests/test_source_comment_bounds.py``. Past the cap the oldest entries are
+# evicted, which costs speed and NEVER correctness. Read at call time, so a test
+# may lower it.
 MERGE_CONFLICT_MEMO_MAX_ENTRIES: int = 4096
 
 # 128 bits of digest -- the same size both sibling memos use, restated here rather

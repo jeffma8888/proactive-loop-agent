@@ -8,10 +8,12 @@ intent signals. All three GFM unordered-list bullets are treated alike.
 SCAN ONCE PER CONTENT. This collector matches two regexes against EVERY line of
 every scanned-extension file, and in the vision's long-lived mode that whole pass
 is repeated work: ``pla watch`` runs a full collect each tick over a tree that
-mostly did not change. Measured on this repo (189 scanned files, 3,170 KB of
-decoded text) a full ``collect`` is 79.77 ms, of which the per-line regex pass is
-55.76 ms (70%) while read+decode is 18.96 ms and a blake2b digest of the same
-text is 3.58 ms. So the per-line extraction is memoized in a bounded,
+mostly did not change. Profiled once when this memo shipped (factory iter 130,
+on a ~190-file tree holding ~3.2 MB of decoded text): a full ``collect`` was
+79.77 ms, of which the per-line regex pass was 55.76 ms (70%) while read+decode
+was 18.96 ms and a blake2b digest of the same text was 3.58 ms. That is a DATED
+record of one past run, not a claim about whatever tree this checkout holds
+today. So the per-line extraction is memoized in a bounded,
 module-level map keyed on a digest of the decoded text (see the todo-memo block
 below), which turns the repeated cost into read+decode+digest and saves ~52 ms
 per tick. Output is unchanged: a hit returns exactly the items the regex pass
@@ -80,17 +82,25 @@ def _is_hidden(name: str) -> bool:
 _TodoItem = tuple[int, str, str, float]
 
 # Hard cap on retained per-file item lists, so scanning an unbounded monorepo
-# cannot grow this map without limit. 4096 is ~21x this repo's own 189 scanned
-# files and covers a typical service repo outright; past the cap the oldest
-# entries are evicted, which costs speed and NEVER correctness. Read at call
-# time, so a test may lower it.
+# cannot grow this map without limit. The bound is stated ABSOLUTELY and never as
+# a ratio against this checkout's own file count: that ratio decays on every
+# commit while claiming to describe today, so it is banned by
+# ``tests/test_source_comment_bounds.py``. Together with
+# ``TODO_MEMO_MAX_ITEMS_PER_FILE`` below, 4096 entries bound this map at
+# 4096 x 256 = 1,048,576 retained items, and 4096 item-bearing files covers a
+# typical service repo outright; past the cap the oldest entries are evicted,
+# which costs speed and NEVER correctness. Read at call time, so a test may
+# lower it.
 TODO_MEMO_MAX_ENTRIES: int = 4096
 
 # Hard cap on the number of items inside a RETAINED value, because the entry cap
 # alone does not bound memory: one value holds a line slice per matched line, so
 # without this a single generated checklist could retain O(``max_read_bytes``)
-# of strings and the true ceiling would be 4096 x 5 MB. 256 is ~8x the densest
-# file in this repo (33 items). A value with MORE items than this is simply not
+# of strings and the true ceiling would be 4096 x 5 MB. 256 items is far above
+# what any hand-maintained source file carries, while the generated checklists
+# that blow past it are exactly the values not worth retaining -- a bound stated
+# without measuring this checkout, which is what keeps it true next commit.
+# A value with MORE items than this is simply not
 # retained -- retention is an optimization, so declining it costs speed and never
 # correctness: the caller always receives the COMPLETE item list. (Truncating the
 # list instead would change emitted signals, since ``max_items`` applies only

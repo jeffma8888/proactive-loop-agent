@@ -94,10 +94,13 @@ from proactive_loop.models import ContextSignal
 _Verdict = tuple[int, str] | None
 
 # Hard cap on retained verdicts, so a scan of an unbounded monorepo cannot grow
-# this map without limit. 4096 is ~24x this repo's own 173 ``*.py`` files and
-# covers a typical service repo outright, at well under 1 MB of small tuples;
-# past the cap the oldest entries are evicted, which costs speed and NEVER
-# correctness. Read at call time, so a test may lower it.
+# this map without limit. 4096 verdicts, each a ``None`` or a small
+# ``(int, str)`` tuple, keep this map well under 1 MB, and 4096 ``*.py`` files
+# covers a typical service repo outright. The bound is absolute on purpose: a
+# ratio against this checkout's own file count would decay on every commit,
+# which is why ``tests/test_source_comment_bounds.py`` forbids it. Past the cap
+# the oldest entries are evicted, which costs speed and NEVER correctness. Read
+# at call time, so a test may lower it.
 PARSE_MEMO_MAX_ENTRIES: int = 4096
 
 # 128 bits of digest. Collisions are the only way this memo could serve a wrong

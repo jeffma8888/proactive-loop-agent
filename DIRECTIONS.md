@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-160
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- Cut the suite's wall-clock FLOOR: one nested-pytest test is 26.16s of a 42.77s suite
+    - Candidate A2 -- Per-scan directory-listing memo: 156 of 166 dir listings in one scan are redundant
+    - Candidate A3 -- Process startup: every `pla` invocation pays ~123 ms of import before it does any work
+    - Candidate B1 -- Retire the self-staling "~Nx this repo's own N files" cache-cap comments and add a shape guard
+    - Candidate B2 -- The README's LLM-free verb sentence hand-enumerates 7 of the 10 live LLM-free verbs, and nothing guards it
+    - Candidate B3 -- ROADMAP row #122 misstates its own scope twice, contradicted by its own file and the live registry
+    winner: B1
+    ship: unknown
   iter-159
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Reclaim ROADMAP.md char headroom: retire the one retirable SHIPPED row and relocate the settled Done-ledger tail
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Give `merge_conflict` and `broken_link` the content memo the other two content collectors already ship
     - Candidate B3 -- Remove the suite's CPU oversubscription: its critical-path test is 44x slower in-suite than alone
     winner: B2
-    ship: unknown
+    ship: PUSHED 0f7c6eb
   iter-158
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `resume --json`, the third call site of the shared dispatch payload builder
@@ -677,4 +687,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-68 scouted iterations
+69 scouted iterations

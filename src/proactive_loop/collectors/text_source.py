@@ -68,11 +68,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, overload
 
-# Ceiling on the decoded text retained for one scan. 32 MiB is ~10x this repo's
-# own measured 3.17 MB of scanned text and 6.7x the 5 MB per-file cap the three
-# collectors share (``LARGE_FILE_MIN_BYTES``), so a single largest-admissible
-# file always fits while an unbounded monorepo cannot grow the process without
-# limit. Read at CALL time, so a test may lower it -- and lowering it must only
+# Ceiling on the decoded text retained for one scan. 32 MiB is 6.7x the 5 MB
+# per-file cap the three collectors share (``LARGE_FILE_MIN_BYTES``) -- a bound
+# stated against a NAMED CODE CONSTANT instead of against this checkout's own
+# measured text volume, which decays on every commit -- so a single
+# largest-admissible file always fits while an unbounded monorepo cannot grow the
+# process without limit. Read at CALL time, so a test may lower it -- and lowering it must only
 # cost speed: past the cap nothing is retained, so the next collector re-reads
 # the file exactly as it did before this module existed.
 TEXT_CACHE_MAX_BYTES: int = 33_554_432
