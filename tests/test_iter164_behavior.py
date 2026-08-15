@@ -9,10 +9,13 @@ WHY THESE ASSERTIONS ARE WRITTEN AGAINST THE SPEC AND NOT THE SHIPPED MODULE
 This file was authored under the tester isolation contract: the spec, the two
 tracked Markdown documents and the public surface of the guard, never the
 product source. So every threshold below is spelled as the SPEC's own literal
-(``40000``, ``10000``, the four retired row numbers, the pinned row ``121``)
+(``40000``, ``10000``, the nine retired row numbers, the pinned row ``121``)
 rather than imported as a symbol. Importing the guard's constant and asserting
 it equals itself is a tautology; a second, independent spelling of the operator's
-number is the only way a wrong constant is caught by a test.
+number is the only way a wrong constant is caught by a test. State iter-162
+extended the retirement census from 4 rows to 9 and added behavior 8 below, which
+asserts the two independent spellings AGREE -- so the second spelling is now a
+cross-check rather than a copy that can silently drift.
 
 WHY THE CENSUS REGEXES ARE RE-IMPLEMENTED HERE
 Behaviors 6 and 7 are a PAIR property -- absent from the live index AND present
@@ -35,11 +38,13 @@ from pathlib import Path
 from typing import Final
 
 from tests.test_roadmap_size_budget import (
+    RETIRED_ROWS,
     ROADMAP_CHAR_FLOOR,
     ROADMAP_CHAR_LIMIT,
     check_char_budget,
     count_archive_bullets,
     count_index_rows,
+    settled_rows_needing_retirement,
 )
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
@@ -53,8 +58,22 @@ SPEC_LIMIT: Final[int] = 40000
 #: The spec's anti-vacuity floor, spelled independently of the guard module.
 SPEC_FLOOR: Final[int] = 10000
 
-#: Rows the PM retired this iteration: absent from the index, present in the archive.
-SPEC_RETIRED_ROWS: Final[tuple[str, ...]] = ("143", "146", "155", "195")
+#: Every retired row: absent from the index, present in the archive. 4 retired by
+#: state iter-158 (this file's own iteration) and 5 more by state iter-162, which
+#: installed the retire-on-ship brake. Spelled independently of the guard module's
+#: ``RETIRED_ROWS`` on purpose -- see
+#: :func:`test_b8_the_two_retirement_censuses_agree`.
+SPEC_RETIRED_ROWS: Final[tuple[str, ...]] = (
+    "143",
+    "146",
+    "155",
+    "195",
+    "138",
+    "197",
+    "198",
+    "199",
+    "200",
+)
 
 #: The pinned counter-example: archived AND deliberately retained in the index.
 SPEC_PINNED_ROW: Final[str] = "121"
@@ -303,3 +322,48 @@ def test_b7_archived_and_retained_sets_are_disjoint_by_construction() -> None:
     for row in SPEC_RETIRED_ROWS:
         assert _archive_bullets(row) >= 1
         assert _live_index_rows(row) == 0
+
+
+# --------------------------------------------------------------------------- #
+# Behavior 8 (state iter-162) -- the two retirement censuses AGREE, so extending
+# one alone is a red build rather than a silent divergence.
+# --------------------------------------------------------------------------- #
+
+
+def test_b8_the_two_retirement_censuses_agree() -> None:
+    """The guard module's ``RETIRED_ROWS`` and this file's ``SPEC_RETIRED_ROWS``
+    are two independent spellings of one fact, and a second spelling only buys
+    anything while something compares them.
+
+    The comparison lives HERE rather than in the guard module because the import
+    edge only runs one way: this file already imports from the guard, so the
+    reverse edge would be a circular import.
+    """
+    assert set(RETIRED_ROWS) == set(SPEC_RETIRED_ROWS), (
+        "the retirement censuses diverged -- extend BOTH in the same commit: "
+        f"guard {sorted(RETIRED_ROWS)!r} vs spec {sorted(SPEC_RETIRED_ROWS)!r}"
+    )
+    assert len(set(SPEC_RETIRED_ROWS)) == len(SPEC_RETIRED_ROWS) == 9
+    assert len(set(RETIRED_ROWS)) == len(RETIRED_ROWS)
+
+
+def test_b8_the_retire_on_ship_brake_reports_a_clean_live_index() -> None:
+    """The brake's live property, re-asserted from the spec side.
+
+    The planted row spells ``**SHIPPED`` as the SPEC's own literal instead of
+    importing ``SETTLED_STATUS_PREFIXES``, per this file's isolation contract, and
+    it is fired FIRST so the live assertion below cannot be satisfied by a parser
+    that finds nothing.
+    """
+    planted = (
+        "| 400 | a settled row left parked | CLI | High | Low | scout | "
+        "**SHIPPED iter 200** (factory iter 206). |\n"
+    )
+    assert settled_rows_needing_retirement(planted) == ("400",), (
+        "the brake must fire on a settled, non-exempt row"
+    )
+    parked = settled_rows_needing_retirement(_read(ROADMAP_PATH))
+    assert parked == (), (
+        "ROADMAP.md holds settled index row(s) that were never retired: "
+        f"{list(parked)}"
+    )

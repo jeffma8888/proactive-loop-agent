@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-162
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived
+    - Candidate A2 -- `pla trend --dir DIR`: which goals RECUR across an N-tick watch stream
+    - Candidate A3 -- `--max-iterations N` / `--max-llm-calls N`: make the L1 budget SETTABLE, not just reportable
+    - Candidate B1 -- Reclaim `ROADMAP.md` char headroom: the size guard is ~1 iteration from REVERTING an iteration
+    - Candidate B2 -- Oracle the 2 unguarded `_out_dir_guard` messages (row #136)
+    - Candidate B3 -- Packaging-contract oracle (row #117): priced, and the naive version is a false negative
+    winner: B1
+    ship: unknown
   iter-161
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- The README's LLM-free sentence names 7 of the 10 LLM-free verbs, and the oracle to fix it already exists
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `scan --snapshot FILE`: persist the signals the scan actually perceived
     - Candidate B3 -- 18th collector: zero-byte source file (`kind="empty_file"`)
     winner: B2
-    ship: unknown
+    ship: PUSHED 9f86ff8
   iter-160
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Cut the suite's wall-clock FLOOR: one nested-pytest test is 26.16s of a 42.77s suite
@@ -697,4 +707,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-70 scouted iterations
+71 scouted iterations
