@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-159
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Reclaim ROADMAP.md char headroom: retire the one retirable SHIPPED row and relocate the settled Done-ledger tail
+    - Candidate A2 -- Delete the two drifted `_SKIP_DIRS` + `_is_hidden` copies in `todos.py` / `notes.py` (3 declarers -> 1)
+    - Candidate A3 -- Delete the two remaining hand-copied workspace-relative path idioms in favour of the hosted `BaseCollector._relative`
+    - Candidate B1 -- One shared per-scan tree enumeration: 11 collectors each `os.walk` the same tree
+    - Candidate B2 -- Give `merge_conflict` and `broken_link` the content memo the other two content collectors already ship
+    - Candidate B3 -- Remove the suite's CPU oversubscription: its critical-path test is 44x slower in-suite than alone
+    winner: B2
+    ship: unknown
   iter-158
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `resume --json`, the third call site of the shared dispatch payload builder
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Single-source the 12 byte-identical `_registry` test helpers: 88 deletable lines, zero variants
     - Candidate B3 -- One shared permissive `root + direct children` walk, and ONE canonical rationale instead of two that have already drifted
     winner: B1
-    ship: unknown
+    ship: PUSHED 2e01037
   iter-157
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `resume` dies on a corrupt `meta.json` that `runs` tolerates
@@ -667,4 +677,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-67 scouted iterations
+68 scouted iterations
