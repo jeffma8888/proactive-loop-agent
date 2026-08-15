@@ -6,10 +6,18 @@ exceptions on missing directories or unavailable tools — degrade to [].
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from proactive_loop.models import ContextSignal
+
+# WHY a module logger and not the CLI's: this wrapper is the fail-open point for
+# every SHIPPED collector, and it lives in the library half of the package, so the
+# record must be attributable to `proactive_loop.collectors.base` and governed by
+# the package-logger plumbing in `cli._configure_logging` -- never emitted on the
+# root logger, which would leak into an embedding application's own handlers.
+_LOG = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -75,10 +83,32 @@ class BaseCollector:
         raised by the subclass's ``_collect`` degrades to ``[]`` so one unreadable
         tree, absent tool, or hostile file can never abort the scout scan. Collectors
         override ``_collect`` and are free to let errors escape it.
+
+        WHY it also LOGS: fail-open is the right contract, but SILENT fail-open made a
+        crashed collector indistinguishable from an empty scan on every surface the
+        user has -- ``--timings`` prints the same ``0`` row either way, and the only
+        collector-failure WARNING the product had (the containment branch in the
+        CLI's ``_collect`` orchestration loop) is unreachable for every SHIPPED
+        collector,
+        because a ``BaseCollector`` subclass never lets ``collect`` raise. So the
+        diagnostic belongs at the place that actually absorbs the failure. One record
+        per absorbed failure, at WARNING so the operator who did not know to pass
+        ``-v`` still sees it; the return value and the breadth of the ``except`` are
+        deliberately unchanged.
         """
         try:
             return self._collect(root)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - deliberate: the SPEC 4.1 fail-open point
+            # Not `_LOG.exception`: a traceback on stderr would read as a crash the
+            # scan did not suffer, and at default verbosity this record rides Python's
+            # `lastResort` handler, which prints the message alone. Class name over
+            # `self.name` because a subclass that failed BEFORE setting up may not have
+            # a meaningful name, and the class is what a bug report needs.
+            _LOG.warning(
+                "collector %s failed, degrading to no signals: %s",
+                type(self).__name__,
+                exc,
+            )
             return []
 
     def _collect(self, root: Path) -> list[ContextSignal]:

@@ -186,11 +186,19 @@ def _configure_logging(level: int) -> None:
     """Attach one guarded stderr handler to the ``proactive_loop`` package logger.
 
     WHY level-0 (``WARNING``) is a STRICT no-op -- attach nothing, change no
-    level: the library never configures logging for itself, and the only default
-    emit site (the iter-19 ``_collect`` WARNING) rides Python last-resort
-    handler; attaching any handler here would divert that record and change
-    default output. So we configure only when the operator asked for more
-    (``-v``/``-vv``, i.e. ``level < WARNING``).
+    level: the library never configures logging for itself, and the default emit
+    sites ride Python last-resort handler; attaching any handler here would divert
+    those records and change default output. So we configure only when the operator
+    asked for more (``-v``/``-vv``, i.e. ``level < WARNING``).
+
+    There are TWO such default emit sites, and they cover DISJOINT populations:
+    ``BaseCollector.collect`` warns when a SHIPPED collector's ``_collect`` raises
+    and is absorbed by the fail-open wrapper (the reachable one -- every collector
+    in the registry inherits that base), and the containment branch in ``_collect``
+    below warns when a collector object leaks an exception out of ``collect()``
+    itself, which only a third-party collector satisfying the Protocol WITHOUT
+    inheriting ``BaseCollector`` can do. Both are ``proactive_loop.*`` module
+    loggers, so this one call governs both.
 
     Idempotent by design: it finds an existing :class:`_CliLogHandler` and reuses
     it (refreshing the stream to the *current* ``sys.stderr`` so it stays correct
@@ -1709,6 +1717,16 @@ def _collect(
                 # contain-and-surface it (log + skip), never propagate it and take down
                 # every verb that shares this seam. Broad by design: any exception a
                 # collector leaks must be isolated, not just a known subset.
+                #
+                # SCOPE, measured: this branch is UNREACHABLE for everything the product
+                # ships. Every entry in ``all_collectors()`` inherits ``BaseCollector``,
+                # whose ``collect`` absorbs the failure itself, so it -- not this line --
+                # is what reports a broken SHIPPED collector. What survives here is the
+                # only cover for a THIRD-PARTY collector that satisfies the Protocol
+                # structurally without inheriting that base (the seam double in
+                # ``test_iter19_behavior.py``), which is exactly why it is kept: the
+                # registry is a public extension point and this loop must not assume the
+                # wrapper is present. Two emit sites, disjoint populations, by design.
                 _LOG.warning("collector %r raised, skipping: %s", collector.name, exc)
             if timings is not None:
                 # Recorded AFTER the try/except, so a collector that RAISED is still

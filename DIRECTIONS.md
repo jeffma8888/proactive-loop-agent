@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-163
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- L2 fail-open degradation is invisible: the one collector-failure warning is unreachable for all 17 shipped collectors
+    - Candidate A2 -- Census guard: every `*_guard` return message must be pinned by a test
+    - Candidate A3 -- Rescope roadmap row #117: its premise is FALSIFIED, and the one real residual is a 6-line self-sufficiency fix
+    - Candidate B1 -- The graded gate never READS the demo artifacts back, and the obvious readback step is FAIL-OPEN
+    - Candidate B2 -- `resume --json`: the one execution verb a machine cannot read
+    - Candidate B3 -- Give `--fail-over` its first consumer, armed against the COMMITTED fixture, at a count the caps cannot make vacuous
+    winner: A1
+    ship: unknown
   iter-162
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Oracle the 2 unguarded `_out_dir_guard` messages (row #136)
     - Candidate B3 -- Packaging-contract oracle (row #117): priced, and the naive version is a false negative
     winner: B1
-    ship: unknown
+    ship: PUSHED a381bd0
   iter-161
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- The README's LLM-free sentence names 7 of the 10 LLM-free verbs, and the oracle to fix it already exists
@@ -707,4 +717,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-71 scouted iterations
+72 scouted iterations
