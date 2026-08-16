@@ -105,5 +105,6 @@ Started in iter-132 to buy stage headroom (see below). A line here records only 
 - #202 L2 fail-open stops being silent: BaseCollector.collect logs one WARNING naming the collector class + exception (iter 163, factory iter 169)
 - #203 signals --fail-on-kind fails CLOSED when an armed kind's collector degraded: exit 1, one error line (iter 165, re-land of 164, factory iter 170)
 - #204 Race-free collection-cleanliness oracle: one-directional violation helper, foreign coverage parallel-data files excluded (iter 166, factory iter 171)
+- #207 Single-source the ROADMAP.md size budget (iter 168, factory iter 172)
 
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._

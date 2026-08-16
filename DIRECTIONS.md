@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-168
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived (roadmap row #201)
+    - Candidate A2 -- `run --max-iterations N` / `--max-llm-calls N`: make the L1 budget SETTABLE, not merely reportable (roadmap row #190)
+    - Candidate A3 -- `pla resume --json`: the last execution verb with no machine result (roadmap row #196)
+    - Candidate B1 -- Single-source the `ROADMAP.md` size budget: a second, undocumented ceiling has boxed the PM's own artifact down to 88 chars
+    - Candidate B2 -- Roadmap row #136: give the 2 unguarded `_out_dir_guard` messages an oracle
+    - Candidate B3 -- Row #205 is FALSIFIED for 4 of the 5 modules it names; convert it into a forward-looking determinism census
+    winner: B1
+    ship: pending (not yet decided)
+  iter-167
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- SPEC.md's layout tree hides 14 of the 20 files in the L2 perception package, and nothing guards it
+    - Candidate A2 -- the operator's pinned README layer line is still unlanded
+    - Candidate A3 -- the two iteration counters and the commit-tag convention are recorded nowhere in the repo
+    - Candidate B1 -- `pla verify --slate S --snapshot N`: give the shipped snapshot its first reader
+    - Candidate B2 -- `resume --json`: the last execution verb with no machine result
+    - Candidate B3 -- `--max-iterations N` / `--max-llm-calls N` on the three loop verbs
+    winner: A1
+    ship: unknown
   iter-166
     lenses: performance-and-throughput (iter 166), narrative-and-docs
     - Candidate A1 -- one shared per-scan directory walk instead of 11
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- DIRECTIONS.md misreports its own outcomes: 5 entries say `ship: unknown`, and git proves at least one of them shipped
     - Candidate B3 -- two diverging iteration counters, and the offset is recorded nowhere
     winner: B1
-    ship: unknown
+    ship: PUSHED 10b7118
   iter-165
     lenses: SIMPLIFICATION-AND-DELETION, performance-and-throughput (iteration 165)
     - Candidate A1 -- Hoist the walk policy: delete notes.py's and todos.py's private `_SKIP_DIRS` + `_is_hidden` copies
@@ -747,4 +767,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-75 scouted iterations
+77 scouted iterations

@@ -5,7 +5,11 @@ WHAT THIS ITERATION CLAIMS (restated from the PM spec so this file stands alone)
 live ``ROADMAP.md`` index and lands in ``ROADMAP_ARCHIVE.md`` as a bullet -- has only
 ever been PROSE in the roadmap's own header, and that control failed four iterations
 running: 5 settled rows and 3,443 chars of dead index text accumulated against a
-40,000-char ceiling with 1,021 chars of headroom left. This iteration (a) retires rows
+40,000-char ceiling which, MEASURED AT THAT TIME, left 1,021 chars of headroom. That was
+one iteration's measurement and never a live budget: iteration 168 (factory iter 172)
+removed the assertion that had frozen it into an undocumented 37,999-char ceiling, and
+``tests/test_iter172_behavior.py`` now keeps 40,000 the only bound on this file's size.
+This iteration (a) retires rows
 #138, #197, #198, #199 and #200 into the archive and (b) converts the prose into an
 ORACLE: a pure census ``settled_rows_needing_retirement(text)`` that names any settled
 row still parked in the index, with a single enumerated, self-cleaning exemption
@@ -79,6 +83,14 @@ PINNED: Final[str] = "121"
 #: The archive's table census (behavior 10): two tables, these body-row counts.
 ARCHIVE_TABLE_BODIES: Final[tuple[int, ...]] = (98, 40)
 
+#: The trim's DURABLE anchor. The old proof read ``40000 - len(live) > 2000``, which
+#: re-evaluates a claim about a PAST EVENT against a document that grows by design, and
+#: had silently become a 37,999-char ceiling that reverted an innocent iteration. The
+#: same claim measured over the text the trim actually MOVED -- the nine retirement
+#: bullets now in the archive, 10,857 chars -- is a fact about history and cannot decay.
+#: This is a floor on ARCHIVED text, not a bound on the live file's size.
+MOVED_TEXT_FLOOR: Final[int] = 2000
+
 _INDEP_ROW = re.compile(r"^\|\s*(\d+)\s*\|")
 _INDEP_SEPARATOR = re.compile(r"^\|[-\s|:]+\|$", re.MULTILINE)
 
@@ -124,6 +136,21 @@ def _indep_count_index_rows(text: str, row: str) -> int:
 
 def _indep_count_archive_bullets(text: str, row: str) -> int:
     return len(re.findall(rf"^- \*\*#{re.escape(row)} -- ", text, re.MULTILINE))
+
+
+def _indep_archive_bullet_texts(text: str, row: str) -> tuple[str, ...]:
+    """Every retirement bullet for ``row``, as its whole paragraph.
+
+    A retirement is one logical paragraph: it opens at ``- **#N -- `` and runs to the
+    next blank line. It cannot reuse the table parser because the verbatim index text
+    has its pipes replaced by field labels ON PURPOSE, precisely so a retirement is
+    never parsed as a table row.
+    """
+    pattern = rf"^- \*\*#{re.escape(row)} -- .*?(?=\n\n|\Z)"
+    return tuple(
+        match.group(0).strip()
+        for match in re.finditer(pattern, text, re.MULTILINE | re.DOTALL)
+    )
 
 
 def _indep_archive_table_bodies(text: str) -> tuple[int, ...]:
@@ -390,15 +417,39 @@ def test_b10_the_live_roadmap_still_holds_exactly_one_table() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Behavior 11 -- the trim actually bought headroom.
+# Behavior 11 -- the ceiling holds, and the trim is anchored to what it moved.
 # ---------------------------------------------------------------------------
 def test_b11_the_live_roadmap_is_under_the_operator_ceiling() -> None:
     chars = len(_live_roadmap())
     assert chars < CEILING, f"ROADMAP.md is {chars} chars, ceiling {CEILING}"
 
 
-def test_b11_the_trim_left_more_than_two_thousand_chars_of_headroom() -> None:
-    """The stated purpose was buying headroom, not merely staying legal: the row
-    that shipped this claims 36,981 chars against 40,000."""
-    headroom = CEILING - len(_live_roadmap())
-    assert headroom > 2000, f"only {headroom} chars of headroom -- the trim did not land"
+def test_b11_the_trim_is_anchored_to_the_text_it_moved() -> None:
+    """The trim's proof is the text it MOVED, not the live file's size today.
+
+    "The trim bought more than 2,000 chars" used to be checked as
+    ``40000 - len(live) > 2000``. That re-evaluates a claim about a PAST EVENT forever,
+    against a document whose whole purpose is to grow, so it converted into a 37,999-char
+    ceiling that no operator chose and no document mentioned -- and it reverted an
+    iteration whose entire diff was its own index row plus its own ledger line. The same
+    claim measured over the nine retirement bullets the trim actually moved into the
+    archive is a fact about history: it can never decay, and it reads the live file's
+    size nowhere. The operator's 40,000 ceiling above is untouched and remains the only
+    bound on that size.
+    """
+    archive = _live_archive()
+    bullets = {
+        row: _indep_archive_bullet_texts(archive, row)
+        for row in sorted(EXPECTED_RETIRED)
+    }
+    assert len(bullets) == 9, f"expected the nine retired rows, got {sorted(bullets)}"
+    miscounted = {row: len(found) for row, found in bullets.items() if len(found) != 1}
+    assert not miscounted, (
+        "each retired row must have EXACTLY ONE archive bullet; a parse that silently "
+        f"matched nothing would make the measurement below pass vacuously: {miscounted}"
+    )
+    moved = sum(len(found[0]) for found in bullets.values())
+    assert moved > MOVED_TEXT_FLOOR, (
+        f"the nine retirement bullets hold {moved} chars of moved index text; the trim "
+        f"that shipped this claimed to move more than {MOVED_TEXT_FLOOR}"
+    )
