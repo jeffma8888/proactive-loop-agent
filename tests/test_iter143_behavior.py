@@ -346,8 +346,11 @@ def test_the_live_count_is_measured_and_agrees_with_the_published_floor() -> Non
     )
     assert _joined(guard.suite_size_problems(_real_intro(), live)) == ""
 
-    assert after == before, f"the collection subprocess dirtied the tree: {sorted(after - before)}"
-    assert not [line for line in after if ".pytest_cache" in line or ".coverage" in line]
+    violations = guard.collection_tree_violations(before, after)
+    assert violations == [], f"the collection subprocess dirtied the tree: {violations}"
+    assert not [line for line in violations if ".pytest_cache" in line or ".coverage" in line], (
+        f"the collection subprocess left pytest/coverage artifacts behind: {violations}"
+    )
 
 
 def test_a_broken_collection_fails_loudly_with_the_exit_code(tmp_path: Path) -> None:

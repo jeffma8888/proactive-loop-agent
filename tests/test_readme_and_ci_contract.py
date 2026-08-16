@@ -380,6 +380,67 @@ def suite_size_problems(intro_text: str, live_count: int) -> list[str]:
     return problems
 
 
+# A coverage PARALLEL-DATA file as coverage.py names them under a data suffix, e.g.
+# ``.coverage.runnervmzvulz.pid5020.X1lSglDx.He8Yd0w110Hh``. Keyed deliberately on the
+# same class ``tests/test_iter52_behavior.py`` wipes with ``REPO.glob(".coverage.*")``,
+# so this ignore can never drift wider than the writer's own cleanup. The plain
+# combined ``.coverage`` file carries no dot-suffix and so does NOT match.
+COVERAGE_PARALLEL_DATA = re.compile(r"^\.coverage\.[^/]+$")
+
+
+def _porcelain_path(line: str) -> str:
+    """The path a ``git status --porcelain`` line names, unquoted.
+
+    Porcelain v1 is ``XY<space>PATH``; a rename is ``old -> new`` and the NEW path is
+    the one that could have dirtied the tree, so a rename yields its right-hand side.
+    Paths holding unusual bytes come back quoted, and the quotes are not part of the
+    name.
+    """
+    path = line[3:]
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1]
+    return path.strip().strip('"')
+
+
+def collection_tree_violations(before: Iterable[str], after: Iterable[str]) -> list[str]:
+    """Porcelain entries that APPEARED between two samples, minus concurrent-worker noise.
+
+    PURE -- no file read, no subprocess -- so both halves of the rule are provable from
+    synthetic line sets, and a caller cannot be fooled by the ambient tree.
+
+    It replaces a bidirectional ``after == before`` equality that had two defects, both
+    diagnosed from CI run 31924267469 (the Python 3.13 job of ``c07b267``; the 3.12 job
+    of the SAME commit passed, which is what proved a timing race rather than a stale
+    published number):
+
+    1. IT WAS BIDIRECTIONAL. The entry
+       ``?? .coverage.runnervmzvulz.pid5020.X1lSglDx.He8Yd0w110Hh`` was present in
+       ``before`` and gone from ``after``, so a file that VANISHED failed an assertion
+       about the tree being DIRTIED -- and the message printed
+       ``sorted(after - before)`` == ``[]``, an oracle that cannot name its own cause.
+       Only an APPEARANCE is a defect, so the diff runs one way and a failure message
+       built from it is guaranteed non-empty.
+    2. IT MEASURED THE WHOLE SUITE, NOT ITS OWN SUBJECT. That filename is a coverage
+       parallel-data file from a foreign process, and the nested ``--collect-only``
+       child provably cannot write one: it runs under ``-o addopts=`` (so no ``--cov``
+       is inherited) with a ``COV_CORE*``-scrubbed env from :func:`collect_env`. The
+       writer is ``tests/test_iter52_behavior.py``, which runs real coverage passes with
+       ``cwd=REPO``; its cross-worker lock serializes iter-52 against its own siblings
+       only, so under ``-n auto`` any OTHER porcelain-sampling test races it. Ignoring
+       exactly the class that fixture cleans closes both orderings of the race without
+       touching iter-52's own oracle, for which that repo-root artifact is the subject
+       rather than noise.
+
+    The ignore stays NARROW on purpose: the plain combined ``.coverage`` file,
+    ``htmlcov/`` and ``.pytest_cache/`` are still returned, so a collection run that
+    genuinely dirties the tree still fails the guard.
+    """
+    appeared = set(after) - set(before)
+    return sorted(
+        line for line in appeared if not COVERAGE_PARALLEL_DATA.match(_porcelain_path(line))
+    )
+
+
 def collect_env() -> dict[str, str]:
     """Environment for the collection child: no inherited pytest config, no coverage.
 

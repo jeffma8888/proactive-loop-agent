@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-166
+    lenses: performance-and-throughput (iter 166), narrative-and-docs
+    - Candidate A1 -- one shared per-scan directory walk instead of 11
+    - Candidate A2 -- the suite is at 60.03 s warm, 2x every figure the repo cites, against a documented 120 s BROKEN cliff
+    - Candidate A3 -- trim the ~130 ms of import every `pla` process pays before it does any work
+    - Candidate B1 -- the README's suite-size floor is 323 tests stale, with 177 tests of headroom before it reds the public build
+    - Candidate B2 -- DIRECTIONS.md misreports its own outcomes: 5 entries say `ship: unknown`, and git proves at least one of them shipped
+    - Candidate B3 -- two diverging iteration counters, and the offset is recorded nowhere
+    winner: B1
+    ship: unknown
   iter-165
     lenses: SIMPLIFICATION-AND-DELETION, performance-and-throughput (iteration 165)
     - Candidate A1 -- Hoist the walk policy: delete notes.py's and todos.py's private `_SKIP_DIRS` + `_is_hidden` copies
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- re-price row #129's `todos` prefilter against today's tree
     - Candidate B3 -- settle row #169 (`--dist worksteal`) with the repeats it demands
     winner: A1
-    ship: unknown
+    ship: PUSHED c07b267
   iter-164
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- the fail-open collector WARNING has zero consumers, so the armed gate reports GREEN when the collector for an armed kind crashes
@@ -737,4 +747,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-74 scouted iterations
+75 scouted iterations
