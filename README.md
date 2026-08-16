@@ -31,6 +31,8 @@ The whole system runs **fully offline and deterministically** by default — the
 
 ## The three layers
 
+**Layer: harness plus policy, with a decision gate.** A proactivity harness that decides what is worth doing and gates it before acting; nothing here depends on model cooperation once launched.
+
 ```
 L2  SCOUT (proactivity)      collectors -> signals -> synthesizer (LLM) -> ranked slate
                              autonomy gate: AUTO_DISPATCH / NEEDS_APPROVAL / BLOCKED
@@ -185,7 +187,7 @@ provider when you want it to propose.
 | `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete; `--collector NAME` repeatable, restricts which collectors feed synthesis), write slate JSON to `--out PATH` (default `<state_dir>/slate.json`), `--snapshot FILE` also persists the collected snapshot as a `signals --json`-shaped document (usable as a `signals --baseline`).|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--slate FILE` + `--goal-id ID` required; `--yes` confirms approval; `--json` publishes the finished run as one `{goal_id, run_id, status, run_dir, artifacts, iterations_used, llm_calls_used, retries, parse_errors}` object on stdout -- the same document `run --json` nests under `dispatched` -- and moves the human summary to stderr, leaving stdout EMPTY on a refusal).|
 | `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration; `--json` makes the whole invocation scriptable -- stdout becomes one `{workspace_root, slate_path, goal_count, needs_approval, top_goal, dispatched}` object and the human progress moves to stderr).|
-| `resume`  | Load a checkpoint from a run dir and continue the loop (`--run-dir DIR` required: a `run-<id>` dir as listed by `runs`).|
+| `resume`  | Load a checkpoint from a run dir and continue the loop (`--run-dir DIR` required: a `run-<id>` dir as listed by `runs`; `--json` publishes the resumed run as the SAME `{goal_id, run_id, status, run_dir, artifacts, iterations_used, llm_calls_used, retries, parse_errors}` object `dispatch --json` does -- one document on stdout, human summary on stderr, stdout EMPTY when there is no checkpoint to resume).|
 | `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array). `--prune` turns the same selection into the product's retention operation: it reports the run dirs it would delete and **deletes nothing unless `--yes` is also given** (dry run is the default, exit 0 either way), selects with the *listing's own* `--status` filter so "what will be deleted" is answerable by a read-only command, is contained to direct `run-*` children of the state dir (a nested `run-*`, a plain file named `run-*`, and any other child are never touched), refuses a `run-*` **symlink** on one `refused:` stderr line rather than following it, and under `--json` emits one `{dry_run, status, selected, refused, deleted}` object.|
 | `explain` | Audit gate decisions from a saved slate (`--slate FILE` required) — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
 | `trace`   | Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (`--run-dir DIR` required; `--json` for a full array; read-only).|
@@ -378,6 +380,18 @@ is the verb an orchestrator must use for exactly the goals a human just approved
 gate is untouched, so stdout stays **empty** on every refusal --- a BLOCKED goal still
 exits 3 and an approval-needing goal without `--yes` still exits 4, each with its
 message on stderr.
+
+`resume --json` closes that contract on the RECOVERY path, and it is the one place
+it matters most: `resume` is the verb a supervising script re-invokes after a budget
+exhaustion or an interrupted run, so without it a machine could read the run that
+*failed* (`run --json`, `dispatch --json`, `runs --json`) but had to parse English to
+learn what the *retry* produced. Stdout becomes the same nine-key document at top
+level --- built by that one shared function, from a third call site rather than a
+copied literal, so the key set is equal to `dispatch --json`'s by construction --- with
+the human run summary on **stderr**. It adds no exit code and no key: a run dir with
+no loadable checkpoint still exits 2 with `error: no checkpoint found in <dir>` on
+stderr and leaves stdout **empty**, never a half-formed document, and a bare
+`pla resume --run-dir DIR` is byte-identical to before.
 
 ### What the state directory contains
 

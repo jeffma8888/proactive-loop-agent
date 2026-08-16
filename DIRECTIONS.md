@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-169
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `resume` dies on a corrupt `meta.json` without naming the file, while `runs` tolerates the identical file (ROADMAP #151)
+    - Candidate A2 -- the README suite-size floor is 139 tests from turning the public build red, and nothing reports the headroom (ROADMAP #206)
+    - Candidate A3 -- the graded demo gate is existence-only, so an empty slate and a 0-byte artifact pass it (ROADMAP #185)
+    - Candidate B1 -- the `--baseline` ratchet still has ZERO gate consumers, and the producer that feeds it already shipped (ROADMAP #161, feeding on #200)
+    - Candidate B2 -- `resume` is the last execution verb with no machine result, and the document builder it needs already exists (ROADMAP #196)
+    - Candidate B3 -- the snapshot has a ratchet reader but no TRUST reader, so `sources` are still taken on the model's word (ROADMAP #201)
+    winner: B2
+    ship: pending (not yet decided)
   iter-168
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived (roadmap row #201)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Roadmap row #136: give the 2 unguarded `_out_dir_guard` messages an oracle
     - Candidate B3 -- Row #205 is FALSIFIED for 4 of the 5 modules it names; convert it into a forward-looking determinism census
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED a95c513
   iter-167
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC.md's layout tree hides 14 of the 20 files in the L2 perception package, and nothing guards it
@@ -767,4 +777,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-77 scouted iterations
+78 scouted iterations

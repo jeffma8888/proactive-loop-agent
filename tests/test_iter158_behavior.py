@@ -438,26 +438,35 @@ def test_b07_default_path_stdout_is_the_human_rendering(plain_run) -> None:
         json.loads(proc.stdout)
 
 
-def test_b07_json_is_declared_on_run_only(tmp_path: Path) -> None:
-    """`resume` rejects `--json` at parse time, for a REASON rather than by date.
+def test_b07_json_is_declared_on_the_execution_verbs(tmp_path: Path) -> None:
+    """`resume` now DECLARES `--json`, and `--json` alone is still a usage error.
 
-    Narrowed from ("dispatch", "resume") when `dispatch --json` shipped: `dispatch`
-    publishes the very document this iteration built, so the flag is now correct there.
-    `resume` is different in kind, not in schedule -- it has no slate and no gate, so
-    its machine surface would be a smaller, differently-shaped document (queued as its
-    own roadmap row). The original message said "not this iteration", and a dated fence
-    that outlives its date reads to the next engineer as a settled prohibition.
+    History, kept because the reasoning is the durable part. This guard was first
+    written as ("dispatch", "resume") must REJECT `--json`, then narrowed to
+    `resume` alone when `dispatch --json` shipped, on the ground that `resume` was
+    "different in kind, not in schedule -- it has no slate and no gate, so its
+    machine surface would be a smaller, differently-shaped document".
+
+    That ground was measured and REFUTED by roadmap #196 (factory iter 173):
+    `_cmd_resume` ends holding precisely the `(RunState, run_dir, ToolRegistry)`
+    triple `_dispatched_json_payload` already consumes, so the document is not
+    smaller and not differently shaped --- it is the identical nine keys, published
+    from a third call site of one shared builder. So the flag is correct on all
+    three execution verbs, and what survives from the original guard is the
+    still-true half: `--json` does not excuse the REQUIRED `--run-dir`, so the
+    flag on its own is an argparse usage error that writes nothing to stdout.
     """
     verb = "resume"
     helped = _run(verb, "--help", cwd=tmp_path)
     assert helped.returncode == 0, f"`{verb} --help` must exit 0"
-    assert "--json" not in helped.stdout, (
-        f"`{verb}` has no slate and no gate, so its JSON document is a different one "
-        f"and is not built yet; it must not declare --json. Got:\n{helped.stdout}"
+    assert "--json" in helped.stdout, (
+        f"`{verb}` is the recovery verb a script re-invokes, so its result must be "
+        f"machine-readable: it must declare --json. Got:\n{helped.stdout}"
     )
     rejected = _run(verb, "--json", cwd=tmp_path)
     assert rejected.returncode == 2, (
-        f"`{verb} --json` must be a usage error (exit 2); got {rejected.returncode}"
+        f"`{verb} --json` without the required --run-dir must still be a usage error "
+        f"(exit 2); got {rejected.returncode}"
     )
     assert rejected.stdout == "", f"a usage error writes nothing to stdout; got {rejected.stdout!r}"
 

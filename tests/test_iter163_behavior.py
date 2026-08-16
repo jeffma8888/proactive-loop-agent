@@ -5,7 +5,9 @@ becomes scriptable. Under ``--json`` the ENTIRE stdout of a successful dispatch
 is exactly one JSON object describing the run it just performed (the same
 document ``run --json`` nests under ``dispatched``), the human summary moves to
 STDERR unchanged, and every exit code plus the empty-stdout rule on a refusal is
-preserved. ``resume`` still rejects the flag.
+preserved. ``resume`` rejected the flag when this module shipped; behavior 8
+was INVERTED in factory iter 173 when ``resume --json`` shipped (roadmap
+#196) -- see ``test_b08_resume_declares_json``.
 
 WHY EVERY PROCESS-LEVEL BEHAVIOR HERE IS DRIVEN THROUGH A REAL SUBPROCESS
 Behaviors 2, 5, 6 and 7 are claims about the SEPARATION of two output streams
@@ -567,19 +569,31 @@ def test_b07_refusal_stderr_is_byte_identical_with_and_without_json(
 
 
 # ===========================================================================
-# Behavior 8 -- `resume` still rejects --json at parse time
+# Behavior 8 -- INVERTED in factory iter 173: `resume` now DECLARES --json;
+# the flag alone is still a usage error
 # ===========================================================================
 
 
-def test_b08_resume_does_not_declare_json(tmp_path: Path) -> None:
+def test_b08_resume_declares_json(tmp_path: Path) -> None:
+    """INVERTED when `resume --json` shipped (roadmap #196, factory iter 173).
+
+    This assertion used to require the OPPOSITE, on the stated ground that
+    `resume` "has no slate and no gate, so its document is a different one".
+    That premise was measured and refuted: `_cmd_resume` terminates holding the
+    exact `(RunState, run_dir, ToolRegistry)` triple `_dispatched_json_payload`
+    consumes, so `resume`'s document is not a different shape at all --- it is the
+    SAME nine keys `dispatch --json` publishes, from a third call site of that one
+    builder. The fence was a real design question, not a schedule; it is answered
+    now, so the guard is kept and pointed the other way rather than deleted.
+    """
     proc = _run("resume", "--help", cwd=tmp_path)
     assert proc.returncode == 0, (
         f"`resume --help` must exit 0; got {proc.returncode}\nstderr:\n{proc.stderr}"
     )
     flags = _declared_flags(proc.stdout)
-    assert "--json" not in flags, (
-        "`resume` has no slate and no gate, so its document is a different one and is "
-        f"not built yet; it must not declare --json. It declares {sorted(flags)}"
+    assert "--json" in flags, (
+        "`resume` is the verb a supervising script re-invokes after a failure, so its "
+        f"result must be machine-readable: it must declare --json. It declares {sorted(flags)}"
     )
 
 

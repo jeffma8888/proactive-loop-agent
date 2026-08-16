@@ -724,6 +724,11 @@ def build_parser() -> argparse.ArgumentParser:
         "resume", parents=[globals_], help="Resume a checkpointed run from its run dir."
     )
     p_resume.add_argument("--run-dir", required=True, help="A run-<id> directory to resume.")
+    p_resume.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the resumed run as one JSON object on stdout; the human summary goes to stderr.",
+    )
     p_resume.set_defaults(func=_cmd_resume)
 
     # `runs` inherits the same globals (parents=[globals_]) so it accepts
@@ -4308,7 +4313,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 
 def _cmd_resume(args: argparse.Namespace) -> int:
-    """resume: load a checkpoint and continue its GoalLoop to termination."""
+    """resume: load a checkpoint and continue its GoalLoop to termination.
+
+    ``--json`` publishes the finished run as the SAME nine-key document
+    ``dispatch --json`` publishes, so the one verb a supervising script re-invokes
+    after a failure reports its result machine-readably instead of in English.
+    """
     run_dir = Path(args.run_dir)
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
     state = checkpoint.load()
@@ -4327,6 +4337,21 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     tools = ToolRegistry(workspace_root=workspace_root, artifacts_dir=artifacts_dir)
     loop = GoalLoop(client, settings, tools, checkpoint)
     final = loop.run(state.goal, resume=state)
+
+    if args.json:
+        # The SAME shape `dispatch --json` uses -- human summary to stderr, exactly
+        # one document to stdout -- and deliberately NO `redirect_stdout`. `run --json`
+        # needs one because it prints a slate table mid-body; `resume` does not,
+        # because this handler's ONLY early return (the missing checkpoint above)
+        # already writes to stderr, which is what keeps stdout EMPTY on exit 2.
+        #
+        # The payload is a THIRD call site of the one shared builder rather than a
+        # copied literal, so the recovery verb cannot grow a second dialect of the
+        # dispatched document: its key set is equal to `dispatch --json`'s by
+        # construction, not by two lists being kept in step.
+        print(_render_run_summary(state.goal, final, run_dir, tools), file=sys.stderr)
+        print(json.dumps(_dispatched_json_payload((final, run_dir, tools)), indent=2))
+        return 0
 
     print(_render_run_summary(state.goal, final, run_dir, tools))
     return 0
