@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-165
+    lenses: SIMPLIFICATION-AND-DELETION, performance-and-throughput (iteration 165)
+    - Candidate A1 -- Hoist the walk policy: delete notes.py's and todos.py's private `_SKIP_DIRS` + `_is_hidden` copies
+    - Candidate A2 -- One `_emit_json` writer: retire the 18 hand-copied `print(json.dumps(payload, indent=2))` stdout emitters
+    - Candidate A3 -- Host the ancestor-chain rule once: delete the 2 verbatim copies inside the path guards
+    - Candidate B1 -- `--timings` attributes the WHOLE wall, not just collect
+    - Candidate B2 -- re-price row #129's `todos` prefilter against today's tree
+    - Candidate B3 -- settle row #169 (`--dist worksteal`) with the repeats it demands
+    winner: A1
+    ship: unknown
+  iter-164
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- the fail-open collector WARNING has zero consumers, so the armed gate reports GREEN when the collector for an armed kind crashes
+    - Candidate A2 -- every gate asserts the demo ARTIFACTS exist; nothing reads one back (roadmap row #185, consumer half)
+    - Candidate A3 -- `signals --fail-over N` has had zero consumers since it shipped (roadmap row #184)
+    - Candidate B1 -- collapse the third CLI path guard into the second: `_out_dir_guard` is `_state_dir_guard`'s polarity clause plus `_out_target_guard`'s ancestor walk, and its 21-line docstring exists only to justify the duplicate
+    - Candidate B2 -- retire settled roadmap row #121 and delete the exemption machinery it forces, so the iter-168 retire-on-ship brake stands unqualified
+    - Candidate B3 -- delete the last two hand-copied walk-policy blocks: `notes.py` and `todos.py` each carry their own `_SKIP_DIRS` and `_is_hidden` while 8 sibling collectors import the seam (roadmap row #178)
+    winner: A1
+    ship: unknown
   iter-163
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- L2 fail-open degradation is invisible: the one collector-failure warning is unreachable for all 17 shipped collectors
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `resume --json`: the one execution verb a machine cannot read
     - Candidate B3 -- Give `--fail-over` its first consumer, armed against the COMMITTED fixture, at a count the caps cannot make vacuous
     winner: A1
-    ship: unknown
+    ship: PUSHED 7d7aad6
   iter-162
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived
@@ -717,4 +737,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-72 scouted iterations
+74 scouted iterations

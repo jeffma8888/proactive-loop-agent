@@ -43,7 +43,7 @@ import shutil
 import sys
 import textwrap
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -53,6 +53,7 @@ from . import __version__
 from .config import Settings
 from .collectors import SIGNAL_KINDS, all_collectors
 from .collectors import text_source
+from .collectors.base import record_degradations
 from .llm import LLMClient, LLMError
 from .llm.providers import create_client
 from .loop import Checkpoint, GoalLoop, ToolRegistry
@@ -3751,6 +3752,51 @@ _KIND_COLLECTORS: dict[str, frozenset[str]] = {
 }
 
 
+def _armed_gate_blindspots(
+    degraded_classes: Iterable[str], gate_kinds: Sequence[str]
+) -> list[tuple[str, str]]:
+    """Return ``(collector_name, armed_kind)`` pairs a degraded collector left UNPROVEN.
+
+    The join between what the perception layer RECORDED and what the caller ARMED, and
+    the one place that judgement lives, so the exit path in ``_cmd_signals`` stays a
+    single ``if``. A pair means: kind ``armed_kind`` is gated, collector
+    ``collector_name`` is one of its owners, and that collector degraded during this
+    scan -- so "no ``armed_kind`` signals" is an artifact of a crash, not a finding
+    about the workspace.
+
+    WHY it translates class names to REGISTRY names: the absorbed failure is recorded
+    where it happens (``BaseCollector.collect``), which knows only ``type(self)``, while
+    every user-facing surface in this CLI -- ``--collector``, ``--kind``, the
+    ``collectors`` verb, the ``--timings`` table -- speaks the registry ``name``. The map
+    is derived from the live registry, never hand-typed, so a collector added later is
+    translated by construction; a recorded class that is NOT in the registry (a
+    third-party ``BaseCollector`` subclass an embedder scanned with) is dropped, because
+    it owns no gated kind and naming it would mis-blame. That mapping assumes class names
+    are unique across the registry, which the suite pins.
+
+    Empty ``gate_kinds`` returns ``[]`` without touching the registry: with no gate armed
+    a degradation stays a WARNING, which is the SPEC 4.1 fail-open contract for a SCAN.
+    Ownership is read from ``_KIND_COLLECTORS`` (the guarded inverse) rather than from a
+    collector's single ``kind``, so a future many-to-one map merely yields more pairs
+    instead of silently blaming one owner; the result is sorted, so the report line is
+    deterministic (name-ascending, then kind).
+    """
+    if not gate_kinds:
+        return []
+    # Class name -> registry name over the LIVE registry (see the docstring for why the
+    # recording layer cannot supply the registry name itself).
+    registry_names = {type(c).__name__: c.name for c in all_collectors()}
+    degraded = {registry_names[c] for c in degraded_classes if c in registry_names}
+    if not degraded:
+        return []
+    return sorted(
+        (name, kind)
+        for kind in gate_kinds
+        for name in _KIND_COLLECTORS.get(kind, frozenset())
+        if name in degraded
+    )
+
+
 def _collector_rows(kind: str | None = None) -> list[tuple[str, str, str]]:
     """Return ``(name, kind, description)`` triples, name-ascending.
 
@@ -4549,7 +4595,19 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     ``error:`` prefix because a finding is not a fault), so every stdout surface
     stays byte-identical with and without the flag and ``--json`` keeps parsing as
     one object. ``--kind K`` paired with a different ``--fail-on-kind V`` is refused
-    as a usage error (exit 2) before collection: that gate could never fire.
+    as a usage error (exit 2) before collection: that gate could never fire. Arming
+    it also makes this verb FAIL CLOSED on a dead detector: SPEC 4.1 fail-open is
+    right for a SCAN (one unreadable tree must not abort perception) and wrong for a
+    GATE, because a collector that crashed cannot distinguish "kind K is absent" from
+    "K was never looked for" -- and answering "absent" buys a permanently green build
+    on exactly the machines where the detector never ran. So when a collector that
+    OWNS an armed kind degraded during the scan, the exit is ``1`` (an operational
+    fault, not a finding) with exactly one ``error: `` line naming that collector and
+    the kind it owns, and the gate line is absent. It is checked LAST, after both
+    gates above, so every already-non-zero outcome is untouched; a degraded collector
+    that owns NO armed kind stays a WARNING and cannot red a build; and it reads a
+    recorded VALUE rather than logging config, so it behaves identically at the
+    default verbosity every CI step and hook actually uses.
 
     ``--fail-over N`` is the COUNT-budget sibling of that gate and the third
     ratchet: exit 5 when the number of reported signals is STRICTLY greater than
@@ -4633,7 +4691,15 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     timings: list[tuple[str, float, int]] | None = (
         [] if getattr(args, "timings", False) else None
     )
-    snapshot = _collect(workspace, only=only, timings=timings)
+    # The scope is armed for THIS verb only, and it is what makes the fail-CLOSED exit
+    # below possible: `_collect` swallows a broken collector by design (SPEC 4.1), so
+    # without a recorded value the gate cannot tell "kind K absent" from "K's collector
+    # never ran". Reading the sink AFTER the `with` block is deliberate -- leaving the
+    # scope stops the recording but the list it yielded stays readable, so nothing needs
+    # to happen inside the block except the scan itself. `scan`/`run`/`watch` do not arm
+    # it, so their fail-open path is byte-identical.
+    with record_degradations() as degraded_classes:
+        snapshot = _collect(workspace, only=only, timings=timings)
     min_weight = getattr(args, "min_weight", None)
     # Read ONCE here and threaded into every surface below (never re-derived), so the
     # four renderers and the gate cannot disagree about what was excluded. DOWNSTREAM
@@ -4709,6 +4775,30 @@ def _cmd_signals(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 5
+    # FAIL-CLOSED, and LAST on purpose: every path above returns before this line, so
+    # every outcome that is already non-zero is byte-identical -- this check can only
+    # ever convert a false `0` into `1`, never re-colour a real finding (a tripped kind
+    # gate still reports its own line and its own 5, even when a different collector
+    # degraded). It is also the only exit here that is a FAULT rather than a finding,
+    # hence the `error: ` prefix and the reuse of published code 1 (operational fault):
+    # the tool failed to answer the question, so no new code and no table edit is owed.
+    # Silent unless the caller ARMED a gate over a kind the crashed collector owns --
+    # a broken collector a stranger never gated on must stay a WARNING, or every green
+    # build on a machine with, say, no `git` would turn red.
+    blindspots = _armed_gate_blindspots(degraded_classes, gate_kinds)
+    if blindspots:
+        # ONE line, like both gate lines above, and it names the collector in the same
+        # registry vocabulary the flags use. No singular/plural branch: a trailing
+        # "degraded during this scan" reads correctly after one pair or several, which
+        # is the same grammar-without-a-second-code-path choice the fail-over line made.
+        detail = ", ".join(f"{name} (armed kind {kind})" for name, kind in blindspots)
+        print(
+            f"error: --fail-on-kind gate unproven -- {detail} degraded during this "
+            "scan; a collector that crashed cannot distinguish absent from never "
+            "looked, so this gate fails closed",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

@@ -7,6 +7,8 @@ exceptions on missing directories or unavailable tools — degrade to [].
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -18,6 +20,54 @@ from proactive_loop.models import ContextSignal
 # the package-logger plumbing in `cli._configure_logging` -- never emitted on the
 # root logger, which would leak into an embedding application's own handlers.
 _LOG = logging.getLogger(__name__)
+
+# The opt-in record of ABSORBED failures: a STACK of sinks, each one a list of the
+# class names `collect` degraded during the scope that owns it. Empty by default, so
+# a library embedder, `scan`, `run` and `watch` all keep the exact fail-open path
+# they had -- recording happens only inside `record_degradations()`.
+#
+# WHY a module-level stack and not an attribute on `BaseCollector`: this class's own
+# docstring forbids adding any ANNOTATED class attribute (it would contribute a field
+# to all 16 generated dataclass `__init__` signatures and reorder them), and the
+# alternative -- threading an out-parameter through the CLI's `_collect` loop -- would
+# widen a seam shared by four verbs for a diagnostic that one verb consumes.
+_DEGRADED_SINKS: list[list[str]] = []
+
+
+@contextmanager
+def record_degradations() -> Iterator[list[str]]:
+    """Record the class name of every collector failure ABSORBED inside this scope.
+
+    Fail-open is the right contract for a SCAN -- one unreadable tree must never abort
+    perception -- and the wrong answer for a GATE. A caller that asks "is kind K absent
+    from this workspace?" cannot be told "absent" by a collector that crashed before it
+    looked; the two readings are only distinguishable if the absorbed failure is
+    recoverable by the caller. ``collect`` already LOGS it, but a log record is not a
+    value: at default verbosity -- the verbosity every CI step and pre-commit hook
+    actually runs -- ``cli._configure_logging`` attaches no handler and sets no level, so
+    a consumer that rode logging config would work under ``-v`` and be blind by default.
+    This scope is level-independent for exactly that reason.
+
+    Yields the sink list itself, which is APPENDED to (never replaced) as failures are
+    absorbed, so the caller reads it after the scan: one entry per absorbed failure, in
+    the order they happened, with repeats preserved (a collector that fails twice is
+    recorded twice -- de-duplication is the consumer's policy, not this scope's).
+
+    Nests: an inner scope does not hide a failure from an outer one, because every armed
+    sink receives every record. Deliberately NOT thread-safe and not async-aware; the
+    product is a single-threaded, deterministic CLI, and a lock here would buy nothing
+    that the suite could observe.
+    """
+    sink: list[str] = []
+    _DEGRADED_SINKS.append(sink)
+    try:
+        yield sink
+    finally:
+        # `pop()`, never `remove(sink)`: `list.remove` matches by EQUALITY, and two
+        # empty sinks compare equal, so a nested scope would pop the OUTER one and leak
+        # the inner. `finally` guarantees LIFO unwinding, which makes the stack
+        # discipline exact.
+        _DEGRADED_SINKS.pop()
 
 
 @runtime_checkable
@@ -109,6 +159,13 @@ class BaseCollector:
                 type(self).__name__,
                 exc,
             )
+            # The same fact as the WARNING above, handed back as a VALUE to any caller
+            # that armed `record_degradations()` -- see that scope for why a log record
+            # cannot serve a gate. Appended AFTER the log so the diagnostic ordering is
+            # unchanged, and the class name is the same one the record names, so a
+            # consumer can join the two. No-op when no sink is armed.
+            for sink in _DEGRADED_SINKS:
+                sink.append(type(self).__name__)
             return []
 
     def _collect(self, root: Path) -> list[ContextSignal]:
