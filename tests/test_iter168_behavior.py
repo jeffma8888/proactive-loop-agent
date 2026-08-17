@@ -285,12 +285,12 @@ def test_b5_the_brake_fires_on_the_live_documents_own_shape() -> None:
     """
     live = _live_roadmap()
     planted = live.replace(
-        "| 201 |",
+        "| 210 |",
         "| 998 | **Planted settled row** -- detail. | DX | Med | Low | PM | "
-        "**SHIPPED -- iter-x** |\n| 201 |",
+        "**SHIPPED -- iter-x** |\n| 210 |",
         1,
     )
-    assert planted != live, "anchor row #201 vanished -- update this fixture"
+    assert planted != live, "anchor row #210 vanished -- update this fixture"
     assert settled_rows_needing_retirement(planted) == ("998",)
 
 

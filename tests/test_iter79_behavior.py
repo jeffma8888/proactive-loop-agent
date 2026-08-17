@@ -115,19 +115,24 @@ def test_b01_build_parser_docstring_names_live_subcommand_count():
     )
 
 
-def test_b01_live_subcommand_count_is_fifteen():
-    # Anchor the current tree: the fix targets exactly 15 subcommands.
-    assert _subcommand_count() == 15
+def test_b01_live_subcommand_count_is_sixteen():
+    # Anchor the current tree: the fix targets exactly 16 subcommands.
+    assert _subcommand_count() == 16
 
 
 def test_b01_paren_trap_is_the_class_docstring():
     # Documents the spec-wording ambiguity: build_parser() returns an
     # argparse.ArgumentParser INSTANCE whose .__doc__ is the argparse CLASS
     # docstring, NOT the function docstring. The edit lives on the function.
+    # The count phrase is DERIVED, never hardcoded: a literal here contradicts
+    # test_b02_no_other_count_word_precedes_subcommands in this same module,
+    # which forbids every count word EXCEPT the live one -- so a hardcoded
+    # phrase turns the very next verb this repo adds into a two-sided red.
+    phrase = f"{_word(_subcommand_count())} subcommands"
     instance_doc = cli.build_parser().__doc__ or ""
     func_doc = cli.build_parser.__doc__ or ""
-    assert "fifteen subcommands" not in instance_doc
-    assert "fifteen subcommands" in func_doc
+    assert phrase not in instance_doc
+    assert phrase in func_doc
 
 
 # ==========================================================================
@@ -289,6 +294,6 @@ def test_b07_cli_version_flag_prints_pla_version():
 # locks the count trio the drift-guards are bound to.
 # ==========================================================================
 def test_b08_registry_sizes_unchanged():
-    assert _subcommand_count() == 15
+    assert _subcommand_count() == 16
     assert len(ToolRegistry.tool_names()) == 14
     assert len(all_collectors()) == 17

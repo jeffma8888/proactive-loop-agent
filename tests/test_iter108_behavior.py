@@ -544,7 +544,7 @@ def test_b11_portfolio_intro_numbers_still_match_the_live_registries() -> None:
     assert int(m.group(1)) == len(all_collectors()) == 17, m.group(0)
     m = re.search(r"(\d+) CLI verbs", intro)
     assert m, "intro must state the CLI-verb count"
-    assert int(m.group(1)) == 15, m.group(0)
+    assert int(m.group(1)) == 16, m.group(0)
 
 
 def _reference_row_counts(text: str, first_cells: tuple[str, ...]) -> dict[str, int]:

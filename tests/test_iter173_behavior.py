@@ -79,7 +79,7 @@ _DOCUMENT_KEYS = frozenset(
 _SUMMARY_MARKER = "dispatched :"
 
 # Spec behavior 9: this iteration adds a FLAG, not a verb.
-_EXPECTED_VERB_COUNT = 15
+_EXPECTED_VERB_COUNT = 16
 
 
 # ---------------------------------------------------------------------------
@@ -506,7 +506,7 @@ def test_b08_no_checkpoint_exits_two_with_one_error_line_and_empty_stdout(
 
 
 # ===========================================================================
-# Behavior 9 -- `resume --help` lists --json; `pla --help` still lists 15 verbs
+# Behavior 9 -- `resume --help` lists --json; `pla --help` lists every live verb
 # ===========================================================================
 
 
@@ -522,8 +522,13 @@ def test_b09_resume_help_declares_json(tmp_path: Path) -> None:
     )
 
 
-def test_b09_top_level_help_still_lists_fifteen_verbs(tmp_path: Path) -> None:
-    """This iteration adds a FLAG, so the README's CLI-verb count must not move."""
+def test_b09_top_level_help_lists_every_live_verb(tmp_path: Path) -> None:
+    """`--help` must list every live verb -- the count is the module constant.
+
+    This iteration added a FLAG, not a verb, so it did not move the count itself;
+    the constant tracks the live parser so a LATER additive verb updates one literal
+    here rather than leaving a test whose NAME encodes a decaying number.
+    """
     proc = _run("--help", cwd=tmp_path)
     assert proc.returncode == 0, (
         f"`pla --help` must exit 0; got {proc.returncode}\nstderr:\n{proc.stderr}"

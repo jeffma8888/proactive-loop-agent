@@ -322,5 +322,5 @@ def test_eb6_registry_counts_and_version_frozen() -> None:
         if isinstance(a, argparse._SubParsersAction)
     ]
     assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 15
+    assert len(sub_actions[0].choices) == 16
     assert __version__ == "0.1.1"

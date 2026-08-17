@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-173
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- The newest module's load-bearing safety claim is false in all three clauses, and roadmap #210 is queued to act on it
+    - Candidate A2 -- The armed-gate justification claims to be exhaustive but explains 10 of 17 live kinds, and the next collector makes it 8 unexplained
+    - Candidate A3 -- "Red on arrival" disqualifies three kinds by reasoning as if the product's own ratchet never shipped
+    - Candidate B1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived
+    - Candidate B2 -- `pla trend --dir DIR`: which goals PERSIST across a whole watch stream, not just the last tick
+    - Candidate B3 -- `run/dispatch/resume --max-iterations N` and `--max-llm-calls N`: make the L1 budget SETTABLE, not merely reportable
+    winner: B1
+    ship: pending (not yet decided)
   iter-172
     lenses: performance-and-throughput, NARRATIVE-AND-DOCS
     - Candidate A1 -- convert the 7 remaining walking collectors onto dir_source (roadmap #210)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Four shipped rows lost their reasoning: derive the archive-coverage census instead of hardcoding it
     - Candidate B3 -- Guard the README's hand-enumerated shared-walk collector list before row #210 makes it false
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED aae1a80
   iter-171
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Fold the three hand-copied content-digest memos into one seam (136 LOC of triplicated policy)
@@ -807,4 +817,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-81 scouted iterations
+82 scouted iterations

@@ -251,7 +251,7 @@ def test_b6_no_registry_or_version_drift() -> None:
         a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
     ]
     assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 15
+    assert len(sub_actions[0].choices) == 16
 
 
 # ---------------------------------------------------------------------------

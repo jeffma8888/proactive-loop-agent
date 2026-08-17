@@ -528,7 +528,7 @@ def _exit_code_epilog() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with fifteen subcommands and shared globals.
+    """Assemble the ``pla`` parser with sixteen subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -814,6 +814,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the gate audit as JSON: one object for --goal-id, or a JSON array for the whole slate.",
     )
     p_explain.set_defaults(func=_cmd_explain)
+
+    # `verify` closes the TRUST half of the transparency arc. iter-161 shipped
+    # `scan --snapshot FILE`, which records what the collectors PERCEIVED, and
+    # nothing read it back -- so a goal's free-text `sources` (a field the
+    # synthesizer prompt asks the MODEL to fill) was indistinguishable from a
+    # fabrication. This is that document's missing consumer. Like `explain`/`trace`
+    # it inherits the globals so --provider/--scripted-responses/--state-dir are
+    # accepted but INERT: the handler builds no LLMClient and runs no collector.
+    # BOTH paths are required -- there is no default snapshot location, and
+    # guessing one would silently verify a slate against a document it was never
+    # synthesized from, which is worse than refusing. Deliberately REPORTING-ONLY
+    # at exit 0: several collectors are mtime-driven, so an unresolved source can
+    # mean staleness rather than fabrication; a gate is a separate roadmap row.
+    p_verify = sub.add_parser(
+        "verify",
+        parents=[globals_],
+        help="Resolve each goal's cited sources against a saved scan snapshot and report the unresolved ones (read-only, LLM-free).",
+    )
+    p_verify.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
+    p_verify.add_argument(
+        "--snapshot",
+        required=True,
+        help="Path to the snapshot document `scan --snapshot FILE` wrote alongside that slate.",
+    )
+    p_verify.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the verification as ONE JSON object instead of the human blocks.",
+    )
+    p_verify.set_defaults(func=_cmd_verify)
 
     # `trace` renders ONE dispatched run's persisted PLAN->ACT->CHECK transcript
     # from its checkpoint. Like `runs`/`explain` it inherits the globals so
@@ -2780,8 +2810,19 @@ def _signal_identity(signal: ContextSignal | dict[str, object]) -> tuple[object,
     return tuple(getattr(signal, key) for key in _SIGNAL_IDENTITY_KEYS)
 
 
-def _load_signal_baseline(path: Path) -> set[tuple[object, ...]]:
+def _load_signal_baseline(
+    path: Path, *, label: str = "baseline"
+) -> set[tuple[object, ...]]:
     """Load a saved ``signals --json`` document into a SET of signal identities.
+
+    *label* names the ARGUMENT the document arrived on, and it is interpolated into
+    every message below. WHY: ``scan --snapshot FILE`` writes this exact schema and
+    ``verify --snapshot`` loads it through this one ladder, so a malformed document
+    must report the flag the operator actually typed -- a "baseline file ..." error
+    for a ``--snapshot`` path would send them to the wrong argument. The default
+    keeps every ``--baseline`` message byte-identical to before the parameter
+    existed, which is what lets the two flags share one validator instead of
+    drifting apart as two.
 
     The CONSUME half of ``--baseline``: the user produces the file themselves with
     ``pla signals --json > base.json`` -- the same bring-your-own-file shape
@@ -2813,26 +2854,26 @@ def _load_signal_baseline(path: Path) -> set[tuple[object, ...]]:
     ``TypeError``.
     """
     if not path.is_file():
-        raise ValueError(f"baseline file not found or not a regular file: {path}")
+        raise ValueError(f"{label} file not found or not a regular file: {path}")
     try:
         raw = path.read_text()
     except UnicodeDecodeError as exc:
         # A ValueError subclass, so it would surface anyway -- re-raised only to
         # attach the path the vendor message omits.
-        raise ValueError(f"baseline file is not valid UTF-8 text: {path}: {exc}") from None
+        raise ValueError(f"{label} file is not valid UTF-8 text: {path}: {exc}") from None
     try:
         document = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"baseline file is not valid JSON: {path}: {exc}") from None
+        raise ValueError(f"{label} file is not valid JSON: {path}: {exc}") from None
     if not isinstance(document, dict):
         raise ValueError(
-            f"baseline file must contain one JSON object: {path}: got "
+            f"{label} file must contain one JSON object: {path}: got "
             f"{type(document).__name__}"
         )
     entries = document.get("signals")
     if not isinstance(entries, list):
         raise ValueError(
-            f"baseline file has no 'signals' array: {path}: expected a document saved "
+            f"{label} file has no 'signals' array: {path}: expected a document saved "
             "by `pla signals --json` (a --summary --json document carries counts, "
             "not signals)"
         )
@@ -2840,12 +2881,12 @@ def _load_signal_baseline(path: Path) -> set[tuple[object, ...]]:
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             raise ValueError(
-                f"baseline file entry signals[{index}] is not a JSON object: {path}"
+                f"{label} file entry signals[{index}] is not a JSON object: {path}"
             )
         missing = [key for key in _SIGNAL_IDENTITY_KEYS if key not in entry]
         if missing:
             raise ValueError(
-                f"baseline file entry signals[{index}] is missing "
+                f"{label} file entry signals[{index}] is missing "
                 + ", ".join(missing)
                 + f": {path}"
             )
@@ -2859,7 +2900,7 @@ def _load_signal_baseline(path: Path) -> set[tuple[object, ...]]:
             # malformed cases instead of escaping the narrow
             # (LLMError, ValueError, OSError) guard in main() as a raw traceback.
             raise ValueError(
-                f"baseline file entry signals[{index}] has a JSON array or object "
+                f"{label} file entry signals[{index}] has a JSON array or object "
                 f"where a scalar value is expected: {path}"
             ) from None
     return baseline
@@ -4515,6 +4556,206 @@ def _cmd_explain(args: argparse.Namespace) -> int:
         print(json.dumps(_explain_json_payload(goal, decision, settings), indent=2))
     else:
         print(_render_explain(goal, decision, settings))
+    return 0
+
+
+# A trailing line anchor, e.g. the ``:5`` in ``README.md:5``. Anchored at the end
+# and digits-only, so a Windows-style drive letter or a ``key: value`` summary is
+# untouched.
+_LINE_ANCHOR_RE = re.compile(r":\d+$")
+
+
+def _strip_line_anchor(text: str) -> str:
+    """Drop a trailing ``:<digits>`` line anchor from *text*.
+
+    WHY ``verify`` cannot compare raw strings: the line-anchored collectors publish
+    ``path`` WITH the line they found (``README.md:5``), while a synthesizer citing
+    that file usually names the file alone. Measured on the bundled fixture pair,
+    only 3 of 6 cited sources match a snapshot value exactly and the other 3 resolve
+    only once this anchor is removed. So a first-clause-only matcher would report
+    HALF the shipped demo as fabricated on a slate where nothing is -- and a
+    verification feature fails by ACCUSING, which is the one direction it must never
+    fail in. The strip is applied to BOTH sides, so it also covers the reverse case
+    (a slate citing ``README.md:5`` against a snapshot carrying the bare path).
+    """
+    return _LINE_ANCHOR_RE.sub("", text)
+
+
+def _snapshot_source_index(
+    identities: set[tuple[object, ...]],
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Build the two lookup sets ``verify`` resolves a cited source against.
+
+    Returns ``(exact, anchorless)``: every ``path`` and ``summary`` value the
+    snapshot recorded as written, and the same values with a trailing line anchor
+    removed. Two sets rather than one normalized set because the two clauses of the
+    resolution rule are separately observable -- an exact hit is reported as such
+    and never depends on the looser pass.
+
+    Positions come from ``_SIGNAL_IDENTITY_KEYS.index`` rather than literal offsets,
+    so reordering the published six-key identity can never silently re-point this at
+    the wrong column (the same structural argument ``_signal_identity`` makes for
+    having exactly one extractor).
+    """
+    path_at = _SIGNAL_IDENTITY_KEYS.index("path")
+    summary_at = _SIGNAL_IDENTITY_KEYS.index("summary")
+    exact: set[str] = set()
+    for identity in identities:
+        for position in (path_at, summary_at):
+            value = identity[position]
+            # Non-str values are skipped rather than coerced: the loader deliberately
+            # does not type-check, so a numeric `path` from a hand-edited document
+            # must not become a matchable "0".
+            if isinstance(value, str) and value:
+                exact.add(value)
+    return frozenset(exact), frozenset(_strip_line_anchor(value) for value in exact)
+
+
+def _source_resolves(source: str, exact: frozenset[str], anchorless: frozenset[str]) -> bool:
+    """Does *source* name something the snapshot actually recorded?
+
+    Two clauses, in order: the stripped source equals a recorded ``path``/``summary``
+    exactly, or the two are equal once a trailing ``:<digits>`` anchor is removed
+    from either side. Matching is case-SENSITIVE because these are filesystem paths,
+    and a source that is empty after ``strip()`` never resolves -- there is nothing
+    to look for, and reporting it is the honest answer.
+    """
+    candidate = source.strip()
+    if not candidate:
+        return False
+    if candidate in exact:
+        return True
+    return _strip_line_anchor(candidate) in anchorless
+
+
+def _verify_slate(
+    slate: GoalSlate, identities: set[tuple[object, ...]]
+) -> list[tuple[CandidateGoal, list[str], list[str]]]:
+    """Resolve every ranked goal's cited sources: ``(goal, resolved, unresolved)``.
+
+    ONE pass feeding BOTH renderings, for the reason ``explain`` calls ``gate`` once:
+    a human report and a ``--json`` document that disagreed about what resolved would
+    make the verb useless as evidence. Order is ``slate.ranked()`` so the report reads
+    in the same order as every other slate surface, and each source string is carried
+    VERBATIM (never the stripped form) because the report has to quote what the slate
+    actually claims.
+    """
+    exact, anchorless = _snapshot_source_index(identities)
+    rows: list[tuple[CandidateGoal, list[str], list[str]]] = []
+    for goal in slate.ranked():
+        resolved: list[str] = []
+        unresolved: list[str] = []
+        for source in goal.sources:
+            (resolved if _source_resolves(source, exact, anchorless) else unresolved).append(source)
+        rows.append((goal, resolved, unresolved))
+    return rows
+
+
+def _render_verify(rows: list[tuple[CandidateGoal, list[str], list[str]]]) -> str:
+    """Render the human report: one block per goal, then the summary trailer.
+
+    Resolved and unresolved lines are interleaved in the goal's OWN ``sources`` order
+    rather than grouped, so the block reads as an annotation of the slate instead of
+    a re-ordering of it. ``UNRESOLVED`` is upper-case for the same reason the gate
+    prints ``BLOCKED`` that way: the finding has to survive being skimmed.
+    """
+    blocks: list[str] = []
+    for rank, (goal, _resolved, unresolved) in enumerate(rows, start=1):
+        # Membership over a set of the UNRESOLVED strings: resolution is a pure
+        # function of the string, so a goal citing the same source twice annotates
+        # both occurrences identically, and the resolved branch needs no second test.
+        unresolved_strings = set(unresolved)
+        lines = [f"{rank}. {goal.title}"]
+        for source in goal.sources:
+            marker = "UNRESOLVED" if source in unresolved_strings else "resolved"
+            lines.append(f"  {marker}: {source}")
+        blocks.append("\n".join(lines))
+    source_count = sum(len(resolved) + len(unresolved) for _, resolved, unresolved in rows)
+    unresolved_count = sum(len(unresolved) for _, _, unresolved in rows)
+    trailer = (
+        f"verified: {len(rows)} goals, {source_count} sources, {unresolved_count} unresolved"
+    )
+    if not rows:
+        # The shipped whole-slate `explain` phrasing, reused verbatim so an empty
+        # slate reads the same on both audit verbs.
+        return "(no goals in slate)\n" + trailer
+    return "\n\n".join(blocks) + "\n\n" + trailer
+
+
+def _verify_json_payload(
+    slate_echo: str,
+    snapshot_echo: str,
+    rows: list[tuple[CandidateGoal, list[str], list[str]]],
+) -> dict[str, object]:
+    """The ``verify --json`` document: exactly five top-level keys.
+
+    ``slate``/``snapshot`` echo the RAW argument strings, the ``diff --json``
+    precedent -- a re-stringified ``Path`` would drop a leading ``./`` and the
+    document has to say which files were read. Each goal object carries exactly four
+    keys; both source arrays are ``[]`` when empty rather than omitted, so a consumer
+    never has to distinguish "absent" from "none".
+    """
+    return {
+        "slate": slate_echo,
+        "snapshot": snapshot_echo,
+        "goals": [
+            {
+                "id": goal.id,
+                "title": goal.title,
+                "resolved": list(resolved),
+                "unresolved": list(unresolved),
+            }
+            for goal, resolved, unresolved in rows
+        ],
+        "source_count": sum(len(resolved) + len(unresolved) for _, resolved, unresolved in rows),
+        "unresolved_count": sum(len(unresolved) for _, _, unresolved in rows),
+    }
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    """verify: resolve each goal's cited sources against a saved scan snapshot.
+
+    WHY it builds no LLMClient (like ``runs``/``explain``/``trace``/``diff``): it is a
+    pure join of two files already on disk. ``CandidateGoal.sources`` is free text the
+    synthesizer prompt asks the model to fill, and ``explain`` repeats it verbatim, so
+    until now a hallucinated path read exactly like a perceived one -- the one defect
+    class that attacks this product's headline auditability claim. ``scan --snapshot
+    FILE`` writes the very snapshot the slate was synthesized FROM (not a second,
+    later collect), so the ground truth is deterministic and this verb never re-scans.
+
+    REPORTING-ONLY: the exit code is ``0`` even when sources are unresolved. Several
+    collectors are mtime-driven, so an unresolved source can mean the snapshot moved
+    on rather than that the model invented something, and a verb that cannot tell
+    those apart must not fail a build over either. Arming a gate is a separate row.
+
+    Exit codes reuse the shipped ladder rather than inventing a second one: a missing
+    ``--slate`` file or ANY malformed ``--snapshot`` document returns ``2`` explicitly
+    on one ``error: `` line, before a single byte of stdout; a corrupt or
+    schema-invalid slate raises a ``ValueError`` that the ``main()`` boundary maps to
+    ``1``. ``--json`` is applied after both guards, so it selects a rendering only.
+    """
+    slate_path = Path(args.slate)
+    if not slate_path.is_file():
+        print(f"error: slate file not found: {slate_path}", file=sys.stderr)
+        return 2
+    # The snapshot is validated through the SAME `_load_signal_baseline` ladder
+    # `signals --baseline` uses, with `label="snapshot"` naming the flag the operator
+    # typed. That is not just less code: it structurally guarantees one
+    # `scan --snapshot` document is accepted identically by both consumers, which a
+    # second hand-written validator could only promise.
+    try:
+        identities = _load_signal_baseline(Path(args.snapshot), label="snapshot")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    slate = _load_slate(slate_path)
+    rows = _verify_slate(slate, identities)
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer, and no
+        # truncation note -- both guards above already ran.
+        print(json.dumps(_verify_json_payload(args.slate, args.snapshot, rows), indent=2))
+    else:
+        print(_render_verify(rows))
     return 0
 
 

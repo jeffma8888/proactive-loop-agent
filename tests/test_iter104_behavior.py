@@ -76,7 +76,7 @@ DEFAULT_MAX_LLM_CALLS = 24
 DEFAULT_RETRY_MAX_ATTEMPTS = 5
 
 # Behavior 9: the live argparse verb count after this additive verb lands.
-EXPECTED_VERB_COUNT = 15
+EXPECTED_VERB_COUNT = 16
 
 # Every PLA_* var that could perturb a "defaults" assertion.
 _PLA_ENV_VARS = (
@@ -351,12 +351,12 @@ def test_b08_malformed_env_is_clean_one_line_error(monkeypatch, capsys):
 
 
 # ==========================================================================
-# Behavior 9 --- `config` is a registered subparser (live verb count 15) and
-# the README PORTFOLIO-INTRO states "15 CLI verbs".
+# Behavior 9 --- `config` is a registered subparser (live verb count is
+# EXPECTED_VERB_COUNT) and the README PORTFOLIO-INTRO states that same count.
 # ==========================================================================
 
 
-def test_b09_config_is_registered_and_verb_count_is_15():
+def test_b09_config_is_registered_and_verb_count_matches_the_readme():
     parser = build_parser()
     subs = [
         a
@@ -374,10 +374,11 @@ def test_b09_config_is_registered_and_verb_count_is_15():
     )
 
 
-def test_b09_readme_intro_states_15_cli_verbs():
+def test_b09_readme_intro_states_the_live_cli_verb_count():
     readme = Path(__file__).resolve().parents[1] / "README.md"
     text = readme.read_text(encoding="utf-8")
-    assert re.search(r"\b15 CLI verbs\b", text), (
-        "README PORTFOLIO-INTRO must state '15 CLI verbs' after this additive verb "
-        "(mandated numeric carve-out)"
+    assert re.search(rf"\b{EXPECTED_VERB_COUNT} CLI verbs\b", text), (
+        f"README PORTFOLIO-INTRO must state '{EXPECTED_VERB_COUNT} CLI verbs' -- the "
+        "live count (mandated numeric carve-out). The literal is derived from "
+        "EXPECTED_VERB_COUNT so this assertion and the count above can never disagree."
     )

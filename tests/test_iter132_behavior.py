@@ -58,8 +58,9 @@ AMBIGUITY NOTES (PM feedback):
   deliberately never asserted.
 * Behavior 14 says the bytes at/above the human-owned marker are "unchanged".  Without
   git that is asserted as its two observable consequences: ``--exclude-path`` appears
-  only BELOW the marker line, and the intro's two carve-out counts still read 16
-  collectors / 15 CLI verbs (this change adds neither).
+  only BELOW the marker line, and the intro's two carve-out counts still read the
+  live 17 collectors / 16 CLI verbs (this change adds neither; both numbers are
+  maintained by whichever later iteration DOES add one, under the README carve-out).
 """
 
 from __future__ import annotations
@@ -619,4 +620,4 @@ def test_b14_intro_carve_out_counts_are_unchanged() -> None:
     above, _ = _readme_split()
     text = "\n".join(above)
     assert "17 context collectors" in text, "this change adds no collector"
-    assert "15 CLI verbs" in text, "this change adds no verb"
+    assert "16 CLI verbs" in text, "this change adds no verb"
