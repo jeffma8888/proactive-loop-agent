@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-174
+    lenses: NEW-CAPABILITY, HARDENING/DX
+    - Candidate A1 -- `pla coverage`: which PERCEIVED signals the slate cites NOBODY
+    - Candidate A2 -- `pla trend --dir DIR`: which goals PERSIST across a whole watch stream
+    - Candidate A3 -- `run/dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch
+    - Candidate B1 -- git ignores `.coverage` but NOT the `.coverage.<host>.<pid>` files the suite actually writes
+    - Candidate B2 -- Row #136: the newest of the four CLI path guards is the only unguarded one
+    - Candidate B3 -- Row #185: make one gate step READ the demo slate instead of stat-ing it
+    winner: B1
+    ship: pending (not yet decided)
   iter-173
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- The newest module's load-bearing safety claim is false in all three clauses, and roadmap #210 is queued to act on it
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla trend --dir DIR`: which goals PERSIST across a whole watch stream, not just the last tick
     - Candidate B3 -- `run/dispatch/resume --max-iterations N` and `--max-llm-calls N`: make the L1 budget SETTABLE, not merely reportable
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED c45c54e
   iter-172
     lenses: performance-and-throughput, NARRATIVE-AND-DOCS
     - Candidate A1 -- convert the 7 remaining walking collectors onto dir_source (roadmap #210)
@@ -817,4 +827,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-82 scouted iterations
+83 scouted iterations

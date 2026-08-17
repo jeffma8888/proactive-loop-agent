@@ -14,8 +14,12 @@ test:
 	uv run pytest
 
 # Run the suite with a coverage report (opt-in; NOT part of `make test`, so a
-# bare run stays fast). Terminal report only; .coverage/htmlcov are gitignored
-# and removed by `make clean`.
+# bare run stays fast). Terminal report only. Every artifact a coverage run
+# drops in the repo root is gitignored AND removed by `make clean`: .coverage,
+# htmlcov/, and the per-worker `.coverage.<host>.<pid>.<rand>` data files that
+# `addopts = -q -n auto` makes coverage write before it combines them. That
+# last class is why the ignore rule and the clean recipe both carry a
+# `.coverage.*` glob and not just the exact name.
 cov:
 	uv run pytest --cov=proactive_loop --cov-report=term-missing
 
@@ -56,7 +60,7 @@ clean:
 	rm -rf .pla_runs
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
 	rm -rf .pytest_cache
-	rm -rf .coverage htmlcov
+	rm -rf .coverage .coverage.* htmlcov
 	rm -rf .venv-py*
 
 # Reproduce the EXACT CI graded gate locally, in CI's own order, in one command.

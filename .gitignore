@@ -5,4 +5,9 @@ __pycache__/
 .pytest_cache/
 .pla_runs/
 .coverage
+# Per-worker parallel coverage data (`.coverage.<host>.<pid>.<rand>`), written
+# into the repo root by every `-n auto` run before coverage combines them.
+# Kept as its own rule rather than widening the line above to `.coverage*`:
+# the literal dot keeps it narrow (`.coveragerc` stays visible).
+.coverage.*
 htmlcov/
