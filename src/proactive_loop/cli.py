@@ -52,7 +52,7 @@ from pydantic import ValidationError
 from . import __version__
 from .config import Settings
 from .collectors import SIGNAL_KINDS, all_collectors
-from .collectors import text_source
+from .collectors import dir_source, text_source
 from .collectors.base import record_degradations
 from .llm import LLMClient, LLMError
 from .llm.providers import create_client
@@ -1689,12 +1689,14 @@ def _collect(
     ``--baseline`` both compare on: see ``_normalize_signal_paths`` for why one owner
     is the point.
 
-    This seam also DEFINES the lifetime of the shared text cache: the collector
-    loop runs inside one ``text_source.scan_scope()``, so a file the content
-    collectors overlap on is read and decoded ONCE per scan and never held across
-    scans. That is scoping only -- which signals are produced, in what order, and
-    with what fields is byte-identical to before -- and it applies to every verb
-    that scans through here, since they all share this one loop.
+    This seam also DEFINES the lifetime of the two shared perception caches: the
+    collector loop runs inside one ``text_source.scan_scope()`` AND one
+    ``dir_source.walk_scope()``, so a file the content collectors overlap on is
+    read and decoded ONCE per scan, and a directory tree the walking collectors
+    overlap on is traversed ONCE per scan. Neither is ever held across scans. That
+    is scoping only -- which signals are produced, in what order, and with what
+    fields is byte-identical to before -- and it applies to every verb that scans
+    through here, since they all share this one loop.
     """
     # Explicitly annotated: the `len(signals)` read below now precedes the first
     # `extend`, so mypy can no longer infer the element type from usage.
@@ -1709,7 +1711,14 @@ def _collect(
     # scope empties the cache on both edges even if a collector raises, so no
     # text ever survives a scan -- see collectors/text_source for why the
     # lifetime is exactly one scan.
-    with text_source.scan_scope():
+    # The dir scope is the same idea one level up, on dirents instead of bytes:
+    # the walking collectors all walk the SAME root, so before this the workspace
+    # was traversed once per walking collector. Inside this scope the first one to
+    # reach a root pays the traversal and the rest are served the same pruned
+    # listing. Both scopes wrap the LOOP (not each collect() call), which is what
+    # makes the sharing cross-collector, and both empty on entry and in a finally,
+    # so nothing survives a scan even if a collector raises.
+    with text_source.scan_scope(), dir_source.walk_scope():
         for collector in all_collectors():
             if only is not None and collector.name not in only:
                 continue

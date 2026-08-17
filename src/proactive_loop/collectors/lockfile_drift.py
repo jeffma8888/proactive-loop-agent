@@ -22,8 +22,10 @@ cost (additive, no version bump).
 
 Detection is **presence + mtime only** -- it NEVER opens or parses lockfile/manifest
 CONTENT (no hash/version comparison), so it cannot be broken by binary/non-UTF-8
-files and no file contents can ever leak into a signal. Pure stdlib (``os``/
-``pathlib``) only, keeping the runtime pydantic-v2-only and fully offline.
+files and no file contents can ever leak into a signal. Pure stdlib only (the
+traversal comes from ``collectors.dir_source``, which shares one pruned ``os.walk``
+per root per scan; the mtime probes are ``pathlib``), keeping the runtime
+pydantic-v2-only and fully offline.
 
 KNOWN DESIGN CAVEAT (by design, not a bug): a fresh ``git clone`` resets every file
 to checkout time, so the *stale* half goes quiet right after clone -- the always-valid
@@ -33,14 +35,11 @@ the judgement to the synthesizer.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors import dir_source
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules the sibling filesystem collectors use so a manifest
-# buried in node_modules/.venv/a hidden dir is invisible here too (Behavior 11).
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ContextSignal
 
 # Recognized manifest -> ordered lockfile candidates, checked in the SAME directory
@@ -72,12 +71,12 @@ class LockfileDriftCollector(BaseCollector):
 
         # Collect (relative-path, signal) pairs so we can order deterministically.
         found: list[tuple[str, ContextSignal]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to the sibling
-            # collectors, so os.walk never descends into them (Behavior 11).
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden dirs (Behavior 11):
+        # dir_source applies the package's one prune policy during the traversal, so
+        # this collector no longer needs the rule -- and inside cli._collect's scan
+        # scope the traversal itself is shared with every sibling walking the same
+        # root, instead of being re-paid once per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 candidates = _MANIFEST_LOCKS.get(fname)
                 if candidates is None:

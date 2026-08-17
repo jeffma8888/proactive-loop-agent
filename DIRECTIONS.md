@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-171
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Fold the three hand-copied content-digest memos into one seam (136 LOC of triplicated policy)
+    - Candidate A2 -- Retire the 4 ROADMAP index rows whose premise is DEAD: 3,538 chars against 1,594 chars of headroom
+    - Candidate A3 -- One `_emit_json` seam: 22 hand-spelled `indent=2` sites and 8 copy-pasted comments
+    - Candidate B1 -- One shared tree walk per scan: 13 redundant traversals, ~350 ms of a 915 ms scan
+    - Candidate B2 -- Cut the suite's critical path: 2 tests cost 20.43 s of a 55.53 s suite and 0.54 s standalone
+    - Candidate B3 -- Make `signals --timings` attribute shared I/O honestly: the perf instrument is off by up to 8x
+    winner: B1
+    ship: pending (not yet decided)
   iter-170
     lenses: INTEGRATION-AND-ADOPTION, SIMPLIFICATION-AND-DELETION
     - Candidate A1 -- first committed consumer of the four-verb `--json` contract
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- retire 12 of the 13 hand-copied "verb count is 15" pins, keeping one on the seam that already exists
     - Candidate B3 -- delete the byte-identical test-helper bodies that up to 12 modules each redefine
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 3b165f7
   iter-169
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `resume` dies on a corrupt `meta.json` without naming the file, while `runs` tolerates the identical file (ROADMAP #151)
@@ -787,4 +797,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-79 scouted iterations
+80 scouted iterations

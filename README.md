@@ -93,6 +93,8 @@ kind, so the table cannot fall behind the code.
 | `todos` | `todo` | TODO/FIXME/XXX comments and unchecked Markdown checkboxes. |
 | `working_tree` | `working_tree` | Present-state git signals: dirty paths and unpushed commits. |
 
+One scan pays for each piece of filesystem work ONCE, not once per collector. The collectors above overlap heavily -- most of them walk the same workspace root, and the content collectors read the same files -- so the scan loop runs inside two scan-scoped providers: `collectors/text_source.py` shares one read+decode per file, and `collectors/dir_source.py` shares one pruned `os.walk` per directory root. Both caches live for exactly one scan and are emptied on entry and exit, so a long-lived `pla watch` process can never be served a stale listing or a stale file body from a previous tick, and both degrade to doing the work directly when no scope is active, so a collector used as a library still works on its own. The shared walk is served in `os.walk`'s own `(dirpath, dirnames, filenames)` shape with the noise/hidden-directory prune already applied and the order sorted, so what a collector perceives does not depend on platform enumeration order. `dependencies` and `lockfile_drift` are the collectors served by the shared walk today; the remaining walkers still traverse for themselves and are being converted incrementally.
+
 ### ACT sandbox tool allowlist
 
 Every ACT step resolves the model's requested tool against this closed

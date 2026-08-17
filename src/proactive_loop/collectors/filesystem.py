@@ -7,11 +7,15 @@ signal list stays relevant to developer work.
 WHY sibling collectors import private names from here: this module is the ONE
 home of the package's walk policy -- ``_SKIP_DIRS`` and ``_is_hidden`` ("which
 parts of a tree are worth looking at") and ``_has_source`` ("does this tree
-contain source code"). Eleven modules already import that seam (``broken_link``,
-``ci_config``, ``dependencies``, ``large_file``, ``license``,
-``lockfile_drift``, ``merge_conflict``, ``secret_file``, ``syntax_error``,
-``test_posture``, and ``loop/tools.py``'s L1 ACT sandbox), so a policy question
-answered here is answered once. ``_has_source`` was hoisted here because it had
+contain source code"). Modules across the package import that seam
+(``broken_link``, ``ci_config``, ``large_file``, ``license``, ``merge_conflict``,
+``secret_file``, ``syntax_error``, ``test_posture``, ``loop/tools.py``'s L1 ACT
+sandbox, and ``dir_source``), so a policy question answered here is answered once.
+No count is stated on purpose: a numeral here goes stale the moment a collector is
+converted onto the shared walk. That conversion is now the normal direction of
+travel -- ``dir_source`` imports the prune rules ONCE and applies them during a
+shared traversal, so a collector it serves (``dependencies``, ``lockfile_drift``)
+inherits an already-pruned listing and stops importing the rule at all. ``_has_source`` was hoisted here because it had
 been answered TWICE -- ``ci_config`` and ``license`` each carried a verbatim copy
 behind a comment asking a human to keep them equal by hand, and both copies
 decide whether their collector emits an actionable L2 gap signal, so a split

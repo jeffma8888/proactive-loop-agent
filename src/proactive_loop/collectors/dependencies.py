@@ -18,15 +18,12 @@ for requirements.txt) so the runtime stays pydantic-v2-only and fully offline.
 from __future__ import annotations
 
 import json
-import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from proactive_loop.collectors import dir_source
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules RecentFilesCollector uses so a manifest buried in
-# node_modules/.venv/etc or a hidden dir is invisible here too (spec Behavior 9).
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ContextSignal
 
 # The three manifest filenames we recognise. Deliberately narrow (spec Out of
@@ -60,12 +57,12 @@ class DependencyCollector(BaseCollector):
 
         # Collect (relative-path, signal) pairs so we can order deterministically.
         found: list[tuple[str, ContextSignal]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to RecentFilesCollector,
-            # so os.walk never descends into them (spec Behavior 9).
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden dirs (spec Behavior 9):
+        # dir_source applies the package's one prune policy during the traversal, so
+        # this collector no longer needs the rule -- and inside cli._collect's scan
+        # scope the traversal itself is shared with every sibling walking the same
+        # root, instead of being re-paid once per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 if fname not in _MANIFEST_NAMES:
                     continue

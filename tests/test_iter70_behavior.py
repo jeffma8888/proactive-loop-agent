@@ -50,6 +50,7 @@ import pytest
 
 from proactive_loop.cli import main
 from proactive_loop.collectors import LockfileDriftCollector, all_collectors
+from proactive_loop.collectors import dir_source as dir_source_mod
 from proactive_loop.collectors import lockfile_drift as lockfile_drift_mod
 from proactive_loop.collectors.lockfile_drift import (
     LockfileDriftCollector as LockfileDriftCollector_direct,
@@ -279,8 +280,12 @@ def test_b10_oswalk_raises_degrades_to_empty(tmp_path: Path, monkeypatch) -> Non
     def _boom(*_a, **_k):
         raise OSError("simulated os.walk failure")
 
-    # The spec (Behavior 10) names lockfile_drift.os.walk as the monkeypatch seam.
-    monkeypatch.setattr(lockfile_drift_mod.os, "walk", _boom)
+    # The spec (Behavior 10) names the collector's os.walk as the monkeypatch seam.
+    # factory iter 175 moved the traversal itself into ``collectors.dir_source`` (one
+    # shared pruned walk per root per scan), so the seam ADDRESS moved with it while
+    # the contract asserted below is unchanged: whatever raises inside the walk, the
+    # collector still degrades to [] rather than propagating.
+    monkeypatch.setattr(dir_source_mod.os, "walk", _boom)
 
     assert LockfileDriftCollector().collect(tmp_path) == []
 
