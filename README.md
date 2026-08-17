@@ -393,6 +393,24 @@ no loadable checkpoint still exits 2 with `error: no checkpoint found in <dir>` 
 stderr and leaves stdout **empty**, never a half-formed document, and a bare
 `pla resume --run-dir DIR` is byte-identical to before.
 
+`examples/check_run.py` is the committed *consumer* of that shared document, and it
+exists because a published contract nobody executes is a guess: the paragraphs above
+sell `pla run ... --json | jq`, but `jq` cannot be a dependency of an offline-first
+project, so nothing outside `tests/` ever read one of these documents. Pipe any of the
+three verbs into it -- `pla run ... --json | python examples/check_run.py` -- and it
+prints one `ok: ` summary line naming the run id and status, exiting **0** only when
+the dispatched run reached the terminal `done` status. It exits **1** when the document
+parsed and the run did not succeed (a non-success status, or nothing dispatched at all,
+which is what `--dry-run` publishes) and **2** when stdin was not one JSON object, so a
+caller can tell a bad pipe from a bad run. One consumer serves all three verbs because
+a top-level `status` key discriminates the two shapes: `dispatch --json` and
+`resume --json` publish the nine keys at top level, while `run --json` nests them under
+`dispatched`. The success value is imported from `proactive_loop.models.RunStatus`,
+never typed as a literal --- this consumer's own first draft guessed `completed` ---
+so renaming that enum member fails the example loudly instead of leaving a stranger's
+script reporting failure on every successful run. Standard library only: no `jq`, no
+network, no new dependency.
+
 ### What the state directory contains
 
 Every dispatched goal leaves an audit trail on disk, and `--state-dir` (default

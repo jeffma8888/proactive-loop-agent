@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-170
+    lenses: INTEGRATION-AND-ADOPTION, SIMPLIFICATION-AND-DELETION
+    - Candidate A1 -- first committed consumer of the four-verb `--json` contract
+    - Candidate A2 -- an oracle that every fenced README `pla` command line actually PARSES
+    - Candidate A3 -- close the retention gap: `runs --prune` has no consumer while the repo fakes retention with `rm -rf`
+    - Candidate B1 -- collapse THREE hand-copied content-digest memos into one generic memo, keeping three separate instances
+    - Candidate B2 -- retire 12 of the 13 hand-copied "verb count is 15" pins, keeping one on the seam that already exists
+    - Candidate B3 -- delete the byte-identical test-helper bodies that up to 12 modules each redefine
+    winner: A1
+    ship: pending (not yet decided)
   iter-169
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `resume` dies on a corrupt `meta.json` without naming the file, while `runs` tolerates the identical file (ROADMAP #151)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `resume` is the last execution verb with no machine result, and the document builder it needs already exists (ROADMAP #196)
     - Candidate B3 -- the snapshot has a ratchet reader but no TRUST reader, so `sources` are still taken on the model's word (ROADMAP #201)
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 8c039b9
   iter-168
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla verify --slate S --snapshot N`: resolve each goal's cited sources against the signals actually perceived (roadmap row #201)
@@ -777,4 +787,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-78 scouted iterations
+79 scouted iterations

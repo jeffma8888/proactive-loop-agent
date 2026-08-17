@@ -107,4 +107,5 @@ Started in iter-132 to buy stage headroom (see below). A line here records only 
 - #207 Single-source the ROADMAP.md size budget (iter 168, factory iter 172)
 - #196 resume --json: the 9-key dispatched document from a THIRD call site of one shared builder, human summary to stderr (iter 169, factory iter 173)
 
+- #208 examples/check_run.py: first committed consumer of the nine-key dispatched document, DONE sentinel derived from the enum (iter 170, factory iter 174)
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._
