@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-175
+    lenses: hardening/DX (iteration 175), integration-and-adoption (iteration 175)
+    - Candidate A1 -- a user-facing JSON read must name the file it failed on
+    - Candidate A2 -- `make test-cold`: derive the suite wall-time instead of citing it
+    - Candidate A3 -- make the two `_out_dir_guard` clauses distinguishable to the suite
+    - Candidate B1 -- `run --snapshot FILE`: the demo cannot produce the newest verb's required input
+    - Candidate B2 -- `verify --fail-on-unresolved`: the trust verb has no channel a gate can branch on
+    - Candidate B3 -- the gate finally READS an artifact back (roadmap row #185), priced
+    winner: B1
+    ship: pending (not yet decided)
   iter-174
     lenses: NEW-CAPABILITY, HARDENING/DX
     - Candidate A1 -- `pla coverage`: which PERCEIVED signals the slate cites NOBODY
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Row #136: the newest of the four CLI path guards is the only unguarded one
     - Candidate B3 -- Row #185: make one gate step READ the demo slate instead of stat-ing it
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 10d0aa2
   iter-173
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- The newest module's load-bearing safety claim is false in all three clauses, and roadmap #210 is queued to act on it
@@ -827,4 +837,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-83 scouted iterations
+84 scouted iterations

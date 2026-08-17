@@ -718,6 +718,29 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the run result as one JSON object on stdout; the human progress goes to stderr.",
     )
+    # Same PERCEPTION record scan writes (#200), on the one verb any gate site
+    # actually invokes: `run` is `make demo` and every CI demo step, so without this
+    # the slate this repo publishes about itself cannot be handed to `verify` at all
+    # -- and README's `verify` contract forbids substituting a fresh re-scan, because
+    # several collectors are mtime-driven so a second collect answers a different
+    # question. Absent by default, so every existing `run` stays byte-identical.
+    p_run.add_argument(
+        "--snapshot",
+        default=None,
+        metavar="FILE",
+        # Deliberately does NOT spell the literal `--json` (scan's twin help does):
+        # test_iter158's run-help oracle locates the --json entry with
+        # rindex("--json"), so any LATER option whose prose names that flag becomes
+        # the match and the oracle grades the wrong help string. Same idea is stated
+        # here as "the shape the signals verb publishes".
+        help=(
+            "Also write the workspace snapshot this run perceived to FILE as one "
+            "JSON document ({workspace_root, signals[]}, the same shape the "
+            "`signals` verb publishes, no timestamps), so the slate ships with the "
+            "evidence it was synthesized from and is directly checkable by `pla "
+            "verify --slate ... --snapshot FILE`. Default (absent) writes nothing."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -4298,9 +4321,31 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if msg is not None:
             print(f"error: {msg}", file=sys.stderr)
             return 2
+        # --snapshot is a SECOND file target, so it gets the same structural pre-check
+        # _cmd_scan runs on its own, for the same reason: an unusable path must not be
+        # discovered AFTER the collect + synthesize + dispatch pipeline already spent the
+        # LLM budget and printed a success-looking table. Guarded here -- before the
+        # client exists and before any collector runs -- so a bad --snapshot writes
+        # neither a snapshot nor a slate nor a run dir. Blame is parameterized (`flag=`)
+        # so the message names --snapshot; the pre-existing messages are unchanged.
+        # NAMED snapshot_out, never `snapshot`: the WorkspaceSnapshot binds that name
+        # below, and shadowing it here would pass the wrong object to the writer.
+        snapshot_out = Path(args.snapshot) if args.snapshot else None
+        if snapshot_out is not None:
+            msg = _out_target_guard(snapshot_out, flag="--snapshot")
+            if msg is not None:
+                print(f"error: {msg}", file=sys.stderr)
+                return 2
         client = create_client(settings)
 
         snapshot = _collect(workspace)
+        # Written ONCE, here: after the collect that produced it and BEFORE synthesis.
+        # That position is load-bearing twice, exactly as in _cmd_scan -- the perception
+        # record survives a synthesis failure (the run that fails is the one whose
+        # evidence is worth having), and --dry-run gets it by construction, since the
+        # dry-run return sits far below. No stdout, so --json's key set is untouched.
+        if snapshot_out is not None:
+            _write_snapshot_document(snapshot, snapshot_out)
         slate = GoalSynthesizer(client, settings).synthesize(snapshot)
         decisions = gate_slate(slate, settings)
 

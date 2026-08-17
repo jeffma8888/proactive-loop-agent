@@ -112,4 +112,5 @@ Started in iter-132 to buy stage headroom (see below). A line here records only 
 - #206 README suite-size ratchet gains a headroom gauge, recorded a shift late by iter 173 (iter 172, factory iter 176, aae1a80)
 - #211 .gitignore + make clean cover the .coverage.<host>.<pid> files the suite really writes (iter 174, factory iter 178)
 - #201 pla verify --slate/--snapshot: resolve each goal's cited sources against the perceived snapshot (iter 173, factory iter 177)
+- #213 run --snapshot FILE: the autonomous verb persists the snapshot it perceived, so verify can check the demo's own slate (iter 175, factory iter 179)
 _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-order on learnings)._
