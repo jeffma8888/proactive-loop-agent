@@ -20,9 +20,11 @@ back on a single-interpreter run.
 
 WHAT THE EXIT-5 CENSUS CLAIMS (behavior 9)
 It is an anti-recurrence ratchet, not a correctness proof: it pins the NUMBER of
-literal exit-5 routes in ``cli.py`` so a third route cannot be added without a
+literal exit-5 routes in ``cli.py`` so a NEW route cannot be added without a
 human noticing that the code-5 meaning must be updated on all three surfaces
-first.  It does not claim those are the only ways the process can exit 5, nor
+first.  It has fired once and worked as designed: state-dir iter 176 added
+``verify --fail-on-unresolved`` as the third route, this test reddened, and the
+census moved 2 -> 3 in the same commit that widened all three surfaces.  It does not claim those are the only ways the process can exit 5, nor
 that a given flag reaches a given site.  Line numbers are deliberately NOT
 asserted -- inserting the epilog moved both sites (4268/4296 as measured in this
 run) while the count did not.
@@ -479,21 +481,24 @@ def test_b08_portfolio_intro_keeps_its_three_carve_out_numbers() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_b09_cli_has_exactly_two_literal_exit_5_routes() -> None:
+def test_b09_cli_has_exactly_three_literal_exit_5_routes() -> None:
     sites = _exit5_sites(CLI_SOURCE.read_text(encoding="utf-8"))
     total = sum(len(linenos) for linenos in sites.values())
-    assert total == 2, (
-        "src/proactive_loop/cli.py must hold exactly 2 literal exit-5 routes "
-        f"(found {total}: {sites}). RELEASE CONDITION: a third route to exit 5 "
+    assert total == 3, (
+        "src/proactive_loop/cli.py must hold exactly 3 literal exit-5 routes "
+        f"(found {total}: {sites}). RELEASE CONDITION: ANY NEW route to exit 5 "
         "may only be added once its meaning is named on ALL THREE published "
         "surfaces -- the 'exit codes:' epilog on `pla --help`, the code-5 "
         "bullet of proactive_loop.cli.main.__doc__, and the README "
         "'### Exit codes' row 5 -- and this census is raised in the same "
         "commit. Exit 5 is the channel CI branches on; an undocumented route "
-        "to it is an undocumented contract."
+        "to it is an undocumented contract. Raised 2 -> 3 by state-dir iter 176 "
+        "for `verify --fail-on-unresolved`, which widened all three surfaces in "
+        "that same commit; the condition is stated generically so the ratchet "
+        "does not need re-wording on the next one."
     )
-    assert len(sites["return"]) == 2, (
-        f"expected both routes to be literal `return 5` statements; got {sites}"
+    assert len(sites["return"]) == 3, (
+        f"expected every route to be a literal `return 5` statement; got {sites}"
     )
 
 

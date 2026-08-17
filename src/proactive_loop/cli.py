@@ -486,9 +486,10 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
     ),
     (
         5,
-        "a gate you armed tripped on a finding -- either --fail-on-kind "
-        "matched at least one reported signal, or --fail-over saw more "
-        "reported signals than its budget. The command itself succeeded and "
+        "a gate you armed tripped on a finding -- --fail-on-kind matched at "
+        "least one reported signal, --fail-over saw more reported signals "
+        "than its budget, or verify --fail-on-unresolved could not resolve a "
+        "cited source against the snapshot. The command itself succeeded and "
         "printed its normal output; the gate names itself on one line on "
         "stderr and stdout is unchanged.",
     ),
@@ -865,6 +866,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit the verification as ONE JSON object instead of the human blocks.",
+    )
+    # OPT-IN enforcement -- the half row #201 deliberately deferred, and the reason it
+    # is a flag rather than the default is unchanged: several collectors are
+    # mtime-driven, so an unresolved source can mean staleness. `store_true` is
+    # idempotent, so unlike `--fail-on-kind` this needs no `_AtMostOnce` action -- a
+    # repeated flag cannot ask for two different things.
+    p_verify.add_argument(
+        "--fail-on-unresolved",
+        action="store_true",
+        help="Exit 5 instead of 0 when at least one cited source is unresolved (the report is unchanged).",
     )
     p_verify.set_defaults(func=_cmd_verify)
 
@@ -1500,11 +1511,12 @@ def main(argv: list[str] | None = None) -> int:
     * ``4`` -- needs-approval (re-run with ``--yes``).
     * ``5`` -- a requested gate tripped on a finding: the command ran fine and
       reported what it perceived, but a gate the caller armed refused the
-      result -- either ``--fail-on-kind`` matched at least one reported signal,
-      or ``--fail-over`` saw more reported signals than its budget allows. Both
-      producers are named deliberately: the code is the only thing a script
-      sees, so a second route to it that the contract omits is an undocumented
-      contract. Distinct from ``1`` (the tool itself failed) and from ``2``
+      result -- ``signals --fail-on-kind`` matched at least one reported signal,
+      ``signals --fail-over`` saw more reported signals than its budget allows,
+      or ``verify --fail-on-unresolved`` could not resolve a cited source
+      against the snapshot. EVERY producer is named deliberately: the code is
+      the only thing a script sees, so a second route to it that the contract
+      omits is an undocumented contract. Distinct from ``1`` (the tool itself failed) and from ``2``
       (nothing to act on / bad invocation) -- this is the *finding* channel a
       pre-commit hook or CI step branches on.
 
@@ -4768,10 +4780,13 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     FILE`` writes the very snapshot the slate was synthesized FROM (not a second,
     later collect), so the ground truth is deterministic and this verb never re-scans.
 
-    REPORTING-ONLY: the exit code is ``0`` even when sources are unresolved. Several
-    collectors are mtime-driven, so an unresolved source can mean the snapshot moved
-    on rather than that the model invented something, and a verb that cannot tell
-    those apart must not fail a build over either. Arming a gate is a separate row.
+    REPORTING-ONLY BY DEFAULT: the exit code is ``0`` even when sources are unresolved.
+    Several collectors are mtime-driven, so an unresolved source can mean the snapshot
+    moved on rather than that the model invented something, and a verb that cannot tell
+    those apart must not fail a build over either. ``--fail-on-unresolved`` (row #214)
+    lets a caller that KNOWS its pair is same-run -- ``run --snapshot`` writes exactly
+    that -- opt in to the shipped gate code ``5`` instead. Opt-in, not default, keeps
+    the staleness caveat above true for every existing invocation.
 
     Exit codes reuse the shipped ladder rather than inventing a second one: a missing
     ``--slate`` file or ANY malformed ``--snapshot`` document returns ``2`` explicitly
@@ -4801,6 +4816,27 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         print(json.dumps(_verify_json_payload(args.slate, args.snapshot, rows), indent=2))
     else:
         print(_render_verify(rows))
+    # THE GATE, LAST AND AFTER STDOUT ON PURPOSE. Every earlier return -- both exit-2
+    # refusals -- has already fired, so this branch can only ever re-colour the
+    # SUCCESSFUL `0`: a refusal keeps its own code and prints no `gate: ` line, without
+    # a second code path saying so. Placing it after the report means the gate colours
+    # the exit status without suppressing or reshaping one byte of output, which is
+    # what keeps `--json` exactly one parseable object.
+    if args.fail_on_unresolved:
+        # Re-derived from the SAME `rows` the renderer just consumed, never from the
+        # JSON payload, so the count on stderr cannot disagree with the report on
+        # stdout -- the house convention the sibling `--fail-over` gate follows.
+        unresolved_count = sum(len(unresolved) for _, _, unresolved in rows)
+        if unresolved_count:
+            # STDERR, exactly one line, NO `error: ` prefix -- a finding is not a fault
+            # in the tool, the same distinction `gate: fail-over tripped -- count=N
+            # budget=N` draws. One `key=value` pair mirrors that idiom and sidesteps a
+            # singular/plural branch, which would be a second code path for grammar.
+            print(
+                f"gate: fail-on-unresolved tripped -- unresolved={unresolved_count}",
+                file=sys.stderr,
+            )
+            return 5
     return 0
 
 

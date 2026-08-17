@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-176
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `pla verify --fail-on-unresolved`: the exit code a caller can branch on
+    - Candidate A2 -- the demo publishes its own snapshot, and the gate asserts the file
+    - Candidate A3 -- `make hooks`: a one-command on-ramp for the pre-commit gate the README already advertises
+    - Candidate B1 -- one `_ranked_pairs()` helper; five copies of the ordering contract deleted
+    - Candidate B2 -- one shared digest-memo primitive; three hand-rolled copies deleted
+    - Candidate B3 -- bound the append-only Done ledger, the only unbounded term in a hard-capped file
+    winner: A1
+    ship: pending (not yet decided)
   iter-175
     lenses: hardening/DX (iteration 175), integration-and-adoption (iteration 175)
     - Candidate A1 -- a user-facing JSON read must name the file it failed on
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `verify --fail-on-unresolved`: the trust verb has no channel a gate can branch on
     - Candidate B3 -- the gate finally READS an artifact back (roadmap row #185), priced
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 328ca70
   iter-174
     lenses: NEW-CAPABILITY, HARDENING/DX
     - Candidate A1 -- `pla coverage`: which PERCEIVED signals the slate cites NOBODY
@@ -837,4 +847,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-84 scouted iterations
+85 scouted iterations
