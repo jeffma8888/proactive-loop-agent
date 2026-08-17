@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-172
+    lenses: performance-and-throughput, NARRATIVE-AND-DOCS
+    - Candidate A1 -- convert the 7 remaining walking collectors onto dir_source (roadmap #210)
+    - Candidate A2 -- shared per-scan stat provider: 14,179 stat calls, but only 1.7% of the scan
+    - Candidate A3 -- retire Path.relative_to from the per-file hot loop: 101 ms, 10.8% of the scan
+    - Candidate B1 -- Bump the README suite-size floor 3,800+ -> 4,200+ and publish the headroom
+    - Candidate B2 -- Four shipped rows lost their reasoning: derive the archive-coverage census instead of hardcoding it
+    - Candidate B3 -- Guard the README's hand-enumerated shared-walk collector list before row #210 makes it false
+    winner: B1
+    ship: pending (not yet decided)
   iter-171
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Fold the three hand-copied content-digest memos into one seam (136 LOC of triplicated policy)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Cut the suite's critical path: 2 tests cost 20.43 s of a 55.53 s suite and 0.54 s standalone
     - Candidate B3 -- Make `signals --timings` attribute shared I/O honestly: the perf instrument is off by up to 8x
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 817baf1
   iter-170
     lenses: INTEGRATION-AND-ADOPTION, SIMPLIFICATION-AND-DELETION
     - Candidate A1 -- first committed consumer of the four-verb `--json` contract
@@ -797,4 +807,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-80 scouted iterations
+81 scouted iterations

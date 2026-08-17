@@ -380,6 +380,60 @@ def suite_size_problems(intro_text: str, live_count: int) -> list[str]:
     return problems
 
 
+def headroom_report(intro_text: str, live_count: int) -> str:
+    """One line of drift telemetry for the README's suite-size ratchet.
+
+    Why this exists: ``suite_size_problems`` is a RATCHET WITH NO GAUGE -- on a green
+    run it prints nothing, so the only signal that the published floor has rotted is
+    a RED BUILD on a public repo. This renders the same derivation as a number, so a
+    reader (human or loop) gets a countdown instead of a surprise. It cannot drift
+    away from the verdict it reports on, because every field composes the guard's own
+    seams -- ``SUITE_CLAIM``, ``_published_floor_for``, ``SUITE_SIZE_SLACK`` -- rather
+    than re-deriving any of them; there is deliberately no second regex here.
+
+    PURE by construction: no subprocess, no file read, no network. That keeps it
+    provable from synthetic strings, and it keeps the suite's ONE ``--collect-only``
+    subprocess exactly one -- the live count is INJECTED by the caller, which is what
+    ``make readme-headroom`` passes ``collect_live_test_count()`` for.
+
+    ``red_at`` is ``published + slack`` because ``suite_size_problems`` fires when
+    ``live - floor >= SUITE_SIZE_SLACK`` -- AT the budget, not past it. So the
+    smallest FAILING live count is ``published + slack``, and ``headroom`` (how many
+    tests may still be added while staying green) is one less than the distance to
+    it. Measured on both sides of that boundary: live 4,299 is green, 4,300 is not.
+
+    WHICH claim is reported when the intro carries several: the SMALLEST published
+    floor. ``suite_size_problems`` checks every match INDEPENDENTLY, so the build
+    reds as soon as the FIRST claim rots, and the smallest floor is the one that rots
+    first -- reporting any other would understate the risk. A consequence worth
+    knowing is that an intro whose two claims DISAGREE is currently green (measured:
+    ``'**3,800+ tests**'`` plus ``'**4,200+ passing tests**'`` at live 4,203 yields
+    no problems), which is exactly why the gauge must name the BINDING claim rather
+    than whichever one it happens to see first.
+    """
+    floors = [
+        int(match.group(1).replace(",", ""))
+        for match in SUITE_CLAIM.finditer(intro_text)
+    ]
+    assert floors, (
+        "the README intro makes no bolded suite-size claim, so there is no published "
+        "floor to report headroom for (expected something like "
+        f"'**{_published_floor_for(live_count):,}+ tests**'). Refusing to invent a "
+        "'published' value: a fabricated gauge is worse than no gauge, because it "
+        "would report comfortable headroom for a claim no reader can find."
+    )
+    published = min(floors)
+    floor = _published_floor_for(live_count)
+    red_at = published + SUITE_SIZE_SLACK
+    return (
+        "readme-suite-size: "
+        f"live={live_count} published={published} floor={floor} "
+        f"slack={SUITE_SIZE_SLACK} red_at={red_at} "
+        f"headroom={red_at - 1 - live_count} "
+        f'replacement="{floor:,}+"'
+    )
+
+
 # A coverage PARALLEL-DATA file as coverage.py names them under a data suffix, e.g.
 # ``.coverage.runnervmzvulz.pid5020.X1lSglDx.He8Yd0w110Hh``. Keyed deliberately on the
 # same class ``tests/test_iter52_behavior.py`` wipes with ``REPO.glob(".coverage.*")``,

@@ -1,5 +1,5 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: setup test cov typecheck demo clean check check-matrix
+.PHONY: setup test cov typecheck readme-headroom demo clean check check-matrix
 
 # Resolve and install the locked dependency set into a project virtualenv.
 # Uses --locked (not bare 'uv sync') so a local install resolves the EXACT
@@ -24,6 +24,22 @@ cov:
 # step is the other half). Runs the pinned mypy from the project venv, offline.
 typecheck:
 	uv run mypy src/proactive_loop
+
+# Print the README suite-size ratchet's HEADROOM: how many tests may still be added
+# before the published floor in the human-owned intro goes stale and reds a PUBLIC
+# build. The guard that enforces that floor is silent while green, so before this
+# target the only signal was the red build itself.
+#
+# It composes the guard's OWN seams -- `headroom_report` renders the figures and
+# `collect_live_test_count` supplies the live number from a real collection -- so the
+# gauge and the verdict can never disagree. Reading them from anywhere else, or
+# hardcoding the count, is the drift this repo keeps proving is real; a test pins
+# this recipe to both helper names for exactly that reason.
+#
+# `@` because the output IS the product here (one machine-readable line), unlike the
+# multi-step gates above where the echoed command is the useful trace.
+readme-headroom:
+	@uv run python -c 'from tests.test_readme_and_ci_contract import _intro, collect_live_test_count, headroom_report; print(headroom_report(_intro(), collect_live_test_count()))'
 
 # End-to-end demo: scan the fixture workspace, then auto-dispatch the single
 # top AUTO_DISPATCH goal through the resilient loop -- all driven by the bundled
