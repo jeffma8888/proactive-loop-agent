@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-180
+    lenses: unknown
+    - Candidate A1 -- `scan --suppress FILE`: let the user retire a goal that keeps coming back
+    - Candidate A2 -- `signals --max-items N`: make perception DEPTH reachable from the CLI
+    - Candidate A3 -- `run --max-goals N`: the autonomous verb acts on 1 of N goals it already approved
+    - Candidate B1 -- the suite is not environment-hermetic: an exported `PLA_*` knob reds a clean checkout
+    - Candidate B2 -- 52 conditional-skip sites, and no instrument anywhere reports that a test skipped
+    - Candidate B3 -- iter-169 made absorbed collector failures visible; two collectors still swallow per-item failures in total silence
+    winner: B3
+    ship: pending (not yet decided)
   iter-179
     lenses: narrative-and-docs, NEW-CAPABILITY (iteration 179)
     - Candidate A1 -- SPEC.md never documents the enforcement surface: the armed `signals` gates, exit code 5, and the fact that this repo's own CI runs them
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- per-category autonomy thresholds (`PLA_CATEGORY_MIN_SCORE=career:4.5,maintenance:3.0`)
     - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector, 3rd relational one
     winner: A3
-    ship: pending (not yet decided)
+    ship: PUSHED 96a5336
   iter-178
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- single-source the per-path content digest into `text_source`
@@ -877,4 +887,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-88 scouted iterations
+89 scouted iterations
