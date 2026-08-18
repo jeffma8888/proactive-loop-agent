@@ -37,7 +37,8 @@ than an expression over the file it polices.
 
 WHY THE RETIREMENT ASSERTIONS SHIP IN THE SAME MODULE
 The budget was bought back by retiring settled index rows into
-``ROADMAP_ARCHIVE.md`` -- 4 in iteration 158 and 5 more in iteration 162, 9 in
+``ROADMAP_ARCHIVE.md`` -- 4 in iteration 158, 5 more in iteration 162, 1 in
+iteration 177, 10 in
 :data:`RETIRED_ROWS` today -- and the file's own rule is "never drop a row
 without first confirming the archive has it". A trim is therefore only correct as
 a PAIR (absent here AND present there), which is a property no single-file check
@@ -95,10 +96,12 @@ ROADMAP_CHAR_LIMIT: Final[int] = 40_000
 ROADMAP_CHAR_FLOOR: Final[int] = 10_000
 
 #: The settled rows retired into ``ROADMAP_ARCHIVE.md``: 4 by iteration 158
-#: (143, 146, 155, 195) and 5 more by iteration 162 (138, 197, 198, 199, 200).
+#: (143, 146, 155, 195), 5 more by iteration 162 (138, 197, 198, 199, 200), and
+#: #129 by iteration 177, retired CORRECTED (its settled shape re-measured as a
+#: net LOSS; see the archive bullet).
 #: Each must now be ABSENT from the live index and PRESENT in the archive. Kept in
 #: lockstep with ``SPEC_RETIRED_ROWS`` in ``tests/test_iter164_behavior.py``, which
-#: spells the same 9 numbers independently and asserts the two agree -- so
+#: spells the same 10 numbers independently and asserts the two agree -- so
 #: extending one census alone is a red build rather than a silent divergence.
 RETIRED_ROWS: Final[tuple[str, ...]] = (
     "143",
@@ -110,6 +113,7 @@ RETIRED_ROWS: Final[tuple[str, ...]] = (
     "198",
     "199",
     "200",
+    "129",
 )
 
 #: Archived YET deliberately kept in the live index (``test_iter115_behavior.py``

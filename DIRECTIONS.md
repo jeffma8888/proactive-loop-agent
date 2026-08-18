@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-177
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Empty the one-member retirement allowlist by retiring the settled row #121
+    - Candidate A2 -- Delete the last two hand-copied walk-policy blocks in `notes.py` and `todos.py`
+    - Candidate A3 -- Collapse the byte-identical per-scan cache-scope lifecycle into one guard
+    - Candidate B1 -- Split the `todos` prefilter per REGEX, not per file: +29.93 ms measured (36.9% of its hot loop)
+    - Candidate B2 -- Convert the next 2-3 walking collectors onto `dir_source` (queued row #210), priced honestly
+    - Candidate B3 -- PENDING MEASUREMENT IN THIS RUN (see below)
+    winner: B1
+    ship: pending (not yet decided)
   iter-176
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla verify --fail-on-unresolved`: the exit code a caller can branch on
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one shared digest-memo primitive; three hand-rolled copies deleted
     - Candidate B3 -- bound the append-only Done ledger, the only unbounded term in a hard-capped file
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 6c8f0d3
   iter-175
     lenses: hardening/DX (iteration 175), integration-and-adoption (iteration 175)
     - Candidate A1 -- a user-facing JSON read must name the file it failed on
@@ -847,4 +857,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-85 scouted iterations
+86 scouted iterations

@@ -9,7 +9,7 @@ WHY THESE ASSERTIONS ARE WRITTEN AGAINST THE SPEC AND NOT THE SHIPPED MODULE
 This file was authored under the tester isolation contract: the spec, the two
 tracked Markdown documents and the public surface of the guard, never the
 product source. So every threshold below is spelled as the SPEC's own literal
-(``40000``, ``10000``, the nine retired row numbers, the pinned row ``121``)
+(``40000``, ``10000``, the ten retired row numbers, the pinned row ``121``)
 rather than imported as a symbol. Importing the guard's constant and asserting
 it equals itself is a tautology; a second, independent spelling of the operator's
 number is the only way a wrong constant is caught by a test. State iter-162
@@ -73,6 +73,7 @@ SPEC_RETIRED_ROWS: Final[tuple[str, ...]] = (
     "198",
     "199",
     "200",
+    "129",
 )
 
 #: The pinned counter-example: archived AND deliberately retained in the index.
@@ -343,7 +344,7 @@ def test_b8_the_two_retirement_censuses_agree() -> None:
         "the retirement censuses diverged -- extend BOTH in the same commit: "
         f"guard {sorted(RETIRED_ROWS)!r} vs spec {sorted(SPEC_RETIRED_ROWS)!r}"
     )
-    assert len(set(SPEC_RETIRED_ROWS)) == len(SPEC_RETIRED_ROWS) == 9
+    assert len(set(SPEC_RETIRED_ROWS)) == len(SPEC_RETIRED_ROWS) == 10
     assert len(set(RETIRED_ROWS)) == len(RETIRED_ROWS)
 
 

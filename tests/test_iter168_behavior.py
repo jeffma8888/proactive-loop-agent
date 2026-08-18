@@ -72,9 +72,9 @@ SETTLED: Final[tuple[str, ...]] = ("**SHIPPED", "**CLOSED", "**ABANDONED")
 #: Statuses that must NEVER be reported: open work is exactly what the index is for.
 OPEN_PREFIXES: Final[tuple[str, ...]] = ("**QUEUED", "**BLOCKED")
 
-#: The nine rows retired so far, spelled a THIRD time (behavior 7 makes all three agree).
+#: The ten rows retired so far, spelled a THIRD time (behavior 7 makes all three agree).
 EXPECTED_RETIRED: Final[frozenset[str]] = frozenset(
-    {"143", "146", "155", "195", "138", "197", "198", "199", "200"}
+    {"143", "146", "155", "195", "138", "197", "198", "199", "200", "129"}
 )
 
 #: The single exemption and its reason (behaviors 4, 6, 9).
@@ -86,8 +86,8 @@ ARCHIVE_TABLE_BODIES: Final[tuple[int, ...]] = (98, 40)
 #: The trim's DURABLE anchor. The old proof read ``40000 - len(live) > 2000``, which
 #: re-evaluates a claim about a PAST EVENT against a document that grows by design, and
 #: had silently become a 37,999-char ceiling that reverted an innocent iteration. The
-#: same claim measured over the text the trim actually MOVED -- the nine retirement
-#: bullets now in the archive, 10,857 chars -- is a fact about history and cannot decay.
+#: same claim measured over the text the trim actually MOVED -- the ten retirement
+#: bullets now in the archive, 13,976 chars -- is a fact about history and cannot decay.
 #: This is a floor on ARCHIVED text, not a bound on the live file's size.
 MOVED_TEXT_FLOOR: Final[int] = 2000
 
@@ -346,12 +346,12 @@ def test_b6_no_exempted_row_is_also_recorded_as_retired() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Behavior 7 -- both retirement censuses agree, and name all nine rows.
+# Behavior 7 -- both retirement censuses agree, and name all ten rows.
 # ---------------------------------------------------------------------------
-def test_b7_both_retirement_censuses_name_the_same_nine_rows() -> None:
+def test_b7_both_retirement_censuses_name_the_same_ten_rows() -> None:
     assert set(RETIRED_ROWS) == set(SPEC_RETIRED_ROWS) == EXPECTED_RETIRED
-    assert len(set(RETIRED_ROWS)) == len(RETIRED_ROWS) == 9
-    assert len(set(SPEC_RETIRED_ROWS)) == len(SPEC_RETIRED_ROWS) == 9
+    assert len(set(RETIRED_ROWS)) == len(RETIRED_ROWS) == 10
+    assert len(set(SPEC_RETIRED_ROWS)) == len(SPEC_RETIRED_ROWS) == 10
 
 
 def test_b7_the_five_rows_retired_this_iteration_are_in_both_censuses() -> None:
@@ -432,7 +432,7 @@ def test_b11_the_trim_is_anchored_to_the_text_it_moved() -> None:
     against a document whose whole purpose is to grow, so it converted into a 37,999-char
     ceiling that no operator chose and no document mentioned -- and it reverted an
     iteration whose entire diff was its own index row plus its own ledger line. The same
-    claim measured over the nine retirement bullets the trim actually moved into the
+    claim measured over the ten retirement bullets the trim actually moved into the
     archive is a fact about history: it can never decay, and it reads the live file's
     size nowhere. The operator's 40,000 ceiling above is untouched and remains the only
     bound on that size.
@@ -442,7 +442,7 @@ def test_b11_the_trim_is_anchored_to_the_text_it_moved() -> None:
         row: _indep_archive_bullet_texts(archive, row)
         for row in sorted(EXPECTED_RETIRED)
     }
-    assert len(bullets) == 9, f"expected the nine retired rows, got {sorted(bullets)}"
+    assert len(bullets) == 10, f"expected the ten retired rows, got {sorted(bullets)}"
     miscounted = {row: len(found) for row, found in bullets.items() if len(found) != 1}
     assert not miscounted, (
         "each retired row must have EXACTLY ONE archive bullet; a parse that silently "
@@ -450,6 +450,6 @@ def test_b11_the_trim_is_anchored_to_the_text_it_moved() -> None:
     )
     moved = sum(len(found[0]) for found in bullets.values())
     assert moved > MOVED_TEXT_FLOOR, (
-        f"the nine retirement bullets hold {moved} chars of moved index text; the trim "
+        f"the ten retirement bullets hold {moved} chars of moved index text; the trim "
         f"that shipped this claimed to move more than {MOVED_TEXT_FLOOR}"
     )
