@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-178
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- single-source the per-path content digest into `text_source`
+    - Candidate A2 -- `syntax_error` skips `ast.parse` when a matching `__pycache__` pyc proves the source already compiled
+    - Candidate A3 -- re-price ROADMAP row #210: the remaining redundant walks are worth ~1.5% here, not the ~915 ms the seam's docstring cites
+    - Candidate B1 -- bind `SPEC.md`'s module contracts to the live registries, the way `README.md` already is
+    - Candidate B2 -- a "Repository map" section: the public README never names ANY of the four other tracked docs
+    - Candidate B3 -- freeze `SPEC.md`'s section numbering with a citation oracle
+    winner: B1
+    ship: pending (not yet decided)
   iter-177
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Empty the one-member retirement allowlist by retiring the settled row #121
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Convert the next 2-3 walking collectors onto `dir_source` (queued row #210), priced honestly
     - Candidate B3 -- PENDING MEASUREMENT IN THIS RUN (see below)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9c263e6
   iter-176
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla verify --fail-on-unresolved`: the exit code a caller can branch on
@@ -857,4 +867,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-86 scouted iterations
+87 scouted iterations

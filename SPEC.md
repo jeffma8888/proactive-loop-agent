@@ -420,6 +420,20 @@ class Collector(Protocol):
   which line); the synthesizer judges whether to propose fixing it. (Additive collector,
   exactly like iters 09/11/16/20/28/37/42/53/63/70 — a new `kind` flows into synthesis via
   `by_kind()` with zero synthesizer change, so no version bump.)
+- `license.py: LicenseCollector(name="license", max_items=30)` — root-anchored
+  open-source-hygiene gap: at most ONE `kind="license"` signal (`summary="no license
+  file"`, `weight=0.7`, `detail=""`, `path=str(root)`, `timestamp=None`) when `root` holds
+  source but no recognized license basename (`license`/`licence`/`copying`/`unlicense`,
+  case-folded, files directly in `root` only). Presence-only — NEVER opens content, so no
+  license text can leak; a present license emits nothing (a satisfied invariant is not
+  actionable). Source-gated by the shared `filesystem._has_source` walk, like `ci_config`.
+- `broken_link.py: BrokenDocLinkCollector(name="broken_link", max_items=30, max_read_bytes=LARGE_FILE_MIN_BYTES)` —
+  the second RELATIONAL collector (after `lockfile_drift`): one `kind="broken_link"` signal
+  per inline `[text](target)`/`![alt](target)` Markdown link whose relative target is
+  missing, resolved against the CONTAINING file's dir as a renderer would (`path` = that
+  document). URL-scheme, `//host`, `/root` and `#fragment` targets, fenced blocks and
+  inline-code spans are skipped unread (a URL is NEVER fetched); sorted by `(relpath,
+  lineno, column)` ascending, then capped at `max_items`.
 - `__init__.py: def all_collectors() -> list[Collector]` returns one instance of each.
 - Tests: `tests/test_collectors.py` — tmp_path fixtures per collector, incl. a real
   temp git repo (subprocess git init/commit; skip test if git unavailable) and
@@ -828,6 +842,12 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     unknown-id case); a corrupt slate → exit 1 via the `main()` boundary (all
     before any rendering, so the exit contract is `--json`-independent). `--slate`
     stays required. Builds no `LLMClient`.
+  - `pla verify --slate slate.json --snapshot snapshot.json [--json] [--fail-on-unresolved]` —
+    read-only, LLM-free resolver of a slate's CITED sources against the snapshot document
+    `scan --snapshot FILE`/`run --snapshot FILE` wrote beside it (never a fresh re-scan; both
+    paths REQUIRED). A source resolves when it equals a recorded signal `path` or `summary`,
+    exactly or once a trailing `:LINE` anchor is stripped from either side. Report-only by
+    default (exit 0 even when unresolved); `--fail-on-unresolved` opts into gate code `5`.
   - `pla trace --run-dir DIR [--json]` — read-only, LLM-free renderer of ONE
     dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
     `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,
@@ -1056,6 +1076,12 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     rules) → collectors (L2 perception) → tools (L1 action surface) → **providers**
     (L0 LLM backend). Additive verb (iter-75) — no existing verb behavior changes,
     so **no version bump**.
+  - `pla config [--json]` — read-only, LLM-free, zero-input printer of the fully-resolved
+    effective `Settings` AFTER `PLA_*` env vars and the CLI global flags are applied, so a
+    reader sees what the process will actually use rather than inferring it from three layers
+    of precedence. Takes no `--workspace` and no positional argument; builds no `LLMClient`
+    (so a bad `--provider` is accepted but never validated), runs no collector and touches no
+    filesystem. Human form is an `effective settings` header + `key: value` lines; exits 0.
   - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
     (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
     `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,

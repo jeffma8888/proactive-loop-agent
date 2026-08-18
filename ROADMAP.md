@@ -113,3 +113,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #213 run --snapshot FILE: the autonomous verb persists... (iter 175, factory iter 179)
 - #214 `pla verify --fail-on-unresolved`: the exit code a caller can... (iter 176, factory iter 180)
 - #129 todos prefilters its 2 regexes separately, sound derived tokens... (iter 177, factory iter 181)
+- #215 `SPEC.md` §4.1/§4.5 gain an oracle bound to the live registries + 4 omissions (iter 178, factory iter 182)
