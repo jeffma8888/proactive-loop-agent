@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-179
+    lenses: narrative-and-docs, NEW-CAPABILITY (iteration 179)
+    - Candidate A1 -- SPEC.md never documents the enforcement surface: the armed `signals` gates, exit code 5, and the fact that this repo's own CI runs them
+    - Candidate A2 -- SPEC.md never documents `runs --prune`, the product's only destructive operation
+    - Candidate A3 -- README never mentions 2 of the 9 shipped `make` targets, one of which exists purely to keep a README number from going stale
+    - Candidate B1 -- `run --max-goals N`: the sole autonomous verb acts on 1 of N goals it already approved
+    - Candidate B2 -- per-category autonomy thresholds (`PLA_CATEGORY_MIN_SCORE=career:4.5,maintenance:3.0`)
+    - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector, 3rd relational one
+    winner: A3
+    ship: pending (not yet decided)
   iter-178
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- single-source the per-path content digest into `text_source`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- a "Repository map" section: the public README never names ANY of the four other tracked docs
     - Candidate B3 -- freeze `SPEC.md`'s section numbering with a citation oracle
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED d4a39dc
   iter-177
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Empty the one-member retirement allowlist by retiring the settled row #121
@@ -867,4 +877,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-87 scouted iterations
+88 scouted iterations

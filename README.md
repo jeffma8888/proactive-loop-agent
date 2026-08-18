@@ -150,6 +150,17 @@ atomic checkpoint under `.pla_runs/run-<goal_id>/`. Approval-gated goals are
 listed with a ready-to-paste `pla dispatch ... --yes` command but are never run
 automatically.
 
+Two more developer entry points exist, both opt-in rather than part of `make check`:
+
+- `make check-matrix` -- run the suite under both interpreters CI's matrix grades (3.12 and 3.13).
+  `make check` runs it under one, whichever `uv` last left in `.venv`, so a failure that reproduces
+  only on the newer interpreter stays invisible locally until CI. Each leg installs into its own
+  throwaway virtualenv, so your `.venv` is left untouched.
+- `make readme-headroom` -- print the headroom left under the published test-count floor in the
+  intro above: how many tests you may still add before that floor goes stale and reds this repo's
+  public build. The guard enforcing that floor is silent while green, so this gauge is the only
+  advance warning you get.
+
 ### Try it on your own repo
 
 Everything above points at this repo's bundled fixture. To point the
