@@ -48,12 +48,24 @@ readme-headroom:
 # End-to-end demo: scan the fixture workspace, then auto-dispatch the single
 # top AUTO_DISPATCH goal through the resilient loop -- all driven by the bundled
 # scripted responses, so it never touches a network.
+#
+# WHY it also writes `--snapshot .pla_runs/snapshot.json`: the slate this recipe
+# publishes is the one `make check` and CI grade, and every goal in it cites
+# `sources` the synthesizer filled in. `pla verify` can resolve those citations
+# against a scan snapshot -- but ONLY honestly against the snapshot the slate was
+# synthesized FROM, because several collectors are mtime-driven, so a fresh
+# re-scan would make staleness indistinguishable from fabrication. `run
+# --snapshot` writes exactly that same-run document, which makes this recipe the
+# one caller that structurally qualifies for `verify --fail-on-unresolved` (see
+# the verify step in `check` below). It lands in `.pla_runs` -- the dir the
+# `check` pre-step wipes -- so the pair the gate reads is always THIS demo's.
 demo:
 	uv run pla run \
 		--workspace examples/fixture_workspace \
 		--provider scripted \
 		--scripted-responses examples/scripted_responses.json \
-		--state-dir .pla_runs
+		--state-dir .pla_runs \
+		--snapshot .pla_runs/snapshot.json
 
 # Remove generated run state, coverage artifacts, and Python/pytest caches.
 clean:
@@ -64,9 +76,9 @@ clean:
 	rm -rf .venv-py*
 
 # Reproduce the EXACT CI graded gate locally, in CI's own order, in one command.
-# CI (.github/workflows/ci.yml) grades six run-steps on every push: locked
+# CI (.github/workflows/ci.yml) grades seven run-steps on every push: locked
 # install -> suite -> mypy oracle -> offline demo -> demo-artifact assertions ->
-# armed signals self-scan.
+# armed source-citation verification -> armed signals self-scan.
 # Before this target there was no single local command to run that gate, and the
 # two demo-artifact assertions lived ONLY in ci.yml (nowhere runnable locally),
 # so they could silently rot. It reuses `$(MAKE) demo` (no re-inline) so the demo
@@ -75,16 +87,17 @@ clean:
 #
 # WHAT `check` IS NOT: everything CI grades. CI's `test` job is a
 # `fail-fast: false` matrix over python-version ["3.12", "3.13"], so it grades
-# those six steps TWICE -- twelve run-steps -- while `make check` runs them ONCE,
+# those seven steps TWICE -- fourteen run-steps -- while `make check` runs them ONCE,
 # under whichever interpreter uv last left in `.venv`. There is no
 # `.python-version` in this repo, so which leg runs locally is an accident
 # rather than a choice, and the gap is not hypothetical: a failure reproducible
 # only on the newer interpreter has already reached CI unseen. `make check-matrix`
 # (below) runs the SUITE under both matrix interpreters, which is the leg-varying
 # half of that gap; the second leg's demo, demo-artifact assertions and armed
-# self-scan stay CI-only, and mypy is leg-invariant by config
-# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 8 of CI's 12
-# run-steps rather than all 12.
+# self-scan stay CI-only, along with the second leg's citation verification, and
+# mypy is leg-invariant by config
+# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 9 of CI's 14
+# run-steps rather than all 14.
 #
 # WHY the recipe OPENS with `rm -rf .pla_runs` (the demo's own state dir): the
 # last two steps are EXISTENCE checks (`test -f` / `ls`) against a persistent,
@@ -100,6 +113,30 @@ clean:
 # the two cannot drift apart. It is deliberately NOT `$(MAKE) clean`: clean also
 # wipes .pytest_cache/__pycache__, which buys no freshness and only makes the
 # gate (and the suite that follows it) slower.
+#
+# WHY the recipe VERIFIES the demo's source citations (the step after the two
+# artifact assertions): those two assertions are `test -f` and `ls` -- pure
+# EXISTENCE -- so a demo that published a structurally valid but semantically
+# wrong slate passes them. This is the first gate step that READS what the demo
+# published. `CandidateGoal.sources` is free text the synthesizer fills, `verify`
+# resolves each citation against the scan snapshot, and `--fail-on-unresolved`
+# turns an unresolvable citation into exit 5 -- and until this step existed that
+# pairing had ZERO consumers anywhere, the same "advertised but never
+# demonstrated" condition the armed self-scan below was added to end.
+#
+# WHY it is safe to ARM here specifically, when `verify` defaults to
+# reporting-only: the flag's own contract is that the caller KNOWS its
+# slate/snapshot pair is same-run, because several collectors are mtime-driven
+# and an unresolved source can therefore mean staleness rather than fabrication.
+# `make demo` writes both halves in ONE `pla run` invocation, so the precondition
+# is structural here rather than merely likely -- and measured green: this pair
+# reports 0 unresolved, while appending one fabricated source to a copy of the
+# slate exits 5. Both directions matter; a gate proven green but never proven to
+# fire is a fail-open gate.
+#
+# It runs BEFORE the self-scan (so the self-scan stays the LAST step) and AFTER
+# the artifact assertions, which are its precondition: verification is
+# meaningless if the demo produced no slate at all.
 #
 # WHY the recipe CLOSES with an armed `pla signals` self-scan (the LAST step):
 # the product ships an enforcement mode -- `--fail-on-kind KIND` exits 5 when a
@@ -134,6 +171,7 @@ check:
 	$(MAKE) demo
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null
+	uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
 	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
 
 # Run the suite under EVERY interpreter CI's matrix grades -- the SUITE half of the

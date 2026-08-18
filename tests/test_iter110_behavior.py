@@ -62,8 +62,10 @@ PYPROJECT = REPO / "pyproject.toml"
 FRESHNESS_PRE_STEP = "rm -rf .pla_runs"
 DEMO_STATE_DIR = ".pla_runs"
 
-# The ordered seven commands of the CI graded gate (the first six unchanged from
-# iter-102; the 7th, an armed `pla signals` self-scan, added factory iter 128).
+# The ordered eight commands of the CI graded gate (the first six unchanged from
+# iter-102; an armed `pla signals` self-scan added factory iter 128, and an armed
+# `pla verify --fail-on-unresolved` of the demo's own slate/snapshot pair added
+# factory iter 186 AHEAD of it, so the self-scan stays LAST).
 # The artifact-list step is matched WITHOUT its `> /dev/null` suffix.
 CI_GATE_STEPS = (
     "uv sync --locked",
@@ -72,6 +74,14 @@ CI_GATE_STEPS = (
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
+    # The 8th step (added factory iter 186) reads what the demo PUBLISHED
+    # rather than merely asserting it exists: `verify --fail-on-unresolved`
+    # resolves every goal's cited `sources` against the snapshot the SAME
+    # `pla run` wrote, so a fabricated citation in the published slate is a red
+    # build. ONE entry, written as two implicitly-concatenated fragments to stay
+    # inside the line budget -- count ENTRIES here, never lines.
+    "uv run pla verify --slate .pla_runs/slate.json "
+    "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -93,8 +103,10 @@ ARTIFACT_ASSERTION_STEPS = CI_GATE_STEPS[4:6]
 # Pre-existing .PHONY targets that must survive this additive edit.
 PREEXISTING_TARGETS = ("setup", "test", "cov", "typecheck", "demo", "clean")
 
-# Graded `run:` steps ci.yml exposes today.
-EXPECTED_CI_RUN_STEPS = 6
+# Graded `run:` steps ci.yml exposes today. Deliberately 7 while CI_GATE_STEPS
+# holds 8: the two demo-artifact assertions share one `run: |` block, so they are
+# one graded step and two gate commands.
+EXPECTED_CI_RUN_STEPS = 7
 
 # Only these command words may appear in the `check` recipe: pure shell plus
 # `$(MAKE)` and the `uv` runner. A new tool would trip behavior 7.
@@ -585,6 +597,12 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
         "uv run pytest",
         "uv run mypy src/proactive_loop",
         "make demo",
+        # factory iter 186: armed citation verification. Expensive for the SAME
+        # reason as the steps around it -- it shells out to `uv`, which a nested
+        # run inside the suite must never do -- and compared in CI_GATE_STEPS
+        # order, so it belongs immediately before the self-scan.
+        "uv run pla verify --slate .pla_runs/slate.json "
+        "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
         "uv run pla signals --workspace . --fail-on-kind merge_conflict "
         "--fail-on-kind syntax_error --fail-on-kind secret_file "
         "--fail-on-kind broken_link",

@@ -13,7 +13,7 @@ ONLY inside ``ci.yml`` (nowhere runnable locally), so they could silently rot.
 The new ``.PHONY`` ``check`` target runs those graded steps in CI's own
 order, so ONE local command reproduces ONE leg of what CI grades (the original
 wording here claimed the target equalled the whole CI build; factory iter 156
-corrected that -- CI runs these six steps under both matrix interpreters, and
+corrected that -- CI runs these seven steps under both matrix interpreters, and
 ``make check-matrix`` covers the second leg's SUITE). This drift-guard
 makes the unavoidable CI-logic duplication SAFE: if the ``check`` recipe and ``ci.yml``
 diverge, the suite goes RED. This is build-tooling ONLY: no ``src/`` runtime
@@ -51,14 +51,14 @@ REPO = Path(__file__).resolve().parents[1]
 MAKEFILE = REPO / "Makefile"
 WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 
-# The ordered tuple of the seven commands that make up the CI graded gate. The
+# The ordered tuple of the eight commands that make up the CI graded gate. The
 # `check` recipe must reproduce these, in this order; each must also be a real
 # CI step. `make demo` is written `$(MAKE) demo` in the recipe (normalized
 # below); the two demo-artifact assertions live in ci.yml's single `run: |`
 # block. NOTE: the artifact-list step is matched WITHOUT its `> /dev/null`
 # redirect suffix so the substring test is redirect-insensitive.
 #
-# The 7th step (added factory iter 128) is the product dogfooding its own
+# The LAST step (added factory iter 128) is the product dogfooding its own
 # enforcement mode: an armed `pla signals --fail-on-kind` self-scan whose kinds
 # are the STATE-INDEPENDENT, must-never-appear subset, so it can only go red on
 # a broken checkout -- never on a developer's work in progress.
@@ -69,6 +69,14 @@ CI_GATE_STEPS = (
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
+    # The 8th step (added factory iter 186) reads what the demo PUBLISHED
+    # rather than merely asserting it exists: `verify --fail-on-unresolved`
+    # resolves every goal's cited `sources` against the snapshot the SAME
+    # `pla run` wrote, so a fabricated citation in the published slate is a red
+    # build. ONE entry, written as two implicitly-concatenated fragments to stay
+    # inside the line budget -- count ENTRIES here, never lines.
+    "uv run pla verify --slate .pla_runs/slate.json "
+    "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -76,10 +84,12 @@ CI_GATE_STEPS = (
 
 # The number of graded `run:` steps ci.yml exposes today: locked install,
 # pytest, mypy, `make demo`, the single `run: |` block holding the two
-# demo-artifact assertions, and the armed signals self-scan. If a CI run-step is
-# added/removed, behavior 4 fails, forcing CI_GATE_STEPS + the `check` recipe to
-# be updated together.
-EXPECTED_CI_RUN_STEPS = 6
+# demo-artifact assertions, the armed source-citation verification, and the armed
+# signals self-scan. If a CI run-step is added/removed, behavior 4 fails, forcing
+# CI_GATE_STEPS + the `check` recipe to be updated together. NOTE the count is 7
+# while CI_GATE_STEPS holds 8: the two demo-artifact assertions share one
+# `run: |` block, so they are one graded step and two gate commands.
+EXPECTED_CI_RUN_STEPS = 7
 
 # Every pre-existing .PHONY target that must survive this additive edit
 # (behavior 5): each must remain declared in .PHONY AND keep a non-empty recipe.

@@ -107,8 +107,15 @@ ARTIFACT_ASSERTIONS = (
     "ls .pla_runs/run-*/artifacts/*.md",
 )
 
-# Behavior 7: graded `run:` steps ci.yml exposes after this change.
-EXPECTED_CI_RUN_STEPS = 6
+# Behavior 7: graded `run:` steps ci.yml exposes today. Bumped 6 -> 7 by factory
+# iter 186, which added an armed `pla verify --fail-on-unresolved` of the demo's
+# own slate/snapshot pair AHEAD of this iteration's self-scan.
+EXPECTED_CI_RUN_STEPS = 7
+
+# Behavior 7: entries the two sibling drift guards' CI_GATE_STEPS tuples declare.
+# It exceeds EXPECTED_CI_RUN_STEPS by one because the two demo-artifact
+# assertions share a single `run: |` block -- one graded step, two gate commands.
+EXPECTED_TOTAL_GATE_STEPS = 8
 
 # Behavior 8: the `check` recipe stays pure shell + $(MAKE) + the uv runner.
 ALLOWED_CHECK_COMMANDS = frozenset({"rm", "test", "ls", "uv", "make"})
@@ -510,17 +517,30 @@ def test_b6_the_new_gate_step_is_never_executed_by_the_sibling_guard() -> None:
 # ==========================================================================
 
 
-def test_b7_both_drift_guards_declare_the_new_step_as_the_seventh() -> None:
+def test_b7_both_drift_guards_declare_the_new_step_as_the_last() -> None:
+    """The self-scan must stay the FINAL gate step, so a tripped scan can never
+    mask an earlier assertion.
+
+    Originally pinned POSITIONALLY (``len(steps) == 7`` and ``steps[6]``), which
+    made a later step inserted anywhere ahead of the self-scan read as this
+    iteration's step going missing. Factory iter 186 inserted exactly such a step
+    (armed citation verification, index 6), so the claim is now expressed the way
+    iter 128 actually meant it: the self-scan is LAST, the six pre-existing steps
+    keep their positions, and the declared total is pinned by its own constant.
+    """
     from tests.test_iter102_behavior import CI_GATE_STEPS as STEPS_102
     from tests.test_iter110_behavior import CI_GATE_STEPS as STEPS_110
 
     for name, steps in (("iter102", STEPS_102), ("iter110", STEPS_110)):
-        assert len(steps) == 7, (
-            f"{name}'s CI_GATE_STEPS must declare 7 gate steps after this "
-            f"iteration; it declares {len(steps)}: {list(steps)}"
+        assert len(steps) == EXPECTED_TOTAL_GATE_STEPS, (
+            f"{name}'s CI_GATE_STEPS must declare {EXPECTED_TOTAL_GATE_STEPS} gate "
+            f"steps; it declares {len(steps)}: {list(steps)}. A step may be added, "
+            "but only together with this constant and the `check` recipe."
         )
-        assert steps[6] == EXPECTED_GATE_STEP, (
-            f"{name}'s 7th gate step must be the armed self-scan; got {steps[6]!r}"
+        assert steps[-1] == EXPECTED_GATE_STEP, (
+            f"{name}'s LAST gate step must be the armed self-scan -- it runs last "
+            "so a tripped scan cannot mask an earlier assertion; got "
+            f"{steps[-1]!r}"
         )
         assert tuple(steps[:6]) == PREEXISTING_GATE_STEPS, (
             f"{name}'s first six gate steps must be unchanged (append-only); got "
@@ -532,7 +552,7 @@ def test_b7_both_drift_guards_declare_the_new_step_as_the_seventh() -> None:
     )
 
 
-def test_b7_both_drift_guards_expect_six_graded_ci_run_steps() -> None:
+def test_b7_both_drift_guards_expect_seven_graded_ci_run_steps() -> None:
     from tests.test_iter102_behavior import EXPECTED_CI_RUN_STEPS as COUNT_102
     from tests.test_iter110_behavior import EXPECTED_CI_RUN_STEPS as COUNT_110
 
@@ -543,8 +563,9 @@ def test_b7_both_drift_guards_expect_six_graded_ci_run_steps() -> None:
     blocks = _ci_run_blocks(WORKFLOW.read_text(encoding="utf-8"))
     assert len(blocks) == EXPECTED_CI_RUN_STEPS, (
         f"ci.yml must expose exactly {EXPECTED_CI_RUN_STEPS} graded `run:` steps "
-        f"(locked install, pytest, mypy, `make demo`, the demo-artifact block, and "
-        f"the armed self-scan); an independent parse found {len(blocks)}: {blocks}"
+        f"(locked install, pytest, mypy, `make demo`, the demo-artifact block, the "
+        f"armed citation verification, and the armed self-scan); an independent "
+        f"parse found {len(blocks)}: {blocks}"
     )
 
 

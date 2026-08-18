@@ -140,7 +140,8 @@ uv run pla run \
   --workspace examples/fixture_workspace \
   --provider scripted \
   --scripted-responses examples/scripted_responses.json \
-  --state-dir .pla_runs
+  --state-dir .pla_runs \
+  --snapshot .pla_runs/snapshot.json
 ```
 
 It prints a ranked table with each goal's gate decision, writes the slate to
@@ -148,7 +149,28 @@ It prints a ranked table with each goal's gate decision, writes the slate to
 and leaves its artifacts (`learning_plan.md`, `project_scaffold.md`) plus an
 atomic checkpoint under `.pla_runs/run-<goal_id>/`. Approval-gated goals are
 listed with a ready-to-paste `pla dispatch ... --yes` command but are never run
-automatically.
+automatically. `--snapshot` additionally persists the snapshot this run
+*perceived*, next to the slate it produced.
+
+**The build then reads that pair back.** Every goal in a slate cites the
+`sources` it was proposed from, and both graded gates -- `make check` locally and
+`.github/workflows/ci.yml` on every push -- resolve those citations against that
+same run's snapshot:
+
+```bash
+uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
+```
+
+An unresolvable citation is exit **5**, so it is a red build rather than an
+unverifiable claim -- the demo can no longer publish a goal whose evidence does
+not exist. This is why `make demo` persists its snapshot at all: `verify`
+defaults to reporting-only because several collectors are mtime-driven, so
+against a *later* snapshot an unresolved source can mean staleness rather than
+fabrication. `--fail-on-unresolved` is only honest for a caller that knows its
+pair is same-run, and `make demo` writes both halves in one invocation -- which
+makes it the one caller that qualifies by construction. The gate steps that
+precede it (`test -f .pla_runs/slate.json`, `ls .pla_runs/run-*/artifacts/*.md`)
+only assert those files EXIST; this is the step that reads what they say.
 
 Two more developer entry points exist, both opt-in rather than part of `make check`:
 

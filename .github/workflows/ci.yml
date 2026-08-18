@@ -71,6 +71,26 @@ jobs:
           test -f .pla_runs/slate.json
           ls .pla_runs/run-*/artifacts/*.md > /dev/null
 
+      # The two assertions above are pure EXISTENCE checks, so a demo that
+      # published a semantically wrong slate still passes them. This step is the
+      # first one that READS what the demo published: every goal in the slate
+      # cites `sources` the synthesizer filled in as free text, and `verify`
+      # resolves each citation against the scan snapshot the same `pla run` wrote.
+      #
+      # WHY the demo is the one caller allowed to ARM this gate: `verify` is
+      # reporting-only by default because several collectors are mtime-driven, so
+      # against a LATER snapshot an unresolved source can mean staleness rather
+      # than fabrication. `--fail-on-unresolved` is documented for a caller that
+      # knows its pair is same-run -- and `make demo` writes slate and snapshot in
+      # ONE invocation, so that precondition is structural here, not merely
+      # likely. A fabricated citation in the published slate is now a red build.
+      #
+      # Byte-identical to the same step of `make check` (pinned by
+      # tests/test_iter102_behavior.py + tests/test_iter110_behavior.py), and
+      # placed BEFORE the self-scan so that scan stays the final graded step.
+      - name: Verify the demo slate's cited sources resolve against its own snapshot
+        run: uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
+
       # The product dogfoods its own enforcement mode: `--fail-on-kind KIND`
       # exits 5 when a named signal kind is present, and the README sells that
       # exit code as the channel a CI step branches on -- so THIS is that step.

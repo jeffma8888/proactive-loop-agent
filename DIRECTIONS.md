@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-182
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 (primary) -- the demo persists its snapshot and the gate runs `verify --fail-on-unresolved`
+    - Candidate A2 -- give `examples/check_run.py` its first non-test consumer
+    - Candidate A3 -- `make verify-demo`: the same wiring, with none of the pinned-gate coupling
+    - Candidate B1 (primary) -- delete the `_log_absorbed` duplicate that iteration 184 shipped two iterations ago
+    - Candidate B2 -- collapse the two depth-counted per-scan cache scopes into one
+    - Candidate B3 -- fold the 2 drifted `_SKIP_DIRS` + `_is_hidden` copies into the seam (roadmap row #178, census re-confirmed today)
+    winner: A1
+    ship: pending (not yet decided)
   iter-181
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- single-source the `PLA_*` clearing idiom, and apply it to the 3 tests an exported knob reds
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `signals --fail-over N`: the one ratchet with nothing to keep fresh gets its first consumer
     - Candidate B3 -- `--baseline`'s first consumer: commit one snapshot and arm `ci_config` only
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED e888949
   iter-180
     lenses: unknown
     - Candidate A1 -- `scan --suppress FILE`: let the user retire a goal that keeps coming back
@@ -897,4 +907,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-90 scouted iterations
+91 scouted iterations
