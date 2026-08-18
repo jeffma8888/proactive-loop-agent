@@ -188,6 +188,24 @@ def derive_env_names() -> set[str]:
     return {ENV_PREFIX + s for s in suffixes | retry}
 
 
+def clear_pla_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Delete every live ``PLA_*`` override so "documented default" assertions hold.
+
+    Shared by the modules that assert defaults (``test_iter22``, ``test_iter39``,
+    ``test_iter104``) through ONE module-level ``autouse`` fixture each. The
+    target set is DERIVED from the call sites the runtime itself reads, via
+    :func:`derive_env_names`, and never from a literal list: the previous
+    hand-written copy had already drifted (15 names against 14 live, one of them
+    dead in ``src/``) with no guard tying the two together, so deriving removes
+    that failure mode by construction instead of adding a third list to maintain.
+
+    Lives HERE, beside the derivation, because a clearer in another module would
+    be the start of the same second copy.
+    """
+    for name in sorted(derive_env_names()):
+        monkeypatch.delenv(name, raising=False)
+
+
 #: env name -> the live field default it documents. Keys are asserted to equal
 #: the derived name set, so this table cannot silently drift out of coverage.
 def live_defaults() -> dict[str, object]:

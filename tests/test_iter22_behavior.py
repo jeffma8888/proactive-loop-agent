@@ -42,6 +42,21 @@ from proactive_loop.cli import main
 from proactive_loop.config import Settings
 from proactive_loop.models import CandidateGoal, GoalSlate
 from proactive_loop.scout import gate
+from tests.test_iter125_behavior import clear_pla_env
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_pla_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear the derived ``PLA_*`` set before EVERY test in this module.
+
+    This module asserts DOCUMENTED DEFAULTS, so any ``PLA_*`` knob exported in
+    the developer shell -- and the README publishes them all as the supported
+    configuration surface -- red a clean checkout while looking like broken
+    code. The target set is derived from the call sites the runtime reads, so a
+    new knob is covered the moment it lands. Function-scoped and autouse, so it
+    runs BEFORE each test body: a test that sets its own override still wins.
+    """
+    clear_pla_env(monkeypatch)
 
 REPO = Path(__file__).resolve().parents[1]
 

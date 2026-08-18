@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-181
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- single-source the `PLA_*` clearing idiom, and apply it to the 3 tests an exported knob reds
+    - Candidate A2 -- oracle the 2 `watch --out-dir` guard messages that no test names
+    - Candidate A3 -- `make test-cold`: an offline cold-suite instrument, plus correcting the warm citations
+    - Candidate B1 -- the demo writes its paired snapshot, and the gate runs `pla verify` as the first CONTENT read-back
+    - Candidate B2 -- `signals --fail-over N`: the one ratchet with nothing to keep fresh gets its first consumer
+    - Candidate B3 -- `--baseline`'s first consumer: commit one snapshot and arm `ci_config` only
+    winner: A1
+    ship: pending (not yet decided)
   iter-180
     lenses: unknown
     - Candidate A1 -- `scan --suppress FILE`: let the user retire a goal that keeps coming back
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- 52 conditional-skip sites, and no instrument anywhere reports that a test skipped
     - Candidate B3 -- iter-169 made absorbed collector failures visible; two collectors still swallow per-item failures in total silence
     winner: B3
-    ship: pending (not yet decided)
+    ship: PUSHED 5d7737b
   iter-179
     lenses: narrative-and-docs, NEW-CAPABILITY (iteration 179)
     - Candidate A1 -- SPEC.md never documents the enforcement surface: the armed `signals` gates, exit code 5, and the fact that this repo's own CI runs them
@@ -887,4 +897,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-89 scouted iterations
+90 scouted iterations

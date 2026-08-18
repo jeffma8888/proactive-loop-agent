@@ -36,6 +36,21 @@ from pathlib import Path
 import pytest
 
 from proactive_loop.cli import build_parser, main
+from tests.test_iter125_behavior import clear_pla_env
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_pla_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear the derived ``PLA_*`` set before EVERY test in this module.
+
+    This module asserts DOCUMENTED DEFAULTS, so any ``PLA_*`` knob exported in
+    the developer shell -- and the README publishes them all as the supported
+    configuration surface -- red a clean checkout while looking like broken
+    code. The target set is derived from the call sites the runtime reads, so a
+    new knob is covered the moment it lands. Function-scoped and autouse, so it
+    runs BEFORE each test body: a test that sets its own override still wins.
+    """
+    clear_pla_env(monkeypatch)
 
 # --------------------------------------------------------------------------
 # Tester's constants --- spec-declared ground facts (pm.md). Encoded here,
@@ -78,24 +93,6 @@ DEFAULT_RETRY_MAX_ATTEMPTS = 5
 # Behavior 9: the live argparse verb count after this additive verb lands.
 EXPECTED_VERB_COUNT = 16
 
-# Every PLA_* var that could perturb a "defaults" assertion.
-_PLA_ENV_VARS = (
-    "PLA_PROVIDER",
-    "PLA_MODEL",
-    "PLA_SCRIPTED_RESPONSES",
-    "PLA_SCRIPTED_RESPONSES_PATH",
-    "PLA_WORKSPACE_ROOT",
-    "PLA_STATE_DIR",
-    "PLA_AUTO_DISPATCH_MIN_SCORE",
-    "PLA_SENSITIVE_CATEGORIES",
-    "PLA_MAX_ITERATIONS",
-    "PLA_MAX_LLM_CALLS",
-    "PLA_RETRY_MAX_ATTEMPTS",
-    "PLA_RETRY_BASE_BACKOFF_SEC",
-    "PLA_RETRY_BACKOFF_FACTOR",
-    "PLA_RETRY_MAX_BACKOFF_SEC",
-    "PLA_RETRY_JITTER_FRAC",
-)
 
 
 # --------------------------------------------------------------------------
@@ -108,12 +105,6 @@ def _run(argv: list[str], capsys) -> tuple[int, str, str]:
     rc = main(argv)
     cap = capsys.readouterr()
     return rc, cap.out, cap.err
-
-
-def _clean_env(monkeypatch) -> None:
-    """Remove every PLA_* override so 'defaults' assertions are deterministic."""
-    for var in _PLA_ENV_VARS:
-        monkeypatch.delenv(var, raising=False)
 
 
 def _human_fields(out: str) -> dict[str, str]:
@@ -138,8 +129,7 @@ def _human_fields(out: str) -> dict[str, str]:
 # ==========================================================================
 
 
-def test_b01_human_lists_every_field_with_defaults(monkeypatch, capsys):
-    _clean_env(monkeypatch)
+def test_b01_human_lists_every_field_with_defaults(capsys):
     rc, out, err = _run(["config"], capsys)
     assert rc == 0, f"bare `pla config` must exit 0 (no config needed); stderr={err!r}"
     assert out.strip(), f"stdout must be non-empty; got {out!r}"
@@ -190,8 +180,7 @@ def test_b01_human_lists_every_field_with_defaults(monkeypatch, capsys):
 # ==========================================================================
 
 
-def test_b02_json_exactly_the_ten_key_allowlist(monkeypatch, capsys):
-    _clean_env(monkeypatch)
+def test_b02_json_exactly_the_ten_key_allowlist(capsys):
     rc, out, err = _run(["config", "--json"], capsys)
     assert rc == 0, f"`pla config --json` must exit 0; stderr={err!r}"
     obj = json.loads(out)  # ENTIRE stdout must parse as one object (no trailer)
@@ -209,8 +198,7 @@ def test_b02_json_exactly_the_ten_key_allowlist(monkeypatch, capsys):
 # ==========================================================================
 
 
-def test_b03_json_field_types_and_shapes(monkeypatch, capsys):
-    _clean_env(monkeypatch)
+def test_b03_json_field_types_and_shapes(capsys):
     rc, out, _ = _run(["config", "--json"], capsys)
     assert rc == 0
     obj = json.loads(out)
@@ -259,7 +247,6 @@ def test_b03_json_field_types_and_shapes(monkeypatch, capsys):
 
 
 def test_b04_env_override_max_iterations_surfaces(monkeypatch, capsys):
-    _clean_env(monkeypatch)
     monkeypatch.setenv("PLA_MAX_ITERATIONS", "3")
 
     rc, out, _ = _run(["config", "--json"], capsys)
@@ -282,7 +269,6 @@ def test_b04_env_override_max_iterations_surfaces(monkeypatch, capsys):
 
 
 def test_b05_env_override_retry_max_attempts_surfaces(monkeypatch, capsys):
-    _clean_env(monkeypatch)
     monkeypatch.setenv("PLA_RETRY_MAX_ATTEMPTS", "9")
     rc, out, _ = _run(["config", "--json"], capsys)
     assert rc == 0
@@ -298,8 +284,7 @@ def test_b05_env_override_retry_max_attempts_surfaces(monkeypatch, capsys):
 # ==========================================================================
 
 
-def test_b06_provider_flag_overrides_no_client_built(monkeypatch, capsys):
-    _clean_env(monkeypatch)
+def test_b06_provider_flag_overrides_no_client_built(capsys):
     rc, out, err = _run(["config", "--provider", "openai", "--json"], capsys)
     assert rc == 0, (
         f"`config --provider openai` must exit 0 (LLM-free, builds no client); "
@@ -317,8 +302,7 @@ def test_b06_provider_flag_overrides_no_client_built(monkeypatch, capsys):
 # ==========================================================================
 
 
-def test_b07_state_dir_flag_surfaces(monkeypatch, capsys):
-    _clean_env(monkeypatch)
+def test_b07_state_dir_flag_surfaces(capsys):
     rc, out, _ = _run(["config", "--state-dir", "/tmp/xyz", "--json"], capsys)
     assert rc == 0
     obj = json.loads(out)
@@ -334,7 +318,6 @@ def test_b07_state_dir_flag_surfaces(monkeypatch, capsys):
 
 
 def test_b08_malformed_env_is_clean_one_line_error(monkeypatch, capsys):
-    _clean_env(monkeypatch)
     monkeypatch.setenv("PLA_MAX_ITERATIONS", "abc")
     rc, out, err = _run(["config"], capsys)
     assert rc == 1, f"malformed env must exit 1 (main() boundary); got {rc}"
