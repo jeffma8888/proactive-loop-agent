@@ -20,30 +20,33 @@ bytes, no entropy heuristic, no regex secret-value detection, no MIME sniffing
 (SPEC Out of Scope). Because it never opens content, it structurally cannot raise
 on binary/undecodable bytes, and a secret VALUE can never leak into a signal --
 only the filename can. This is also the hard line that dissolves the objections
-that sank the iter-31 content-scanning attempt. Pure stdlib (``os``/``pathlib``)
-only, so the runtime stays pydantic-v2-only and offline.
+that sank the iter-31 content-scanning attempt. Pure stdlib (``pathlib``) only,
+so the runtime stays pydantic-v2-only and offline.
 
 The ONE deliberate departure from the ``large_file`` template: hidden FILES are
-scanned (``large_file`` does ``if _is_hidden(fname): continue``). The flagship
+scanned (``large_file`` skips a hidden basename explicitly). The flagship
 targets -- ``.env``, ``.envrc``, ``.netrc``, ``.npmrc``, ``.pypirc``,
 ``.git-credentials``, and every ``.env.*`` variant -- are all hidden, so skipping
-hidden files would silently drop exactly what this collector exists to catch. Only
-hidden/skip **directories** are pruned (consistent with every sibling collector).
+hidden files would silently drop exactly what this collector exists to catch. The
+**directory** prune (noise dirs + hidden dirs, consistent with every sibling
+collector) is not implemented here at all: it is INHERITED from
+``collectors.dir_source``, which owns the single dir-prune policy for the package
+and serves this collector an already-pruned listing.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
+# The shared per-scan traversal provider. It applies the package dir-prune policy
+# (noise dirs + hidden dirs) DURING the walk, so a secret-shaped file buried in
+# node_modules/.venv/.git or under any hidden dir is invisible here too (spec
+# Behavior 10) with no prune rule left in this module. It prunes DIRECTORIES only,
+# which is exactly what this collector needs: hidden FILES stay visible (spec
+# Behavior 9), the single place the large_file template must NOT be copied.
+from proactive_loop.collectors import dir_source
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT dir-prune rules the sibling collectors use (the SPEC-sanctioned
-# shared seam) so a secret-shaped file buried in node_modules/.venv/.git or under
-# any hidden dir is invisible here too (spec Behavior 10). NOTE: we import
-# _is_hidden ONLY for the DIRECTORY prune -- hidden FILES are intentionally kept
-# (spec Behavior 9), the single place the large_file template must NOT be copied.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ContextSignal
 
 # --- Match / exclusion sets: the single source of truth (spec Behaviors 2-4) ----
@@ -129,20 +132,21 @@ class SecretFileCollector(BaseCollector):
             return []
 
         # (relpath, absolute-path) pairs, so we can order deterministically by
-        # ascending forward-slashed relpath regardless of os.walk traversal order.
+        # ascending forward-slashed relpath regardless of the traversal order the
+        # provider happens to serve.
         candidates: list[tuple[str, Path]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden DIRS in place so os.walk never descends into
-            # them (spec Behavior 10), identical to the sibling collectors.
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden DIRS (spec Behavior
+        # 10): dir_source applies the package dir-prune policy during the traversal,
+        # so this collector no longer carries the rule -- and inside the scan scope
+        # opened by cli._collect the traversal itself is shared with every sibling
+        # walking the same root instead of being re-paid once per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             # Consider ALL files -- hidden included (spec Behavior 9). This is the
-            # one line where the large_file template ("if _is_hidden(fname):
-            # continue") must NOT be copied: .env / .netrc / .env.* are hidden yet
-            # are the flagship targets. We iterate `filenames` only, never
-            # `dirnames`, so a dir literally named `credentials`/`secrets.pem` is
-            # never flagged (spec Behavior 11).
+            # one place where the large_file template (skip a hidden basename) must
+            # NOT be copied: .env / .netrc / .env.* are hidden yet are the flagship
+            # targets. We iterate `filenames` only, never the directory names, so a
+            # dir literally named `credentials`/`secrets.pem` is never flagged (spec
+            # Behavior 11).
             for fname in filenames:
                 if not _is_secret_shaped(fname):
                     continue

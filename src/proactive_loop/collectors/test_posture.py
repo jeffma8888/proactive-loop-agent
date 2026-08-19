@@ -17,21 +17,25 @@ cost.
 
 Classification is purely filename/extension/directory-name heuristics (SPEC Out
 of Scope): no reading of pyproject.toml/package.json for a configured runner, no
-import parsing, no coverage. Pure stdlib (os/pathlib) only, so the runtime stays
+import parsing, no coverage. Pure stdlib (pathlib) only, so the runtime stays
 pydantic-v2-only and fully offline.
+
+The dir-prune rule (noise dirs + hidden dirs) is not implemented here: it is
+INHERITED from ``collectors.dir_source``, which owns the single dir-prune policy
+for the package and serves this collector an already-pruned listing.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
+# The shared per-scan traversal provider (mirroring dependencies.py). It applies
+# the EXACT skip rules RecentFilesCollector uses DURING the walk, so a file buried
+# in node_modules/.venv/ or under a hidden dir is invisible here too, with no prune
+# rule left in this module.
+from proactive_loop.collectors import dir_source
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned
-# shared seam, mirroring dependencies.py) so a file buried in node_modules/.venv/
-# a hidden dir is invisible here too.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ContextSignal
 
 # File extensions we treat as "code". Deliberately narrow and language-agnostic;
@@ -93,15 +97,16 @@ class TestPostureCollector(BaseCollector):
             return []
 
         # project key -> [source_count, test_count]. A dict keyed by the stable
-        # project key makes the result independent of os.walk traversal order.
+        # project key makes the result independent of the traversal order the
+        # provider happens to serve.
         counts: dict[str, list[int]] = {}
 
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to the sibling
-            # collectors, so os.walk never descends into them (spec Skip rule).
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden dirs (spec Skip
+        # rule): dir_source applies the package dir-prune policy during the
+        # traversal, so this collector no longer carries the rule -- and inside the
+        # scan scope opened by cli._collect the traversal itself is shared with every
+        # sibling walking the same root instead of being re-paid once per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 full = Path(dirpath) / fname
                 if full.suffix not in _CANDIDATE_EXTS:
