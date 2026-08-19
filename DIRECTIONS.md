@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-189
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- convert 2 more collectors onto `dir_source.walk`, deleting their hand-copied prune block
+    - Candidate A2 -- delete the two LOCAL copies of the walk policy in `todos` and `notes`, which have already diverged
+    - Candidate A3 -- retire settled `ROADMAP.md` row #121 and its pin test, reclaiming 968 of 1,012 remaining chars
+    - Candidate B1 -- persist the parse-verdict memo across PROCESSES, opt-in and content-digest keyed
+    - Candidate B2 -- defer the heavy module-level imports in `cli.py` so a non-scanning verb stops paying pydantic
+    - Candidate B3 -- a per-scan WORK-BUDGET oracle: pin physical traversals, decodes, parses and child processes
+    winner: B3
+    ship: pending (not yet decided)
   iter-188
     lenses: integration-and-adoption (state-dir iter-188), simplification-and-deletion (state-dir iter-188)
     - Candidate A1 -- the graded gate cannot see a demo run that never reached `done`; the grader for it is already shipped and unconsumed
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- convert ONE remaining bespoke walker onto the shared provider, deleting its traversal and its prune block
     - Candidate B3 -- narrow the `filesystem.py` exemption to its true scope: `_has_source` walks with NO recency prune and should be served, not re-walk
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 154e42a
   iter-187
     lenses: hardening/DX -- iteration 187, integration-and-adoption -- iteration 187
     - A1 -- Reclaim `ROADMAP.md` headroom before the 40,000-char ceiling reds a public build
@@ -968,4 +978,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-97 scouted iterations
+98 scouted iterations
