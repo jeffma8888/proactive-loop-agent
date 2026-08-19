@@ -1,6 +1,36 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-188
+    lenses: integration-and-adoption (state-dir iter-188), simplification-and-deletion (state-dir iter-188)
+    - Candidate A1 -- the graded gate cannot see a demo run that never reached `done`; the grader for it is already shipped and unconsumed
+    - Candidate A2 -- `signals --fail-over N` gets its first consumer (roadmap #184), and the measurement says the obvious shape would be a fail-open
+    - Candidate A3 -- `--baseline`'s first consumer: commit one snapshot and arm `ci_config` only (roadmap #161)
+    - Candidate B1 -- delete the two duplicate copies of the dir-prune policy (3 definitions -> 1), proven behavior-preserving
+    - Candidate B2 -- convert ONE remaining bespoke walker onto the shared provider, deleting its traversal and its prune block
+    - Candidate B3 -- narrow the `filesystem.py` exemption to its true scope: `_has_source` walks with NO recency prune and should be served, not re-walk
+    winner: B1
+    ship: pending (not yet decided)
+  iter-187
+    lenses: hardening/DX -- iteration 187, integration-and-adoption -- iteration 187
+    - A1 -- Reclaim `ROADMAP.md` headroom before the 40,000-char ceiling reds a public build
+    - A2 -- Oracle the two unguarded `_out_dir_guard` messages (roadmap row #136)
+    - A3 -- `make test-contracts`: a derived, seconds-scale pre-check for the guard class that reverted iter-186
+    - B1 -- Arm the gate against a committed baseline: `--baseline`'s first executable consumer (roadmap #161)
+    - B2 -- `pla scan --json`: one machine-readable idiom across every verb
+    - B3 -- `make hooks`: a discoverable on-ramp for the pre-commit gate the repo already ships
+    winner: B2
+    ship: unknown
+  iter-186
+    lenses: NEW-CAPABILITY, hardening/DX
+    - Candidate A1 -- `pla trend --dir DIR`: which goals RECUR across a watch stream
+    - Candidate A2 -- `pla watch --collector NAME`: the stream verb's perception cannot be scoped
+    - Candidate A3 -- `dispatch`/`explain --rank N`: act on the goal the table just numbered
+    - Candidate B1 -- `tests/conftest.py` strips the `PLA_*` namespace so an exported knob cannot red a clean checkout
+    - Candidate B2 -- oracle the two unguarded `_out_dir_guard` messages
+    - Candidate B3 -- `resume` names the corrupt file it choked on, instead of surfacing a raw JSON parser message
+    winner: A2
+    ship: REVERTED
   iter-185
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- the README links NONE of the four companion documents, so the decision log is unreachable
@@ -11,7 +41,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `--max-iterations N` / `--max-llm-calls N`: make the L1 budget SETTABLE
     - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector, 2nd RELATIONAL one
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 6082214
   iter-184
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- move `syntax_error` onto `dir_source`, because that seam is where 59% of the cold scan lives
@@ -938,4 +968,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-94 scouted iterations
+97 scouted iterations

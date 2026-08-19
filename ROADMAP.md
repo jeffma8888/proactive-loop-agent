@@ -122,3 +122,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #220 secret_file + test_posture read the shared dirent listing; 4 collectors share 1 walk (iter 183, factory iter 187)
 - #221 CODE5_PRODUCERS derived from cli.py: 3 exit-5 gates guarded on 3 surfaces (iter 184, factory iter 188)
 - #223 README links its 4 tracked companion docs, guarded by a git-derived domain (iter 185, factory iter 189)
+- #224 scan --json aliases --format json via a store_const in an exclusive group (iters 187-188, factory iter 190)

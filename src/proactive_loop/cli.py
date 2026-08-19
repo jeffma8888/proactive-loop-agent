@@ -607,11 +607,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument(
         "--out", default=None, help="Where to write the slate JSON (default <state_dir>/slate.json)."
     )
+    # --format and --json are ONE knob with two spellings, so they share a dest and
+    # live in a mutually exclusive group: passing both is a PARSE-time usage error
+    # (exit 2) rather than a silent precedence rule nobody can predict. REGISTRATION
+    # ORDER IS LOAD-BEARING, not stylistic: parse_args seeds an action's default only
+    # `if not hasattr(namespace, dest)`, so with two actions on dest="format" the
+    # FIRST-registered default is the one that survives -- register --format first or
+    # a bare `scan` resolves format=None and every existing invocation changes.
+    scan_format = p_scan.add_mutually_exclusive_group()
     # choices makes argparse reject an unknown format at PARSE time (outside the
     # main() try), so an invalid value is a SystemExit(2) usage error naming the
     # bad choice -- no client built, no collection run, no slate written. Default
     # table keeps every existing scan invocation byte-for-byte unchanged.
-    p_scan.add_argument(
+    scan_format.add_argument(
         "--format",
         choices=["table", "json", "markdown", "csv", "html"],
         default="table",
@@ -620,6 +628,27 @@ def build_parser() -> argparse.ArgumentParser:
             "trailer, pipes cleanly into jq) | markdown (paste-ready GFM table + trailer) "
             "| csv (RFC-4180 data stream, no trailer, opens in Excel / pandas.read_csv) "
             "| html (self-contained escaped HTML table, no trailer, opens in a browser)."
+        ),
+    )
+    # An ALIAS for `--format json`, not a second knob: store_const resolves into the
+    # SAME `format` dest, so ZERO rendering code changes and `args.format == "json"`
+    # flows through the pre-existing path verbatim. WHY it exists: --json is the
+    # machine-readable idiom on 14 of the 16 verbs, and `scan` -- the FIRST verb in
+    # help order, so the first one a reader tries -- was one of the two that refused
+    # it (exit 2, `unrecognized arguments: --json`). The exclusion is rejected even
+    # when the two spellings AGREE (`--json --format json`), deliberately: accepting
+    # the agreeing pair would commit the CLI to a precedence rule the moment they
+    # ever differ. argparse names whichever flag it saw SECOND in the error, so the
+    # message pair swaps with argv order and only `not allowed with argument` is stable.
+    scan_format.add_argument(
+        "--json",
+        action="store_const",
+        const="json",
+        dest="format",
+        help=(
+            "Alias for --format json: emit one JSON object on stdout, no trailer, "
+            "pipes cleanly into jq. Mutually exclusive with --format -- passing "
+            "both is a usage error (exit 2), even when they agree."
         ),
     )
     # A stdout-view cap on the number of ranked goals printed; the persisted slate
