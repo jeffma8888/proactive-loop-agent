@@ -29,6 +29,20 @@ The whole system runs **fully offline and deterministically** by default — the
      tests/test_readme_and_ci_contract.py fails the build if you skip it. ▼
      ============================================================================ -->
 
+## Project documents
+
+Four committed documents sit beside this README, each answering a different question.
+
+- **[SPEC.md](SPEC.md)** — the design contract: layer boundaries, module contracts and the
+  non-negotiables every change is held to. Start here to see what the project *promises*.
+- **[ROADMAP.md](ROADMAP.md)** — the live backlog and the Done ledger: what is queued, what
+  shipped, and in which iteration it shipped.
+- **[ROADMAP_ARCHIVE.md](ROADMAP_ARCHIVE.md)** — not meant to be read wholesale: it holds the
+  full per-row detail behind every retired roadmap row (layer, value, risk, source, status), so
+  look up the one row you care about.
+- **[DIRECTIONS.md](DIRECTIONS.md)** — one block per iteration recording what was considered,
+  what was rejected and why. This is the reasoning trail behind the commit history.
+
 ## The three layers
 
 **Layer: harness plus policy, with a decision gate.** A proactivity harness that decides what is worth doing and gates it before acting; nothing here depends on model cooperation once launched.

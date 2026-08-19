@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-185
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- the README links NONE of the four companion documents, so the decision log is unreachable
+    - Candidate A2 -- CHECKED AND VOID: DIRECTIONS.md misreporting its own ship outcomes
+    - Candidate A3 -- the exit-code preamble sends a scripting reader to the one surface `python -OO` deletes
+    - Candidate A4 -- the exit-1 row omits the third malformed-JSON file that actually reaches it
+    - Candidate B1 -- `pla trend --dir DIR`: which goals PERSIST across a watch stream
+    - Candidate B2 -- `--max-iterations N` / `--max-llm-calls N`: make the L1 budget SETTABLE
+    - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector, 2nd RELATIONAL one
+    winner: A1
+    ship: pending (not yet decided)
   iter-184
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- move `syntax_error` onto `dir_source`, because that seam is where 59% of the cold scan lives
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the README tells a scripting reader the exit-code contract lives in the one surface `python -OO` deletes
     - Candidate B3 -- the README links NONE of the four other tracked documents, including the decision log that is the repo's differentiator
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 304ecdf
   iter-183
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one shared scan-scope lifecycle: `walk_scope` and `scan_scope` are byte-identical
@@ -927,4 +938,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-93 scouted iterations
+94 scouted iterations
