@@ -1,9 +1,15 @@
 """Behavior tests for state-dir iteration 146 (ships as ``factory iter 152``).
 
 Feature under test: ``pla --help`` publishes the CLI exit-code contract as an
-``exit codes:`` epilog, and the meaning of exit code ``5`` -- which has TWO
-producers -- is complete on all THREE public surfaces (the new epilog,
-``proactive_loop.cli.main.__doc__``, and the README ``### Exit codes`` table).
+``exit codes:`` epilog, and the meaning of exit code ``5`` is complete on all
+THREE public surfaces (the new epilog, ``proactive_loop.cli.main.__doc__``, and
+the README ``### Exit codes`` table) for EVERY producer of that code.  How many
+producers there are is DERIVED from ``cli.py`` by ``_code5_producers``, never
+written down here: a hardcoded list is a count in prose, and this one went stale
+the moment a third gate shipped.  ``verify --fail-on-unresolved`` was named on
+all three surfaces and held there by NOTHING, because the constant these
+surface tests iterated still listed two flags while this module's own
+``test_b09`` census already said three.
 
 WHY THIS MODULE IS RE-WRITTEN RATHER THAN RESTORED
 The same product change was reverted at the pre-ship gate of the previous
@@ -71,10 +77,6 @@ EXIT_CODES_SECTION = "exit codes:"
 
 # An assertion ABOUT the three derivations, never their source of truth.
 EXPECTED_CODES = [0, 1, 2, 3, 4, 5]
-
-# Both live producers of exit code 5. `--fail-over` shipped later and every
-# public description named only the first, which is the defect being closed.
-CODE5_PRODUCERS = ("--fail-on-kind", "--fail-over")
 
 # The epilog is hand-wrapped by a raw formatter, so it owns its own width.
 MAX_EPILOG_WIDTH = 80
@@ -231,6 +233,71 @@ def _exit5_sites(source_text: str) -> dict[str, list[int]]:
     return {kind: sorted(linenos) for kind, linenos in sites.items()}
 
 
+# Every gate announces itself on stderr as `gate: <flag> tripped`, so that
+# literal is the one place the code names its own exit-5 producers. The flag
+# shape is lowercase words joined by SINGLE hyphens and cannot end in one, so a
+# malformed `gate: fail-over- tripped` yields no producer rather than a flag
+# name no CLI surface could ever match.
+GATE_LITERAL_RE = re.compile(r"gate:\s+([a-z0-9]+(?:-[a-z0-9]+)*)\s+tripped\b")
+
+
+def _code5_producers(source_text: str) -> tuple[str, ...]:
+    """The CLI flags that route to exit 5, derived from ``cli.py`` source text.
+
+    Takes the source as a PARAMETER rather than importing the module, so the
+    growth and comment-immunity tests can feed it a synthetic sample.
+
+    WHY AN AST WALK AND NOT A TEXT SCAN: ``ast.parse`` discards comments, and
+    the repo has a comment naming ``gate: fail-over tripped`` seven lines above
+    an unrelated route -- so any backward line-window scan from each ``return
+    5`` mis-attributes that route, while repo prose could inflate the guard.
+    Walking string constants also reaches f-string parts (``ast.JoinedStr``
+    values), which is how one of the live gate lines is spelled.
+
+    Returned SORTED so the five sites that consume it are deterministic.
+
+    Deliberately OVER-inclusive on docstrings: a gate named in a docstring but
+    never emitted would enter the set. That is a false positive, not a
+    fail-open, and ``test_b13`` pins the set to the real ``return 5`` routes by
+    cross-census -- which is also what catches the reverse, a route that
+    announces no gate.
+    """
+    flags = {
+        f"--{match.group(1)}"
+        for node in ast.walk(ast.parse(source_text))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        for match in GATE_LITERAL_RE.finditer(node.value)
+    }
+    return tuple(sorted(flags))
+
+
+def _missing_producers(surface_text: str) -> list[str]:
+    """Producers absent from one surface's rendered text, in derived order."""
+    return [flag for flag in CODE5_PRODUCERS if flag not in surface_text]
+
+
+def _assert_surface_names_every_producer(surface: str, surface_text: str) -> None:
+    """Fail NAMING the absent flag, so a drifted surface localises the offender.
+
+    Shared by the three surface guards below: a count alone ("2 of 3") tells a
+    contributor that something is undocumented but not WHICH gate, and exit 5
+    is the whole contract a CI step or pre-commit hook branches on.
+    """
+    missing = _missing_producers(surface_text)
+    assert not missing, (
+        f"{surface} omits {', '.join(missing)} -- exit code 5 has "
+        f"{len(CODE5_PRODUCERS)} producer(s) derived from cli.py "
+        f"({', '.join(CODE5_PRODUCERS)}), and the code is all a script sees, so "
+        f"every route to it must be named on every published surface; got "
+        f"{surface_text!r}"
+    )
+
+
+# DERIVED, never written down: see ``_code5_producers``. Measured on the shipped
+# tree -- ('--fail-on-kind', '--fail-on-unresolved', '--fail-over').
+CODE5_PRODUCERS = _code5_producers(CLI_SOURCE.read_text(encoding="utf-8"))
+
+
 # --------------------------------------------------------------------------
 # Behavior 1 -- the section exists on the top-level help, which exits 0
 # --------------------------------------------------------------------------
@@ -293,19 +360,16 @@ def test_b02_precondition_continuations_are_indented_and_never_start_a_digit() -
 
 
 # --------------------------------------------------------------------------
-# Behavior 3 -- the epilog's code-5 entry names BOTH producers
+# Behavior 3 -- the epilog's code-5 entry names EVERY derived producer
 # --------------------------------------------------------------------------
 
 
-def test_b03_epilog_code5_entry_names_both_producers() -> None:
+def test_b03_epilog_code5_entry_names_every_producer() -> None:
     entries = {entry.code: entry.text for entry in _entries(_capture_help(["--help"]))}
     assert 5 in entries, "the epilog does not document exit code 5"
-    for flag in CODE5_PRODUCERS:
-        assert flag in entries[5], (
-            f"the epilog's exit-5 meaning omits {flag!r}: both --fail-on-kind "
-            "and --fail-over return 5, and the code is all a script sees; got "
-            f"{entries[5]!r}"
-        )
+    _assert_surface_names_every_producer(
+        "the `exit codes:` epilog of `pla --help`", entries[5]
+    )
 
 
 # --------------------------------------------------------------------------
@@ -355,15 +419,14 @@ def test_b05_epilog_block_is_byte_identical_across_terminal_widths(
 # --------------------------------------------------------------------------
 
 
-def test_b06_docstring_code5_bullet_names_both_producers() -> None:
+def test_b06_docstring_code5_bullet_names_every_producer() -> None:
     doc = main.__doc__ or ""
     assert doc.strip(), "proactive_loop.cli.main lost its docstring"
     bullets = _docstring_bullets(doc)
     assert 5 in bullets, f"main.__doc__ no longer enumerates exit code 5: {bullets!r}"
-    for flag in CODE5_PRODUCERS:
-        assert flag in bullets[5], (
-            f"main.__doc__'s code-5 bullet omits {flag!r}; got {bullets[5]!r}"
-        )
+    _assert_surface_names_every_producer(
+        "the code-5 bullet of proactive_loop.cli.main.__doc__", bullets[5]
+    )
 
 
 def test_b06_docstring_reader_is_indentation_independent() -> None:
@@ -373,13 +436,17 @@ def test_b06_docstring_reader_is_indentation_independent() -> None:
     3.12 does not, so the SAME source yields two different ``__doc__`` strings.
     The reader must return identical bullets for both shapes.
     """
+    # GENERATED from the derived set, never written out: every producer is
+    # placed on a CONTINUATION line, which is precisely where the 3.13 indent
+    # change truncated the bullet. Hand-listing the flags here is what let this
+    # sample fall a gate behind the code in the first place.
+    assert CODE5_PRODUCERS, "no producers derived, so this sample is degenerate"
     dedented = (
         "Console entry point.\n"
         "\n"
         "* ``4`` -- needs-approval (re-run with ``--yes``).\n"
-        "* ``5`` -- a requested gate tripped on a finding: either\n"
-        "  ``--fail-on-kind`` matched a reported signal, or ``--fail-over``\n"
-        "  saw more reported signals than its budget allows.\n"
+        "* ``5`` -- a requested gate tripped on a finding, one of:\n"
+        + "".join(f"  ``{flag}`` tripped on a finding.\n" for flag in CODE5_PRODUCERS)
     )
     indented = "".join(
         line if index == 0 else (f"    {line}" if line.strip() else line)
@@ -418,21 +485,20 @@ def test_b07_all_three_surfaces_publish_the_same_code_set() -> None:
 
 
 # --------------------------------------------------------------------------
-# Behavior 8 -- README: row 5 names both producers, every edit is BELOW the
+# Behavior 8 -- README: row 5 names every producer, every edit is BELOW the
 # human-owned marker, and the intro block keeps its carve-out numbers
 # --------------------------------------------------------------------------
 
 
-def test_b08_readme_row5_names_both_producers_and_rows_0_to_4_survive() -> None:
+def test_b08_readme_row5_names_every_producer_and_rows_0_to_4_survive() -> None:
     rows = _readme_exit_code_rows(README.read_text(encoding="utf-8"))
     for code in EXPECTED_CODES:
         assert code in rows and rows[code].strip(), (
             f"the README '### Exit codes' table lost a meaning for code {code}"
         )
-    for flag in CODE5_PRODUCERS:
-        assert flag in rows[5], (
-            f"the README exit-5 row omits {flag!r}; got {rows[5]!r}"
-        )
+    _assert_surface_names_every_producer(
+        "the README '### Exit codes' row 5", rows[5]
+    )
     for code in (0, 1, 2, 3, 4):
         assert "--fail-over" not in rows[code], (
             f"row {code} was edited to mention --fail-over; this iteration "
@@ -613,3 +679,193 @@ def test_readers_fire_on_known_bad_samples() -> None:
         "exit_call": [],
         "raise": [],
     }, "_exit5_sites must not match a different constant"
+
+    # (e) producer derivation: a source with no gate literal at all. The
+    # two-sided proofs live in their own tests below (growth on a synthetic
+    # fourth gate, and comment immunity), because those are behaviors in their
+    # own right rather than reader plumbing.
+    assert _code5_producers("def a() -> int:\n    return 5\n") == (), (
+        "_code5_producers must find nothing in a source that emits no "
+        "`gate: <flag> tripped` line, or the derivation matches too broadly and "
+        "every surface loop below inherits a bogus flag"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 12 -- the producer set is DERIVED from cli.py, and the derivation
+# is proven two-sided: it GROWS with a new gate and ignores repo prose
+# --------------------------------------------------------------------------
+
+
+def test_b12_producer_set_is_derived_from_cli_source_and_is_not_hardcoded() -> None:
+    """The set the five surface guards iterate comes from the code, not prose."""
+    derived = _code5_producers(CLI_SOURCE.read_text(encoding="utf-8"))
+    assert derived == CODE5_PRODUCERS, (
+        "CODE5_PRODUCERS must be exactly what cli.py announces today; got "
+        f"{CODE5_PRODUCERS!r} against a fresh derivation of {derived!r}"
+    )
+    assert derived == ("--fail-on-kind", "--fail-on-unresolved", "--fail-over"), (
+        "the shipped tree emits exactly three `gate: <flag> tripped` literals; a "
+        "change here means a gate was added or renamed, and every published "
+        f"surface must name it in the same commit; got {derived!r}"
+    )
+    assert derived == tuple(sorted(derived)) and len(set(derived)) == len(derived), (
+        f"the derivation must be sorted and duplicate-free to be deterministic: {derived!r}"
+    )
+    # Fail-CLOSED against a regression to a written-down list. Scoped to
+    # MODULE-LEVEL assignments on purpose: the defect being closed was a
+    # module CONSTANT that the surface loops consumed, whereas a flag literal
+    # inside a test is an EXPECTED VALUE and is exactly how the derivation is
+    # pinned above. A guard wide enough to catch both would have to fire on the
+    # assertions that prove it works.
+    own_module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    hardcoded = [
+        ast.unparse(node)
+        for node in own_module.body
+        if isinstance(node, ast.Assign | ast.AnnAssign)
+        and isinstance(node.value, ast.Tuple | ast.List | ast.Set)
+        and all(
+            isinstance(elt, ast.Constant)
+            and isinstance(elt.value, str)
+            and elt.value.startswith("--")
+            for elt in node.value.elts
+        )
+        and node.value.elts
+    ]
+    assert not hardcoded, (
+        "no module-level constant here may write the producer flags down -- a "
+        "hardcoded list is a count in prose, and it silently stopped guarding "
+        f"the third gate once one shipped; found {hardcoded}"
+    )
+
+
+def test_b12_derivation_grows_when_a_new_gate_literal_ships() -> None:
+    """Two-sided, positive: a fourth gate must widen the guard by itself.
+
+    The synthetic sample spells its gate line as an f-string, which is how one
+    of the live routes is written, so this also pins that ``ast.JoinedStr``
+    parts are reached.
+    """
+    fourth_gate = (
+        "def existing() -> int:\n"
+        '    print("gate: fail-on-kind tripped")\n'
+        "    return 5\n"
+        "def added(x: int) -> int:\n"
+        '    print(f"gate: fail-on-new tripped -- n={x}")\n'
+        "    return 5\n"
+    )
+    derived = _code5_producers(fourth_gate)
+    assert derived == ("--fail-on-kind", "--fail-on-new"), (
+        "a newly emitted `gate: <flag> tripped` literal must appear in the "
+        "derived set with no human edit -- that is what makes an undocumented "
+        f"gate red the build instead of shipping silently; got {derived!r}"
+    )
+
+
+def test_b12_derivation_ignores_a_gate_named_only_in_a_comment() -> None:
+    """Two-sided, negative: repo prose must not be able to inflate the guard.
+
+    Load-bearing, not hypothetical: ``cli.py`` carries a comment naming one
+    gate literal a few lines above an unrelated route, so a text or
+    line-window scan would attribute the wrong flag to that route.
+    """
+    commented = (
+        "def real() -> int:\n"
+        '    print("gate: fail-on-kind tripped")\n'
+        "    return 5\n"
+        "def ghost() -> int:\n"
+        "    # gate: fail-on-ghost tripped\n"
+        "    return 5\n"
+    )
+    derived = _code5_producers(commented)
+    assert "--fail-on-ghost" not in derived, (
+        "a gate named only in a `#` comment must NOT enter the derived set: it "
+        "is not a producer, and admitting it would demand documentation for a "
+        f"flag that does not exist; got {derived!r}"
+    )
+    assert derived == ("--fail-on-kind",), (
+        f"only the genuinely emitted literal may be derived; got {derived!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 13 -- cross-census: one derived producer per literal exit-5 route
+# --------------------------------------------------------------------------
+
+
+def test_b13_derived_producer_count_matches_the_literal_exit_5_route_census() -> None:
+    """A derived set alone is just a different constant; this pins it to the code.
+
+    Two independent censuses of the same source must agree: the gate literals
+    the code PRINTS and the ``return 5`` routes it TAKES. A route added with no
+    gate literal, or a gate literal with no route, fails here.
+    """
+    source = CLI_SOURCE.read_text(encoding="utf-8")
+    producers = _code5_producers(source)
+    routes = sum(len(linenos) for linenos in _exit5_sites(source).values())
+    assert len(producers) == routes, (
+        f"cli.py announces {len(producers)} exit-5 gate(s) {producers} but holds "
+        f"{routes} literal exit-5 route(s) -- one of the two is undocumented. A "
+        "new route must emit its own `gate: <flag> tripped` line AND be named on "
+        "all three published surfaces in the same commit."
+    )
+    # Non-vacuous: the census must actually be able to disagree.
+    mismatched = (
+        "def a() -> int:\n"
+        '    print("gate: fail-on-kind tripped")\n'
+        "    return 5\n"
+        "def b() -> int:\n"
+        "    return 5\n"
+    )
+    mismatch_routes = sum(len(v) for v in _exit5_sites(mismatched).values())
+    assert len(_code5_producers(mismatched)) != mismatch_routes, (
+        "the cross-census cannot detect a route that announces no gate, so it "
+        "would pass vacuously on the real source too"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 14 -- each surface guard FAILS, naming the flag, when a producer
+# is removed from an in-memory copy of that surface
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("surface", ["epilog", "docstring", "readme"])
+def test_b14_each_surface_guard_fails_and_names_a_removed_producer(surface: str) -> None:
+    """Fail-CLOSED per surface: proves each guard localises the offender.
+
+    The three surfaces pass on the shipped tree, so without this the guards
+    could be structurally incapable of failing and nobody would notice.  The
+    copy is mutated IN MEMORY -- no file on disk is touched.
+    """
+    dropped = "--fail-on-unresolved"
+    assert dropped in CODE5_PRODUCERS, (
+        f"precondition: {dropped} must be a derived producer, else this test is "
+        f"asserting about a flag no surface has to name; got {CODE5_PRODUCERS!r}"
+    )
+    if surface == "epilog":
+        intact = {e.code: e.text for e in _entries(_capture_help(["--help"]))}[5]
+        damaged = {
+            e.code: e.text
+            for e in _entries(_capture_help(["--help"]).replace(dropped, ""))
+        }[5]
+    elif surface == "docstring":
+        doc = main.__doc__ or ""
+        intact = _docstring_bullets(doc)[5]
+        damaged = _docstring_bullets(doc.replace(dropped, ""))[5]
+    else:
+        readme_text = README.read_text(encoding="utf-8")
+        intact = _readme_exit_code_rows(readme_text)[5]
+        damaged = _readme_exit_code_rows(readme_text.replace(dropped, ""))[5]
+    assert dropped in intact, (
+        f"precondition: the live {surface} must name {dropped} before removal, "
+        f"otherwise the mutation is a no-op; got {intact!r}"
+    )
+    _assert_surface_names_every_producer(surface, intact)  # the real surface passes
+    with pytest.raises(AssertionError) as excinfo:
+        _assert_surface_names_every_producer(surface, damaged)
+    assert dropped in str(excinfo.value), (
+        f"the {surface} guard must NAME the missing {dropped}, not just report a "
+        f"count, so a contributor knows which gate to document; got "
+        f"{str(excinfo.value)!r}"
+    )

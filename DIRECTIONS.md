@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-184
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- move `syntax_error` onto `dir_source`, because that seam is where 59% of the cold scan lives
+    - Candidate A2 -- an INPUT-side path prune, so a user who ignores a subtree stops paying for it
+    - Candidate A3 -- correct the two queued suite-throughput rows against a measurement taken today
+    - Candidate B1 -- the exit-5 producer guard requires 2 of the 3 gates that actually return 5
+    - Candidate B2 -- the README tells a scripting reader the exit-code contract lives in the one surface `python -OO` deletes
+    - Candidate B3 -- the README links NONE of the four other tracked documents, including the decision log that is the repo's differentiator
+    winner: B1
+    ship: pending (not yet decided)
   iter-183
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one shared scan-scope lifecycle: `walk_scope` and `scan_scope` are byte-identical
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one shared per-scan stat provider, the third member of the `text_source` / `dir_source` family
     - Candidate B3 -- re-measure suite throughput; ROADMAP #169's premise has now moved twice
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 41dc9ec
   iter-182
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 (primary) -- the demo persists its snapshot and the gate runs `verify --fail-on-unresolved`
@@ -917,4 +927,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-92 scouted iterations
+93 scouted iterations

@@ -1,577 +1,672 @@
-"""Iteration 184 behavior oracle -- aggregated per-manifest absorb WARNINGs.
+"""Black-box behavior tests for state-dir iteration 184 (ships as ``factory iter 188``).
 
-MODULE NAME (why not ``test_iter180_behavior.py``, which the spec asked for).
-This repo names behavior modules by the FACTORY iteration number, which runs
-ahead of the state-dir counter: ``tests/test_iter180_behavior.py`` is ALREADY
-TRACKED and is factory iter 180's oracle for ``pla verify
---fail-on-unresolved`` (commit ``6c8f0d3``), and the newest tracked module is
-``tests/test_iter183_behavior.py`` (commit ``96a5336``, "factory iter 183").
-Writing this iteration's oracle at the spec's literal path would have
-OVERWRITTEN a shipped oracle, so state-dir 180 ships as factory 184 and this
-module takes the next free number. Measured, not assumed: ``git ls-files`` lists
-that module and ``git log`` attributes it to iteration 180.
+Feature under test: ``tests/test_iter152_behavior.py`` -- the drift guard for the
+CLI's exit-code-5 contract -- stops hardcoding WHICH flags route to exit 5 and
+DERIVES them from ``src/proactive_loop/cli.py`` instead.  The shipped defect was
+a fail-open, not a docs gap: all three published surfaces already named
+``verify --fail-on-unresolved``, and NOTHING held them there, because the
+constant the five surface loops iterated listed two flags while the same
+module's own exit-5 route census already said three.
 
-Feature under test (state-dir iteration 180). ``DependencyCollector`` and
-``LockfileDriftCollector`` each wrap their per-manifest signal build in a bare
-``except Exception: continue``, so a manifest that fails to build was
-indistinguishable from a tree with nothing to report -- on every surface the
-user has. This iteration adds ONE aggregated ``logging.WARNING`` per
-``collect()`` call, on the collector's OWN module logger, naming how many
-manifests were absorbed and which one (deterministically).
+WHY THIS MODULE EXISTS ALONGSIDE THE GUARD'S OWN TESTS
+The artifact under test is itself a test module, so "the suite is green" is not
+evidence: a guard can be structurally incapable of firing and still be green.
+This module drives the guard from OUTSIDE -- it loads it by file path under a
+private name, exercises its published seams against synthetic samples of its
+own, and forces its cross-census to FAIL and localise.  Where the guard asserts
+a property, this module asserts that the guard can DETECT that property's
+violation.
 
-Coverage, numbered to match the spec's Expected Behaviors:
+Isolation: black-box.  No implementation source, engineer note, reviewer note or
+diff was read while writing this file.  The seams are (a) the guard module
+loaded by path (it lives under ``tests/``, which the tester contract permits),
+(b) synthetic in-memory source text, and (c) an ``ast`` census of string
+constants in ``src/proactive_loop/cli.py``, which spec behaviors 1 and 4 require
+by construction -- parsed as DATA, never read as logic.
 
-1. Aggregated record, ``dependencies``: 3 recognized manifests, 2 raising ->
-   the healthy signal is still returned AND exactly ONE ``WARNING`` record
-   arrives on ``dependencies``' own module logger.
-2. That record's formatted message carries the absorbed count (``2``), the
-   offending manifest's RELATIVE path (no absolute path leaks), and the
-   collector's name.
-3. The same properties for ``LockfileDriftCollector`` -- covered by the
-   ``lockfile_drift`` parameter of the classes below, which is why they are
-   parametrized rather than duplicated.
-4. Silence stays silent (anti-vacuity): on a tree where NOTHING raises, each
-   collector returns its normal signals and emits ZERO ``WARNING``-or-above
-   records -- not just on its own logger, but on ANY ``proactive_loop`` logger.
-   Without this, behaviors 1-3 would also pass against a collector that screams
-   on every scan.
-5. The named path is DETERMINISTIC (the lexicographically SMALLEST failing
-   relative path), not encounter-ordered.
-6. The no-raise contract survives the worst case: when EVERY recognized manifest
-   raises, each collector still returns a list (``[]``) instead of propagating,
-   and still emits exactly ONE record whose count is the total.
+Offline and deterministic: pure parsing, in-process calls, no subprocess, no
+network, no clock, no workspace.
 
-HOW BEHAVIOR 5 IS MADE NON-VACUOUS, and a MEASURED note for the PM. The spec
-suggested forcing a walk order opposite to the sort order. I tried that first via
-the ``collectors.dir_source`` traversal seam (``monkeypatch.setattr(dir_source.os,
-"walk", ...)``, the shape ``tests/test_iter70_behavior.py`` uses) and MEASURED it
-to be INERT for ordering: with directory and file names re-yielded in DESCENDING
-order, both collectors still called their per-manifest build in ASCENDING order
-(``['aa_healthy', 'mm_fails', 'zz_fails']`` both ways), so that fixture cannot
-distinguish "smallest" from "first encountered" and any assertion built on it
-passes for the wrong reason. This module instead exploits ASCII collation, which
-needs no seam at all: ``-`` (0x2D) sorts BEFORE ``/`` (0x2F), so
-``a-x/pyproject.toml`` < ``a/pyproject.toml`` while a traversal that orders
-directory names ascending meets ``a`` BEFORE ``a-x``. The lexicographic minimum
-is therefore the SECOND failing manifest encountered, and the test ASSERTS that
-disagreement from the recorded call order before asserting on the record -- so it
-is self-proving inside the suite, not only in an out-of-repo probe.
+Fail-CLOSED: every census here is fired at a planted known-bad sample, because a
+census that silently sees nothing would make each assertion below pass
+vacuously -- strictly worse than no assertion at all.
 
-ISOLATION CONTRACT honored. Every expectation comes from this iteration's
-``pm.md`` "Expected Behaviors" plus the conventions of existing modules under
-``tests/`` (``test_iter169_behavior.py`` for the ``caplog`` record filter and the
-runtime-derived logger name, ``test_iter09_behavior.py`` for the ``dependencies``
-manifest fixtures, ``test_iter70_behavior.py`` for the ``lockfile_drift`` pairing
-rules). NO file under ``src/`` was read, NO engineer or reviewer note was opened,
-and NO ``git diff`` was consulted. Logger names are DERIVED at runtime from each
-collector's ``__module__`` rather than hardcoded, and the per-manifest build seam
-is patched signature-agnostically (``*args, **kwargs``), because the two sibling
-``_signal_for`` methods do NOT share a signature and a wrong-arity patch would
-raise ``TypeError`` INSIDE the collector's own ``except`` -- absorbed, and
-indistinguishable from "the emit never fired".
-
-Fully offline and deterministic: ``tmp_path`` trees only (never the in-repo
-tree), no network, no API key, no ``git`` subprocess, no clock or duration
-assertion, and nothing asserted about indentation or docstring text (so the
-3.12 / 3.13 matrix legs cannot diverge here).
+RETIRED NAMES ARE ASSEMBLED FROM FRAGMENTS ON PURPOSE.  Behavior 7 bans two
+spellings repo-wide, and this module's domain is ``git ls-files`` plus itself,
+so writing either one literally here would red the build the moment this file is
+committed (the self-blind-census trap, OPERATOR 2026-08-14).
 """
 
 from __future__ import annotations
 
-import logging
-import re
+import ast
+import importlib.util
+import inspect
+import subprocess
 from pathlib import Path
-from typing import Any, Callable
+from types import ModuleType
 
 import pytest
 
-from proactive_loop.collectors import DependencyCollector, LockfileDriftCollector
-from proactive_loop.models import ContextSignal
+REPO = Path(__file__).resolve().parents[1]
+GUARD_MODULE = REPO / "tests" / "test_iter152_behavior.py"
+CLI_SOURCE = REPO / "src" / "proactive_loop" / "cli.py"
 
-# ---------------------------------------------------------------------------
-# Derived expectations -- no hardcoded module paths.
-# ---------------------------------------------------------------------------
+#: The three flags ``cli.py`` announces today. An assertion ABOUT the
+#: derivation, never its source of truth -- the guard must compute this itself.
+EXPECTED_PRODUCERS = ("--fail-on-kind", "--fail-on-unresolved", "--fail-over")
 
-DEPENDENCIES_LOGGER = DependencyCollector.__module__
-LOCKFILE_DRIFT_LOGGER = LockfileDriftCollector.__module__
+#: The two spellings behavior 7 retires, assembled from fragments so this file
+#: holds NEITHER of them verbatim. Measured, not stylistic: this module unions
+#: itself into its own census domain, so a literal spelling here would make the
+#: census fire on this file the moment it is committed.
+RETIRED_DEF_SUFFIX = "names_" + "both_" + "producers"
+RETIRED_PAIR_FLAGS = ("--fail-on-" + "kind", "--fail-" + "over")
 
-PACKAGE = "proactive_loop"
+#: The surface guards that must consume the DERIVED set (behavior 5).
+SURFACE_GUARDS = (
+    "test_b03_epilog_code5_entry_names_every_producer",
+    "test_b06_docstring_code5_bullet_names_every_producer",
+    "test_b08_readme_row5_names_every_producer_and_rows_0_to_4_survive",
+)
 
-# A manifest recognized by BOTH collectors at once: ``dependencies`` reports any
-# ``pyproject.toml`` it finds, and ``lockfile_drift`` reports a pyproject whose
-# sibling lockfile is MISSING. Planting no lockfile therefore yields exactly one
-# signal per directory from each collector.
-MANIFEST = "pyproject.toml"
-_PYPROJECT = '[project]\nname = "demo"\nversion = "0.1.0"\ndependencies = ["a", "b"]\n'
-
-# Default fixture: one healthy manifest plus two that fail.
-HEALTHY_DIR = "aa_healthy"
-ALL_DIRS = ("aa_healthy", "mm_fails", "zz_fails")
-TWO_FAILING = ("mm_fails", "zz_fails")
-
-# Behavior 5 fixture -- see the module docstring. ``a-x/<M>`` sorts BEFORE
-# ``a/<M>`` (ASCII ``-`` < ``/``) yet is encountered SECOND, so "lexicographic
-# minimum" and "first encountered" name DIFFERENT manifests here.
-ORDER_DIRS = ("a", "a-x", "b_healthy")
-ORDER_FAILING = ("a", "a-x")
-
-COLLECTOR_PARAMS = [
-    pytest.param(DependencyCollector, DEPENDENCIES_LOGGER, "dependencies", id="dependencies"),
-    pytest.param(
-        LockfileDriftCollector, LOCKFILE_DRIFT_LOGGER, "lockfile_drift", id="lockfile_drift"
-    ),
-]
+SHARED_SURFACE_ASSERT = "_assert_surface_names_every_producer"
 
 
-# ---------------------------------------------------------------------------
-# Helpers -- black-box: plant a tmp tree, drive the public collector API, read
-# back observable log records.
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Seams
+# --------------------------------------------------------------------------
 
 
-def _rel(directory: str) -> str:
-    """The forward-slashed relative path a collector reports for *directory*."""
-    return f"{directory}/{MANIFEST}"
+def _load_guard() -> ModuleType:
+    """The SHIPPED guard module, loaded by path under a private name.
 
-
-def _plant_tree(root: Path, directories: tuple[str, ...] = ALL_DIRS) -> None:
-    """Plant one recognized manifest (and NO lockfile) inside each directory."""
-    for name in directories:
-        manifest = root / name / MANIFEST
-        manifest.parent.mkdir(parents=True, exist_ok=True)
-        manifest.write_text(_PYPROJECT, encoding="utf-8")
-
-
-def _patch_failures(
-    monkeypatch: pytest.MonkeyPatch,
-    collector_cls: type,
-    failing_dirs: tuple[str, ...],
-    *,
-    known_dirs: tuple[str, ...] = ALL_DIRS,
-    record_into: list[str] | None = None,
-) -> None:
-    """Make the per-manifest build raise for manifests under *failing_dirs*.
-
-    Signature-agnostic on purpose: ``DependencyCollector._signal_for`` and
-    ``LockfileDriftCollector._signal_for`` do NOT take the same arguments, and a
-    wrong-arity patch would raise ``TypeError`` inside the collector's own
-    ``except`` clause -- absorbed, and therefore indistinguishable from the
-    feature not working at all. So the wrapper accepts anything, scans the
-    STRINGIFIED arguments for a planted manifest path, and delegates otherwise.
-
-    When *record_into* is given, every recognized manifest is appended to it in
-    CALL order, which is how the ordering tests prove their own fixture.
+    A private name so pytest never collects it twice; by PATH so this module
+    tests the artifact on disk rather than an ambient import.
     """
-    original: Callable[..., Any] = collector_cls._signal_for  # must already exist
-    failing_rels = tuple(_rel(name) for name in failing_dirs)
-    known_rels = tuple(_rel(name) for name in known_dirs)
-
-    def _wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        blob = "|".join(str(value).replace("\\", "/") for value in (*args, *kwargs.values()))
-        if record_into is not None:
-            for rel in known_rels:
-                if rel in blob:
-                    record_into.append(rel)
-        for rel in failing_rels:
-            if rel in blob:
-                raise RuntimeError(f"planted per-manifest failure: {rel}")
-        return original(self, *args, **kwargs)
-
-    monkeypatch.setattr(collector_cls, "_signal_for", _wrapper)
-
-
-def _records_on(caplog: pytest.LogCaptureFixture, logger_name: str) -> list[logging.LogRecord]:
-    """WARNING-or-above records emitted by exactly *logger_name*."""
-    return [r for r in caplog.records if r.levelno >= logging.WARNING and r.name == logger_name]
-
-
-def _package_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
-    """WARNING-or-above records from ANY logger inside the product package."""
-    return [
-        r
-        for r in caplog.records
-        if r.levelno >= logging.WARNING
-        and (r.name == PACKAGE or r.name.startswith(f"{PACKAGE}."))
-    ]
-
-
-def _collect_with_failures(
-    collector_cls: type,
-    root: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    *,
-    failing_dirs: tuple[str, ...] = TWO_FAILING,
-    planted: tuple[str, ...] = ALL_DIRS,
-) -> list[ContextSignal]:
-    """Plant a tree, arm the failures, collect once inside the capture window."""
-    _plant_tree(root, planted)
-    _patch_failures(monkeypatch, collector_cls, failing_dirs, known_dirs=planted)
-    with caplog.at_level(logging.WARNING):
-        signals = collector_cls().collect(root)
-    assert isinstance(signals, list), "collect() must always return a list"
-    return signals
-
-
-def _sole_message(caplog: pytest.LogCaptureFixture, logger_name: str) -> str:
-    """Assert exactly one record on *logger_name* and return its formatted text."""
-    records = _records_on(caplog, logger_name)
-    assert len(records) == 1, (
-        f"expected exactly ONE aggregated record on {logger_name!r}; "
-        f"got {[(r.name, r.levelname, r.getMessage()) for r in caplog.records]!r}"
+    spec = importlib.util.spec_from_file_location("_iter152_guard_under_test", GUARD_MODULE)
+    assert spec is not None and spec.loader is not None, (
+        f"{GUARD_MODULE} must be loadable as a module; it is the artifact under test"
     )
-    return records[0].getMessage()
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def _paths_of(signals: list[ContextSignal]) -> list[str]:
-    return [str(getattr(s, "path", "")).replace("\\", "/") for s in signals]
+@pytest.fixture(scope="module")
+def guard() -> ModuleType:
+    """The guard module under test."""
+    return _load_guard()
 
 
-def _tail_rels(signals: list[ContextSignal]) -> list[str]:
-    """``<dir>/<manifest>`` for each returned signal, derived from its own path.
+@pytest.fixture(scope="module")
+def guard_source() -> str:
+    """The guard module's real bytes, for census assertions."""
+    return GUARD_MODULE.read_text(encoding="utf-8")
 
-    Taken from the tail of the reported path rather than via ``relative_to`` so no
-    assumption is made about whether the collector echoes the root it was handed
-    or a resolved form of it.
+
+def _tracked_python() -> dict[str, str]:
+    """``relpath -> source`` for every tracked ``.py``, PLUS this module.
+
+    This module is unioned in explicitly because a census whose domain is
+    ``git ls-files`` reads GREEN while its own file is still untracked, and this
+    is the file most likely to spell a retired name.
     """
-    tails: list[str] = []
-    for path in _paths_of(signals):
-        parts = path.split("/")
-        tails.append("/".join(parts[-2:]) if len(parts) >= 2 else path)
-    return tails
+    listed = subprocess.run(
+        ["git", "ls-files", "*.py"], cwd=REPO, capture_output=True, text=True, check=False
+    )
+    assert listed.returncode == 0, (
+        f"git ls-files exited {listed.returncode}; the census domain is unknown, "
+        "so this oracle would pass vacuously"
+    )
+    paths = {line for line in listed.stdout.splitlines() if line.strip()}
+    paths.add(str(Path(__file__).resolve().relative_to(REPO)))
+    corpus = {rel: (REPO / rel).read_text(encoding="utf-8") for rel in sorted(paths)}
+    assert len(corpus) > 100, (
+        f"the census listed only {len(corpus)} module(s) -- the domain collapsed"
+    )
+    assert str(Path(__file__).resolve().relative_to(REPO)) in corpus, (
+        "this module must be inside its own census domain"
+    )
+    return corpus
 
 
-# ===========================================================================
-# Preconditions -- the seams this oracle drives must exist and the fixture must
-# be non-vacuous. A failure HERE means the TEST is wrong, not the product.
-# ===========================================================================
+def _module_level_flag_pair_constants(source: str) -> list[str]:
+    """Module-level constants bound to a sequence of exactly the retired flags.
+
+    Scoped to MODULE LEVEL and to that exact pair on purpose. The shipped defect
+    was a module CONSTANT the surface loops iterated; a flag name inside a
+    function body is an expected value or an unrelated assertion, and banning
+    those would fire on the very tests that prove the derivation works.
+    """
+    found: list[str] = []
+    for node in ast.parse(source).body:
+        if not isinstance(node, ast.Assign | ast.AnnAssign):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Tuple | ast.List | ast.Set):
+            continue
+        elts = [
+            elt.value
+            for elt in value.elts
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
+        ]
+        if len(elts) == len(value.elts) and tuple(elts) == RETIRED_PAIR_FLAGS:
+            found.append(ast.unparse(node))
+    return found
 
 
-class TestSeamPreconditions:
-    def test_logger_names_are_the_collectors_own_modules(self) -> None:
-        assert DEPENDENCIES_LOGGER.endswith(".dependencies")
-        assert LOCKFILE_DRIFT_LOGGER.endswith(".lockfile_drift")
-        assert DEPENDENCIES_LOGGER != LOCKFILE_DRIFT_LOGGER
+def _normalized(text: str) -> str:
+    """Whitespace-collapsed text, so a wrapped phrase is still one phrase.
 
-    def test_behavior5_fixture_separates_sort_order_from_walk_order(self) -> None:
-        # Pure collation fact, asserted so the fixture's premise is visible: the
-        # SMALLEST failing rel is not the one an ascending directory walk meets
-        # first. If this ever flips, behavior 5 below silently stops discriminating.
-        failing = [_rel(name) for name in ORDER_FAILING]
-        assert min(failing) == _rel("a-x")
-        assert sorted(ORDER_FAILING) == ["a", "a-x"]
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_per_manifest_build_seam_exists(
-        self, collector_cls: type, logger_name: str, label: str
-    ) -> None:
-        # ``monkeypatch.setattr`` below relies on this attribute already existing;
-        # asserting it turns a silent no-op patch into a clear failure.
-        assert callable(getattr(collector_cls, "_signal_for", None))
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_fixture_yields_one_signal_per_planted_manifest(
-        self, collector_cls: type, logger_name: str, label: str, tmp_path: Path
-    ) -> None:
-        # Non-vacuity for every count assertion in this module: the planted tree
-        # really does hold three RECOGNIZED manifests for both collectors.
-        _plant_tree(tmp_path)
-        signals = collector_cls().collect(tmp_path)
-        assert len(signals) == len(ALL_DIRS), f"{label}: {signals!r}"
+    A multi-word ``in`` check over WRAPPED prose is a false negative: the bytes
+    carry a newline mid-phrase. Every prose claim below is measured on this.
+    """
+    return " ".join(text.split())
 
 
-# ===========================================================================
-# Behaviors 1 + 3 -- exactly ONE aggregated WARNING per scan, healthy signal
-#   still returned. (Behavior 1 = the ``dependencies`` param, Behavior 3 = the
-#   ``lockfile_drift`` param.)
-# ===========================================================================
+# --------------------------------------------------------------------------
+# Behavior 1 -- the producer set is derived from cli.py source TEXT
+# --------------------------------------------------------------------------
 
 
-class TestB1AndB3AggregatedRecord:
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_healthy_manifest_still_reported(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        signals = _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        assert len(signals) == 1, f"{label}: expected only the healthy signal; got {signals!r}"
-        assert _tail_rels(signals) == [_rel(HEALTHY_DIR)]
+def test_b01_helper_takes_source_text_and_returns_the_three_shipped_producers(
+    guard: ModuleType,
+) -> None:
+    """Behavior 1: derived from a SOURCE-TEXT argument, sorted, deduplicated."""
+    derive = getattr(guard, "_code5_producers", None)
+    assert callable(derive), (
+        "the guard must expose a module-level derivation helper so the surface "
+        "loops stop iterating a written-down list"
+    )
+    params = list(inspect.signature(derive).parameters.values())
+    assert len(params) == 1, (
+        "the helper must take the cli.py SOURCE TEXT as its single parameter, so "
+        f"synthetic samples can be fed to it; got {inspect.signature(derive)}"
+    )
+    assert params[0].annotation in ("str", str), (
+        f"the single parameter must be annotated as source text; got {params[0]!r}"
+    )
 
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_exactly_one_warning_record_on_own_module_logger(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        records = _records_on(caplog, logger_name)
-        assert len(records) == 1, f"{label}: {[r.getMessage() for r in caplog.records]!r}"
-        assert records[0].levelno == logging.WARNING
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_aggregated_not_per_item(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        # Two absorbed failures must still be ONE record anywhere in the package:
-        # the spec rejects a per-item record because ``watch`` re-scans on a timer.
-        _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        assert len(_package_records(caplog)) == 1
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_each_scan_reports_again_no_process_wide_dedupe(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        # "One record per scan", not "one record per process": ``watch`` would
-        # otherwise report a persistently broken manifest exactly once, ever.
-        _plant_tree(tmp_path)
-        _patch_failures(monkeypatch, collector_cls, TWO_FAILING)
-        collector = collector_cls()
-        with caplog.at_level(logging.WARNING):
-            collector.collect(tmp_path)
-            collector.collect(tmp_path)
-        assert len(_records_on(caplog, logger_name)) == 2
+    derived = derive(CLI_SOURCE.read_text(encoding="utf-8"))
+    assert derived == EXPECTED_PRODUCERS, (
+        "cli.py announces exactly three `gate: <flag> tripped` literals today; a "
+        "change here means a gate was added or renamed and every published "
+        f"surface must name it in the same commit; got {derived!r}"
+    )
+    assert tuple(sorted(set(derived))) == tuple(derived), (
+        f"the derivation must be sorted and duplicate-free to be deterministic: {derived!r}"
+    )
+    assert guard.CODE5_PRODUCERS == derived, (
+        "the constant the surface loops consume must BE the derivation, not a "
+        f"copy of it; got {guard.CODE5_PRODUCERS!r} against {derived!r}"
+    )
 
 
-# ===========================================================================
-# Behaviors 2 + 3 -- the record carries the count, a relative path, and the
-#   collector's name.
-# ===========================================================================
+def test_b01_helper_reads_only_its_argument_and_never_the_real_cli(
+    guard: ModuleType,
+) -> None:
+    """Behavior 1 / acceptance: the helper must not read ``cli.py`` internally.
+
+    Non-leakage is the observable form of that requirement: given a synthetic
+    source naming ONE gate no CLI has, the result must be exactly that gate. A
+    helper that also read the real file would return the shipped flags too.
+    """
+    synthetic = (
+        "def only_gate() -> int:\n"
+        '    print("gate: fail-on-solo tripped")\n'
+        "    return 5\n"
+    )
+    derived = guard._code5_producers(synthetic)
+    assert derived == ("--fail-on-solo",), (
+        "the derivation must be a pure function of its argument; a shipped flag "
+        f"leaking in proves it also reads cli.py itself; got {derived!r}"
+    )
 
 
-class TestB2AndB3MessageContent:
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_message_carries_absorbed_count(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        message = _sole_message(caplog, logger_name)
-        assert re.search(r"(?<!\d)2(?!\d)", message), f"{label}: no count 2 in {message!r}"
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_message_carries_a_failing_relative_path(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        message = _sole_message(caplog, logger_name)
-        failing_rels = [_rel(name) for name in TWO_FAILING]
-        assert any(rel in message for rel in failing_rels), f"{label}: {message!r}"
-        # It must name a FAILING manifest, never the healthy one.
-        assert _rel(HEALTHY_DIR) not in message, f"{label}: {message!r}"
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_message_is_relative_not_absolute(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        message = _sole_message(caplog, logger_name)
-        assert str(tmp_path) not in message, f"{label}: absolute path leaked: {message!r}"
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_message_names_the_collector(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _collect_with_failures(collector_cls, tmp_path, monkeypatch, caplog)
-        message = _sole_message(caplog, logger_name)
-        assert label in message, f"expected the collector name {label!r} in {message!r}"
+def test_b01_no_module_level_constant_writes_the_retired_flag_pair_down(
+    guard_source: str,
+) -> None:
+    """Behavior 1: the hardcoded pair is gone, and the census can still see one."""
+    assert not _module_level_flag_pair_constants(guard_source), (
+        "no module-level constant in the guard may write the exit-5 producers "
+        "down -- that constant is exactly what stopped guarding the third gate: "
+        f"found {_module_level_flag_pair_constants(guard_source)}"
+    )
+    planted = "CODE5_PRODUCERS = " + repr(RETIRED_PAIR_FLAGS) + "\n"
+    assert _module_level_flag_pair_constants(planted), (
+        "fail-CLOSED: the census must fire on the retired pair, or its silence "
+        "on the shipped tree means nothing"
+    )
+    ignored = "def f():\n    for x in " + repr(RETIRED_PAIR_FLAGS) + ":\n        pass\n"
+    assert not _module_level_flag_pair_constants(ignored), (
+        "the census must stay scoped to module level: an in-function flag pair is "
+        "an expected value, not the retired constant"
+    )
 
 
-# ===========================================================================
-# Behavior 4 -- silence stays silent (the anti-vacuity guard).
-# ===========================================================================
+# --------------------------------------------------------------------------
+# Behavior 2 -- GROWTH: a fourth gate widens the guard with no human edit
+# --------------------------------------------------------------------------
 
 
-class TestB4SilenceStaysSilent:
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_healthy_scan_emits_nothing_and_still_returns_signals(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _plant_tree(tmp_path)
-        with caplog.at_level(logging.WARNING):
-            signals = collector_cls().collect(tmp_path)
-        assert len(signals) == len(ALL_DIRS), f"{label}: {signals!r}"
-        assert _records_on(caplog, logger_name) == []
-        assert _package_records(caplog) == [], (
-            f"{label}: a healthy scan must be silent across the whole package; got "
-            f"{[(r.name, r.getMessage()) for r in _package_records(caplog)]!r}"
+def test_b02_a_new_gate_literal_enters_the_derived_set_unaided(
+    guard: ModuleType,
+) -> None:
+    """Behavior 2 (two-sided, positive): growth reaches f-strings and nesting.
+
+    The new gates are spelled as f-strings, which is how a live route is
+    written, so this also pins that ``ast.JoinedStr`` parts are walked -- a
+    derivation blind to them would silently under-report.
+    """
+    source = (
+        "def existing() -> int:\n"
+        '    print("gate: fail-on-kind tripped")\n'
+        "    return 5\n"
+        "def added(x: int) -> int:\n"
+        '    print(f"gate: fail-on-budget tripped -- n={x}")\n'
+        "    return 5\n"
+        "def outer() -> int:\n"
+        "    def nested(y: int) -> int:\n"
+        '        print(f"gate: fail-on-nested tripped -- {y}")\n'
+        "        return 5\n"
+        "    return nested(1)\n"
+    )
+    derived = guard._code5_producers(source)
+    assert derived == ("--fail-on-budget", "--fail-on-kind", "--fail-on-nested"), (
+        "a newly emitted `gate: <flag> tripped` literal must enter the derived "
+        "set with no human edit -- that is what makes an undocumented gate red "
+        f"the build instead of shipping silently; got {derived!r}"
+    )
+    assert len(derived) == 3 and "--fail-on-budget" in derived, (
+        f"growth must be observable in the SIZE of the set, not just its content: {derived!r}"
+    )
+
+
+def test_b02_growth_is_what_forces_a_new_gate_to_be_documented(
+    guard: ModuleType,
+) -> None:
+    """Behavior 2, consequence: a grown set makes an undocumented gate FAIL.
+
+    Growth is only valuable because the surface check consumes it. Feeding the
+    shared surface assertion a text that names today's producers but not a
+    fourth one must fail and name the fourth.
+    """
+    grown = guard._code5_producers(
+        CLI_SOURCE.read_text(encoding="utf-8")
+        + '\ndef added() -> int:\n    print("gate: fail-on-future tripped")\n    return 5\n'
+    )
+    assert "--fail-on-future" in grown, "precondition: the fourth gate must be derived"
+    surface_text = " ".join(EXPECTED_PRODUCERS)
+    missing = [flag for flag in grown if flag not in surface_text]
+    assert missing == ["--fail-on-future"], (
+        "a surface documenting only today's gates must be reported as missing "
+        f"exactly the new one; got {missing!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 3 -- COMMENT IMMUNITY: repo prose cannot inflate the guard
+# --------------------------------------------------------------------------
+
+
+def test_b03_a_gate_named_only_in_a_comment_is_not_a_producer(
+    guard: ModuleType,
+) -> None:
+    """Behavior 3 (two-sided, negative): comments are discarded, not scanned.
+
+    Load-bearing rather than hypothetical: ``cli.py`` carries a comment naming a
+    gate literal a few lines ABOVE an unrelated route, so a text or line-window
+    scan would attribute the wrong flag to that route.
+    """
+    source = (
+        "def real() -> int:\n"
+        '    print("gate: fail-on-kind tripped")\n'
+        "    return 5\n"
+        "def phantom() -> int:\n"
+        "    # gate: fail-on-phantom tripped\n"
+        "    return 5  # gate: fail-on-trailing tripped\n"
+    )
+    derived = guard._code5_producers(source)
+    assert derived == ("--fail-on-kind",), (
+        "a gate named only in a `#` comment -- on its own line or trailing a "
+        "statement -- must NOT enter the derived set: it is not a producer, and "
+        "admitting it would demand documentation for a flag that does not "
+        f"exist; got {derived!r}"
+    )
+    for ghost in ("--fail-on-phantom", "--fail-on-trailing"):
+        assert ghost not in derived, f"{ghost} came from a comment; got {derived!r}"
+
+
+def test_b03_comment_immunity_is_not_an_accident_of_an_empty_parse(
+    guard: ModuleType,
+) -> None:
+    """Behavior 3, fail-CLOSED: the same literal in CODE is still derived.
+
+    Without this, a helper that returned ``()`` for everything would pass the
+    negative test above and the immunity claim would be vacuous.
+    """
+    as_code = (
+        "def phantom() -> int:\n"
+        '    print("gate: fail-on-phantom tripped")\n'
+        "    return 5\n"
+    )
+    assert guard._code5_producers(as_code) == ("--fail-on-phantom",), (
+        "the identical literal must be derived when it is a real string "
+        "constant, or the comment-immunity result above proves nothing"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 4 -- CROSS-CENSUS: one derived producer per literal exit-5 route
+# --------------------------------------------------------------------------
+
+
+def test_b04_derived_producer_count_equals_the_literal_exit_5_route_count(
+    guard: ModuleType,
+) -> None:
+    """Behavior 4: two independent censuses of the same source must agree."""
+    source = CLI_SOURCE.read_text(encoding="utf-8")
+    producers = guard._code5_producers(source)
+    routes = sum(len(linenos) for linenos in guard._exit5_sites(source).values())
+    assert len(producers) == routes == 3, (
+        f"cli.py announces {len(producers)} gate(s) {producers} and holds {routes} "
+        "literal exit-5 route(s); on the shipped tree both are 3, and a "
+        "disagreement means a route or a gate literal is undocumented"
+    )
+
+
+def test_b04_the_cross_census_fails_and_names_both_counts(
+    guard: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Behavior 4: the guard's own cross-census must FIRE, naming both counts.
+
+    Driven by pointing the guard's ``CLI_SOURCE`` seam at a synthetic source
+    with three gate literals but FOUR routes -- a route that announces no gate,
+    which is the fail-open direction a derived set alone cannot see. Nothing on
+    disk is touched.
+    """
+    mismatched = (
+        "def a() -> int:\n"
+        '    print("gate: fail-on-kind tripped")\n'
+        "    return 5\n"
+        "def b() -> int:\n"
+        '    print("gate: fail-over tripped")\n'
+        "    return 5\n"
+        "def c() -> int:\n"
+        '    print("gate: fail-on-unresolved tripped")\n'
+        "    return 5\n"
+        "def silent() -> int:\n"
+        "    return 5\n"
+    )
+
+    class _Stub:
+        def read_text(self, encoding: str = "utf-8") -> str:
+            return mismatched
+
+    census = getattr(guard, "test_b13_derived_producer_count_matches_the_literal_exit_5_route_census")
+    monkeypatch.setattr(guard, "CLI_SOURCE", _Stub())
+    with pytest.raises(AssertionError) as excinfo:
+        census()
+    message = _normalized(str(excinfo.value))
+    assert "announces 3" in message and "holds 4" in message, (
+        "the cross-census failure must name BOTH counts, so a contributor can "
+        f"see which side drifted rather than only that something did; got {message!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 5 -- every surface assertion consumes the DERIVED set
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("guard_name", SURFACE_GUARDS)
+def test_b05_each_surface_guard_passes_on_the_shipped_tree(
+    guard: ModuleType, guard_name: str
+) -> None:
+    """Behavior 5: all three published surfaces name every derived producer."""
+    surface_guard = getattr(guard, guard_name, None)
+    assert callable(surface_guard), (
+        f"{guard_name} must survive the rename as a live test; behavior 5 keeps "
+        "all three surface assertions, unchanged in intent"
+    )
+    surface_guard()
+
+
+@pytest.mark.parametrize("guard_name", SURFACE_GUARDS)
+def test_b05_each_surface_guard_resolves_the_derived_set_not_a_private_list(
+    guard_source: str, guard_name: str
+) -> None:
+    """Behavior 5: the surface guards route through the shared derived check.
+
+    Asserted structurally rather than by reading a passing result: a guard that
+    passed while comparing against its own written-down list would be green and
+    unable to notice a fourth gate.
+    """
+    functions = {
+        node.name: node
+        for node in ast.walk(ast.parse(guard_source))
+        if isinstance(node, ast.FunctionDef)
+    }
+    body = functions[guard_name]
+    called = {
+        node.func.id
+        for node in ast.walk(body)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert SHARED_SURFACE_ASSERT in called, (
+        f"{guard_name} must assert through {SHARED_SURFACE_ASSERT}, which resolves "
+        f"the derived producer set; it calls {sorted(called)}"
+    )
+    assert not _module_level_flag_pair_constants(guard_source), (
+        "and no module-level flag list may remain for it to fall back on"
+    )
+
+
+def test_b05_the_derived_name_is_consumed_by_at_least_five_sites(
+    guard_source: str,
+) -> None:
+    """Behavior 5: every consumer moved to the derived value, not just three.
+
+    The spec names five loop sites over the old constant; the derived name must
+    carry all of them, so a count is asserted rather than spot-checking one.
+    """
+    tree = ast.parse(guard_source)
+    loads = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name)
+        and node.id == "CODE5_PRODUCERS"
+        and isinstance(node.ctx, ast.Load)
+    ]
+    stores = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name)
+        and node.id == "CODE5_PRODUCERS"
+        and isinstance(node.ctx, ast.Store)
+    ]
+    assert len(stores) == 1, (
+        f"the derived set must be bound exactly once, at module level; stores at {stores}"
+    )
+    assert len(loads) >= 5, (
+        "the spec names five sites that iterated the old hardcoded pair; every "
+        f"one of them must consume the derived value, so at least five loads are "
+        f"expected; found {len(loads)} at {loads}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Behavior 6 -- NEGATIVE PER SURFACE, and the failure LOCALISES the offender
+# --------------------------------------------------------------------------
+
+
+def _live_surfaces(guard: ModuleType) -> dict[str, str]:
+    """The three published surfaces' code-5 text, read through the guard's seams."""
+    from proactive_loop.cli import main as cli_main
+
+    help_text = guard._capture_help(["--help"])
+    epilog = {entry.code: entry.text for entry in guard._entries(help_text)}[5]
+    docstring = guard._docstring_bullets(cli_main.__doc__ or "")[5]
+    readme = guard._readme_exit_code_rows(
+        (REPO / "README.md").read_text(encoding="utf-8")
+    )[5]
+    return {"epilog": epilog, "docstring": docstring, "readme": readme}
+
+
+@pytest.mark.parametrize("surface", ["epilog", "docstring", "readme"])
+@pytest.mark.parametrize("dropped", EXPECTED_PRODUCERS)
+def test_b06_removing_any_producer_from_any_surface_fails_and_names_it(
+    guard: ModuleType, surface: str, dropped: str
+) -> None:
+    """Behavior 6: nine cases -- three surfaces x three producers.
+
+    The engineer's own guard proves the third gate; this widens it to EVERY
+    producer on EVERY surface, so no single flag is guarded by accident. The
+    copy is damaged IN MEMORY -- no file on disk is touched.
+    """
+    intact = _live_surfaces(guard)[surface]
+    assert dropped in intact, (
+        f"precondition: the live {surface} must name {dropped} before removal, "
+        f"otherwise the damage is a no-op; got {intact!r}"
+    )
+    guard._assert_surface_names_every_producer(surface, intact)
+
+    damaged = intact.replace(dropped, "")
+    assert guard._missing_producers(damaged) == [dropped], (
+        "the damaged surface must be reported as missing EXACTLY the removed "
+        f"flag; got {guard._missing_producers(damaged)!r}"
+    )
+    with pytest.raises(AssertionError) as excinfo:
+        guard._assert_surface_names_every_producer(surface, damaged)
+    message = _normalized(str(excinfo.value))
+    omitted = message.split("omits ", 1)[1].split(" --", 1)[0]
+    assert omitted == dropped, (
+        f"the {surface} failure must localise the offender by name, not report a "
+        f"count: its `omits` clause reads {omitted!r} for a removed {dropped}"
+    )
+    assert surface in message, f"the message must name the surface; got {message!r}"
+
+
+# --------------------------------------------------------------------------
+# Behavior 7 -- NARRATIVE REPAIR: no fixed producer count survives in prose
+# --------------------------------------------------------------------------
+
+
+def test_b07_the_guard_docstring_says_the_count_is_derived(guard_source: str) -> None:
+    """Behavior 7: the module's own narrative points at the code, not a number."""
+    docstring = ast.get_docstring(ast.parse(guard_source)) or ""
+    normalized = _normalized(docstring)
+    assert normalized, "the guard module must keep a module docstring"
+    assert "DERIVED from" in normalized and "cli.py" in normalized, (
+        "the docstring must state that the producer count is derived from "
+        f"cli.py; got {normalized[:400]!r}"
+    )
+    assert "_code5_producers" in normalized, (
+        "and it must name the helper that derives it, so a reader can find the "
+        f"source of truth; got {normalized[:400]!r}"
+    )
+
+
+def test_b07_no_stale_fixed_count_prose_survives_in_the_guard(
+    guard_source: str,
+) -> None:
+    """Behavior 7: the two stale claims are corrected, measured on wrapped text.
+
+    Whitespace is collapsed first: a multi-word claim can wrap mid-phrase, and
+    an un-normalised ``in`` check would report it absent while it is still there.
+    """
+    normalized = _normalized(guard_source)
+    for stale in ("has TWO producers", "Both live producers", "both producers"):
+        assert stale not in normalized, (
+            f"the retired claim {stale!r} still stands in the guard's prose -- a "
+            "count in prose that disagrees with the code is the fail-open this "
+            "iteration closes, not a typo"
         )
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_empty_tree_emits_nothing(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        with caplog.at_level(logging.WARNING):
-            signals = collector_cls().collect(tmp_path)
-        assert signals == []
-        assert _package_records(caplog) == []
+    assert "TWO producers" not in normalized, (
+        "no fixed producer count may be claimed in prose at all"
+    )
 
 
-# ===========================================================================
-# Behavior 5 -- the named path is the lexicographic minimum, not the first one
-#   the traversal happened to meet.
-# ===========================================================================
+def test_b07_three_surface_tests_carry_the_renamed_form(guard_source: str) -> None:
+    """Behavior 7: exactly the three surface guards were renamed, and no more."""
+    names = [
+        node.name
+        for node in ast.walk(ast.parse(guard_source))
+        if isinstance(node, ast.FunctionDef)
+    ]
+    # CONTAINS, and scoped to `test_` functions. Measured, not stylistic: an
+    # `endswith` census counted the shared assertion helper
+    # `_assert_surface_names_every_producer` and MISSED the README guard, whose
+    # name carries a suffix after the renamed form. Same count, wrong three.
+    renamed = [
+        name
+        for name in names
+        if name.startswith("test_") and "names_every_producer" in name
+    ]
+    assert len(renamed) == 3, (
+        f"three surface TESTS must carry the renamed form; found {renamed}"
+    )
+    assert set(SURFACE_GUARDS) <= set(names), (
+        f"the three renamed surface guards must exist under their new names; got {sorted(names)}"
+    )
+    assert not [name for name in names if name.endswith(RETIRED_DEF_SUFFIX)], (
+        "no test may keep the retired name form: it asserts a count of two while "
+        "the code announces three"
+    )
 
 
-class TestB5DeterministicPath:
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_names_lexicographically_smallest_failing_path(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        order: list[str] = []
-        _plant_tree(tmp_path, ORDER_DIRS)
-        _patch_failures(
-            monkeypatch,
-            collector_cls,
-            ORDER_FAILING,
-            known_dirs=ORDER_DIRS,
-            record_into=order,
-        )
-        with caplog.at_level(logging.WARNING):
-            signals = collector_cls().collect(tmp_path)
+def test_b07_the_retired_spellings_are_absent_from_every_tracked_module() -> None:
+    """Behavior 7: repo-wide census over tracked Python, including this file.
 
-        failing_rels = {_rel(name) for name in ORDER_FAILING}
-        encountered = [rel for rel in order if rel in failing_rels]
-        smallest = min(failing_rels)
-        # The fixture proves ITSELF: the two failing manifests really are met in
-        # the opposite order to how they sort, so "smallest" and "first seen" are
-        # different strings and the assertion below cannot pass by coincidence.
-        assert len(encountered) == len(failing_rels), f"{label}: {order!r}"
-        assert encountered[0] != smallest, (
-            f"{label}: fixture no longer discriminates -- the smallest failing rel "
-            f"{smallest!r} was also the first encountered ({encountered!r})"
-        )
-
-        message = _sole_message(caplog, logger_name)
-        assert smallest in message, f"{label}: expected {smallest!r} in {message!r}"
-        assert encountered[0] not in message, (
-            f"{label}: the record named {encountered[0]!r}, the ENCOUNTER-order pick, "
-            f"not the deterministic minimum {smallest!r}: {message!r}"
-        )
-        # Fail-open is unchanged here too: the one healthy manifest still reports.
-        assert _tail_rels(signals) == [_rel("b_healthy")]
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_return_value_is_sorted_not_encounter_ordered(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        # The pre-existing ``found.sort(...)`` contract must be untouched by this
-        # iteration. On the same fixture, sort order and encounter order differ, so
-        # this is a real assertion rather than a restatement of the walk.
-        order: list[str] = []
-        _plant_tree(tmp_path, ORDER_DIRS)
-        _patch_failures(monkeypatch, collector_cls, (), known_dirs=ORDER_DIRS, record_into=order)
-        signals = collector_cls().collect(tmp_path)
-        returned = _tail_rels(signals)
-        assert len(returned) == len(ORDER_DIRS), f"{label}: {returned!r}"
-        assert returned == sorted(returned), f"{label}: {returned!r}"
-        assert returned != order, (
-            f"{label}: fixture no longer discriminates -- encounter order {order!r} "
-            f"already equals sorted order"
-        )
+    SCOPE, and it is a deliberate reading of the spec: the domain is tracked
+    PYTHON, and the banned constant is a MODULE-LEVEL binding. Measured reasons,
+    both verified rather than assumed --
+      * ``ROADMAP_ARCHIVE.md`` quotes both retired spellings verbatim, because
+        recording what was retired is that file's job; a literal repo-wide ban
+        would forbid the repo from documenting its own fix.
+      * ``tests/test_iter180_behavior.py`` loops over the same two flags INSIDE a
+        function, asserting code 5's meaning keeps naming its SIBLING gates
+        alongside the newer trigger. That is a different concept from the
+        retired producer constant, and banning it would delete a live guard.
+    """
+    corpus = _tracked_python()
+    with_retired_name = {
+        rel: source.count(RETIRED_DEF_SUFFIX)
+        for rel, source in corpus.items()
+        if RETIRED_DEF_SUFFIX in source
+    }
+    assert not with_retired_name, (
+        f"the retired test-name form must be gone from tracked Python; found {with_retired_name}"
+    )
+    with_constant = {
+        rel: _module_level_flag_pair_constants(source)
+        for rel, source in corpus.items()
+        if _module_level_flag_pair_constants(source)
+    }
+    assert not with_constant, (
+        "no tracked module may bind the retired two-flag producer pair at module "
+        f"level; found {with_constant}"
+    )
 
 
-# ===========================================================================
-# Behavior 6 -- the no-raise contract survives the worst case.
-# ===========================================================================
-
-
-class TestB6WorstCaseEveryManifestFails:
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_returns_empty_list_and_does_not_propagate(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        signals = _collect_with_failures(
-            collector_cls, tmp_path, monkeypatch, caplog, failing_dirs=ALL_DIRS
-        )
-        assert signals == [], f"{label}: expected [] when every manifest fails; got {signals!r}"
-
-    @pytest.mark.parametrize(("collector_cls", "logger_name", "label"), COLLECTOR_PARAMS)
-    def test_single_record_counts_every_failure(
-        self,
-        collector_cls: type,
-        logger_name: str,
-        label: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        _collect_with_failures(
-            collector_cls, tmp_path, monkeypatch, caplog, failing_dirs=ALL_DIRS
-        )
-        message = _sole_message(caplog, logger_name)
-        expected = str(len(ALL_DIRS))
-        assert re.search(rf"(?<!\d){expected}(?!\d)", message), f"{label}: {message!r}"
-        assert not re.search(r"(?<!\d)2(?!\d)", message), (
-            f"{label}: count must be the TOTAL {expected}, not a partial: {message!r}"
-        )
+def test_b07_the_repo_wide_census_is_not_vacuous(tmp_path: Path) -> None:
+    """Behavior 7, fail-CLOSED: both halves must fire on planted samples."""
+    planted_name = f"def test_epilog_{RETIRED_DEF_SUFFIX}() -> None:\n    pass\n"
+    assert RETIRED_DEF_SUFFIX in planted_name, (
+        "the planted sample must actually carry the retired form"
+    )
+    planted_constant = "PRODUCERS = " + repr(RETIRED_PAIR_FLAGS) + "\n"
+    assert _module_level_flag_pair_constants(planted_constant), (
+        "the constant half of the census must fire on a planted module-level pair"
+    )
+    clean = "PRODUCERS = _derive(SOURCE)\n"
+    assert not _module_level_flag_pair_constants(clean), (
+        "and must stay silent on a derived binding, or it bans the fix itself"
+    )
+    sample = tmp_path / "sample.py"
+    sample.write_text(planted_name + planted_constant, encoding="utf-8")
+    text = sample.read_text(encoding="utf-8")
+    assert RETIRED_DEF_SUFFIX in text and _module_level_flag_pair_constants(text), (
+        "a file holding both defects must be detected by both halves"
+    )
