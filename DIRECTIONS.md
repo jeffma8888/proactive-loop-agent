@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-191
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- SPEC section 2's Layout tree is the repo's orientation map and it is 4-of-17 stale, in the one region the SPEC guard cannot see
+    - Candidate A2 -- the docstring that argues against stale numerals carries a stale LIST: 2 false names, 2 omissions, and HEAD widened the gap
+    - Candidate A3 -- the repo's most numerous artifact class has a naming contract that exists only in a gitignored file outside the repo
+    - Candidate B1 -- the 18th collector: local branches you walked away from, read from the branch reflog
+    - Candidate B2 -- goals have a change feed; the facts under them do not -- nothing compares two snapshots
+    - Candidate B3 -- make the L1 budget SETTABLE from the CLI, with the roadmap's named seam trap measured and resolved
+    winner: A1
+    ship: pending (not yet decided)
   iter-190
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- convert the 3 content walkers onto dir_source, lower WALK_BUDGET 10 to 7
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the two provider-consumer sentences are prose sets with no guard
     - Candidate B3 -- the repo's most numerous artifact class has a numbering scheme no document explains
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 3e3b52f
   iter-189
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- convert 2 more collectors onto `dir_source.walk`, deleting their hand-copied prune block
@@ -988,4 +998,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-99 scouted iterations
+100 scouted iterations

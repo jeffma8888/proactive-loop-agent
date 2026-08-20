@@ -124,3 +124,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #224 scan --json aliases --format json via a store_const in an exclusive group (iters 187-188, factory iter 190)
 - #225 Per-scan work-budget oracle: traversals, parses and child processes as ceilings (iter 189, factory iter 191)
 - #178 notes + todos import the one walk-prune policy; 1 definition site, AST-censused (iter 190, factory iter 192)
+- #226 SPEC.md section 2: guarded counts replace 4-of-17 collector + 14-of-16 verb rosters (iter 191, factory iter 193)

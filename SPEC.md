@@ -54,10 +54,7 @@ proactive-loop-agent/
 │   ├── collectors/
 │   │   ├── __init__.py       # all_collectors() registry
 │   │   ├── base.py           # Collector protocol
-│   │   ├── filesystem.py     # RecentFilesCollector
-│   │   ├── git_activity.py   # GitActivityCollector
-│   │   ├── todos.py          # TodoCollector
-│   │   └── notes.py          # NotesCollector
+│   │   └── ...               # 17 collector modules -- roster and contracts in 4.1
 │   ├── scout/
 │   │   ├── __init__.py
 │   │   ├── synthesizer.py    # signals -> LLM -> GoalSlate (re-scored, deduped)
@@ -68,11 +65,11 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: scan / dispatch / run / resume / runs / explain / trace / signals / watch / diff / policy / tools / collectors / providers
+│   └── cli.py                # argparse CLI: 16 verbs -- roster in 4.5
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
-└── tests/                    # one test module per package
+└── tests/                    # behavior oracles: one test_iterNN_behavior.py per increment + contract modules
 ```
 
 ## 3. Foundation contracts
