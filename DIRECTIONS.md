@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-196
+    lenses: performance-and-throughput (iteration 196), narrative-and-docs
+    - Candidate A1 -- Convert 2 more collectors onto the shared per-scan walk (dir_source)
+    - Candidate A2 -- syntax_error dominates a scan and emits nothing on a healthy tree
+    - Candidate A3 -- warm-tick cost of the perception layer (pla watch)
+    - Candidate B1 -- Retire the three stale roster counts in `src/` prose and bind them to the registry
+    - Candidate B2 -- Correct the one `src/` claim that contradicts both its cited module and the README
+    - Candidate B3 -- The README overclaims what the committed decision log contains
+    winner: B1
+    ship: pending (not yet decided)
   iter-195
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Delete the byte-identical `_log_absorbed` twin; hoist it onto `BaseCollector`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Measured-down report on roadmap row #210 (shared walk provider, batch 3)
     - Candidate B3 -- (pending measurement)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED a1f04e9
   iter-194
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run --json` publishes a `run_id` that names nothing; make the run identity joinable
@@ -1038,4 +1048,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-104 scouted iterations
+105 scouted iterations

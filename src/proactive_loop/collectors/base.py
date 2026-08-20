@@ -33,7 +33,7 @@ _LOG = logging.getLogger(__name__)
 #
 # WHY a module-level stack and not an attribute on `BaseCollector`: this class's own
 # docstring forbids adding any ANNOTATED class attribute (it would contribute a field
-# to all 16 generated dataclass `__init__` signatures and reorder them), and the
+# to all 17 generated dataclass `__init__` signatures and reorder them), and the
 # alternative -- threading an out-parameter through the CLI's `_collect` loop -- would
 # widen a seam shared by four verbs for a diagnostic that one verb consumes.
 _DEGRADED_SINKS: list[list[str]] = []
@@ -109,7 +109,7 @@ class BaseCollector:
     * Every collector is a ``@dataclass`` declaring ``name: str = "<literal>"`` -- a
       DEFAULTED field -- while the Protocol above declares ``name: str`` UNDEFAULTED.
       A base that carried ANY annotated class attribute would contribute a field to
-      all 16 generated ``__init__`` signatures and reorder them, which surfaces as a
+      all 17 generated ``__init__`` signatures and reorder them, which surfaces as a
       constructor error rather than as a refactor. Declaring only methods means this
       class has no ``__dataclass_fields__`` at all, so ``dataclasses.fields()`` order
       and no-argument construction are provably untouched.

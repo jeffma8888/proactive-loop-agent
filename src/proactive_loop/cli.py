@@ -632,10 +632,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     # An ALIAS for `--format json`, not a second knob: store_const resolves into the
     # SAME `format` dest, so ZERO rendering code changes and `args.format == "json"`
-    # flows through the pre-existing path verbatim. WHY it exists: --json is the
-    # machine-readable idiom on 14 of the 16 verbs, and `scan` -- the FIRST verb in
-    # help order, so the first one a reader tries -- was one of the two that refused
-    # it (exit 2, `unrecognized arguments: --json`). The exclusion is rejected even
+    # flows through the pre-existing path verbatim. WHY it exists, stated as the DATED
+    # measurement it is and NOT as a claim about the current CLI -- AS OF THE COMMIT
+    # THAT LANDED THIS ALIAS (factory iter 190): --json was the machine-readable idiom
+    # on 14 of the 16 verbs, and `scan` -- the FIRST verb in help order, so the first
+    # one a reader tries -- was one of the two that refused it (exit 2, `unrecognized
+    # arguments: --json`). This alias closed one of those two, so that 14 was stale the
+    # instant it shipped; it is kept because it is the REASON this alias exists, and
+    # dated so it can never be misread as a count of today. The exclusion is rejected even
     # when the two spellings AGREE (`--json --format json`), deliberately: accepting
     # the agreeing pair would commit the CLI to a precedence rule the moment they
     # ever differ. argparse names whichever flag it saw SECOND in the error, so the

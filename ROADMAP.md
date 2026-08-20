@@ -128,3 +128,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #227 make demo publishes run.json and grades it with the committed examples/check_run.py (iter 193, factory iter 195)
 - #228 check_run.py reads the persisted checkpoint back and grades run_id/status (iter 194, factory iter 196)
 - #229 Hoist the duplicated _log_absorbed onto BaseCollector, plus its first oracle (iter 195, factory iter 197)
+- #230 base.py's two stale 16-collector counts corrected to 17, bound to all_collectors() (iter 196, factory iter 198)
