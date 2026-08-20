@@ -35,21 +35,12 @@ the judgement to the synthesizer.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors import dir_source
 from proactive_loop.collectors.base import BaseCollector
 from proactive_loop.models import ContextSignal
-
-# WHY a module logger, and this module's own: the per-manifest guard below is a
-# SECOND fail-open point, one scope IN from the ``collect`` boundary that
-# ``collectors.base`` already logs at, so a failure absorbed here must be
-# attributable to ``proactive_loop.collectors.lockfile_drift`` and governed by the
-# package-logger plumbing in ``cli._configure_logging`` -- never emitted on the
-# root logger, which would leak into an embedding application's handlers.
-_LOG = logging.getLogger(__name__)
 
 # Recognized manifest -> ordered lockfile candidates, checked in the SAME directory
 # as the manifest. First present candidate wins and names the reported lock. The
@@ -120,46 +111,6 @@ class LockfileDriftCollector(BaseCollector):
         # sort by the manifest's relative path, then cap.
         found.sort(key=lambda pair: pair[0])
         return [signal for _, signal in found[: self.max_items]]
-
-    def _log_absorbed(self, absorbed: list[str]) -> None:
-        """Report per-manifest failures absorbed by this scan, or stay silent.
-
-        WHY this exists at all: ``collectors.base.collect`` logs the failure it
-        absorbs, on the stated ground that a silent fail-open leaves a crashed
-        collector indistinguishable from an empty scan on every surface the user
-        has. The per-manifest guard in ``_collect`` is a second absorbing point one
-        scope IN, and it had no channel of any kind, so a manifest whose ``stat``
-        raises read as "no drift" on every tick, forever.
-
-        WHY ONE AGGREGATED record per scan and never one per manifest: ``watch``
-        re-scans on a timer, so a per-item record turns a tree with 50 unreadable
-        manifests into 50 lines per tick, and the operator's first move is to filter
-        this logger out -- which also suppresses the boundary WARNING above, leaving
-        the product strictly worse off than the silence it replaced.
-
-        WHY ``warning`` and not ``exception``, by ``base``'s precedent: a traceback
-        on stderr would read as a crash the scan did not suffer, and at default
-        verbosity a WARNING rides Python's ``lastResort`` handler, so an operator who
-        did not know to pass ``-v`` still sees it.
-
-        WHY ``min()`` and not the encounter order: ``dir_source.walk`` order is not
-        guaranteed across platforms -- the same reason ``found.sort(...)`` exists --
-        so the named path is the lexicographically smallest affected manifest and the
-        message is reproducible rather than walk-dependent.
-
-        WHY it is emitted BEFORE the ``max_items`` cap is applied: the count is a
-        count of ABSORBED FAILURES, not of returned signals, so a cap that truncates
-        the result must never truncate the diagnostic.
-        """
-        if not absorbed:
-            return
-        _LOG.warning(
-            "collector %s absorbed %d manifest failure(s) this scan; "
-            "lowest-sorting affected manifest: %s",
-            self.name,
-            len(absorbed),
-            min(absorbed),
-        )
 
     def _signal_for(
         self, root: Path, manifest: Path, candidates: tuple[str, ...]

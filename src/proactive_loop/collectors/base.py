@@ -14,11 +14,16 @@ from typing import Protocol, runtime_checkable
 
 from proactive_loop.models import ContextSignal
 
-# WHY a module logger and not the CLI's: this wrapper is the fail-open point for
-# every SHIPPED collector, and it lives in the library half of the package, so the
-# record must be attributable to `proactive_loop.collectors.base` and governed by
-# the package-logger plumbing in `cli._configure_logging` -- never emitted on the
-# root logger, which would leak into an embedding application's own handlers.
+# WHY a module logger and not the CLI's: this module owns BOTH absorbing points in
+# the perception layer -- the fail-open `collect` wrapper every SHIPPED collector
+# inherits, and the aggregated per-manifest record in `_log_absorbed` -- and it lives
+# in the library half of the package, so each record must be attributable to
+# `proactive_loop.collectors.base` and governed by the package-logger plumbing in
+# `cli._configure_logging` -- never emitted on the root logger, which would leak into
+# an embedding application's own handlers. ONE logger for both is load-bearing, not
+# incidental: `_log_absorbed`'s own argument turns on an operator who filters this
+# logger also silencing the boundary WARNING, which is literal only while they share
+# it.
 _LOG = logging.getLogger(__name__)
 
 # The opt-in record of ABSORBED failures: a STACK of sinks, each one a list of the
@@ -116,10 +121,13 @@ class BaseCollector:
     * Not a decorator: ``mypy strict`` runs with ``disallow_untyped_decorators``, and
       a base class is simpler to read than a correctly-typed generic decorator.
 
-    It also hosts ``_relative`` for the same reason and by the same precedent: a
-    path-shape rule every path-emitting collector must satisfy had been hand-copied
-    into six of them. Anything added here must stay a plain method or a
-    ``staticmethod`` -- never an annotated attribute -- for the dataclass reason above.
+    It also hosts ``_relative`` and ``_log_absorbed`` for the same reason and by the
+    same precedent: a path-shape rule every path-emitting collector must satisfy had
+    been hand-copied into six of them, and the aggregated absorbed-failure record into
+    two -- where the two copies' ~31-line docstrings had already DRIFTED apart while
+    describing one contract, each naming its own item-cap field. Anything added here
+    must stay a plain method or a ``staticmethod`` -- never an annotated attribute --
+    for the dataclass reason above.
 
     Subclasses stay structurally compatible with ``Collector``: a ``runtime_checkable``
     Protocol is satisfied by an INHERITED ``collect``, so ``isinstance(c, Collector)``
@@ -177,6 +185,67 @@ class BaseCollector:
         is a quiet empty scan rather than a crash.
         """
         raise NotImplementedError(f"{type(self).__name__} must override _collect()")
+
+    def _log_absorbed(self: Collector, absorbed: list[str]) -> None:
+        """Report the per-manifest failures this scan ABSORBED, or stay silent.
+
+        WHY this exists at all: ``collect`` above logs the failure it absorbs, on the
+        stated ground that a silent fail-open leaves a crashed collector
+        indistinguishable from an empty scan on every surface the user has. A collector
+        that guards each manifest INSIDE its own walk absorbs at a SECOND point, one
+        scope IN from that boundary, and that point had no channel of any kind -- so a
+        manifest that raises on parse or on ``stat`` read as "this collector found
+        nothing" on every tick, forever.
+
+        WHY the wording here is deliberately GENERIC, by ``_relative``'s precedent
+        below: this is ONE shared contract, so it gets ONE implementation. It had been
+        hand-copied into two collectors, and the two ~31-line docstrings describing it
+        had already DRIFTED -- each naming its own item-cap field and its own reading of
+        the silence -- so this text serves each subclass's own absorbed-failure
+        behavior rather than any single one of them.
+
+        WHY ONE AGGREGATED record per scan and never one per manifest: ``watch``
+        re-scans on a timer, so a per-item record turns a tree with 50 unreadable
+        manifests into 50 lines per tick, and the operator's first move is to filter
+        this logger out -- which also suppresses the boundary WARNING in ``collect``
+        above, leaving the product strictly worse off than the silence it replaced.
+        Both absorbing points ride THIS module's logger, which is what makes that
+        argument literally true rather than approximately true.
+
+        WHY ``warning`` and not ``exception``, by ``collect``'s precedent: a traceback
+        on stderr would read as a crash the scan did not suffer, and at default
+        verbosity a WARNING rides Python's ``lastResort`` handler, so an operator who
+        did not know to pass ``-v`` still sees it.
+
+        WHY ``min()`` and not the encounter order: ``dir_source.walk`` order is not
+        guaranteed across platforms -- the same reason callers sort their own results
+        before returning -- so the named path is the lexicographically smallest
+        affected manifest and the message is reproducible rather than walk-dependent.
+
+        WHY callers emit this BEFORE applying their own item cap: the count is a count
+        of ABSORBED FAILURES, not of returned signals, so a cap that truncates the
+        result must never truncate the diagnostic.
+
+        WHY ``self`` is annotated as the ``Collector`` Protocol above and NOT as
+        ``BaseCollector``: the record names ``self.name``, while this class
+        deliberately declares no attributes at all -- an annotated one would inject a
+        dataclass field into all 17 generated ``__init__`` signatures, a defect the
+        class docstring warns about and the suite keeps a drift guard for. So the
+        precondition is stated where it belongs, in the signature: this helper is
+        meaningful on anything satisfying ``Collector``, which is exactly what supplies
+        ``name``. Under ``mypy strict`` a bare ``self`` here is an error, so the
+        alternatives were the class attribute this class forbids or a ``getattr``
+        fallback inventing a second, untested name for the record.
+        """
+        if not absorbed:
+            return
+        _LOG.warning(
+            "collector %s absorbed %d manifest failure(s) this scan; "
+            "lowest-sorting affected manifest: %s",
+            self.name,
+            len(absorbed),
+            min(absorbed),
+        )
 
     @staticmethod
     def _relative(root: Path, path: Path) -> str:

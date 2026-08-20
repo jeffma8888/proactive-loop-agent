@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-195
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Delete the byte-identical `_log_absorbed` twin; hoist it onto `BaseCollector`
+    - Candidate A2 -- Retire the roadmap index rows whose own status says no iteration will take them
+    - Candidate A3 -- Collapse the twice-hand-copied depth-counted cache-scope protocol
+    - Candidate B1 -- Lazy-import the collector registry so the zero-input verbs stop paying for perception
+    - Candidate B2 -- Measured-down report on roadmap row #210 (shared walk provider, batch 3)
+    - Candidate B3 -- (pending measurement)
+    winner: A1
+    ship: pending (not yet decided)
   iter-194
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run --json` publishes a `run_id` that names nothing; make the run identity joinable
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- delete the product's ONLY exact structural duplicate: the shared `_dirs_to_scan` body in `git_stash` and `git_state`
     - Candidate B3 -- collapse the 6th copy of the prune idiom: convert the next batch of hand-rolled walkers onto `dir_source.walk`
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 39458cd
   iter-193
     lenses: **hardening/DX**, **integration-and-adoption**
     - Candidate A1 -- `make roadmap-headroom`: a headroom gauge for the ROADMAP char budget
@@ -1028,4 +1038,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-103 scouted iterations
+104 scouted iterations
