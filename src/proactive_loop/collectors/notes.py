@@ -13,6 +13,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
+# Reuse the EXACT walk-prune rules RecentFilesCollector uses (the SPEC-sanctioned
+# shared seam, mirroring large_file.py / merge_conflict.py) rather than restating
+# them here. WHY an import and not a copy: dir_source.py serves ONE shared
+# directory listing to the walking collectors on the load-bearing claim that the
+# package has "exactly ONE prune set and there is no set-difference risk to
+# reconcile". A hand-copied set makes that claim false the moment the copies
+# drift -- and they HAD drifted (this module's copy was missing ".tox"),
+# invisibly, only because every prune site ANDs the hidden rule and ".tox" is
+# dot-prefixed.
+from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.models import ContextSignal
 
 # ATX-style heading: one or more '#' followed by the title.
@@ -27,14 +37,6 @@ _FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 # Directories to scan for notes (matched case-insensitively against the dir name).
 _NOTES_DIRS: frozenset[str] = frozenset({"notes", "journal", "docs"})
 
-_SKIP_DIRS: frozenset[str] = frozenset(
-    {"node_modules", ".venv", "__pycache__", ".git", "dist", "build"}
-)
-
-
-def _is_hidden(name: str) -> bool:
-    return name.startswith(".")
-
 
 def _is_notes_dir(name: str) -> bool:
     """Return True if *name* matches one of the canonical notes directory names."""
@@ -48,10 +50,10 @@ def _walk_note_files(notes_dir: Path) -> list[Path]:
     vendored or generated subtree (``docs/node_modules``, ``docs/build``) was not
     merely enumerated -- every file in it was opened and parsed into ``kind="note"``
     signals of the SAME weight as a real note, letting vendored headings evict real
-    ones under the per-kind cap. This module already DECLARES that policy in
-    ``_SKIP_DIRS`` and enforces it while searching FOR notes directories (see
-    ``_collect``); pruning here makes the declared policy true for the whole scan
-    instead of only its first half.
+    ones under the per-kind cap. This module already enforces the package's shared
+    prune policy (``filesystem._SKIP_DIRS`` / ``filesystem._is_hidden``) while
+    searching FOR notes directories (see ``_collect``); pruning here makes that
+    policy true for the whole scan instead of only its first half.
 
     WHY ``os.scandir`` rather than the ``os.walk`` + ``dirnames[:]`` idiom the outer
     search uses: ``os.walk`` is that outer search's substitution seam -- the

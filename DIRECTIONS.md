@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-190
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- convert the 3 content walkers onto dir_source, lower WALK_BUDGET 10 to 7
+    - Candidate A2 -- text_source retains decoded text across watch ticks, keyed on size and mtime_ns
+    - Candidate A3 -- persist the syntax_error parse verdict across processes
+    - Candidate B1 -- the ONE-prune-set safety claim is false: 3 definitions, 7 / 6 / 6 members
+    - Candidate B2 -- the two provider-consumer sentences are prose sets with no guard
+    - Candidate B3 -- the repo's most numerous artifact class has a numbering scheme no document explains
+    winner: B1
+    ship: pending (not yet decided)
   iter-189
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- convert 2 more collectors onto `dir_source.walk`, deleting their hand-copied prune block
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- defer the heavy module-level imports in `cli.py` so a non-scanning verb stops paying pydantic
     - Candidate B3 -- a per-scan WORK-BUDGET oracle: pin physical traversals, decodes, parses and child processes
     winner: B3
-    ship: pending (not yet decided)
+    ship: PUSHED 37055aa
   iter-188
     lenses: integration-and-adoption (state-dir iter-188), simplification-and-deletion (state-dir iter-188)
     - Candidate A1 -- the graded gate cannot see a demo run that never reached `done`; the grader for it is already shipped and unconsumed
@@ -978,4 +988,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-98 scouted iterations
+99 scouted iterations

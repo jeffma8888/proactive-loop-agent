@@ -30,6 +30,16 @@ from pathlib import Path
 from typing import Final
 
 from proactive_loop.collectors.base import BaseCollector
+# Reuse the EXACT walk-prune rules RecentFilesCollector uses (the SPEC-sanctioned
+# shared seam, mirroring large_file.py / merge_conflict.py) rather than restating
+# them here. WHY an import and not a copy: dir_source.py serves ONE shared
+# directory listing to the walking collectors on the load-bearing claim that the
+# package has "exactly ONE prune set and there is no set-difference risk to
+# reconcile". A hand-copied set makes that claim false the moment the copies
+# drift -- and they HAD drifted (this module's copy was missing ".tox"),
+# invisibly, only because every prune site ANDs the hidden rule and ".tox" is
+# dot-prefixed.
+from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
 # The MODULE is imported (not its ``read_text`` function) so all three content
 # collectors resolve the provider through ONE patchable attribute -- a test can
@@ -61,14 +71,6 @@ _CHECKBOX_RE = re.compile(r"^\s*[-*+]\s+\[\s\]\s+(.*)")
 TODO_PREFILTER_TOKENS: Final[tuple[str, ...]] = ("todo", "xme", "xxx")
 
 _SCAN_EXTENSIONS: frozenset[str] = frozenset({".py", ".ts", ".js", ".md"})
-
-_SKIP_DIRS: frozenset[str] = frozenset(
-    {"node_modules", ".venv", "__pycache__", ".git", "dist", "build"}
-)
-
-
-def _is_hidden(name: str) -> bool:
-    return name.startswith(".")
 
 
 # ---------------------------------------------------------------------------

@@ -48,7 +48,10 @@ REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
 
 # Directory names that must never appear as a path SEGMENT of a collected note.
-# The first six are the members of the skip contract the module already declares;
+# The first six are members of the shared skip contract the module IMPORTS from
+# `collectors/filesystem.py` (factory iter 192 deleted this module's hand-copied
+# set); that owner set also holds `.tox`, deliberately not listed here because it
+# is dot-prefixed and so proves nothing the hidden rule does not already prove.
 # `.hidden` is hidden-ONLY (deliberately not a skip-set member) so the hidden
 # rule is proven independent of set membership.
 PRUNED_SEGMENTS = (
