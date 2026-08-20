@@ -147,7 +147,7 @@ make cov       # run the suite with a coverage report (term-missing)
 make typecheck # mypy-check the package (the "fully type-hinted" oracle; also in CI)
 ```
 
-`make demo` runs:
+`make demo` runs the following, with stdout redirected into `.pla_runs/run.json`:
 
 ```bash
 uv run pla run \
@@ -155,7 +155,8 @@ uv run pla run \
   --provider scripted \
   --scripted-responses examples/scripted_responses.json \
   --state-dir .pla_runs \
-  --snapshot .pla_runs/snapshot.json
+  --snapshot .pla_runs/snapshot.json \
+  --json
 ```
 
 It prints a ranked table with each goal's gate decision, writes the slate to
@@ -165,6 +166,30 @@ atomic checkpoint under `.pla_runs/run-<goal_id>/`. Approval-gated goals are
 listed with a ready-to-paste `pla dispatch ... --yes` command but are never run
 automatically. `--snapshot` additionally persists the snapshot this run
 *perceived*, next to the slate it produced.
+
+**The demo grades its own run through a committed consumer.** `--json` makes that
+invocation scriptable -- stdout becomes one JSON object and the human progress table
+moves to stderr -- so the recipe redirects that document into `.pla_runs/run.json` and
+then grades it with the consumer this repo ships:
+
+```bash
+uv run python examples/check_run.py < .pla_runs/run.json
+```
+
+It prints one line and exits **0**. The four counts are fixed by the bundled scripted
+responses, so a reader reproduces them exactly; `run_id` is minted fresh per run:
+
+```text
+ok: run_id=<12 hex chars, fresh per run> status=done iterations=3 llm_calls=6 artifacts=2
+```
+
+A document whose run did not reach its terminal success state is exit **1**, and stdin
+that is not one JSON object is exit **2**, so a caller can tell a bad run from a bad
+pipe. Both graded gates -- `make check` locally and `.github/workflows/ci.yml` on every
+push -- therefore EXECUTE the published `run --json` contract instead of only asserting
+that files exist. The success value is imported from `proactive_loop.models.RunStatus`
+rather than typed as a literal, so renaming that enum member reds this build instead of
+silently reporting failure on every successful run.
 
 **The build then reads that pair back.** Every goal in a slate cites the
 `sources` it was proposed from, and both graded gates -- `make check` locally and

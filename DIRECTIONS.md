@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-193
+    lenses: **hardening/DX**, **integration-and-adoption**
+    - Candidate A1 -- `make roadmap-headroom`: a headroom gauge for the ROADMAP char budget
+    - Candidate A2 -- a per-module non-triviality census: no tracked test module collects zero tests
+    - Candidate A3 -- couple `make check`'s three inlined commands to the named recipes they duplicate
+    - Candidate B1 -- `make demo` grades its own run document through the committed consumer `examples/check_run.py`
+    - Candidate B2 -- put the README's published `watch` -> `diff` change feed under a gate, and pin the exact outcome it publishes
+    - Candidate B3 -- `make hooks` / `make hooks-off`: a one-command on-ramp for the shipped opt-in gate
+    winner: B1
+    ship: pending (not yet decided)
   iter-192
     lenses: unknown
     - Candidate A1 -- 18th collector: `python_version_drift` (declared floor vs pinned interpreter)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- oracle the 2 unguarded `_out_dir_guard` messages (roadmap #136)
     - Candidate B3 -- pin the live-tree porcelain-sampling contract, and correct roadmap #205
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 4f83718
   iter-191
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC section 2's Layout tree is the repo's orientation map and it is 4-of-17 stale, in the one region the SPEC guard cannot see
@@ -1008,4 +1018,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-101 scouted iterations
+102 scouted iterations

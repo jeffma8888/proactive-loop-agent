@@ -59,13 +59,43 @@ readme-headroom:
 # one caller that structurally qualifies for `verify --fail-on-unresolved` (see
 # the verify step in `check` below). It lands in `.pla_runs` -- the dir the
 # `check` pre-step wipes -- so the pair the gate reads is always THIS demo's.
+#
+# WHY it also redirects `--json` into `.pla_runs/run.json` and then GRADES that
+# file with `examples/check_run.py`: `run --json` is the scriptable surface the
+# README sells, and until this step existed nothing outside `tests/` consumed
+# one. `examples/check_run.py` was written to BE that proof and had zero callers
+# itself -- the same "advertised but never demonstrated" condition the armed
+# signals self-scan and `verify --fail-on-unresolved` were both added to end.
+# Grading here makes both gates run the exact script a stranger would copy, and
+# because that consumer imports its success value from
+# `proactive_loop.models.RunStatus`, renaming that enum member reds a public
+# build instead of silently reporting failure on every successful run.
+#
+# WHY a FILE and not a pipe (`uv run pla run --json | check_run.py`): a pipeline
+# reports only its LAST command's status, so a `pla run` that DIED would be
+# graded as the consumer's exit 2 ("stdin is not one JSON document") -- a true
+# failure reported under a false cause. Two separate steps let `make` grade
+# `pla run` itself, and the document stays an inspectable artifact.
+#
+# WHY `mkdir -p .pla_runs` must come FIRST: the shell opens the `>` redirect
+# BEFORE `pla run` starts, and `make check` opens with `rm -rf .pla_runs`, so
+# without this step the gate would die on a missing directory rather than on
+# anything the demo did. The redirect is a single truncating `>` (never `>>`),
+# so the graded document is always THIS run's and can never accumulate or be
+# graded stale.
+#
+# WHY `uv run python` and not bare `python`: the consumer imports
+# `proactive_loop`, so it needs the project virtualenv.
 demo:
+	mkdir -p .pla_runs
 	uv run pla run \
 		--workspace examples/fixture_workspace \
 		--provider scripted \
 		--scripted-responses examples/scripted_responses.json \
 		--state-dir .pla_runs \
-		--snapshot .pla_runs/snapshot.json
+		--snapshot .pla_runs/snapshot.json \
+		--json > .pla_runs/run.json
+	uv run python examples/check_run.py < .pla_runs/run.json
 
 # Remove generated run state, coverage artifacts, and Python/pytest caches.
 clean:
