@@ -126,3 +126,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #226 SPEC.md section 2: guarded counts replace 4-of-17 collector + 14-of-16 verb rosters (iter 191, factory iter 193)
 - #136 Both _out_dir_guard rejections pinned verbatim, plus the accept path and precedence (iter 192, factory iter 194)
 - #227 make demo publishes run.json and grades it with the committed examples/check_run.py (iter 193, factory iter 195)
+- #228 check_run.py reads the persisted checkpoint back and grades run_id/status (iter 194, factory iter 196)

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-194
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `run --json` publishes a `run_id` that names nothing; make the run identity joinable
+    - Candidate A2 -- give the persisted run directory its first non-existence consumer
+    - Candidate A3 -- give `signals --baseline` its first consumer, armed on `ci_config` only
+    - Candidate B1 -- collapse the duplicated CI gate-contract constants: 9 definition sites for 4 facts, and 4 tests that exist only to police the copies
+    - Candidate B2 -- delete the product's ONLY exact structural duplicate: the shared `_dirs_to_scan` body in `git_stash` and `git_state`
+    - Candidate B3 -- collapse the 6th copy of the prune idiom: convert the next batch of hand-rolled walkers onto `dir_source.walk`
+    winner: A2
+    ship: pending (not yet decided)
   iter-193
     lenses: **hardening/DX**, **integration-and-adoption**
     - Candidate A1 -- `make roadmap-headroom`: a headroom gauge for the ROADMAP char budget
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- put the README's published `watch` -> `diff` change feed under a gate, and pin the exact outcome it publishes
     - Candidate B3 -- `make hooks` / `make hooks-off`: a one-command on-ramp for the shipped opt-in gate
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 3492fac
   iter-192
     lenses: unknown
     - Candidate A1 -- 18th collector: `python_version_drift` (declared floor vs pinned interpreter)
@@ -1018,4 +1028,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-102 scouted iterations
+103 scouted iterations

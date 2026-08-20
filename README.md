@@ -177,13 +177,18 @@ uv run python examples/check_run.py < .pla_runs/run.json
 ```
 
 It prints one line and exits **0**. The four counts are fixed by the bundled scripted
-responses, so a reader reproduces them exactly; `run_id` is minted fresh per run:
+responses, so a reader reproduces them exactly; `run_id` is minted fresh per run and the
+run directory is named for the goal that ran, so both appear here as placeholders:
 
 ```text
-ok: run_id=<12 hex chars, fresh per run> status=done iterations=3 llm_calls=6 artifacts=2
+ok: run_id=<12 hex chars, fresh per run> status=done iterations=3 llm_calls=6 artifacts=2 run_dir=.pla_runs/run-<goal id> checkpoint=verified
 ```
 
-A document whose run did not reach its terminal success state is exit **1**, and stdin
+That last token is the consumer reading the run's OWN `<run_dir>/checkpoint.json` back
+and reconciling the `run_id`/`status` this document publishes against the persisted
+copy, so the durability claim is executed rather than asserted by construction. A
+document whose run did not verifiably succeed is exit **1** -- a non-success state, or a
+checkpoint that is missing, unreadable, unparseable or contradictory -- and stdin
 that is not one JSON object is exit **2**, so a caller can tell a bad run from a bad
 pipe. Both graded gates -- `make check` locally and `.github/workflows/ci.yml` on every
 push -- therefore EXECUTE the published `run --json` contract instead of only asserting
@@ -474,11 +479,19 @@ exists because a published contract nobody executes is a guess: the paragraphs a
 sell `pla run ... --json | jq`, but `jq` cannot be a dependency of an offline-first
 project, so nothing outside `tests/` ever read one of these documents. Pipe any of the
 three verbs into it -- `pla run ... --json | python examples/check_run.py` -- and it
-prints one `ok: ` summary line naming the run id and status, exiting **0** only when
-the dispatched run reached the terminal `done` status. It exits **1** when the document
-parsed and the run did not succeed (a non-success status, or nothing dispatched at all,
-which is what `--dry-run` publishes) and **2** when stdin was not one JSON object, so a
-caller can tell a bad pipe from a bad run. One consumer serves all three verbs because
+prints one `ok: ` summary line naming the run id, the status and the `run_dir` that
+`resume --run-dir` accepts, exiting **0** only when the dispatched run reached the
+terminal `done` status. It then reads that run's own `<run_dir>/checkpoint.json` back and
+reconciles the two fields the document publishes as matching it -- `run_id` and `status`
+-- so the join documented above is executable instead of true by construction; a
+checkpoint that is absent, unreadable, unparseable or disagreeing fails the gate. A
+document consumed on a host where that run directory does not exist is NOT a failure:
+the cross-check does not apply, and the summary line reports
+`checkpoint=not-on-this-host` rather than silently reading as a verified join. It exits
+**1** when the document parsed and the run did not verifiably succeed (a non-success
+status, nothing dispatched at all -- which is what `--dry-run` publishes -- or a
+persisted checkpoint that contradicts the document) and **2** when stdin was not one
+JSON object, so a caller can tell a bad pipe from a bad run. One consumer serves all three verbs because
 a top-level `status` key discriminates the two shapes: `dispatch --json` and
 `resume --json` publish the nine keys at top level, while `run --json` nests them under
 `dispatched`. The success value is imported from `proactive_loop.models.RunStatus`,
