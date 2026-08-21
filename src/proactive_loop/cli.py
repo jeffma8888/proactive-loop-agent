@@ -2567,9 +2567,43 @@ def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> Non
 
 
 def _read_meta(run_dir: Path) -> dict[str, Any]:
-    """Load run metadata, or ``{}`` if none was written."""
+    """Load run metadata, or ``{}`` if none was written.
+
+    A PRESENT but unparseable ``meta.json`` is mapped to ONE ``ValueError``
+    naming the file, mirroring ``_load_slate``'s ``invalid slate file '<path>'``
+    so the two metadata failures read as one family. The message is the whole
+    point: ``resume`` is the recovery verb, and ``json``'s own reason
+    (``Expecting value: line 1 column 1 (char 0)``) names neither the file nor
+    the run dir, so a user could not tell a corrupt ``meta.json`` from a corrupt
+    ``checkpoint.json``, a bad ``--scripted-responses`` script or a
+    model-boundary failure -- all four exit ``1`` through the same ``main()``
+    boundary. The decoder's reason is kept as the message tail, so naming the
+    file does not hide the cause, and ``from None`` keeps stderr to that single
+    ``error:`` line with no chained traceback.
+
+    Wrapped HERE rather than at the call site so one message has one home:
+    ``_run_row`` already catches ``ValueError`` and degrades to ``{}``, so
+    ``pla runs`` keeps tolerating exactly the file it tolerates today (one bad
+    run must never abort a listing), while ``_cmd_resume`` inherits the named
+    error for free and no future caller can grow a second dialect of it.
+
+    Deliberately NOT tolerated on the resume path: ``_cmd_resume`` feeds this
+    result straight into ``Path(meta.get("workspace_root", "."))``, so degrading
+    to ``{}`` there would resume the loop against the CWD *as if it were the
+    workspace* -- a silent wrong-tree write, strictly worse than a named exit
+    ``1``. A MISSING file is a different case and stays tolerant (``{}``): it is
+    a run dir written before metadata existed, not a corrupt one.
+    """
     path = run_dir / _META_NAME
-    return json.loads(path.read_text()) if path.is_file() else {}
+    try:
+        # The ``is_file`` short-circuit stays AHEAD of the parse (an absent file must
+        # never reach the decoder), and the conditional-expression form is kept
+        # deliberately: mypy infers ``dict[str, Any]`` for the joined branches,
+        # whereas a bare ``return json.loads(...)`` returns ``Any`` and trips
+        # ``no-any-return`` -- and this package uses no ``cast`` anywhere.
+        return json.loads(path.read_text()) if path.is_file() else {}
+    except ValueError as exc:
+        raise ValueError(f"invalid run metadata file '{path}': {exc}") from None
 
 
 def _iter_run_dirs(state_dir: Path) -> list[Path]:

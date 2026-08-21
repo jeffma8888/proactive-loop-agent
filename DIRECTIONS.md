@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-228
+    lenses: hardening/DX
+    - Candidate A1 -- `pla run --suppress-title TITLE`: a declined goal can finally stop coming back
+    - Candidate A2 -- `PythonVersionDriftCollector`: the 18th collector, and only the 2nd RELATIONAL one
+    - Candidate A3 -- `--max-iterations N` / `--max-llm-calls N`: the L1 budget becomes SETTABLE
+    - Candidate B1 -- `tests/conftest.py` strips the `PLA_*` namespace: the suite stops depending on the developer's shell
+    - Candidate B2 -- packaging-declaration oracle: nothing reads `[project.scripts]`, so renaming `main` stays green
+    - Candidate B3 -- `pla resume` names the file it cannot parse (the safe half of row #151)
+    winner: B3
+    ship: pending (not yet decided)
   iter-227
     lenses: narrative-and-docs (iteration 227), new-capability
     - Candidate A1 -- README's exit-code section points readers at the one surface `python -OO` deletes
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `run --max-iterations N` / `--max-llm-calls N`: make the L1 budget SETTABLE, not just reportable
     - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector, and only the 2nd RELATIONAL one
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 747c860
   iter-198
     lenses: new-capability (iteration 198)
     - Candidate A1 -- `dispatch --dry-run`: the first LLM-free rehearsal of one saved goal
@@ -1078,4 +1088,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-108 scouted iterations
+109 scouted iterations
