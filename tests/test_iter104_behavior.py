@@ -91,7 +91,7 @@ DEFAULT_MAX_LLM_CALLS = 24
 DEFAULT_RETRY_MAX_ATTEMPTS = 5
 
 # Behavior 9: the live argparse verb count after this additive verb lands.
-EXPECTED_VERB_COUNT = 16
+EXPECTED_VERB_COUNT = 17
 
 
 

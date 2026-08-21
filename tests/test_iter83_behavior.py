@@ -212,8 +212,8 @@ def test_b8_cli_subcommand_count_unchanged() -> None:
     parser = build_parser()
     subactions = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
     assert len(subactions) == 1, "expected exactly one subparsers action"
-    assert len(subactions[0].choices) == 16, (
-        f"CLI subcommand count must stay 16; got {len(subactions[0].choices)}"
+    assert len(subactions[0].choices) == 17, (
+        f"CLI subcommand count must stay 17; got {len(subactions[0].choices)}"
     )
 
 

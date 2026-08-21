@@ -115,9 +115,9 @@ def test_b01_build_parser_docstring_names_live_subcommand_count():
     )
 
 
-def test_b01_live_subcommand_count_is_sixteen():
-    # Anchor the current tree: the fix targets exactly 16 subcommands.
-    assert _subcommand_count() == 16
+def test_b01_live_subcommand_count_is_seventeen():
+    # Anchor the current tree: the fix targets exactly 17 subcommands.
+    assert _subcommand_count() == 17
 
 
 def test_b01_paren_trap_is_the_class_docstring():
@@ -294,6 +294,6 @@ def test_b07_cli_version_flag_prints_pla_version():
 # locks the count trio the drift-guards are bound to.
 # ==========================================================================
 def test_b08_registry_sizes_unchanged():
-    assert _subcommand_count() == 16
+    assert _subcommand_count() == 17
     assert len(ToolRegistry.tool_names()) == 14
     assert len(all_collectors()) == 17

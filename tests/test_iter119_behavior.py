@@ -122,13 +122,14 @@ EXPECTED_REQUIRED_OPTIONS: dict[str, frozenset[str]] = {
     "signals": frozenset({"--workspace"}),
     "tools": frozenset(),
     "trace": frozenset({"--run-dir"}),
+    "trend": frozenset({"--dir"}),
     "verify": frozenset({"--slate", "--snapshot"}),
     "watch": frozenset({"--workspace"}),
 }
 EXPECTED_STANDALONE = frozenset(
     {"collectors", "config", "policy", "providers", "runs", "signals", "tools"}
 )
-EXPECTED_PRIOR_RUN = frozenset({"diff", "explain", "trace", "verify"})
+EXPECTED_PRIOR_RUN = frozenset({"diff", "explain", "trace", "trend", "verify"})
 
 # Spec behavior 2: the Quickstart block, in order, commands only (comments stripped).
 EXPECTED_QUICKSTART_COMMANDS = [
@@ -159,6 +160,7 @@ NUMBER_WORDS: dict[str, int] = {
     "fourteen": 14,
     "fifteen": 15,
     "sixteen": 16,
+    "seventeen": 17,
 }
 
 
@@ -583,8 +585,8 @@ def test_behavior3_every_live_required_option_is_classified() -> None:
         "the two declared buckets overlap, so 'exactly one' is unprovable"
     )
     required = required_options_by_verb()
-    assert len(required) == 16, (
-        f"expected the 16 documented verbs, got {len(required)}: {sorted(required)}"
+    assert len(required) == 17, (
+        f"expected the 17 documented verbs, got {len(required)}: {sorted(required)}"
     )
     offenders = unclassified_options(required)
     assert not offenders, (
@@ -661,7 +663,7 @@ def test_behavior5_derived_prior_run_set_is_the_four_published_verbs() -> None:
         f"derived prior-run verbs {sorted(prior_run)} != published "
         f"{sorted(EXPECTED_PRIOR_RUN)}"
     )
-    assert len(prior_run) == 4, f"expected 4 prior-run verbs, got {len(prior_run)}"
+    assert len(prior_run) == 5, f"expected 5 prior-run verbs, got {len(prior_run)}"
     assert not (standalone & prior_run), "a verb landed in both buckets"
     assert standalone | prior_run == derive_llm_free_verbs(), (
         "the two buckets do not partition the LLM-free verb set; some LLM-free "
@@ -739,7 +741,7 @@ def test_behavior7_paragraph_names_all_eleven_verbs_on_the_correct_side() -> Non
 def test_behavior8_the_false_bare_uv_sync_conclusion_is_gone() -> None:
     text = readme_text()
     # Prove the matcher can see the claim before trusting its absence.
-    planted = f"eleven of the sixteen verbs never construct an LLM client, {REMOVED_CLAIM} uv sync."
+    planted = f"twelve of the seventeen verbs never construct an LLM client, {REMOVED_CLAIM} uv sync."
     assert REMOVED_CLAIM in planted, "the matcher for the removed claim does not match"
     assert REMOVED_CLAIM not in text, (
         f"README.md still publishes the false conclusion {REMOVED_CLAIM!r}: four "
@@ -752,13 +754,13 @@ def test_behavior8_the_false_bare_uv_sync_conclusion_is_gone() -> None:
 # ==========================================================================
 
 GOOD_PARAGRAPH = (
-    "Eleven of the sixteen verbs never construct an LLM client at all. "
-    "Seven of those eleven -- `collectors`, `config`, `policy`, `providers`, "
+    "Twelve of the seventeen verbs never construct an LLM client at all. "
+    "Seven of those twelve -- `collectors`, `config`, `policy`, `providers`, "
     "`runs`, `signals` and `tools` -- need nothing but the checkout itself. "
-    "The other four are inspectors of a run that already happened, so they are "
+    "The other five are inspectors of a run that already happened, so they are "
     "not standalone. `diff` and `explain` read a slate file, `trace` reads a "
-    "run directory's checkpoint and `verify` reads a slate against a snapshot, "
-    "so each exits `2` until one exists."
+    "run directory's checkpoint, `trend` reads a stream directory of slates and "
+    "`verify` reads a slate against a snapshot, so each exits `2` until one exists."
 )
 
 
@@ -786,17 +788,17 @@ def test_behavior9b_classifier_fires_on_an_unclassified_required_option() -> Non
 
 
 def test_behavior9c_paragraph_guard_fires_on_a_wrong_count() -> None:
-    wrong = GOOD_PARAGRAPH.replace("Seven of those eleven", "Six of those eleven")
+    wrong = GOOD_PARAGRAPH.replace("Seven of those twelve", "Six of those twelve")
     assert wrong != GOOD_PARAGRAPH, "the synthetic mutation did not apply"
     defects = paragraph_defects(wrong, EXPECTED_STANDALONE, EXPECTED_PRIOR_RUN)
     assert any("standalone count 7" in defect for defect in defects), (
         f"a wrong standalone count must be reported, got {defects}"
     )
 
-    wrong_other = GOOD_PARAGRAPH.replace("The other four", "The other five")
+    wrong_other = GOOD_PARAGRAPH.replace("The other five", "The other six")
     assert wrong_other != GOOD_PARAGRAPH, "the synthetic mutation did not apply"
     defects_other = paragraph_defects(wrong_other, EXPECTED_STANDALONE, EXPECTED_PRIOR_RUN)
-    assert any("prior-run count 4" in defect for defect in defects_other), (
+    assert any("prior-run count 5" in defect for defect in defects_other), (
         f"a wrong prior-run count must be reported, got {defects_other}"
     )
 
@@ -812,13 +814,14 @@ def test_behavior9d_paragraph_guard_fires_on_an_omitted_verb() -> None:
 
 def test_behavior9e_paragraph_guard_fires_on_a_verb_on_the_wrong_side() -> None:
     swapped = (
-        "Eleven of the sixteen verbs never construct an LLM client at all. "
+        "Twelve of the seventeen verbs never construct an LLM client at all. "
         "`diff` is one of them. "
-        "Seven of those eleven -- `collectors`, `config`, `policy`, `providers`, "
+        "Seven of those twelve -- `collectors`, `config`, `policy`, `providers`, "
         "`runs`, `signals` and `tools` -- need nothing but the checkout itself. "
-        "The other four are inspectors of a run that already happened. "
-        "`explain` reads a slate file, `trace` reads a checkpoint and `verify` "
-        "reads a slate against a snapshot, each exiting `2` until one exists."
+        "The other five are inspectors of a run that already happened. "
+        "`explain` reads a slate file, `trace` reads a checkpoint, `trend` reads "
+        "a stream directory and `verify` reads a slate against a snapshot, each "
+        "exiting `2` until one exists."
     )
     defects = paragraph_defects(swapped, EXPECTED_STANDALONE, EXPECTED_PRIOR_RUN)
     assert any("BEFORE the sentence" in defect for defect in defects), (

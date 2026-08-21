@@ -78,8 +78,10 @@ _DOCUMENT_KEYS = frozenset(
 # The human summary marker the dispatch/resume path prints (spec behaviors 4-5).
 _SUMMARY_MARKER = "dispatched :"
 
-# Spec behavior 9: this iteration adds a FLAG, not a verb.
-_EXPECTED_VERB_COUNT = 16
+# Spec behavior 9: the LIVE verb count. iter-173 itself added a flag, not a verb, but the
+# constant tracks the live parser, so a later ADDITIVE verb bumps this one literal here
+# (iter-197 added `trend`) rather than leaving a test whose NAME encodes a decaying number.
+_EXPECTED_VERB_COUNT = 17
 
 
 # ---------------------------------------------------------------------------
@@ -539,6 +541,6 @@ def test_b09_top_level_help_lists_every_live_verb(tmp_path: Path) -> None:
     )
     verbs = [v for v in match.group(1).split(",") if v]
     assert len(verbs) == _EXPECTED_VERB_COUNT, (
-        f"`pla --help` must still list {_EXPECTED_VERB_COUNT} verbs (this iteration adds a "
-        f"flag, not a verb); got {len(verbs)}: {verbs}"
+        f"`pla --help` must list every live verb: expected {_EXPECTED_VERB_COUNT}, "
+        f"got {len(verbs)}: {verbs}"
     )

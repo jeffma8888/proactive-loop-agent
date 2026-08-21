@@ -423,7 +423,7 @@ def test_behavior7_a_column_regex_would_be_blind_to_the_unpadded_rows() -> None:
     section = section_of(readme_text())
     naive = re.findall(r"^\| `(\w+)`\s+\|", section, re.M)
     tolerant = [v for v in live_verbs() if f"`{v}`" in section]
-    assert len(tolerant) == len(live_verbs()) == 16
+    assert len(tolerant) == len(live_verbs()) == 17
     assert set(naive) < set(tolerant), (
         "expected the naive column regex to be strictly blinder than the "
         "presence test; if the table's padding was normalized this assertion "

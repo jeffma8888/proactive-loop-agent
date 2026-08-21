@@ -529,7 +529,7 @@ def _exit_code_epilog() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Assemble the ``pla`` parser with sixteen subcommands and shared globals.
+    """Assemble the ``pla`` parser with seventeen subcommands and shared globals.
 
     The provider/scripting/state-dir flags are attached via a parent parser so
     they are accepted AFTER the subcommand (e.g. ``pla run --provider ...``),
@@ -1362,6 +1362,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the diff as one JSON object instead of the human sections.",
     )
     p_diff.set_defaults(func=_cmd_diff)
+
+    # `trend` reads the WHOLE `watch --out-dir` stream instead of only its newest
+    # pair: for each goal TITLE it reports how many ticks the title appears in plus
+    # the first and last tick index it was seen at, ranked by persistence. It is the
+    # recurrence view `diff` structurally cannot give -- `diff --dir` binds exactly
+    # two slates, so a 20-tick stream was never read deeper than its last two
+    # entries. Like runs/explain/trace/signals/diff it inherits the globals so
+    # --provider/--scripted-responses/--state-dir are accepted but INERT: the handler
+    # builds no LLMClient, runs no collector, starts no subprocess and writes no
+    # file. It also builds no `settings` and never calls `gate()` -- persistence is a
+    # property of the STREAM, not of the autonomy contract. Goals are matched across
+    # ticks by NORMALIZED TITLE, never the random per-scan id. `--dir` is
+    # argparse-`required` because it is the verb's ONLY input; unlike `diff` there is
+    # no second selector mode that would have to keep it optional.
+    p_trend = sub.add_parser(
+        "trend",
+        parents=[globals_],
+        help="Report which goals persist across a `watch --out-dir` slate stream (read-only, LLM-free).",
+    )
+    p_trend.add_argument(
+        "--dir",
+        required=True,
+        help=(
+            "A `pla watch --out-dir DIR` stream directory. EVERY slate-<NNN>.json in "
+            "it is read (entries that are not stream files are ignored) and each goal "
+            "title is reported with its tick count and the first/last tick index it "
+            "appeared at, ranked by persistence. ONE slate is enough -- unlike `diff "
+            "--dir`, which needs two, because a persistence count is well-defined at "
+            "N=1 -- but zero stream slates, or a DIR that is not an existing "
+            "directory, is a usage error (exit 2)."
+        ),
+    )
+    p_trend.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the trend as one JSON object instead of the human sections.",
+    )
+    p_trend.set_defaults(func=_cmd_trend)
 
     # `policy` prints the STANDING autonomy contract itself -- the product's
     # headline safety mechanism -- with zero input: no --workspace, no slate, no
@@ -3472,6 +3510,140 @@ def _diff_json_payload(old_path: str, new_path: str, result: dict[str, Any]) -> 
     }
 
 
+def _compute_trend(ticks: list[tuple[int, GoalSlate]]) -> dict[str, Any]:
+    """Count how many ticks of a slate stream each goal title PERSISTS across.
+
+    A pure function of an ordered ``(tick_index, slate)`` list -- it opens no file,
+    builds no client and starts nothing -- so it is unit-testable from in-memory
+    slates alone, exactly like ``_compute_diff`` beside it.
+
+    WHY it takes NO ``settings`` and never calls ``gate()``, unlike ``_compute_diff``:
+    persistence is a property of the STREAM, not of the autonomy contract. Re-gating
+    would make a recurrence report's rows move when a threshold moved, coupling a
+    read-only history to policy drift for no gain -- how often a goal came back is
+    the same fact whether or not it would be auto-dispatched today.
+
+    Goals are matched across ticks by NORMALIZED TITLE via ``_index_by_title``, NEVER
+    by ``CandidateGoal.id`` (a random per-scan ``default_factory``, so an id match
+    would report every tick as a whole new set of goals). ``_index_by_title`` is
+    first-wins WITHIN a slate, which is also what caps a single tick's contribution
+    at ONE occurrence -- two same-titled goals inside one slate cannot inflate that
+    tick's count to 2.
+
+    ``first_seen``/``last_seen`` are the LOWEST/HIGHEST tick INDEX (the integer
+    ``_stream_slate_index`` parses from the filename), never a position in this list,
+    so a stream whose ticks are 1/5/9 reports 5 for a title present only in the
+    middle file. ``title`` and ``score`` come from the goal as it appeared in the LAST
+    tick containing it -- the ``diff`` precedent that a matched row carries the NEWEST
+    spelling. The comparison is ``>=`` rather than ``>`` so that when two filenames map
+    to the SAME index (``slate-1.json`` beside ``slate-001.json``, which
+    ``_stream_slates`` deliberately tolerates) the later entry in the caller's
+    deterministic order wins, instead of the result depending on which of two equal
+    indexes happened to be visited first.
+
+    Rows come back in a TOTAL order -- ticks descending, then score descending, then
+    normalized title ascending -- so no tie is ever broken by dict insertion or
+    filesystem iteration order. The normalized key is the final tiebreaker but is NOT
+    emitted: each row is an EXPLICIT dict of exactly its five contract keys (never
+    ``model_dump`` -- the iter-08 schema-leak discipline), so the same rows feed both
+    the human render and the ``--json`` payload without a later-added model field
+    leaking onto the wire.
+    """
+    tracked: dict[str, dict[str, Any]] = {}
+    for tick_index, slate in ticks:
+        for key, goal in _index_by_title(slate).items():
+            row = tracked.get(key)
+            if row is None:
+                tracked[key] = {
+                    "key": key,
+                    "title": goal.title,
+                    "score": goal.score,
+                    "ticks": 1,
+                    "first_seen": tick_index,
+                    "last_seen": tick_index,
+                }
+                continue
+            row["ticks"] += 1
+            if tick_index < row["first_seen"]:
+                row["first_seen"] = tick_index
+            if tick_index >= row["last_seen"]:
+                # The newest tick carrying this title owns its spelling and score.
+                row["last_seen"] = tick_index
+                row["title"] = goal.title
+                row["score"] = goal.score
+
+    ranked = sorted(
+        tracked.values(), key=lambda row: (-row["ticks"], -row["score"], row["key"])
+    )
+    return {
+        "total_ticks": len(ticks),
+        "goals": [
+            {
+                "title": row["title"],
+                "score": row["score"],
+                "ticks": row["ticks"],
+                "first_seen": row["first_seen"],
+                "last_seen": row["last_seen"],
+            }
+            for row in ranked
+        ],
+    }
+
+
+def _render_trend(result: dict[str, Any]) -> str:
+    """Render a stream trend as plain text.
+
+    A pure, disk-free function of the ``_compute_trend`` result -- like every other
+    ``_render_*`` helper it opens no file and builds no client. The
+    ``ticks read: <N>`` header is ALWAYS first and always present: it is the one line
+    that says how many stream slates were actually consumed, which is what makes a
+    row legible at all ("seen once out of twenty" and "seen once out of one" are
+    opposite findings from the same tick count). A stream of otherwise-valid slates
+    that carried no goals degrades to the single ``(no goals)`` marker under that
+    header rather than an empty section, mirroring ``_render_diff``'s
+    ``(no differences)``. Each row restates the count as ``ticks=<n>/<total>`` so
+    persistence needs no arithmetic; scores are ``:.2f``, matching
+    ``_render_table``/``_render_markdown``/``_render_diff``.
+    """
+    total = result["total_ticks"]
+    goals = result["goals"]
+    lines: list[str] = [f"ticks read: {total}"]
+    if not goals:
+        lines.append("(no goals)")
+        return "\n".join(lines)
+    lines.append(f"goals ({len(goals)})")
+    lines.extend(
+        f"    {row['title']}  ticks={row['ticks']}/{total}  score={row['score']:.2f}"
+        f"  first={row['first_seen']}  last={row['last_seen']}"
+        for row in goals
+    )
+    return "\n".join(lines)
+
+
+def _trend_json_payload(result: dict[str, Any]) -> dict[str, Any]:
+    """Build the ``trend --json`` document: one object of EXACTLY two top-level keys.
+
+    An explicit allowlist (never ``model_dump`` -- the same iter-08 schema-leak
+    discipline ``_scan_json_payload``/``_diff_json_payload``/``_explain_json_payload``
+    follow): ``total_ticks`` is the number of stream slates read, and ``goals`` is the
+    ranked ``_compute_trend`` rows, each exactly
+    ``{title, score, ticks, first_seen, last_seen}``. ``goals`` is ALWAYS present and
+    emits ``[]`` (never the human ``(no goals)`` marker) when the stream carried no
+    goals. Scores are the raw numeric ``goal.score`` computed field (JSON numbers, not
+    the ``:.2f`` human strings) and the tick fields are ints.
+
+    WHY there is no ``dir`` echo, unlike ``diff --json``'s ``old``/``new``: ``diff
+    --dir`` had to report WHICH pair it picked out of many, because the caller
+    delegated a choice. ``trend`` reads EVERY stream slate in the directory, so no
+    choice was made on the caller's behalf -- ``total_ticks`` already states how much
+    was consumed, and the caller named the directory itself.
+    """
+    return {
+        "total_ticks": result["total_ticks"],
+        "goals": result["goals"],
+    }
+
+
 # The four ordered gate rules narrated in plain English, in EXACTLY the
 # first-match-wins order `policy.gate` evaluates them. This is a small,
 # hand-maintained ordered list -- the one deliberate, acknowledged doc-vs-code
@@ -5379,6 +5551,75 @@ def _cmd_diff(args: argparse.Namespace) -> int:
         print(json.dumps(_diff_json_payload(old_echo, new_echo, result), indent=2))
     else:
         print(_render_diff(result))
+    return 0
+
+
+def _cmd_trend(args: argparse.Namespace) -> int:
+    """trend: report which goals PERSIST across a slate stream (read-only, LLM-free).
+
+    WHY it builds no ``LLMClient`` (like ``runs``/``explain``/``trace``/``signals``/
+    ``diff``): it is a pure aggregation over slates ``watch --out-dir`` has ALREADY
+    written. It synthesizes nothing, runs no collector, starts no subprocess and
+    writes no file -- and unlike ``diff`` it builds no ``settings`` and never calls
+    ``gate()``, because persistence is a property of the stream rather than of the
+    autonomy contract.
+
+    WHY the verb exists: ``watch --out-dir`` makes the monitor a PRODUCER of a slate
+    stream, but its only consumer read exactly TWO entries -- ``diff --dir`` binds the
+    two highest tick indexes -- so a 20-tick stream was never read deeper than its
+    newest pair. ``scan`` answers "what is true now?" and ``diff`` answers "what
+    changed last tick?", yet nothing answered "what has been true ALL ALONG?", which
+    is precisely the line between synthesizer noise (a title seen once) and a standing
+    backlog (a title present at every tick). Recurrence is the strongest attention
+    signal the product already has on disk, and this verb is new PERCEPTION over
+    existing artifacts: no new collector, no LLM call, no new file format.
+
+    WHY ONE slate is enough, deliberately UNLIKE ``diff --dir``'s ``>= 2``: a diff is
+    inherently binary, while a persistence count is well-defined at N=1 (every goal is
+    1-of-1). Only ZERO stream slates is a usage error, and that message reports the
+    count found so "wrong directory" stays distinguishable from "the watch has not
+    ticked yet".
+
+    Exit codes mirror ``diff``: a ``--dir`` that is missing or is not a directory
+    returns ``2`` explicitly, having loaded nothing; a corrupt or schema-invalid slate
+    raises the ``ValueError`` that the top-level ``main()`` boundary maps to one
+    legible ``error:`` line at exit ``1`` -- no bespoke catch, no traceback. ``--json``
+    swaps the human sections for one machine-parseable object AFTER those guards, so it
+    selects a rendering only and the exit-code contract is ``--json``-independent.
+    """
+    stream_dir = Path(args.dir)
+    if not stream_dir.is_dir():
+        # A missing path and an existing non-directory are the SAME operator mistake
+        # here -- this verb never CREATES anything -- so one message covers both.
+        print(f"error: --dir must be an existing directory: {stream_dir}", file=sys.stderr)
+        return 2
+    slates = _stream_slates(stream_dir)
+    if not slates:
+        # Reporting the count FOUND (rather than just "none") is the `diff --dir`
+        # precedent: it separates "wrong directory" from "the watch has not ticked
+        # yet" without a second look.
+        print(
+            f"error: --dir needs at least one stream slate to report on, "
+            f"found {len(slates)}: {stream_dir}",
+            file=sys.stderr,
+        )
+        return 2
+    # `_stream_slates` returns ONLY entries whose names `_stream_slate_index` parses
+    # (and only files), so this walrus can never bind None. Expressing the invariant
+    # as a guard keeps it checkable by the type checker with no runtime assert and no
+    # cast, and the comprehension is where the ONE disk read of this verb happens.
+    ticks: list[tuple[int, GoalSlate]] = [
+        (index, _load_slate(path))
+        for path in slates
+        if (index := _stream_slate_index(path.name)) is not None
+    ]
+    result = _compute_trend(ticks)
+    if args.json:
+        # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
+        # guards above already ran, so --json is a rendering choice only.
+        print(json.dumps(_trend_json_payload(result), indent=2))
+    else:
+        print(_render_trend(result))
     return 0
 
 

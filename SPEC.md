@@ -65,7 +65,7 @@ proactive-loop-agent/
 │   │   ├── resilience.py     # with_retry(), Checkpoint
 │   │   └── executor.py       # GoalLoop plan→act→check
 │   ├── scheduler.py          # periodic scan trigger
-│   └── cli.py                # argparse CLI: 16 verbs -- roster in 4.5
+│   └── cli.py                # argparse CLI: 17 verbs -- roster in 4.5
 ├── examples/
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
@@ -949,6 +949,46 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     the `main()` boundary (both before any rendering, so the exit contract is
     `--json`-independent). Builds no `LLMClient`, runs no collector/subprocess, and
     writes no file.
+  - `pla trend --dir DIR [--json]` — read-only, LLM-free PERSISTENCE inspector over a
+    whole `watch --out-dir` stream directory: for each goal title it reports the number
+    of ticks the title appears in plus the FIRST and LAST tick index it was seen at,
+    ranked by persistence. It is the recurrence view `diff` structurally cannot give --
+    `diff --dir` binds exactly the two highest tick indexes, so a 20-tick stream was
+    never read deeper than its newest pair; `scan` answers "what is true now?" and
+    `diff` answers "what changed last tick?", while this answers "what has been true
+    ALL ALONG?", which is the line between synthesizer noise (a title seen once) and a
+    standing backlog (a title present at every tick). Goals are matched across ticks by
+    NORMALIZED TITLE (`title.strip().lower()` -- the synthesizer's own dedup key, NEVER
+    the random per-scan `CandidateGoal.id`), and within ONE slate first-occurrence-wins
+    on a duplicate title, so a single tick contributes at most one occurrence. A tick
+    index is the integer `slate-<NNN>.json` encodes (compared as an integer, so 1000
+    beats 999), never a position, so a stream whose ticks are 1/5/9 reports 5 for a
+    title present only in the middle file. A row's `title`/`score` come from the LAST
+    tick containing that title (the `diff` precedent that a matched row carries the
+    NEWEST spelling). Rows are TOTALLY ordered: ticks descending, then score
+    descending, then normalized title ascending, so no tie falls to dict or filesystem
+    order. Human form prints an always-present `ticks read: <N>` header (N = the number
+    of stream slates read), then a `goals (N)` section of one indented
+    `<title>  ticks=<n>/<total>  score=<s>  first=<i>  last=<j>` row each (scores
+    `:.2f`), degrading to a single `(no goals)` marker under the header when the stream
+    carried no goals. `--json` emits one object of EXACTLY two top-level keys
+    `total_ticks, goals` -- an explicit allowlist (never `model_dump`; the iter-08
+    schema-leak discipline) -- where each `goals` item is
+    `{title, score, ticks, first_seen, last_seen}` with the raw numeric score and
+    integer tick indexes, and `goals` is ALWAYS present (`[]` when empty, not the human
+    marker). Entries in DIR that are not stream files, and a DIRECTORY whose name
+    happens to match the convention, are SKIPPED silently and excluded from the tick
+    total. Deliberately UNLIKE `diff --dir`'s `>= 2`: ONE stream slate is a valid
+    trivial report (exit 0, every goal 1-of-1), because a diff is inherently binary
+    while a persistence count is well-defined at N=1; only ZERO stream slates is a
+    usage error, reported as `error: --dir needs at least one stream slate to report
+    on, found 0: <dir>` on stderr + exit 2. A `--dir` that is missing or is not a
+    directory → `error: --dir must be an existing directory: <path>` + exit 2, having
+    loaded nothing; a corrupt/schema-invalid slate → exit 1 via the `main()` boundary
+    (both before any rendering, so the exit contract is `--json`-independent). Builds
+    no `LLMClient`, runs no collector/subprocess, writes no file, and — unlike `diff`
+    — builds no `settings` and never calls `gate()`, because persistence is a property
+    of the STREAM, not of the autonomy contract.
   - `pla policy [--json]` — read-only, LLM-free, zero-input catalog of the STANDING
     autonomy contract itself: the product's headline safety mechanism, surfaced
     PROACTIVELY rather than only reactively through a gated `scan`/`explain` (both of

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-197
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- SPEC.md's orientation map names 8 of 15 tracked top-level entries, omitting all three machine gates
+    - Candidate A2 -- the next line of the same block names 4 of 9 Makefile recipes
+    - Candidate A3 -- the committed decision log denies four ships git can prove, and the README never glosses `ship: unknown`
+    - Candidate B1 -- `pla trend --dir DIR`: which goals PERSIST across a watch stream
+    - Candidate B2 -- `dispatch`/`run --allow-tool NAME`: narrow the ACT sandbox for one dispatch
+    - Candidate B3 -- Per-category autonomy thresholds (`PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0`)
+    winner: B1
+    ship: pending (not yet decided)
   iter-196
     lenses: performance-and-throughput (iteration 196), narrative-and-docs
     - Candidate A1 -- Convert 2 more collectors onto the shared per-scan walk (dir_source)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Correct the one `src/` claim that contradicts both its cited module and the README
     - Candidate B3 -- The README overclaims what the committed decision log contains
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED e7574c2
   iter-195
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Delete the byte-identical `_log_absorbed` twin; hoist it onto `BaseCollector`
@@ -1048,4 +1058,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-105 scouted iterations
+106 scouted iterations

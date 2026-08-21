@@ -75,7 +75,11 @@ FIXTURE = REPO / "examples" / "fixture_workspace"
 SCRIPT = REPO / "examples" / "scripted_responses.json"
 
 # Spec behavior 1: the live subparser-choice count after this additive verb.
-_EXPECTED_VERB_COUNT = 177 - 161  # == 16; spelled as arithmetic so no bare literal drifts
+# A frozen literal ON PURPOSE: b01 below compares it against the LIVE parser, so deriving
+# it from build_parser() would collapse that assertion into `len(x) == len(x)`. The former
+# `177 - 161` spelling claimed to stop a literal drifting and then drifted anyway, so it is
+# retired -- one honest literal, bumped by each additive verb (iter-197 added `trend`).
+_EXPECTED_VERB_COUNT = 17
 
 # Spec behavior 3: the exact human-mode trailer shape.
 _TRAILER_RE = re.compile(

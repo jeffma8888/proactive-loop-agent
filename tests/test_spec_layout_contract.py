@@ -224,7 +224,9 @@ def _sole_line(fence: str, needle: str) -> str:
 # The exact pre-fix collector block: 4 of 17 modules, which reads as complete.
 SHIPPED_DEFECT_MODULES = ("filesystem", "git_activity", "todos", "notes")
 
-# The exact pre-fix `cli.py` comment: 14 of 16 verbs, omitting `verify` and `config`.
+# The exact pre-fix `cli.py` comment: 14 verbs, omitting `verify`, `config` and
+# `trend`. The omission set GROWS with every verb added after the fix, which is the
+# point -- this sample is a frozen historical line, so a new verb makes it MORE partial.
 PRE_FIX_CLI_LINE = (
     "\u2502   \u2514\u2500\u2500 cli.py                # argparse CLI: scan / dispatch / "
     "run / resume / runs / explain / trace / signals / watch / diff / policy / tools / "
@@ -369,7 +371,7 @@ def test_b6_cli_line_holds_no_partial_verb_roster_and_cites_the_roster() -> None
 def test_b6_control_the_pre_fix_fourteen_verb_line_fails() -> None:
     """The shipped defect: a 14-verb list that reads as the complete set."""
     omitted = partial_roster(PRE_FIX_CLI_LINE, live_verbs(), "{}")
-    assert omitted == {"verify", "config"}
+    assert omitted == {"verify", "config", "trend"}
 
 
 def test_b6_collectors_subtree_cites_the_collector_roster() -> None:
