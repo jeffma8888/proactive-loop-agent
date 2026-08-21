@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-198
+    lenses: new-capability (iteration 198)
+    - Candidate A1 -- `dispatch --dry-run`: the first LLM-free rehearsal of one saved goal
+    - Candidate A2 -- `PythonVersionDriftCollector`: the 18th collector, 3rd relational one
+    - Candidate A3 -- `run` / `dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch
+    - Candidate B1 -- `resume` names the corrupt `meta.json` instead of leaking a bare decoder message
+    - Candidate B2 -- a global `PLA_*` env scrub, so a developer's exported knob cannot red a clean checkout
+    - Candidate B3 -- an oracle for the DECLARED console-script entry point, not the installed one
+    winner: A1
+    ship: pending (not yet decided)
   iter-197
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC.md's orientation map names 8 of 15 tracked top-level entries, omitting all three machine gates
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `dispatch`/`run --allow-tool NAME`: narrow the ACT sandbox for one dispatch
     - Candidate B3 -- Per-category autonomy thresholds (`PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0`)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 4999dd9
   iter-196
     lenses: performance-and-throughput (iteration 196), narrative-and-docs
     - Candidate A1 -- Convert 2 more collectors onto the shared per-scan walk (dir_source)
@@ -1058,4 +1068,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-106 scouted iterations
+107 scouted iterations

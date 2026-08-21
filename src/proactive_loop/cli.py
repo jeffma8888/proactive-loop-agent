@@ -722,6 +722,37 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Confirm dispatch of a goal that needs approval (never overrides BLOCKED).",
     )
+    # --dry-run and --json are MUTUALLY EXCLUSIVE, and that is a DESIGN decision rather
+    # than a limitation: `dispatch --json` publishes ONE document whose nine keys are
+    # ALWAYS present (`_dispatched_json_payload`, "so a consumer can index without .get
+    # gymnastics"), so a preview -- which has no run -- could only enter that schema by
+    # nulling keys the contract guarantees, or by publishing a SECOND differently-shaped
+    # document on one verb's stdout. Both are refused; a machine-readable preview is a
+    # separate feature whose key set deserves designing rather than back-fitting.
+    #
+    # WHY the pair is rejected in the HANDLER instead of by an
+    # `add_mutually_exclusive_group()` here, which is the shorter spelling: an
+    # exclusive-group `--json` is reserved for `scan` ALONE, and that is a DERIVED
+    # invariant two shipped oracles enforce over every verb's usage line
+    # (tests/test_iter190_behavior.py, tests/test_iter191_behavior.py). It is reserved
+    # for a reason -- on `scan`, `--json` is an ALIAS sharing `--format`'s dest, so the
+    # group states "one knob, two spellings", whereas on every other verb `--json` is an
+    # INDEPENDENT flag. Grouping it here would make dispatch's usage line assert a
+    # relationship these two flags do not have. `_cmd_dispatch` therefore refuses the
+    # pair exactly as `_cmd_diff` refuses `--dir` with `--old/--new`: exit 2 on stderr
+    # before any filesystem probe, so stdout stays EMPTY and nothing is half-executed.
+    p_dispatch.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Preview only: re-gate the goal, then print what dispatching it WOULD do "
+            "(the gate decision and reason, the resolved workspace root, the run dir "
+            "it would be written under, and a paste-ready real command) and STOP -- the "
+            "goal is NOT executed, NO run directory is created, and no provider is "
+            "needed. Refusals still win: BLOCKED is still exit 3 and a goal needing "
+            "approval is still exit 4 without --yes."
+        ),
+    )
     p_dispatch.add_argument(
         "--json",
         action="store_true",
@@ -4248,6 +4279,51 @@ def _render_providers() -> str:
     return "\n".join(lines)
 
 
+def _render_dispatch_preview(
+    goal: CandidateGoal,
+    decision: DispatchDecision,
+    workspace_root: Path,
+    settings: Settings,
+    slate_path: Path,
+) -> str:
+    """The ``dispatch --dry-run`` preview: what a real dispatch WOULD do, as text.
+
+    Rendered from exactly the values the real path is about to use -- the gate
+    decision the handler already computed, the workspace root read off the slate, and
+    ``settings.state_dir`` -- so a preview cannot describe a dispatch different from
+    the one the same argv would perform. The run directory is COMPUTED with the same
+    expression :func:`_execute_goal` uses (``state_dir / f"run-{goal.id}"``) and is
+    deliberately NOT created: a preview that touched the disk would defeat the only
+    property the flag exists to provide.
+
+    WHY ``--yes`` is echoed off the DECISION rather than off ``args.yes``: the pasted
+    line should be the MINIMAL command that really dispatches, and ``--yes`` is
+    required exactly when the gate returned NEEDS_APPROVAL -- a goal reaching this
+    renderer with that decision was already confirmed, because the handler's exit-4
+    guard runs above. Echoing the user's flag instead would print a ``--yes`` an
+    AUTO_DISPATCH goal does not need, i.e. teach a habit of over-confirming.
+
+    Prints ``decision.decision.name`` -- the UPPERCASE member NAME -- because that is
+    the spelling the autonomy contract is documented and rendered in (AUTO_DISPATCH /
+    NEEDS_APPROVAL / BLOCKED), not the lowercase enum VALUE the JSON documents carry.
+    """
+    run_dir = settings.state_dir / f"run-{goal.id}"
+    command = f"pla dispatch --slate {slate_path} --goal-id {goal.id}"
+    if decision.decision == AutonomyDecision.NEEDS_APPROVAL:
+        command += " --yes"
+    return "\n".join(
+        [
+            f"[dry-run] would dispatch goal {goal.id}: {goal.title}",
+            f"  decision:       {decision.decision.name} ({decision.reason})",
+            f"  workspace root: {workspace_root}",
+            f"  state dir:      {settings.state_dir}",
+            f"  run dir:        {run_dir}  (would be created; nothing written now)",
+            "  run it for real with:",
+            f"    {command}",
+        ]
+    )
+
+
 def _execute_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client: LLMClient
 ) -> tuple[RunState, Path, ToolRegistry]:
@@ -4431,7 +4507,23 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     is the same one :func:`_dispatched_json_payload` gives ``run --json``, so the two
     verbs report one fact set. Every refusal above keeps its exit code AND its empty
     stdout, because ``--json`` is only ever emitted after the gate has allowed the goal.
+
+    ``--dry-run`` is the confirm-before-you-act twin of that path: it re-gates the goal
+    and reports what a real dispatch WOULD do, then returns 0 before any client, run
+    directory or loop iteration exists. It is mutually exclusive with ``--json`` -- refused
+    first, exit 2 -- because a preview has no run to fill that document's nine
+    guaranteed keys; :func:`build_parser` records why that refusal lives here rather
+    than in an argparse exclusive group.
     """
+    # Exactly one output mode. Refused FIRST -- before the slate is even looked for --
+    # because this is a fault in the ARGV SHAPE rather than in the request: it is
+    # decidable without touching the disk, and a wrong invocation must never be reported
+    # as though the operator's paths were the problem. Keeps stdout EMPTY, which is the
+    # property every `--json` consumer of this verb already relies on.
+    if args.dry_run and args.json:
+        print("error: --dry-run cannot be combined with --json", file=sys.stderr)
+        return 2
+
     slate_path = Path(args.slate)
     if not slate_path.is_file():
         print(f"error: slate file not found: {slate_path}", file=sys.stderr)
@@ -4470,6 +4562,21 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 4
+
+    # The preview's POSITION is the whole feature, and it is bounded on both sides.
+    # BELOW the gate: a refusal still outranks it, so BLOCKED is still exit 3 and an
+    # unconfirmed goal still exit 4 -- previewing must never be a way to look past a
+    # decision the autonomy contract already made. ABOVE ``create_client``: it answers
+    # with NO provider configured and builds no client, no run dir and no loop
+    # iteration, which makes it the first GATED-EXECUTION invocation that is useful on
+    # a machine with no model at all. That is also why the single ``create_client``
+    # call stays here on the real path rather than being hoisted: README's "which
+    # verbs need a provider" partition is derived by an ast sweep for a
+    # ``create_client`` CALL inside each ``_cmd_*`` handler, and ``dispatch`` still
+    # needs one for the dispatch it actually performs.
+    if args.dry_run:
+        print(_render_dispatch_preview(goal, decision, workspace_root, settings, slate_path))
+        return 0
 
     client = create_client(settings)
     if args.json:

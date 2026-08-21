@@ -131,3 +131,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #228 check_run.py reads the persisted checkpoint back and grades run_id/status (iter 194, factory iter 196)
 - #229 Hoist the duplicated _log_absorbed onto BaseCollector, plus its first oracle (iter 195, factory iter 197)
 - #230 base.py's two stale 16-collector counts corrected to 17, bound to all_collectors() (iter 196, factory iter 198)
+- #233 dispatch --dry-run: preview one approved goal's dispatch before any client or run dir (iter 198, factory iter 200)
