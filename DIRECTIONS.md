@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-227
+    lenses: narrative-and-docs (iteration 227), new-capability
+    - Candidate A1 -- README's exit-code section points readers at the one surface `python -OO` deletes
+    - Candidate A2 -- SPEC.md's orientation map names 8 of the 15 tracked root entries, hiding all three machine gates
+    - Candidate A3 -- seven test NAMES report a collector count the registry outgrew (15/16 vs a live 17)
+    - Candidate B1 -- `run`/`dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch
+    - Candidate B2 -- `run --max-iterations N` / `--max-llm-calls N`: make the L1 budget SETTABLE, not just reportable
+    - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector, and only the 2nd RELATIONAL one
+    winner: A1
+    ship: pending (not yet decided)
   iter-198
     lenses: new-capability (iteration 198)
     - Candidate A1 -- `dispatch --dry-run`: the first LLM-free rehearsal of one saved goal
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- a global `PLA_*` env scrub, so a developer's exported knob cannot red a clean checkout
     - Candidate B3 -- an oracle for the DECLARED console-script entry point, not the installed one
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 561dc22
   iter-197
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC.md's orientation map names 8 of 15 tracked top-level entries, omitting all three machine gates
@@ -1068,4 +1078,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-107 scouted iterations
+108 scouted iterations
