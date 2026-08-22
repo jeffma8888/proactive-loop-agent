@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-233
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- eight test NAMES and one docstring report a collector count the registry outgrew
+    - Candidate A2 -- SPEC section 2's layout tree names 8 of 15 tracked top-level entries and hides all three machine gates
+    - Candidate A3 -- SPEC asserts a COMPLETE `PLA_*` override contract while naming 2 of the 8 variables
+    - Candidate B1 -- `scan` cannot exclude a path, so 3 of the 8 todo slots the synthesizer actually reads are settled history
+    - Candidate B2 -- a hypothetical-goal probe for the autonomy gate: the headline safety claim can be narrated but not evaluated
+    - Candidate B3 -- nothing in L2 perceives the agent's OWN interrupted runs, so the scout cannot propose resuming what it abandoned
+    winner: B1
+    ship: pending (not yet decided)
   iter-232
     lenses: performance-and-throughput (iteration 232), narrative-and-docs (iteration 232)
     - Candidate A1 -- give `merge_conflict` the substring prefilter `todos` already has
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- SPEC.md names the Makefile roster TWICE, both times 4-of-9, and the five it hides ARE the quality bar
     - Candidate B3 -- eight test NAMES and one docstring report a collector count the registry outgrew; row #232 names 1 of the 8
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 1781c88
   iter-231
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- collapse the byte-identical scope contextmanager shared by the two cache providers
@@ -1128,4 +1138,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-113 scouted iterations
+114 scouted iterations

@@ -136,3 +136,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #235 make demo publishes the autonomy audit and examples/check_autonomy.py grades it (iter 230, factory iter 204)
 - #236 Budget the two seams #225 left open: Path.stat fan-out and read_text decodes (iter 231, factory iter 205)
 - #237 cli.py module docstring names the live verb count; partial 15-of-17 roster dropped (iter 232, factory iter 206)
+- #238 scan --exclude-path: the perception INPUT filter reaches the synthesis verb (iter 233, factory iter 207)

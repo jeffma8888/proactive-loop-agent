@@ -686,6 +686,51 @@ def build_parser() -> argparse.ArgumentParser:
             "Default (absent) runs all collectors."
         ),
     )
+    # The LOCATION-shaped companion to --collector: both are perception INPUT knobs
+    # (--top/--format shape the OUTPUT view only) and they compose as a logical AND.
+    # Repeatable (action="append") with OR semantics; absent (default None) excludes
+    # nothing, so a bare scan is byte-identical to no flag. type=_nonempty_glob is the
+    # SAME parse-time validator the signals verb uses, so an empty/whitespace-only
+    # pattern is a SystemExit(2) usage error carrying the identical wording and zero
+    # side effects -- no client built, no collector run, no slate and no snapshot
+    # written -- mirroring the --format/--top/--collector fail-fast discipline.
+    #
+    # WHY the flag belongs on scan and not on signals alone, which is the whole point:
+    # the synthesis prompt is bounded at _MAX_SIGNALS_PER_KIND per kind, so WHICH
+    # signals survive is what the model ever sees. signals -- a read-only preview --
+    # could already narrow perception by path while scan, the verb that actually feeds
+    # synthesis, could not, so a user could tune the preview and carry none of it into
+    # the decision that matters. Measured 2026-08-22 against the product workspace: 3
+    # of the 8 top `todo` prompt slots were lines from ROADMAP_ARCHIVE.md, the file the
+    # roadmap header designates settled history and says never to read wholesale.
+    #
+    # Applied DOWNSTREAM of _collect (see _cmd_scan), never as upstream pruning, so
+    # every collector still RUNS; the difference from signals is only which end it
+    # acts on -- there it changes what is REPORTED, here the surviving set is what
+    # synthesis and the --snapshot record inherit.
+    p_scan.add_argument(
+        "--exclude-path",
+        action="append",
+        default=None,
+        type=_nonempty_glob,
+        metavar="GLOB",
+        dest="exclude_path",
+        help=(
+            "Keep signals whose path matches this glob OUT OF SYNTHESIS -- the escape "
+            "hatch for a vendored, generated, fixture or settled-history tree that is "
+            "crowding real findings out of the bounded prompt. Repeatable with OR "
+            "semantics (--exclude-path 'vendor/*' --exclude-path '*.min.js'). Matching "
+            "is identical to `signals --exclude-path`: CASE-INSENSITIVE, anchored at "
+            "the START of the path, tried against the whole path AND against every "
+            "ANCESTOR DIRECTORY of it (so a bare directory name excludes that whole "
+            "SUBTREE), and a trailing ':LINE' suffix does not defeat it. A signal with "
+            "NO path (repo-level perception) is NEVER excluded, not even by '*'. "
+            "Composes as a logical AND with --collector. Unlike --top (a view cap) "
+            "this narrows the RECORD too: the slate is synthesized from the surviving "
+            "signals and --snapshot writes exactly them. An empty pattern is a usage "
+            "error (exit 2)."
+        ),
+    )
     # Persist the PERCEPTION the slate was synthesized from. scan-only and absent by
     # default, so a bare scan is byte-identical (no trailer, no extra stdout). The
     # document is `signals --json`-shaped, which makes it directly loadable as a
@@ -4459,6 +4504,28 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     # _collect seam under run/signals/watch still calls _collect(workspace).
     only = set(args.collector) if args.collector else None
     snapshot = _collect(workspace, only=only)
+    # --exclude-path is the LOCATION-shaped companion to that allowlist, and it is
+    # applied HERE -- after the collect that produced the snapshot and ABOVE every
+    # consumer of it -- so the --snapshot audit document and the synthesis prompt
+    # inherit it by construction rather than by two call sites staying in sync. It
+    # filters the COLLECTED snapshot instead of pruning upstream because a signal's
+    # path does not exist until its collector has run; that is also why every
+    # collector still RUNS and why a path-less (repo-level) signal can never be
+    # excluded, not even by '*'.
+    #
+    # _path_excluded is the SAME predicate the signals verb's _select_signals
+    # delegates its path clause to, so `scan --exclude-path P` and
+    # `signals --exclude-path P` select the identical set by construction -- there is
+    # no second matcher to drift. model_copy(update=...) rather than a fresh
+    # WorkspaceSnapshot(...) so `root` and the `collected_at` stamp survive verbatim,
+    # and the comprehension preserves collector order. Truthiness (not `is not None`)
+    # keeps both the no-flag and the empty-list paths byte-identical by skipping the
+    # rebuild entirely.
+    if args.exclude_path:
+        kept = [
+            s for s in snapshot.signals if not _path_excluded(s.path, args.exclude_path)
+        ]
+        snapshot = snapshot.model_copy(update={"signals": kept})
     # Written ONCE, here: after the collect that produced it and BEFORE synthesis. That
     # position is load-bearing twice over. It is above every --format branch, so all five
     # inherit the behavior by construction rather than by five copies staying in sync; and
