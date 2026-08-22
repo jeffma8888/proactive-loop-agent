@@ -30,6 +30,7 @@ zero API keys, no live provider client is ever built.
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -37,7 +38,7 @@ from pathlib import Path
 import pytest
 
 from proactive_loop import __version__
-from proactive_loop.cli import _PROVIDER_CATALOG, main
+from proactive_loop.cli import _PROVIDER_CATALOG, build_parser, main
 from proactive_loop.collectors import all_collectors
 from proactive_loop.llm.providers import VALID_PROVIDERS
 from proactive_loop.loop.tools import ToolRegistry
@@ -459,27 +460,81 @@ def test_b11_spec_count_equals_registry_and_emitted(capsys):
     )
 
 
+# --------------------------------------------------------------------------
+# int -> English number word for the Behavior 12 docstring guard, covering
+# 1..20 so a growing verb roster cannot rot it. The expected phrase is DERIVED
+# from the live parser through this map, never spelled in an assertion: the
+# literal this test used to pin ("fifteen") went stale two verbs ago and made
+# the HONEST docstring fix red the build, which is why iters 189/193/198/201 --
+# all roster-integrity work -- walked past the contradiction instead of fixing
+# it. A wrong-way oracle is worse than no oracle.
+# --------------------------------------------------------------------------
+_NUM_WORD: dict[int, str] = {
+    1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+    6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+    11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen",
+    16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty",
+}
+
+
+def _verb_word(n: int) -> str:
+    assert n in _NUM_WORD, f"extend _NUM_WORD past {n} to keep the drift-guard sound"
+    return _NUM_WORD[n]
+
+
+def _live_verb_count() -> int:
+    """Live verb count = choices of build_parser()'s single subparsers action."""
+    actions = [
+        a for a in build_parser()._actions
+        if isinstance(a, argparse._SubParsersAction)
+    ]
+    assert len(actions) == 1, (
+        f"expected exactly one _SubParsersAction in build_parser(), got {len(actions)}"
+    )
+    return len(actions[0].choices)
+
+
 # ==========================================================================
 # Behavior 12 --- Verb-count doc updated + no other-count regression. The cli.py
-# module docstring reads "fifteen verbs" (was "thirteen"); the collector count is
-# now 15 (later iters added syntax_error; the providers verb itself added no
-# collector). Tool count is now 14 (the read_lines tool shipped later, factory
-# iter 76; the providers verb added no tool).
+# module docstring names the LIVE verb count as an English word and enumerates
+# no verbs at all (factory iter 206 retired the stale "fifteen verbs" and the
+# partial 15-of-17 roster that followed it; before that it read "thirteen").
+# The collector count is now 17 (later iters added syntax_error; the providers
+# verb itself added no collector). Tool count is now 14 (the read_lines tool
+# shipped later, factory iter 76; the providers verb added no tool).
 # Version unchanged; --help discoverability.
 # ==========================================================================
 
 
-def test_b12_cli_docstring_says_fifteen_verbs():
+def test_b12_cli_docstring_names_live_verb_count():
+    """The module docstring's spelled verb count tracks the live parser.
+
+    WHY the expected word is derived rather than spelled: see the _NUM_WORD note
+    above. ``cli_module.__doc__`` is read here (not the source text) because this
+    module's isolation contract drives public surfaces only; the -OO-durable
+    source-parsed form of this same claim lives in test_iter210_behavior.py.
+    """
     import proactive_loop.cli as cli_module
 
-    doc = cli_module.__doc__ or ""
-    assert "fifteen" in doc, (
-        "cli.py module docstring must read 'fifteen verbs' after adding the "
-        f"config verb; got docstring:\n{doc}"
+    doc = " ".join((cli_module.__doc__ or "").split())
+    phrase = f"{_verb_word(_live_verb_count())} verbs"
+    assert phrase in doc, (
+        f"cli.py module docstring must name the live verb count as {phrase!r}; "
+        f"got docstring:\n{doc}"
     )
-    assert "thirteen" not in doc, (
-        "cli.py module docstring must no longer read 'thirteen'; got:\n" + doc
-    )
+    # Ban every OTHER count word, not just the two retired literals "thirteen"
+    # and "fifteen": a bare literal ban would itself become a wrong-way oracle
+    # the day the roster legitimately shrank back to that count.
+    live_word = phrase.split()[0]
+    for other in sorted(set(_NUM_WORD.values()) - {live_word}):
+        assert f"{other} verbs" not in doc, (
+            f"cli.py module docstring names a competing verb count "
+            f"{other + ' verbs'!r} alongside {phrase!r}; got:\n{doc}"
+        )
+    for retired in ("thirteen", "fifteen"):
+        assert retired == live_word or retired not in doc, (
+            f"cli.py module docstring must no longer read {retired!r}; got:\n{doc}"
+        )
 
 
 def test_b12_collector_count_fifteen():

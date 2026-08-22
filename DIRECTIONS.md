@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-232
+    lenses: performance-and-throughput (iteration 232), narrative-and-docs (iteration 232)
+    - Candidate A1 -- give `merge_conflict` the substring prefilter `todos` already has
+    - Candidate A2 -- tighten `todos`' checkbox prefilter to the matcher's own class
+    - Candidate A3 -- a per-line application budget, the one missing member of a shipped family
+    - Candidate B1 -- `cli.py`'s own module docstring says "fifteen verbs" and lists 15 of 17, and a test PINS the stale word
+    - Candidate B2 -- SPEC.md names the Makefile roster TWICE, both times 4-of-9, and the five it hides ARE the quality bar
+    - Candidate B3 -- eight test NAMES and one docstring report a collector count the registry outgrew; row #232 names 1 of the 8
+    winner: B1
+    ship: pending (not yet decided)
   iter-231
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- collapse the byte-identical scope contextmanager shared by the two cache providers
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- re-measure and settle row #169 (`addopts --dist worksteal`) with a real sample
     - Candidate B3 -- honest cold-vs-warm cost line on `--timings`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b4dfecc
   iter-230
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- grade the demo's GATE decisions: give `pla explain --json` its first consumer
@@ -1118,4 +1128,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-112 scouted iterations
+113 scouted iterations

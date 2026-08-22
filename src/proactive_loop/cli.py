@@ -2,19 +2,12 @@
 
 WHY a thin CLI over the library layers: every capability the CLI exposes already
 lives in a tested module (collectors, scout, loop). This file only *wires* them
-into fifteen verbs a person actually runs -- scan, dispatch, run, resume, the
-runs lister (read-only except on its opt-in ``--prune --yes`` retention
-path), the read-only explain auditor, the read-only trace
-transcript renderer, the read-only signals perception inspector, the periodic
-watch loop, the read-only diff slate-delta inspector, the read-only policy
-autonomy-contract catalog, the read-only tools sandbox-surface catalog, the
-read-only collectors L2-perception catalog, the read-only providers
-LLM-backend catalog, and the read-only config resolved-settings inspector --
-and owns
-the two things a library must not: argument
-parsing and where run artifacts land on disk. Keeping that policy here (never
-inside the loop) means the autonomy contract has exactly one enforcement point
-per verb.
+into seventeen verbs a person actually runs -- the roster itself is deliberately
+NOT repeated here, because a partial list rots into a lie the moment a verb is
+added; ``pla --help`` prints the live one and SPEC section 4.5 carries each
+verb's contract -- and owns the two things a library must not: argument parsing
+and where run artifacts land on disk. Keeping that policy here (never inside the
+loop) means the autonomy contract has exactly one enforcement point per verb.
 
 Layout of a dispatched run under ``state_dir``::
 
