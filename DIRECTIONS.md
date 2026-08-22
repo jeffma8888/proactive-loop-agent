@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-235
+    lenses: hardening/DX (iteration 235), integration-and-adoption (iteration 235)
+    - Candidate A1 -- `make roadmap-headroom`: a gauge for the one ceiling that has already stalled this loop
+    - Candidate A2 -- Buy the ceiling back: archive the append-only Done-ledger tail out of `ROADMAP.md`
+    - Candidate A3 -- Six test names misreport the collector roster (fifteen/sixteen vs the live 17)
+    - Candidate B1 -- Give `signals --baseline` its first executable consumer: arm the three "red on arrival" kinds behind a committed baseline
+    - Candidate B2 -- Four paste-ready commands are printed at runtime; exactly ONE is proven to run
+    - Candidate B3 -- Give `signals --fail-over N` its first consumer: the stateless count budget, which is B1 without the file to keep fresh
+    winner: A2
+    ship: pending (not yet decided)
   iter-234
     lenses: new-capability
     - Candidate A1 -- `pla run --max-goals N`: dispatch the top N approved goals, not only the head
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Make the suite environment-hermetic: the `tests/conftest.py` half of row #218
     - Candidate B3 -- Give the DECLARED console-script string its first oracle (the live residual of row #117)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 40a0791
   iter-233
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- eight test NAMES and one docstring report a collector count the registry outgrew
@@ -1148,4 +1158,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-115 scouted iterations
+116 scouted iterations
