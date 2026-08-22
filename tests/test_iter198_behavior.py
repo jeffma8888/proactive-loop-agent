@@ -87,7 +87,7 @@ RUN_DOC: Final = ".pla_runs/run.json"
 MKDIR_STEP: Final = "mkdir -p .pla_runs"
 CONSUMER_STEP: Final = f"uv run python examples/check_run.py < {RUN_DOC}"
 RUN_STEP_PREFIX: Final = "uv run pla run"
-EXPECTED_DEMO_STEPS: Final = 3
+EXPECTED_DEMO_STEPS: Final = 5
 
 # `make check`'s opening step -- the reason `mkdir -p` has to exist at all.
 FRESHNESS_PRESTEP: Final = "rm -rf .pla_runs"
@@ -224,12 +224,20 @@ def demo_run(tmp_path_factory: pytest.TempPathFactory) -> tuple[str, dict[str, o
 
 
 # ---------------------------------------------------------------------------
-# Behavior 1 -- recipe shape: exactly three steps, in this order
+# Behavior 1 -- recipe shape: exactly five steps, in this order
 # ---------------------------------------------------------------------------
 
 
-def test_b1_demo_recipe_is_exactly_three_steps_in_the_specified_order() -> None:
-    """Spec behavior 1: ``mkdir -p`` -> the redirecting run -> the consumer."""
+def test_b1_demo_recipe_is_exactly_five_steps_in_the_specified_order() -> None:
+    """Spec behavior 1: ``mkdir -p`` -> the redirecting run -> ... -> the consumer.
+
+    The recipe grew from three steps to five in factory iter 204, which appended
+    the autonomy-audit publication and its grader BETWEEN the run and the
+    consumer. Every assertion below is the original one; only the expected count
+    changed and the consumer is anchored to the END rather than to index 2, so
+    "the consumer runs last" stays pinned without re-pinning a fixed length to
+    the step that happens to precede it.
+    """
     recipe = _demo()
     assert len(recipe) == EXPECTED_DEMO_STEPS, (
         f"the demo recipe must be exactly {EXPECTED_DEMO_STEPS} logical steps; "
@@ -247,8 +255,8 @@ def test_b1_demo_recipe_is_exactly_three_steps_in_the_specified_order() -> None:
     assert recipe[1].count("--json") == 1, (
         f"step (b) must carry EXACTLY one --json; got {recipe[1]!r}"
     )
-    assert recipe[2] == CONSUMER_STEP, (
-        f"step (c) must be exactly {CONSUMER_STEP!r}; got {recipe[2]!r}"
+    assert recipe[-1] == CONSUMER_STEP, (
+        f"the LAST step must be exactly {CONSUMER_STEP!r}; got {recipe[-1]!r}"
     )
 
 

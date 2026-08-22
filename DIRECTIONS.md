@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-230
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- grade the demo's GATE decisions: give `pla explain --json` its first consumer
+    - Candidate A2 -- give `pla trace` its first consumer: prove the demo run is legible from its own checkpoint
+    - Candidate A3 -- wire the two-iteration-old `dispatch --dry-run` into the demo, and grade that it writes nothing
+    - Candidate B1 -- one bounded content-memo helper replaces three hand-copied ones
+    - Candidate B2 -- hoist the one re-entrant scope contextmanager the two path caches share
+    - Candidate B3 -- retire the last two hand-rolled workspace-relative path spellings
+    winner: A1
+    ship: pending (not yet decided)
   iter-229
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `broken_link` cannot see a link whose text is backticked, so the armed CI gate is fail-open on the idiom this repo's docs use 9 times
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Give `pla trend` its first producer->consumer pair: a bounded offline `watch --out-dir` stream
     - Candidate B3 -- `make hooks`: the shipped pre-commit gate is the one gate with no make verb
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 98b9614
   iter-228
     lenses: hardening/DX
     - Candidate A1 -- `pla run --suppress-title TITLE`: a declined goal can finally stop coming back
@@ -1098,4 +1108,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-110 scouted iterations
+111 scouted iterations

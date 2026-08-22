@@ -84,6 +84,28 @@ readme-headroom:
 # so the graded document is always THIS run's and can never accumulate or be
 # graded stale.
 #
+# WHY it ALSO publishes `.pla_runs/explain.json` and grades it with
+# `examples/check_autonomy.py`: SPEC's autonomy contract -- a goal in a
+# sensitive category always needs human approval, at any score -- is this
+# product's headline claim, and until this step existed NOTHING enforced it on
+# what the demo publishes. The four graded steps below are `test -f`, `ls`,
+# citation resolution and checkout hygiene; all four pass on a slate that
+# auto-dispatched a sensitive goal at the top score. `pla explain --json` already
+# emits exactly that audit and had zero runnable consumers. The gate is
+# non-vacuous on this fixture by measurement, not by hope: the demo slate's
+# HIGHEST scorer is sensitive and held for approval while a lower one is
+# auto-dispatched, so both arms of the predicate are live and the grader refuses
+# an audit too thin to exercise either rule (a gate that cannot fire is
+# fail-open). The grader IMPORTS the sensitive set from `Settings`, so widening
+# it reds this build with no edit to the grader.
+#
+# WHY a FILE here too, and not `pla explain --json | check_autonomy.py`: the same
+# reason the run document is a file -- a pipeline reports only its LAST command's
+# status, so an `explain` that DIED would be graded as the consumer's exit 2.
+#
+# WHY `check_run.py` stays LAST: two shipped guards pin the consumer to the final
+# position of this recipe, and the run document is the demo's primary artifact.
+#
 # WHY `uv run python` and not bare `python`: the consumer imports
 # `proactive_loop`, so it needs the project virtualenv.
 demo:
@@ -95,6 +117,8 @@ demo:
 		--state-dir .pla_runs \
 		--snapshot .pla_runs/snapshot.json \
 		--json > .pla_runs/run.json
+	uv run pla explain --slate .pla_runs/slate.json --json > .pla_runs/explain.json
+	uv run python examples/check_autonomy.py < .pla_runs/explain.json
 	uv run python examples/check_run.py < .pla_runs/run.json
 
 # Remove generated run state, coverage artifacts, and Python/pytest caches.
