@@ -29,8 +29,10 @@ SCOPE, deliberately narrow (each exclusion is a false-positive class, not lazine
   on a stranger's repo.
 * Existence only: no anchor resolution inside a target that does exist, no
   case-sensitivity check, no directory-vs-file distinction.
-* Code context is not prose. A link inside a fenced block, or inside a backtick
-  inline-code span, is a code sample and is never reported.
+* Code context is not prose. A link inside a fenced block, or whose DESTINATION sits
+  inside a backtick inline-code span, is a code sample and is never reported. The mask
+  is tested against the destination, not the whole link: a code-formatted LABEL is
+  prose formatting and must not hide a dead target.
 
 Pure stdlib (``os``/``re``/``pathlib``) plus the shared internal helpers, so the
 runtime stays pydantic-v2-only and fully offline.
@@ -285,15 +287,25 @@ def _broken_links_in(
             continue
         code_ranges = _code_span_ranges(line)
         for match in _LINK_RE.finditer(line):
-            if any(
-                match.start() < end and start < match.end()
-                for start, end in code_ranges
-            ):
-                continue  # A documented code sample, not a live link.
             # Exactly one of the two destination alternatives participates; the
             # bracketed one yields the destination WITHOUT its brackets, which is also
             # what the emitted summary should name.
             angle = match.group("angle")
+            group = "angle" if angle is not None else "target"
+            dest_start, dest_end = match.span(group)
+            # WHY the mask is compared against the DESTINATION's span and not against
+            # the whole match: a code-formatted LABEL (``[`SPEC.md`](SPEC.md)``, this
+            # repo's own dominant citation idiom) is prose formatting on the READER's
+            # side of the link, yet under a whole-match test those backticks masked the
+            # link and hid a dead target from a gate that ARMS this kind. What a code
+            # span legitimately hides is a documented sample, and that is decided by
+            # where the DESTINATION sits -- so a link wholly inside a code span stays
+            # silent, while a backticked label no longer blinds the collector.
+            if any(
+                dest_start < end and start < dest_end
+                for start, end in code_ranges
+            ):
+                continue  # The destination is inside a code span: a code sample.
             target = angle if angle is not None else match.group("target")
             if not _is_filesystem_target(target):
                 continue

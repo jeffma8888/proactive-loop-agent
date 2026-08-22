@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-229
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `broken_link` cannot see a link whose text is backticked, so the armed CI gate is fail-open on the idiom this repo's docs use 9 times
+    - Candidate A2 -- Four git collectors render an EMPTY workspace label under `--workspace .`, the exact spelling `make check` and CI use, and that string is a `--baseline` identity key
+    - Candidate A3 -- Row #205's own roster is STALE: 10 test modules sample `git status --porcelain`, not 7, and 2 of the unnamed ones are already safe
+    - Candidate B1 -- The demo publishes its approval outcome and the consumer that reads that document ignores it
+    - Candidate B2 -- Give `pla trend` its first producer->consumer pair: a bounded offline `watch --out-dir` stream
+    - Candidate B3 -- `make hooks`: the shipped pre-commit gate is the one gate with no make verb
+    winner: A1
+    ship: pending (not yet decided)
   iter-228
     lenses: hardening/DX
     - Candidate A1 -- `pla run --suppress-title TITLE`: a declined goal can finally stop coming back
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- packaging-declaration oracle: nothing reads `[project.scripts]`, so renaming `main` stays green
     - Candidate B3 -- `pla resume` names the file it cannot parse (the safe half of row #151)
     winner: B3
-    ship: pending (not yet decided)
+    ship: PUSHED 167ca51
   iter-227
     lenses: narrative-and-docs (iteration 227), new-capability
     - Candidate A1 -- README's exit-code section points readers at the one surface `python -OO` deletes
@@ -1088,4 +1098,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-109 scouted iterations
+110 scouted iterations

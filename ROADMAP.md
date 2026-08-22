@@ -132,3 +132,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #233 dispatch --dry-run: preview one approved goal's dispatch before any client or run dir (iter 198, factory iter 200)
 - #222 README exit-code preamble names `pla --help`, the one surface `-OO` cannot delete (iter 227, factory iter 201)
 - #151 `_read_meta` names the malformed `meta.json`, so `resume`'s exit-1 line identifies the file (iter 228, factory iter 202)
+- #234 broken_link masks the DESTINATION, not the label, so a backticked-label dead link is seen (iter 229, factory iter 203)
