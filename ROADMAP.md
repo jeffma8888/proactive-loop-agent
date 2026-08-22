@@ -133,3 +133,5 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #222 README exit-code preamble names `pla --help`, the one surface `-OO` cannot delete (iter 227, factory iter 201)
 - #151 `_read_meta` names the malformed `meta.json`, so `resume`'s exit-1 line identifies the file (iter 228, factory iter 202)
 - #234 broken_link masks the DESTINATION, not the label, so a backticked-label dead link is seen (iter 229, factory iter 203)
+- #235 make demo publishes the autonomy audit and examples/check_autonomy.py grades it (iter 230, factory iter 204)
+- #236 Budget the two seams #225 left open: Path.stat fan-out and read_text decodes (iter 231, factory iter 205)

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-231
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- collapse the byte-identical scope contextmanager shared by the two cache providers
+    - Candidate A2 -- one catalog emitter replaces five near-identical zero-input command bodies
+    - Candidate A3 -- retire the two ROADMAP index rows no iteration may ever select
+    - Candidate B1 -- deterministic per-scan I/O-work budget oracle (walks / stats / decodes)
+    - Candidate B2 -- re-measure and settle row #169 (`addopts --dist worksteal`) with a real sample
+    - Candidate B3 -- honest cold-vs-warm cost line on `--timings`
+    winner: B1
+    ship: pending (not yet decided)
   iter-230
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- grade the demo's GATE decisions: give `pla explain --json` its first consumer
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- hoist the one re-entrant scope contextmanager the two path caches share
     - Candidate B3 -- retire the last two hand-rolled workspace-relative path spellings
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 49e0091
   iter-229
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `broken_link` cannot see a link whose text is backticked, so the armed CI gate is fail-open on the idiom this repo's docs use 9 times
@@ -1108,4 +1118,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-111 scouted iterations
+112 scouted iterations
