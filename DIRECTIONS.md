@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-234
+    lenses: new-capability
+    - Candidate A1 -- `pla run --max-goals N`: dispatch the top N approved goals, not only the head
+    - Candidate A2 -- `pla run/dispatch --allow-tool NAME`: least privilege for a single dispatch
+    - Candidate A3 -- `pla scan/signals --max-items N`: make perception DEPTH reachable, correctly
+    - Candidate B1 -- Bound the suite's subprocess ceilings to the STAGE budget: one shared constant plus a two-sided guard
+    - Candidate B2 -- Make the suite environment-hermetic: the `tests/conftest.py` half of row #218
+    - Candidate B3 -- Give the DECLARED console-script string its first oracle (the live residual of row #117)
+    winner: A1
+    ship: pending (not yet decided)
   iter-233
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- eight test NAMES and one docstring report a collector count the registry outgrew
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- a hypothetical-goal probe for the autonomy gate: the headline safety claim can be narrated but not evaluated
     - Candidate B3 -- nothing in L2 perceives the agent's OWN interrupted runs, so the scout cannot propose resuming what it abandoned
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 27e5a01
   iter-232
     lenses: performance-and-throughput (iteration 232), narrative-and-docs (iteration 232)
     - Candidate A1 -- give `merge_conflict` the substring prefilter `todos` already has
@@ -1138,4 +1148,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-114 scouted iterations
+115 scouted iterations

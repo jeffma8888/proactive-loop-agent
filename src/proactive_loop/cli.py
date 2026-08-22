@@ -4396,6 +4396,43 @@ def _render_dispatch_preview(
     )
 
 
+def _render_deferred_dispatches(
+    goals: Sequence[CandidateGoal], slate_path: Path
+) -> str:
+    """The auto-approved goals ``run`` did NOT dispatch, each with a paste-ready command.
+
+    :func:`gate_slate` returns a decision PER GOAL, so a slate routinely carries several
+    AUTO_DISPATCH goals -- yet ``run`` deliberately executes only the top-ranked one (one
+    run dir, one loop, one budget per invocation). Those extra goals were the only class
+    the report never accounted for: the dispatched goal is named and summarized, and the
+    strictly LESS safe NEEDS_APPROVAL goals are counted, listed and handed a command,
+    while the goals the gate had already cleared for unattended execution got neither a
+    sentence nor a command and could be recovered only by re-reading the slate by hand.
+
+    WHY these commands carry NO ``--yes``: that flag is what overrides a NEEDS_APPROVAL
+    gate (``dispatch`` exits 4 without it), and every goal listed here re-gates to
+    AUTO_DISPATCH, so the MINIMAL command that really runs it omits the flag. Echoing one
+    anyway would advertise a confirmation these goals do not need and blur the single
+    distinction the two blocks exist to keep -- exactly the reasoning
+    :func:`_render_dispatch_preview` already applies to its own echoed command.
+
+    Returns the block INCLUDING its leading blank line, and the caller prints it only for
+    a non-empty list, so a slate with one (or zero) auto-approved goal stays
+    byte-identical to the pre-change output.
+    """
+    # Count FIRST, then the goals in the caller's `ranked()` order: the header is the
+    # accounting claim ("N were not run") and the lines are the evidence for it.
+    lines = [
+        "",
+        f"{len(goals)} more goal(s) were auto-approved but NOT run "
+        "(run dispatches only the top goal):",
+    ]
+    for goal in goals:
+        lines.append(f"  - {goal.title}")
+        lines.append(f"      pla dispatch --slate {slate_path} --goal-id {goal.id}")
+    return "\n".join(lines)
+
+
 def _execute_goal(
     goal: CandidateGoal, workspace_root: Path, settings: Settings, client: LLMClient
 ) -> tuple[RunState, Path, ToolRegistry]:
@@ -4696,7 +4733,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
     """run: scan, then auto-dispatch ONLY the single top AUTO_DISPATCH goal.
 
     Approval-gated goals are listed for the user with a ready-to-paste dispatch
-    command but are NEVER auto-run -- that is the whole point of the L2 gate.
+    command but are NEVER auto-run -- that is the whole point of the L2 gate. The
+    auto-approved goals this verb did not get to are listed the same way (see
+    :func:`_render_deferred_dispatches`), so every goal in the gated slate is
+    accounted for in one report: dispatched, deferred, or awaiting approval.
 
     ``--json`` makes the sole autonomous verb SCRIPTABLE without changing anything it
     DOES: the identical scan/gate/write/dispatch runs, and its result is published as
@@ -4773,12 +4813,31 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
         ranked = slate.ranked()
         top: CandidateGoal | None = None
+        # The auto-approved goals BEYOND the top one. Collected in `ranked()` order by
+        # the SAME single pass that picks `top`, so the report and the dispatch cannot
+        # disagree about which goal ran. The pre-change `elif` swallowed these silently:
+        # an AUTO_DISPATCH goal with `top` already set matched neither branch.
+        deferred: list[CandidateGoal] = []
         needs_approval: list[CandidateGoal] = []
         for goal, decision in zip(ranked, decisions):
-            if decision.decision == AutonomyDecision.AUTO_DISPATCH and top is None:
-                top = goal
+            if decision.decision == AutonomyDecision.AUTO_DISPATCH:
+                if top is None:
+                    top = goal
+                else:
+                    deferred.append(goal)
             elif decision.decision == AutonomyDecision.NEEDS_APPROVAL:
                 needs_approval.append(goal)
+
+        # ABOVE the needs-approval block, and that order is load-bearing: the shipped
+        # `tests/test_iter62_behavior.py` extracts that block by reading from its header
+        # until the dispatch / dry-run / nothing-to-run marker, so anything appended
+        # AFTER it is swallowed into it and changes what those tests compare. Printing
+        # first leaves the shipped block byte-identical. The position also gives
+        # --dry-run the same accounting for free -- both blocks sit above the dry-run
+        # return, so the preview reports what the act it previews would report -- and
+        # keeps the block out of `--json` stdout, since the whole body is redirected.
+        if deferred:
+            print(_render_deferred_dispatches(deferred, slate_path))
 
         if needs_approval:
             print(f"\n{len(needs_approval)} goal(s) need approval and were NOT auto-run:")
