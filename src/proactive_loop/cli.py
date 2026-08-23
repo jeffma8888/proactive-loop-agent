@@ -1471,17 +1471,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_trend.set_defaults(func=_cmd_trend)
 
     # `policy` prints the STANDING autonomy contract itself -- the product's
-    # headline safety mechanism -- with zero input: no --workspace, no slate, no
-    # LLM. It inherits the globals so --provider/--scripted-responses/--state-dir
-    # are accepted but INERT (the handler builds no LLMClient, runs no collector,
-    # touches no filesystem); it exists precisely so a reviewer of this public repo
+    # headline safety mechanism -- with no slate and no LLM. It inherits the globals
+    # so --provider/--scripted-responses/--state-dir are accepted but INERT (the
+    # handler builds no LLMClient, runs no collector, touches no filesystem); it
+    # exists precisely so a reviewer of this public repo
     # can answer "how does it decide what to auto-run vs. gate for approval?"
     # WITHOUT first running a scan against an LLM-configured workspace. It is the
     # top of the decision arc: policy (the rules) -> scan (proposals) -> explain
     # (why THIS goal) -> trace (what it did). --json swaps the human catalog for one
     # explicit-allowlist object; the threshold is resolved through the shared
     # _settings seam, so a PLA_AUTO_DISPATCH_MIN_SCORE override shows the EFFECTIVE
-    # contract. Deliberately NO --workspace: the contract is context-free.
+    # contract. Deliberately NO --workspace: the contract is context-free -- and
+    # that is exactly why --check-goal takes a JSON literal rather than a workspace:
+    # gate() is a pure function of (goal, settings), so a goal can be named on argv
+    # with nothing synthesized. The flag REPLACES the catalog with that one goal's
+    # audit, rendered by the same two pure helpers `explain` uses.
     p_policy = sub.add_parser(
         "policy",
         parents=[globals_],
@@ -1491,6 +1495,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit the autonomy contract as one JSON object instead of the human catalog.",
+    )
+    p_policy.add_argument(
+        "--check-goal",
+        metavar="JSON",
+        default=None,
+        help=(
+            "Apply the standing gate to ONE goal given as a CandidateGoal JSON literal "
+            "and print that goal's decision audit instead of the catalog (no slate, no "
+            "LLM, no workspace). A supplied score is ignored: it is a computed field."
+        ),
     )
     p_policy.set_defaults(func=_cmd_policy)
 
@@ -1726,6 +1740,43 @@ def _load_slate(path: Path) -> GoalSlate:
         return GoalSlate.model_validate_json(path.read_text())
     except ValidationError as exc:
         raise ValueError(sanitize_validation_error("slate", path, exc)) from None
+
+
+def _parse_goal_literal(raw: str) -> CandidateGoal:
+    """Validate a command-line ``CandidateGoal`` JSON literal into a model instance.
+
+    The argv twin of ``_load_slate``: pydantic's ``ValidationError`` is reduced to ONE
+    dependency-opaque ``ValueError`` so ``main()``'s
+    ``except (LLMError, ValueError, OSError)`` boundary prints a single ``error:`` line
+    at exit 1 instead of the vendor's multi-line dump -- no model class name, no
+    ``[type=...]`` taxonomy, no ``errors.pydantic.dev/<ver>`` URL that pins (and rots
+    with) the dependency version, and no ``input_value=`` echo of the caller's own
+    payload back onto stderr. Both input faults ``policy --check-goal`` can have -- a
+    malformed literal and a schema-invalid one -- come out the same shape.
+
+    WHY it does not call ``sanitize_validation_error``: that helper's message names a
+    FILE (``invalid <kind> file '<path>'``) and there is no file here. The payload is an
+    argv literal, so borrowing that wording would print a path the caller never gave.
+    This names the FLAG instead and otherwise carries exactly the same safe scalars --
+    the error COUNT, and the first error's ``loc`` when pydantic reports one. A
+    malformed-JSON failure carries an EMPTY ``loc`` (``json_invalid``), so that clause
+    is omitted rather than printed empty, identical to the file path's behavior. The
+    shared tail is spelled again rather than extracted into ``models``, because a new
+    public helper there would enlarge the promised library API that
+    ``models.__all__``'s ast-completeness guard and the root ``__all__`` census both
+    bind -- a cost out of proportion to five lines.
+    """
+    try:
+        return CandidateGoal.model_validate_json(raw)
+    except ValidationError as exc:
+        count = exc.error_count()
+        plural = "" if count == 1 else "s"
+        msg = f"invalid --check-goal JSON: {count} validation error{plural}"
+        errors = exc.errors()
+        loc = (errors[0].get("loc") or ()) if errors else ()
+        if loc:
+            msg += "; first at " + ".".join(str(part) for part in loc)
+        raise ValueError(msg) from None
 
 
 def _workspace_path_bases(workspace: Path) -> tuple[Path, ...]:
@@ -5923,27 +5974,58 @@ def _cmd_trend(args: argparse.Namespace) -> int:
 
 
 def _cmd_policy(args: argparse.Namespace) -> int:
-    """policy: print the STANDING autonomy contract (read-only, LLM-free, zero-input).
+    """policy: print the STANDING autonomy contract, or gate ONE goal the caller names.
 
     WHY it builds no ``LLMClient`` and reads no workspace (like
     ``runs``/``explain``/``trace``/``signals``/``diff``): the autonomy contract is
-    the headline safety claim, yet today it is only inspectable REACTIVELY --
-    ``explain`` shows ONE gated goal, ``scan`` shows a whole gated slate, and both
-    demand a synthesized slate (an LLM call + a workspace). ``policy`` is the
-    standing "what ARE the rules?" window: a zero-input, zero-LLM, zero-workspace
-    catalog of the gate itself -- the top of the decision arc policy (rules) ->
-    scan (proposals) -> explain (why THIS goal) -> trace (what it did).
+    the headline safety claim, yet without this verb it is only inspectable
+    REACTIVELY -- ``explain`` shows ONE gated goal, ``scan`` shows a whole gated
+    slate, and both demand a synthesized slate (an LLM call + a workspace).
+    ``policy`` is the standing "what ARE the rules?" window: an LLM-free,
+    workspace-free catalog of the gate itself -- the top of the decision arc policy
+    (rules) -> scan (proposals) -> explain (why THIS goal) -> trace (what it did).
+
+    ``--check-goal '<CandidateGoal JSON>'`` answers the other half of that question
+    -- "what would this gate do with THIS goal?" -- still with no slate, no LLM and
+    no workspace, because ``gate()`` is already a pure function of
+    ``(goal, settings)`` and the only thing missing was a way for a human to NAME the
+    goal. It REPLACES the catalog with that goal's decision audit and renders it
+    through the SAME two pure helpers ``explain`` uses (``_render_explain`` /
+    ``_explain_json_payload``), so ``policy --check-goal '<G>'`` is byte-identical to
+    ``explain --goal-id <G.id>`` for the same goal: no second renderer to drift out
+    of step, and no second wire schema. Note the safety property this makes
+    inspectable -- a caller CANNOT forge auto-dispatch by supplying a ``score``,
+    because ``CandidateGoal.score`` is a ``@computed_field``, so the audit reports
+    the DERIVED value.
 
     It builds ``settings`` through the SHARED ``_settings(args)`` seam so a
-    ``PLA_AUTO_DISPATCH_MIN_SCORE`` override surfaces the EFFECTIVE threshold, and
-    NOTHING else: no ``create_client`` (so an inert/bad ``--scripted-responses``
-    path is simply never opened -- exit 0, not the eager-load exit 1 a
-    client-building verb would give), no collector, no filesystem, no gate
-    mutation. So it structurally cannot regress any existing behavior. It always
-    returns 0; ``--json`` swaps the human catalog for one explicit-allowlist object
-    (rendering selection only -- there is no input to fail on).
+    ``PLA_AUTO_DISPATCH_MIN_SCORE`` override surfaces the EFFECTIVE threshold on both
+    scopes, and NOTHING else: no ``create_client`` (so an inert/bad
+    ``--scripted-responses`` path is simply never opened -- exit 0, not the
+    eager-load exit 1 a client-building verb would give), no collector, no
+    filesystem, no gate mutation. With ``--check-goal`` ABSENT the handler is
+    byte-identical to its pre-flag form, and ``--json`` still selects a rendering
+    only, so the four-key contract object is untouched.
+
+    Exit codes: 0 on both scopes. ``--check-goal`` introduces the verb's only two
+    input faults -- a malformed JSON literal, and a literal that is valid JSON but
+    schema-invalid -- and ``_parse_goal_literal`` surfaces each as ONE
+    dependency-opaque ``error:`` line at exit 1 through ``main()``'s
+    ``except (LLMError, ValueError, OSError)`` boundary.
     """
     settings = _settings(args)
+    if args.check_goal is not None:
+        # A QUERY, not a second catalog: reuse explain's two EXISTING pure renderers
+        # verbatim over the same gate(goal, settings) object a later dispatch acts on,
+        # so this adds no rendering and no wire schema that could drift from explain's.
+        goal = _parse_goal_literal(args.check_goal)
+        decision = gate(goal, settings)
+        if args.json:
+            # The ENTIRE stdout must parse as one JSON object; no human trailer.
+            print(json.dumps(_explain_json_payload(goal, decision, settings), indent=2))
+        else:
+            print(_render_explain(goal, decision, settings))
+        return 0
     if args.json:
         # The ENTIRE stdout must parse as one JSON object; no human trailer.
         print(json.dumps(_policy_json_payload(settings), indent=2))

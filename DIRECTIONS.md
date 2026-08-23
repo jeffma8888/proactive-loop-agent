@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-240
+    lenses: unknown
+    - Candidate A1 -- `pla policy --check-goal '<json>'`: ask the autonomy gate about a goal the USER names (closes queued row #245, 534 chars)
+    - Candidate A2 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`) (closes queued row #122, 781 chars)
+    - Candidate A3 -- `run`/`dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch (closes queued row #212, 1,018 chars)
+    - Candidate B1 -- Retire the stale spelled-out COUNTS in test function names (closes queued row #232, 540 chars)
+    - Candidate B2 -- Widen the type oracle to the two EXAMPLE CONSUMER SCRIPTS (`examples/check_run.py`, `examples/check_autonomy.py`)
+    - Candidate B3 -- `make roadmap-headroom`: a gauge for the ratchet that is 82 chars from red
+    winner: A1
+    ship: pending (not yet decided)
   iter-239
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- DIRECTIONS.md credits the newest ship to the candidate the PM explicitly DECLINED
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla watch --json`: the only verb of 17 with no machine-readable mode
     - Candidate B3 -- `run`/`dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch (roadmap #212, re-priced this run)
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 5e3d99a
   iter-238
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A -- gate the todos checkbox scan on the subpattern it actually needs
@@ -1198,4 +1208,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-120 scouted iterations
+121 scouted iterations

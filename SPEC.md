@@ -989,8 +989,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     no `LLMClient`, runs no collector/subprocess, writes no file, and — unlike `diff`
     — builds no `settings` and never calls `gate()`, because persistence is a property
     of the STREAM, not of the autonomy contract.
-  - `pla policy [--json]` — read-only, LLM-free, zero-input catalog of the STANDING
-    autonomy contract itself: the product's headline safety mechanism, surfaced
+  - `pla policy [--json] [--check-goal JSON]` — read-only, LLM-free catalog of the
+    STANDING autonomy contract itself: the product's headline safety mechanism, surfaced
     PROACTIVELY rather than only reactively through a gated `scan`/`explain` (both of
     which need a synthesized slate). Takes NO `--workspace` (the contract is
     context-free) and builds no `LLMClient` (an inert/nonexistent `--scripted-responses`
@@ -1008,7 +1008,18 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     enum `.value` strings, `auto_dispatch_min_score` the raw resolved number, and `rules`
     a four-element ordered narration of the gate branches (the one small hand-maintained
     doc-vs-code coupling; only the category/threshold/sensitive parts are source-driven).
-    Always exits 0 (no input to fail on). It is the top of the decision arc policy (the
+    `--check-goal '<CandidateGoal JSON>'` REPLACES that catalog with the decision audit
+    for ONE goal the caller names — the same gate, still with no slate, no LLM and no
+    workspace, rendered by the SAME two pure helpers `explain` uses, so
+    `policy --check-goal '<G>'` is byte-identical to `explain --goal-id <G.id>` for that
+    goal (no second renderer, no second wire schema). A supplied `score` is IGNORED
+    because `CandidateGoal.score` is a computed field, so a caller cannot forge
+    auto-dispatch. Whole-object JSON is therefore the only spelling; the goal is a
+    literal rather than a file or a workspace because `gate()` is a pure function of
+    `(goal, settings)`. Exits 0 on both scopes, and 1 on either of the two input faults
+    the flag introduces — a malformed literal, or a valid-JSON but schema-invalid one —
+    each as ONE dependency-opaque `error:` line through the `main()` boundary, never
+    pydantic's dump. It is the top of the decision arc policy (the
     rules) → scan (proposals) → explain (why THIS goal) → trace (what a run did).
   - `pla tools [--json]` — read-only, LLM-free, zero-input catalog of the L1 ACT
     sandbox tool surface: every registered tool + a one-line description + its

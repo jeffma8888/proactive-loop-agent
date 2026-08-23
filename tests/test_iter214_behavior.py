@@ -342,10 +342,16 @@ def test_b6_the_retirement_counter_ignores_the_relocated_ledger_shape() -> None:
 
 
 def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
+    # A LITERAL on purpose (same discipline as ROADMAP_CHAR_LIMIT): a derived total would
+    # re-authorise whatever the archive grew to and could never fire. It therefore moves by
+    # exactly +1 whenever an iteration retires an index row, which is a deliberate one-token
+    # edit by the PM who retired it -- 70 before iteration 240 retired row #245.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 70, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 70)"
+    assert sum(counts.values()) == 71, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 71). If you just "
+        "retired an index row, bump this literal by one and say which row in the comment; "
+        "if you did not, a retirement bullet was lost or duplicated."
     )
     # #121 is the double-count trap: already retired AND inside the relocated group.
     assert counts["121"] == 1
