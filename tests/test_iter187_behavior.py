@@ -30,8 +30,8 @@ matrix legs cannot diverge here.
 
 Coverage (numbered to match the spec's Expected Behaviors):
 
-1. One ``cli._collect`` over the repo root reports ``hits == 3`` / ``misses == 1``
-   from ``walk_cache_stats()`` (baseline before this change: 1 hit, 1 miss).
+1. One ``cli._collect`` over the repo root reports ``hits == 5`` / ``misses == 1``
+   from ``walk_cache_stats()`` (batch 2 measured 3 hits, 1 miss).
 2. Inside ONE ``walk_scope()``, the two collectors together perform exactly ONE
    physical ``os.walk`` rooted at the shared root (it was two).
 3. Signals are unchanged, pinned as literals captured from the PARENT commit.
@@ -41,7 +41,7 @@ Coverage (numbered to match the spec's Expected Behaviors):
 6. Traversal-order independence: with ``os.walk`` yielding reversed directory
    entries, both collectors return byte-identical signals.
 7. Source census: neither module names ``os.walk(``, ``_SKIP_DIRS`` or
-   ``_is_hidden``, and exactly 8 files under ``collectors/`` still call
+   ``_is_hidden``, and exactly 6 files under ``collectors/`` still call
    ``os.walk(``.
 """
 
@@ -198,19 +198,19 @@ def _source(name: str) -> str:
 
 
 # ===========================================================================
-# Behavior 1 -- four collectors now share ONE traversal per scan
+# Behavior 1 -- six collectors now share ONE traversal per scan
 # ===========================================================================
 
 
 class TestBehavior1SharedTraversalCounters:
-    def test_one_collect_reports_three_hits_and_one_miss(self, workspace: Path) -> None:
+    def test_one_collect_reports_five_hits_and_one_miss(self, workspace: Path) -> None:
         clear_walk_cache()
         cli._collect(workspace)
 
         stats = walk_cache_stats()
-        assert (stats["hits"], stats["misses"]) == (3, 1), (
-            "one _collect must serve FOUR collectors from ONE traversal: expected "
-            f"hits=3 misses=1 (parent commit measured hits=1 misses=1); got {stats!r}"
+        assert (stats["hits"], stats["misses"]) == (5, 1), (
+            "one _collect must serve SIX collectors from ONE traversal: expected "
+            f"hits=5 misses=1 (batch 2 measured hits=3 misses=1); got {stats!r}"
         )
 
     def test_scope_leaves_no_cached_dirents_behind(self, workspace: Path) -> None:
@@ -450,7 +450,7 @@ class TestBehavior7SourceCensus:
                     f"found {text.count(symbol)} occurrence(s)"
                 )
 
-    def test_exactly_eight_collector_modules_still_walk(self) -> None:
+    def test_exactly_six_collector_modules_still_walk(self) -> None:
         modules = sorted(p.name for p in COLLECTORS_DIR.glob("*.py"))
         assert len(modules) >= 15, (
             f"census domain regression -- expected the collectors package; got {modules!r}"
@@ -461,18 +461,26 @@ class TestBehavior7SourceCensus:
             )
         )
         assert walkers == [
-            "broken_link.py",
             "dir_source.py",
             "filesystem.py",
             "large_file.py",
-            "merge_conflict.py",
             "notes.py",
             "syntax_error.py",
             "todos.py",
         ], (
-            "exactly 8 collector modules may still own an os.walk (was 10 before this "
-            "iteration: dir_source and filesystem keep theirs by design, plus the six "
-            "unconverted collectors). A later batch that converts one of these must "
-            f"update this iteration-scoped pin. Got {walkers!r}"
+            "exactly 6 collector modules may still own an os.walk (was 8 before "
+            "batch 3 converted merge_conflict + broken_link: dir_source and "
+            "filesystem keep theirs by design, plus the four unconverted "
+            "collectors). A later batch that converts one of these must update "
+            f"this iteration-scoped pin. Got {walkers!r}"
         )
-        assert "secret_file.py" not in walkers and "test_posture.py" not in walkers
+        # Every collector converted by this program so far, asserted absent -- the
+        # list above is an equality pin, so this is a second, named-symbol view of
+        # the same claim that says WHICH module regressed rather than just showing
+        # a changed list.
+        for converted in ("secret_file.py", "test_posture.py", "merge_conflict.py",
+                          "broken_link.py"):
+            assert converted not in walkers, (
+                f"{converted} was converted to dir_source.walk by row #210's program; "
+                "it must never own an os.walk again"
+            )

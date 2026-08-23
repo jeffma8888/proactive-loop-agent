@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-237
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- One atomic-write primitive: 4 hand-maintained copies of the crash-safety idiom collapse to 1
+    - Candidate A2 -- One definition of the per-scan cache lifecycle: the byte-identical `walk_scope` / `scan_scope` bodies
+    - Candidate A3 -- Retire the 2 open roadmap rows whose own status records them priced-and-declined or void
+    - Candidate B1 -- convert walk batch 3: two more collectors read the shared dirent listing
+    - Candidate B2 -- bound the one unbounded CPU term: a per-scan parse budget for syntax_error
+    - Candidate B3 -- one Path.stat per path per scan: the fan-out seam #210 deliberately left open
+    winner: B1
+    ship: pending (not yet decided)
   iter-236
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- execute the paste-ready `pla dispatch` command the demo already prints
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Route `notes` + `todos` through `BaseCollector._relative`, deleting 2 hand-copied blocks
     - Candidate B3 -- Retire the 2 index rows whose own status records their premise FALSIFIED
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED c5e882a
   iter-235
     lenses: hardening/DX (iteration 235), integration-and-adoption (iteration 235)
     - Candidate A1 -- `make roadmap-headroom`: a gauge for the one ceiling that has already stalled this loop
@@ -1168,4 +1178,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-117 scouted iterations
+118 scouted iterations

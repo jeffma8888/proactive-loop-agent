@@ -34,30 +34,31 @@ SCOPE, deliberately narrow (each exclusion is a false-positive class, not lazine
   is tested against the destination, not the whole link: a code-formatted LABEL is
   prose formatting and must not hide a dead target.
 
-Pure stdlib (``os``/``re``/``pathlib``) plus the shared internal helpers, so the
+Pure stdlib (``re``/``pathlib``) plus the shared internal helpers, so the
 runtime stays pydantic-v2-only and fully offline.
 """
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules the sibling filesystem collectors use, as
-# ``lockfile_drift`` and ``notes`` do, so a doc buried in node_modules/.venv/a
-# hidden dir is invisible here too (Behavior 9).
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# Only the hidden-FILE test is still needed here. dir_source owns the package
+# dir-prune policy (noise dirs + hidden DIRS) and applies it during the shared
+# traversal, but it prunes DIRECTORIES and sorts filenames only -- it never
+# filters hidden FILES -- so a doc named ``.hidden.md`` stays invisible here
+# only because this collector keeps testing basenames itself (Behavior 9).
+from proactive_loop.collectors.filesystem import _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
 # Reuse the ONE fenced-block parser rather than hand-rolling a second one: it
 # already has the correct same-delimiter semantics (a ``~~~`` line cannot close a
 # ``` block) and runs an unterminated fence to end-of-file.
 from proactive_loop.collectors.notes import _fence_mask
-# The MODULE is imported (not its ``read_text`` function) so every content
-# collector resolves the shared per-scan provider through ONE patchable attribute.
-from proactive_loop.collectors import text_source
+# The MODULES are imported (not their functions) so every content collector
+# resolves each shared per-scan provider through ONE patchable attribute.
+from proactive_loop.collectors import dir_source, text_source
 from proactive_loop.models import ContextSignal
 
 # One inline link or image, in either of the two destination spellings CommonMark
@@ -216,15 +217,16 @@ class BrokenDocLinkCollector(BaseCollector):
             return []
 
         # Accumulate (relpath, lineno, column, signal) so ordering is a total
-        # function of the filesystem rather than of os.walk enumeration order.
+        # function of the filesystem rather than of the traversal's own order.
         found: list[tuple[str, int, int, ContextSignal]] = []
 
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to the sibling
-            # collectors, so os.walk never descends into them (Behavior 9).
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden DIRS (Behavior 9):
+        # dir_source owns the package dir-prune policy and applies it during the
+        # traversal, so this collector no longer carries the rule -- and inside
+        # the scan scope opened by cli._collect that ONE traversal is shared with
+        # every sibling walking the same root instead of being re-paid per
+        # collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 if _is_hidden(fname):
                     continue
@@ -257,7 +259,7 @@ class BrokenDocLinkCollector(BaseCollector):
 
         # Deterministic: sort by (relpath, lineno, column) ascending, then cap -- so
         # WHICH findings survive max_items and their order are independent of
-        # os.walk order, matching the sibling file-scanning collectors.
+        # traversal order, matching the sibling file-scanning collectors.
         found.sort(key=lambda item: (item[0], item[1], item[2]))
         return [signal for _, _, _, signal in found[: self.max_items]]
 

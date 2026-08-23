@@ -108,7 +108,7 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 # Physical traversals one scan performs of the single scanned root. 1 is the
 # correct number -- one pruned walk served to every walking collector by
 # ``dir_source``. LOWER this as collectors are converted; never raise it.
-WALK_BUDGET: Final[int] = 10
+WALK_BUDGET: Final[int] = 8
 
 # Compilations permitted per distinct unpruned ``.py`` file in the scan root.
 # 1 is both the measured value and the only defensible one: the second parse of

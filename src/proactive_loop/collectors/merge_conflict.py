@@ -43,26 +43,27 @@ bounded, module-level map keyed on a digest of the decoded text (see the
 marker-memo block below). Output is unchanged: a hit returns exactly the count
 the line scan would have produced for that same text.
 
-Pure stdlib (``os``/``pathlib``/``hashlib``) only, so the runtime stays
+Pure stdlib (``pathlib``/``hashlib``) only, so the runtime stays
 pydantic-v2-only and fully offline; never raises -> ``[]``.
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned
-# shared seam, mirroring dependencies.py / test_posture.py) so a marked file
-# buried in node_modules/.venv/a hidden dir is invisible here too.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# Only the hidden-FILE test is still needed here. dir_source owns the package
+# dir-prune policy (noise dirs + hidden DIRS) and applies it during the shared
+# traversal, but it prunes DIRECTORIES and sorts filenames only -- it never
+# filters hidden FILES -- so a marked file named ``.leftover.py`` stays
+# invisible here only because this collector keeps testing basenames itself.
+from proactive_loop.collectors.filesystem import _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
-# The MODULE is imported (not its ``read_text`` function) so all three content
-# collectors resolve the provider through ONE patchable attribute.
-from proactive_loop.collectors import text_source
+# The MODULES are imported (not their functions) so every content collector
+# resolves each shared per-scan provider through ONE patchable attribute.
+from proactive_loop.collectors import dir_source, text_source
 from proactive_loop.models import ContextSignal
 
 # The two conflict-marker label prefixes git writes at column 0: exactly seven
@@ -275,14 +276,14 @@ class MergeConflictCollector(BaseCollector):
             return []
 
         # Collect (relpath, signal) pairs so we can order deterministically
-        # regardless of os.walk traversal order across platforms.
+        # regardless of the order the shared traversal serves entries in.
         found: list[tuple[str, ContextSignal]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to the sibling
-            # collectors, so os.walk never descends into them.
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden DIRS: dir_source
+        # owns the package dir-prune policy and applies it during the traversal,
+        # so this collector no longer carries the rule -- and inside the scan
+        # scope opened by cli._collect that ONE traversal is shared with every
+        # sibling walking the same root instead of being re-paid per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 # A hidden FILE (name starting with '.') is skipped too.
                 if _is_hidden(fname):
