@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-241
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- retire the stale spelled collector counts in 8 test names, behind a drift guard
+    - Candidate A2 -- tomllib the DECLARED console-script and assert it resolves to `cli.main`
+    - Candidate A3 -- `make roadmap-size`: make the roadmap ratchet report its own slack
+    - Candidate B1 -- give `signals --baseline` its FIRST consumer: a one-entry committed baseline that arms `ci_config` (closes queued row #161)
+    - Candidate B2 -- close the produce->consume loop inside the demo: feed the demo's OWN snapshot back as a `signals --baseline`
+    - Candidate B3 -- `resume --json` gets its first gate consumer, reusing the ALREADY-SHIPPED grader
+    winner: A2
+    ship: pending (not yet decided)
   iter-240
     lenses: unknown
     - Candidate A1 -- `pla policy --check-goal '<json>'`: ask the autonomy gate about a goal the USER names (closes queued row #245, 534 chars)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Widen the type oracle to the two EXAMPLE CONSUMER SCRIPTS (`examples/check_run.py`, `examples/check_autonomy.py`)
     - Candidate B3 -- `make roadmap-headroom`: a gauge for the ratchet that is 82 chars from red
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED ddcda25
   iter-239
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- DIRECTIONS.md credits the newest ship to the candidate the PM explicitly DECLINED
@@ -1208,4 +1218,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-121 scouted iterations
+122 scouted iterations
