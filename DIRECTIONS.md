@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-238
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A -- gate the todos checkbox scan on the subpattern it actually needs
+    - Candidate B -- merge_conflict is missing the pre-gate its sibling ships
+    - Candidate C -- one digest per text per scan instead of three
+    - Candidate B1 -- `dir_source.py`'s docstring still prices the seam at "13 traversals ... roughly a third of the scan", and it is the justification a live roadmap row is read against
+    - Candidate B2 -- Nine test NAMES misreport the collector/kind roster, and the two published censuses of this defect are BOTH wrong (8 and 6); reconciled here to 9 + 1 docstring
+    - Candidate B3 -- The repo tracks a wholesale-regenerated decision log and nothing anywhere says so
+    winner: B1
+    ship: pending (not yet decided)
   iter-237
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- One atomic-write primitive: 4 hand-maintained copies of the crash-safety idiom collapse to 1
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- bound the one unbounded CPU term: a per-scan parse budget for syntax_error
     - Candidate B3 -- one Path.stat per path per scan: the fan-out seam #210 deliberately left open
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9a0ffe7
   iter-236
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- execute the paste-ready `pla dispatch` command the demo already prints
@@ -1178,4 +1188,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-118 scouted iterations
+119 scouted iterations

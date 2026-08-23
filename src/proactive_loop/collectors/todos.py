@@ -55,6 +55,24 @@ _INLINE_TAG_RE = re.compile(r"\b(TODO|FIXME|XXX)\b[:\s]*(.*)", re.IGNORECASE)
 # of them before the `[ ]` box: `- [ ] text`, `* [ ] text`, `+ [ ] text`.
 _CHECKBOX_RE = re.compile(r"^\s*[-*+]\s+\[\s\]\s+(.*)")
 
+# Cheap prefilter for _CHECKBOX_RE, and like TODO_PREFILTER_TOKENS it is DERIVED
+# rather than guessed: it is a literal SUBPATTERN of the regex it guards, lifted
+# from between that pattern's bullet and its trailing text. A match of
+# _CHECKBOX_RE therefore IMPLIES a match of this one, so this gate is provably
+# weaker than what it guards and a skip can only ever remove work, never a
+# signal. Searching the WHOLE text (not a line) only widens it further, since
+# `\s` also matches the `\n` no single line can contain. The derivation is
+# pinned two-sided by the suite -- this pattern's own text AND its presence
+# inside ``_CHECKBOX_RE.pattern`` -- so the two cannot drift apart if either is
+# edited alone.
+#
+# WHY NOT a hand-enumerated box (`"[ ]" in text or "[\t] " ...`): it would be
+# UNSOUND. In a str pattern `\s` also matches NBSP and the U+2000 block, and
+# ``str.splitlines()`` does NOT split on those, so `- [\xa0] x` really does
+# reach _CHECKBOX_RE as ONE line and really does match it. Being the guarded
+# regex's own subpattern is a proof; zero losses over some corpus is not.
+_CHECKBOX_PREFILTER_RE: Final[re.Pattern[str]] = re.compile(r"\[\s\]")
+
 # Cheap substring prefilter for _INLINE_TAG_RE, derived MECHANICALLY rather than
 # guessed: one token per tag alternative, each the longest contiguous run of
 # letters whose IGNORECASE match class is closed under ``str.lower`` -- `todo` of
@@ -66,8 +84,8 @@ _CHECKBOX_RE = re.compile(r"^\s*[-*+]\s+\[\s\]\s+(.*)")
 # L2 signal. That is a soundness claim, not a comment: it is RE-DERIVED over
 # codepoints 0x80..0x10FFFF, two-sided, by
 # ``tests/test_iter181_behavior.py``. Guarding the two regexes separately (rather
-# than one prefilter over the whole loop) is what makes it pay -- the tag tokens
-# are absent from most files while a literal `[` is absent from almost none.
+# than one prefilter over the whole loop) is what lets each gate be as strong as
+# its own regex allows; see ``_CHECKBOX_PREFILTER_RE`` for the other one.
 TODO_PREFILTER_TOKENS: Final[tuple[str, ...]] = ("todo", "xme", "xxx")
 
 _SCAN_EXTENSIONS: frozenset[str] = frozenset({".py", ".ts", ".js", ".md"})
@@ -229,24 +247,35 @@ def _scan_items(text: str) -> tuple[_TodoItem, ...]:
     cannot be mutated by a caller through the memo.
 
     The two regexes are prefiltered INDEPENDENTLY, once per text rather than once
-    per line, because their skip rates are nowhere near each other: most files
-    carry no TODO/FIXME/XXX token at all while almost every file contains some
-    literal `[`, so one prefilter guarding the whole loop skips almost nothing
-    and pays for itself nowhere. Each prefilter is provably WEAKER than the regex
-    it guards -- ``TODO_PREFILTER_TOKENS`` is a substring of every alternative
-    ``_INLINE_TAG_RE`` can match (see that constant for the derivation and its
-    re-derived soundness proof), and ``_CHECKBOX_RE`` cannot match without the
-    literal `[` its pattern requires -- so a skip can only ever remove work,
-    never a signal. Measured at factory iter 181 over a 246-file, 99,538-line
-    corpus with the memo bypassed: 82.15 ms -> 54.25 ms for the per-line pass, at
-    0 output mismatches across 426 items. That is a DATED record of one run; the
-    suite asserts the SKIPS and the equivalence, never a duration.
+    per line, so each gate can be as strong as its OWN regex allows: a single
+    prefilter over the whole loop would have to be the weaker of the two and
+    could only skip a text both regexes agree to skip. Each prefilter is provably
+    WEAKER than the regex it guards -- ``TODO_PREFILTER_TOKENS`` holds a
+    substring of every alternative ``_INLINE_TAG_RE`` can match, and
+    ``_CHECKBOX_PREFILTER_RE`` is a literal subpattern of ``_CHECKBOX_RE`` (see
+    each constant for its derivation and soundness argument) -- so a skip can
+    only ever remove work, never a signal.
+
+    Two DATED records of past runs, kept because they measure DIFFERENT gates and
+    neither is a claim about whatever tree this checkout holds today; the suite
+    asserts the SKIPS and the equivalence, never a duration. Factory iter 181,
+    when these two prefilters replaced an unguarded per-line pass, over a
+    246-file / 99,538-line corpus with the memo bypassed: 82.15 ms -> 54.25 ms,
+    at 0 output mismatches across 426 items. Factory iter 238, when the checkbox
+    gate stopped being the measured-useless `"[" in text` -- almost every source
+    file holds some literal `[` -- over a 286-file / 5.86 MB corpus, memo
+    bypassed: that gate's reach fell from 282 of 286 texts to 11 and this
+    function went 75.9 ms -> 50.2 ms (-34%), losing 0 checkbox items. Stated
+    against BOTH denominators, because either alone misprices it: -4.6% of that
+    corpus's 555 ms full scan, but -9.6% of its ~268 ms REDUCIBLE surface, since
+    52% of the scan is ``compile()`` inside ``syntax_error``, whose parse memo is
+    digest-keyed and so re-parses every distinct text.
     """
     # ONE lowercase copy per call, never per line: the tokens are ASCII and
     # case-stable by construction, so a single folded haystack answers all three.
     lowered = text.lower()
     scan_inline = any(token in lowered for token in TODO_PREFILTER_TOKENS)
-    scan_checkbox = "[" in text
+    scan_checkbox = _CHECKBOX_PREFILTER_RE.search(text) is not None
     if not scan_inline and not scan_checkbox:
         # Neither regex can match anywhere in this text, so even splitlines is
         # wasted work -- the common case for source files with no open items.
