@@ -99,3 +99,4 @@ Started in iter-132 to buy stage headroom. A line here records only that the row
 - #238 scan --exclude-path: the perception INPUT filter reaches the synthesis verb (iter 233, factory iter 207)
 - #239 run reports the AUTO_DISPATCH goals it skipped, with paste-ready commands (iter 234, factory iter 208)
 - #240 Relocate the settled Done-ledger tail to the archive under a conservation guard (iter 235, factory iter 209)
+- #241 Paste-ready dispatch commands carry an absolute --slate path (iter 236, factory iter 210)

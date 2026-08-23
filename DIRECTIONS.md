@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-236
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- execute the paste-ready `pla dispatch` command the demo already prints
+    - Candidate A2 -- `run --json` is blind to the deferred goals its own human report lists
+    - Candidate A3 -- point the post-run inspection verbs at the demo's own run dir
+    - Candidate B1 -- Hoist the two byte-identical permissive repo-walk blocks onto `BaseCollector`
+    - Candidate B2 -- Route `notes` + `todos` through `BaseCollector._relative`, deleting 2 hand-copied blocks
+    - Candidate B3 -- Retire the 2 index rows whose own status records their premise FALSIFIED
+    winner: A1
+    ship: pending (not yet decided)
   iter-235
     lenses: hardening/DX (iteration 235), integration-and-adoption (iteration 235)
     - Candidate A1 -- `make roadmap-headroom`: a gauge for the one ceiling that has already stalled this loop
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Four paste-ready commands are printed at runtime; exactly ONE is proven to run
     - Candidate B3 -- Give `signals --fail-over N` its first consumer: the stateless count budget, which is B1 without the file to keep fresh
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 788808d
   iter-234
     lenses: new-capability
     - Candidate A1 -- `pla run --max-goals N`: dispatch the top N approved goals, not only the head
@@ -1158,4 +1168,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-116 scouted iterations
+117 scouted iterations

@@ -4351,6 +4351,37 @@ def _render_providers() -> str:
     return "\n".join(lines)
 
 
+def _pasteable_slate_arg(slate_path: Path) -> str:
+    """Spell *slate_path* for the ``--slate`` token of a paste-ready command.
+
+    WHY absolute: every emitted ``pla dispatch --slate ...`` line is an instruction to a
+    HUMAN, who may paste it into any shell in any directory -- but the value interpolated
+    there is the caller's own ``--state-dir`` spelling, and both the README and
+    ``make demo`` teach that flag as a RELATIVE path (``.pla_runs``). A relative
+    ``--slate`` re-resolves against the PASTING shell's cwd, so the command this tool
+    just promised would work dies with ``slate file not found`` (exit 2) the moment the
+    user is one directory away. A tool that prints a command is asserting the command
+    runs, and this is the only artifact a user carries from "the agent decided" to
+    "I approved it".
+
+    WHY :meth:`Path.absolute` and NOT :meth:`Path.resolve`: ``resolve()`` also follows
+    symlinks, so on macOS it rewrites an already-absolute ``/var/folders/...`` temp path
+    to ``/private/var/...`` -- i.e. it would re-spell a path the caller passed in FULL,
+    which is a change no caller asked for and which breaks the byte-comparisons in the
+    shipped ``tests/test_iter62_behavior.py`` and ``tests/test_iter213_behavior.py``.
+    ``absolute()`` is a pure cwd prefix join: an already-absolute input comes back
+    character-for-character unchanged, and no ``..`` segment is collapsed either.
+
+    Callers must NOT rebind their ``slate_path`` local to this value. That same variable
+    feeds ``_run_json_payload``'s ``slate_path`` key -- a published machine document,
+    consumed by ``examples/check_run.py`` and pinned to the caller's spelling by
+    ``tests/test_iter158_behavior.py``. Re-spelling it there would change a documented
+    contract rather than fix a defect, so the absolute form is confined to the rendered
+    commands.
+    """
+    return str(slate_path.absolute())
+
+
 def _render_dispatch_preview(
     goal: CandidateGoal,
     decision: DispatchDecision,
@@ -4380,7 +4411,7 @@ def _render_dispatch_preview(
     NEEDS_APPROVAL / BLOCKED), not the lowercase enum VALUE the JSON documents carry.
     """
     run_dir = settings.state_dir / f"run-{goal.id}"
-    command = f"pla dispatch --slate {slate_path} --goal-id {goal.id}"
+    command = f"pla dispatch --slate {_pasteable_slate_arg(slate_path)} --goal-id {goal.id}"
     if decision.decision == AutonomyDecision.NEEDS_APPROVAL:
         command += " --yes"
     return "\n".join(
@@ -4420,6 +4451,9 @@ def _render_deferred_dispatches(
     a non-empty list, so a slate with one (or zero) auto-approved goal stays
     byte-identical to the pre-change output.
     """
+    # Spelled ONCE, outside the loop: the token is the same for every goal listed, and
+    # hoisting it keeps the rendered line short enough to stay one source line.
+    slate_arg = _pasteable_slate_arg(slate_path)
     # Count FIRST, then the goals in the caller's `ranked()` order: the header is the
     # accounting claim ("N were not run") and the lines are the evidence for it.
     lines = [
@@ -4429,7 +4463,7 @@ def _render_deferred_dispatches(
     ]
     for goal in goals:
         lines.append(f"  - {goal.title}")
-        lines.append(f"      pla dispatch --slate {slate_path} --goal-id {goal.id}")
+        lines.append(f"      pla dispatch --slate {slate_arg} --goal-id {goal.id}")
     return "\n".join(lines)
 
 
@@ -4810,6 +4844,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(_render_table(slate, decisions))
         slate_path = settings.state_dir / _SLATE_NAME
         _write_slate(slate, slate_path)
+        # The paste-ready spelling for the two command blocks below, held in a
+        # SEPARATE local on purpose: `slate_path` itself still carries the caller's
+        # spelling into `_run_json_payload`, whose `slate_path` key is a published
+        # document. See `_pasteable_slate_arg`.
+        slate_arg = _pasteable_slate_arg(slate_path)
 
         ranked = slate.ranked()
         top: CandidateGoal | None = None
@@ -4844,7 +4883,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             for goal in needs_approval:
                 print(
                     f"  - {goal.title}\n"
-                    f"      pla dispatch --slate {slate_path} --goal-id {goal.id} --yes"
+                    f"      pla dispatch --slate {slate_arg} --goal-id {goal.id} --yes"
                 )
 
         if top is None:
@@ -4862,7 +4901,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # loop iteration -- the core safety property this flag exists to provide.
         if args.dry_run:
             print(f"\n[dry-run] would auto-dispatch top goal: {top.title}")
-            print(f"  pla dispatch --slate {slate_path} --goal-id {top.id}")
+            print(f"  pla dispatch --slate {slate_arg} --goal-id {top.id}")
             if args.json:
                 # `top_goal` names the goal a real run WOULD dispatch while
                 # `dispatched` stays null: the preview reports its INTENT, never a
