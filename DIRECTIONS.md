@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-239
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- DIRECTIONS.md credits the newest ship to the candidate the PM explicitly DECLINED
+    - Candidate A2 -- the Done ledger's 8 newest rows cite a commit tag that exists in NO commit
+    - Candidate A3 -- extend the proven roster guard from the docs into `src/`, where 9 censuses sit unbound
+    - Candidate B1 -- `pla policy --check-goal '<json>'`: apply the autonomy gate to a goal YOU specify, with no slate, no LLM, no workspace
+    - Candidate B2 -- `pla watch --json`: the only verb of 17 with no machine-readable mode
+    - Candidate B3 -- `run`/`dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch (roadmap #212, re-priced this run)
+    winner: A2
+    ship: pending (not yet decided)
   iter-238
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A -- gate the todos checkbox scan on the subpattern it actually needs
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Nine test NAMES misreport the collector/kind roster, and the two published censuses of this defect are BOTH wrong (8 and 6); reconciled here to 9 + 1 docstring
     - Candidate B3 -- The repo tracks a wholesale-regenerated decision log and nothing anywhere says so
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED db80d5b
   iter-237
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- One atomic-write primitive: 4 hand-maintained copies of the crash-safety idiom collapse to 1
@@ -1188,4 +1198,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-119 scouted iterations
+120 scouted iterations
