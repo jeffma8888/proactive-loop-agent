@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-244
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- convert the 3 remaining mechanical walkers onto dir_source (6 physical traversals -> 3)
+    - Candidate A2 -- one shared per-scan stat, ending the 5-way re-stat of the same ~300 paths
+    - Candidate A3 -- placeholder, being measured (git subprocess fan-out across the 4 git collectors)
+    - Candidate B1 -- ROADMAP.md's `file:line` evidence anchors have gone stale; cite symbols and guard it
+    - Candidate B2 -- five test names still claim 15/16 collectors while asserting 17 (queued row #232 is LIVE and UNDER-scoped)
+    - Candidate B3 -- give the README's LLM-free-verb arithmetic an oracle (12 of 17 = 7 + 5)
+    winner: B1
+    ship: pending (not yet decided)
   iter-243
     lenses: simplification-and-deletion, performance-and-throughput (iteration 243)
     - Candidate A1 -- Delete 19 of the 20 hand-copied `_console_script` helpers in `tests/`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one `Path.stat` per path per scan (the fan-out seam #210 left open)
     - Candidate B3 -- row #210 batch 4: `syntax_error` + `large_file` onto the shared walk
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED a37d3eb
   iter-242
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run --json` publishes the goals the run DEFERRED, the one auto-approved fact only the human render carries
@@ -1237,4 +1247,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-124 scouted iterations
+125 scouted iterations
