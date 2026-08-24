@@ -37,6 +37,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+# The ONE owner of the re-entrant scope control flow both per-scan caches need --
+# see :func:`walk_scope`. A private-name import across collector modules, exactly
+# like the prune-policy import below, so each rule keeps a single home.
+from proactive_loop.collectors.base import _depth_scope
+
 # The ONE home of the package's dir-prune policy. Imported here so that the
 # policy question "which parts of a tree are worth looking at" keeps exactly one
 # answer, and so a collector converted onto this provider stops needing the rule
@@ -130,14 +135,15 @@ def walk_scope() -> Iterator[None]:
     retained; the exception itself propagates untouched. Re-entrant by depth
     count: an inner scope's exit drops the outer scope's retained listings, which
     costs re-traversals and never correctness.
+
+    The control flow implementing both of those rules is owned by
+    ``base._depth_scope``, shared with ``text_source.scan_scope`` so the invariant is
+    written once. Only the control flow is shared: :data:`_SCOPE` and
+    :func:`_drop_entries` stay this module's own, so entering this scope never
+    activates the text cache.
     """
-    _SCOPE["depth"] += 1
-    _drop_entries()
-    try:
+    with _depth_scope(_SCOPE, _drop_entries):
         yield
-    finally:
-        _SCOPE["depth"] -= 1
-        _drop_entries()
 
 
 def _walk_pruned(root: Path) -> tuple[_FrozenTriple, ...]:

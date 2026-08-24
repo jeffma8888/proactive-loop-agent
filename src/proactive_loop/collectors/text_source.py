@@ -68,6 +68,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, overload
 
+# The ONE owner of the re-entrant scope control flow both per-scan caches need --
+# see :func:`scan_scope`. Only the control flow is shared; this module keeps its own
+# ``_SCOPE`` and its own ``_drop_entries``.
+from proactive_loop.collectors.base import _depth_scope
+
 # Ceiling on the decoded text retained for one scan. 32 MiB is 6.7x the 5 MB
 # per-file cap the three collectors share (``LARGE_FILE_MIN_BYTES``) -- a bound
 # stated against a NAMED CODE CONSTANT instead of against this checkout's own
@@ -165,14 +170,15 @@ def scan_scope() -> Iterator[None]:
     retained; the exception itself propagates untouched. Re-entrant by depth
     count: an inner scope's exit drops the outer scope's retained text, which
     costs re-reads and never correctness.
+
+    The control flow implementing both of those rules is owned by
+    ``base._depth_scope``, shared with ``dir_source.walk_scope`` so the invariant is
+    written once. Only the control flow is shared: :data:`_SCOPE` and
+    :func:`_drop_entries` stay this module's own, so entering this scope never
+    activates the walk cache.
     """
-    _SCOPE["depth"] += 1
-    _drop_entries()
-    try:
+    with _depth_scope(_SCOPE, _drop_entries):
         yield
-    finally:
-        _SCOPE["depth"] -= 1
-        _drop_entries()
 
 
 def _text_bytes(text: str) -> int:

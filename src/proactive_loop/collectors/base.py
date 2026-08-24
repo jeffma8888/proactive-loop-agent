@@ -7,7 +7,7 @@ exceptions on missing directories or unavailable tools — degrade to [].
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -73,6 +73,45 @@ def record_degradations() -> Iterator[list[str]]:
         # the inner. `finally` guarantees LIFO unwinding, which makes the stack
         # discipline exact.
         _DEGRADED_SINKS.pop()
+
+
+@contextmanager
+def _depth_scope(scope: dict[str, int], drop: Callable[[], None]) -> Iterator[None]:
+    """Own the re-entrant, empty-on-both-edges control flow of a per-scan cache.
+
+    Shared by ``dir_source.walk_scope`` and ``text_source.scan_scope`` -- the two
+    per-scan caches ``cli._collect`` enters TOGETHER at a single seam. Before this
+    helper the body below was hand-copied into both modules, which made the two
+    invariants it carries stated twice and guaranteed once: a fix applied to one copy
+    silently missed the other, and because the pair is entered together a divergence
+    between them is a cache-correctness bug rather than a cosmetic inconsistency.
+
+    The two invariants, and WHY each is shaped the way it is:
+
+    * EMPTY ON BOTH EDGES. *drop* runs on ENTRY, so a previous scan's retained entries
+      can never be served whatever left them behind, and again in a ``finally``, so a
+      collector that raises, a ``KeyboardInterrupt`` mid-scan or an early ``return``
+      all leave nothing retained. The exception itself propagates UNTOUCHED -- this
+      scope never swallows, because absorbing failures is the job of ``collect`` one
+      layer up and a cache must not acquire a second opinion about it.
+    * DEPTH-COUNTED, NOT BOOLEAN. *scope* is the caller's own ``{"depth": int}`` dict,
+      incremented on entry and decremented in the SAME ``finally``, so an INNER scope
+      exiting cannot switch caching off for an outer scan that is still running -- the
+      bug a plain boolean flag would ship. An inner exit still drops the outer scope's
+      retained entries, which costs re-work and never correctness.
+
+    Takes the module's own ``_SCOPE`` and its own ``_drop_entries`` as ARGUMENTS rather
+    than owning either, because only the control flow is shared here -- never the
+    state. The two caches stay independent, so entering one does not activate the
+    other, and each module remains the single owner of what it retains.
+    """
+    scope["depth"] += 1
+    drop()
+    try:
+        yield
+    finally:
+        scope["depth"] -= 1
+        drop()
 
 
 @runtime_checkable

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-243
+    lenses: simplification-and-deletion, performance-and-throughput (iteration 243)
+    - Candidate A1 -- Delete 19 of the 20 hand-copied `_console_script` helpers in `tests/`
+    - Candidate A2 -- Collapse the twin re-entrant cache scopes: `walk_scope` / `scan_scope`
+    - Candidate A3 -- Retire roadmap row #121 and the three oracles that keep its exemption alive
+    - Candidate B1 -- Memoize `git_activity`'s `git log` on the resolved HEAD sha
+    - Candidate B2 -- one `Path.stat` per path per scan (the fan-out seam #210 left open)
+    - Candidate B3 -- row #210 batch 4: `syntax_error` + `large_file` onto the shared walk
+    winner: A2
+    ship: pending (not yet decided)
   iter-242
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run --json` publishes the goals the run DEFERRED, the one auto-approved fact only the human render carries
@@ -9,7 +19,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 -- One reader-resolution rule in the sandbox `ToolRegistry`: 7 hand-copied resolve loops, 6 copies of one error string
     - Candidate B2 -- One definition per repeated CLI flag contract: 8 flags are declared 2-16 times and `cli.py` has ZERO flag helpers
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED da8924a
   iter-241
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- retire the stale spelled collector counts in 8 test names, behind a drift guard
@@ -1227,4 +1237,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-123 scouted iterations
+124 scouted iterations
