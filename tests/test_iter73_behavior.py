@@ -281,16 +281,20 @@ def test_b04b_choices_are_derived_from_the_live_registry(tmp_path, capsys):
         assert f"'{name}'" in err, f"{name} missing from argparse choices: {err!r}"
 
 
-def test_b04c_flag_rejected_by_run_and_watch(tmp_path, capsys):
+def test_b04c_flag_rejected_by_watch(tmp_path, capsys):
     # SPEC change (factory iter 94): --collector was extended from scan-only to
     # scan+signals (the perception inspector); test_iter94_behavior.py proves
-    # `signals` now ACCEPTS it. The SURVIVING half of the iter-73 contract is that
-    # the two NON-inspector verbs -- run and watch -- STILL reject it. argparse
-    # rejects the unrecognized flag at PARSE time (before the handler builds any
-    # client), so no provider/scripted-responses wiring is needed here.
+    # `signals` now ACCEPTS it. SPEC change (foundry iter 245): it was extended
+    # again to `run`, the sole autonomous verb, because a mis-scoped perception
+    # there causes an unattended dispatch rather than a wrong report; the new
+    # oracle proves `run` now ACCEPTS it and reports the narrowing. The SURVIVING
+    # half of the iter-73 contract is that `watch` -- the one verb that still
+    # cannot narrow its perception -- STILL rejects it. argparse rejects the
+    # unrecognized flag at PARSE time (before the handler builds any client), so
+    # no provider/scripted-responses wiring is needed here.
     ws = tmp_path / "ws"
     ws.mkdir()
-    for verb in ("run", "watch"):
+    for verb in ("watch",):
         with pytest.raises(SystemExit) as ei:
             main([verb, "--workspace", str(ws), "--collector", "todos"])
         assert ei.value.code == 2, f"{verb} must reject --collector (exit 2)"

@@ -596,10 +596,22 @@ def _option_strings(verb: str) -> set[str]:
 
 
 def test_b13_narrowing_did_not_leak_into_run_or_watch() -> None:
+    # --kind stays inspector-only for BOTH loop verbs: it is a signals-view knob,
+    # and nothing has proposed resolving a kind to its collector outside `signals`.
     for verb in ("run", "watch"):
         opts = _option_strings(verb)
-        assert "--collector" not in opts, f"{verb} must not accept --collector"
         assert "--kind" not in opts, f"{verb} must not accept --kind"
+    # --collector, by contrast, was extended to `run` by the SPEC change in foundry
+    # iter 245 (the sole autonomous verb: a mis-scoped perception there drives an
+    # unattended dispatch, so it is the one verb that most needs the knob). `watch`
+    # is the surviving half of this iteration's no-leak contract -- it still cannot
+    # narrow its perception, so the flag must still be absent there.
+    assert "--collector" not in _option_strings("watch"), (
+        "watch must not accept --collector"
+    )
+    assert "--collector" in _option_strings("run"), (
+        "run gained --collector in foundry iter 245; this oracle is stale if it is gone"
+    )
 
 
 def test_b13_scan_still_takes_collector_and_still_takes_no_kind() -> None:

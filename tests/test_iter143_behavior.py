@@ -19,12 +19,13 @@ factory iter 158, 3,800+ -> 4,300+ at factory iter 180, when the live suite reac
 4,800+ -> 4,900+ at factory iter 207, when this iteration's behavior module carried
 it to 4,905, 4,900+ -> 5,000+ at factory iter 212, when this iteration's behavior
 module carried it to 5,027, and 5,000+ -> 5,100+ at factory iter 242, when this
-iteration's behavior module carried it to 5,108).
+iteration's behavior module carried it to 5,108, and 5,100+ -> 5,200+ at factory iter 245, when
+this iteration's behavior module carried it to 5,203).
 
 Coverage (numbered to match the iteration spec's Expected Behaviors):
 
-1. The published floor is ``5,100+`` in BOTH intro sentences and the string
-   ``5,000`` is gone from ``README.md`` entirely.
+1. The published floor is ``5,200+`` in BOTH intro sentences and the string
+   ``5,100`` is gone from ``README.md`` entirely.
 2. Nothing else above the marker changed: with the digits of the three permitted
    claims neutralized, the intro is byte-identical to the same slice at ``HEAD``
    (plus, while ``HEAD`` is still the pre-bump revision, the strict form -- putting
@@ -81,8 +82,8 @@ PYPROJECT = REPO / "pyproject.toml"
 MAKEFILE = REPO / "Makefile"
 MARKER = "PORTFOLIO INTRO"
 
-PUBLISHED_FLOOR = 5100
-STALE_FLOOR_TOKEN = "5,000"
+PUBLISHED_FLOOR = 5200
+STALE_FLOOR_TOKEN = "5,100"
 
 # The synthetic live count for the checks that feed the REAL published intro to the
 # pure helper, so they need no second ``--collect-only`` subprocess. DERIVED from the
@@ -178,12 +179,12 @@ def _joined(problems: object) -> str:
 
 def test_readme_intro_publishes_the_bumped_floor_in_both_sentences() -> None:
     intro = _intro_of(README.read_text(encoding="utf-8"))
-    assert "**5,100+ tests**" in intro
-    assert "**5,100+ passing tests**" in intro
+    assert "**5,200+ tests**" in intro
+    assert "**5,200+ passing tests**" in intro
 
 
 def test_the_stale_floor_token_is_gone_from_the_readme() -> None:
-    """``5,000`` occurred exactly twice in ``README.md``, both above the marker."""
+    """``5,100`` occurred exactly twice in ``README.md``, both above the marker."""
     assert STALE_FLOOR_TOKEN not in README.read_text(encoding="utf-8")
 
 
@@ -230,7 +231,7 @@ def test_the_bump_is_exactly_two_digit_tokens_while_head_is_pre_bump() -> None:
             head_intro
         )
         return
-    assert intro.replace("5,100", STALE_FLOOR_TOKEN) == head_intro
+    assert intro.replace("5,200", STALE_FLOOR_TOKEN) == head_intro
 
 
 # --------------------------------------------------------------------------- #
@@ -286,7 +287,7 @@ def _real_intro() -> str:
 
 
 def test_a_fabricated_floor_is_rejected_and_both_numbers_are_named() -> None:
-    fabricated = _real_intro().replace("5,100+", "9,000+")
+    fabricated = _real_intro().replace("5,200+", "9,000+")
     problems = _joined(guard.suite_size_problems(fabricated, 3357))
     assert problems != "", "a floor ABOVE the live count must be rejected"
     assert "9,000" in problems or "9000" in problems
@@ -294,7 +295,7 @@ def test_a_fabricated_floor_is_rejected_and_both_numbers_are_named() -> None:
 
 
 def test_a_true_but_stale_floor_is_rejected() -> None:
-    stale = _real_intro().replace("5,100+", "1,000+")
+    stale = _real_intro().replace("5,200+", "1,000+")
     problems = _joined(guard.suite_size_problems(stale, 3357))
     assert problems != "", "a floor 2,357 below the live count must be rejected"
     lowered = problems.lower()
@@ -302,7 +303,7 @@ def test_a_true_but_stale_floor_is_rejected() -> None:
 
 
 def test_an_exact_count_is_still_rejected() -> None:
-    exact = _real_intro().replace("5,100+", "5,157")
+    exact = _real_intro().replace("5,200+", "5,157")
     problems = _joined(guard.suite_size_problems(exact, 3357))
     assert problems != "", "an exact count is self-invalidating and must be rejected"
 

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-245
+    lenses: narrative-and-docs, new-capability
+    - A1 -- `SPEC.md` names 4 of the 9 `make` targets, at TWO sites, and hides all three machine gates
+    - A2 -- `collectors/dir_source.py`'s docstring prices the walk seam at "roughly a third of the scan"; measured today it is one traversal serving five callers
+    - A3 -- README's LLM-free prose names 7 verbs, its own table marks 10, and the live answer is 12
+    - B1 -- `run --exclude-path` / `--collector`: the ONLY autonomous verb is the one that cannot be scoped
+    - B2 -- `run`/`resume --max-iterations N` / `--max-llm-calls N`: the L1 budget becomes SETTABLE
+    - B3 -- `PythonVersionDriftCollector`: the 18th collector -- and its real price is 45 files, not "small"
+    winner: B1
+    ship: pending (not yet decided)
   iter-244
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- convert the 3 remaining mechanical walkers onto dir_source (6 physical traversals -> 3)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- five test names still claim 15/16 collectors while asserting 17 (queued row #232 is LIVE and UNDER-scoped)
     - Candidate B3 -- give the README's LLM-free-verb arithmetic an oracle (12 of 17 = 7 + 5)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED f11b411
   iter-243
     lenses: simplification-and-deletion, performance-and-throughput (iteration 243)
     - Candidate A1 -- Delete 19 of the 20 hand-copied `_console_script` helpers in `tests/`
@@ -1247,4 +1257,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-125 scouted iterations
+126 scouted iterations

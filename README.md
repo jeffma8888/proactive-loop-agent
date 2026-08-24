@@ -10,13 +10,13 @@
 
 Most agentic systems are **reactive**: they sit idle until prompted, run the task, and stop. `proactive-loop-agent` inverts that. It is a reference implementation of a three-layer **proactivity stack** that turns raw working context into a *ranked slate of candidate goals*, gates each one through an **autonomy contract**, and dispatches only the approved goals into a resilient, sandboxed **plan → act → check** execution loop.
 
-The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **5,100+ tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
+The whole system runs **fully offline and deterministically** by default — the LLM boundary is a single scripted seam, so the demo and all **5,200+ tests** run with no network and no API key. Point it at a live model (Anthropic / OpenAI / Bedrock / Ollama) with a single flag.
 
 ### What this project demonstrates
 
 - **A 0→1 idea, not a prompt trick** — proactivity modeled as an explicit architectural layer (perceive → propose → gate → execute), with clear seams between deciding *what* to do and *how* to do it.
 - **Safety by construction** — the autonomy gate is a hard rule engine: sensitive categories (finance, legal, health) *always* require human approval, no matter how high a goal scores. Autonomy comes from a sandbox, not from trust; the execution loop can only write inside a scratch directory through path-guarded tools.
-- **Production-grade rigor on a portfolio codebase** — **5,100+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 17 context collectors, 17 CLI verbs, deterministic and offline end to end.
+- **Production-grade rigor on a portfolio codebase** — **5,200+ passing tests** (green in CI on Python 3.12 and 3.13), fully type-hinted (ships a PEP 561 `py.typed` marker), 17 context collectors, 17 CLI verbs, deterministic and offline end to end.
 - **Auditability as a first-class feature** — a transparency arc of read-only, LLM-free inspector commands: see what the collectors *perceive* → what the scout *proposed* → *why* the gate ruled → exactly what a run *did*.
 
 <!-- ============================================================================
@@ -267,7 +267,7 @@ provider when you want it to propose.
 |-----------|---------------------------------------------------------------------------|
 | `scan`    | Collect context, synthesize + gate a slate, print it (`--format table\|json\|markdown\|csv\|html`; `--top N` caps the printed rows, the written slate stays complete; `--collector NAME` repeatable, restricts which collectors feed synthesis), write slate JSON to `--out PATH` (default `<state_dir>/slate.json`), `--snapshot FILE` also persists the collected snapshot as a `signals --json`-shaped document (usable as a `signals --baseline`).|
 | `dispatch`| Re-gate one goal from a saved slate and run it (`--slate FILE` + `--goal-id ID` required; `--yes` confirms approval; `--dry-run` previews instead of running -- it prints the gate decision and reason, the resolved workspace root, the `run-<goal_id>` dir the run would be written under and a paste-ready real command, then returns 0 BEFORE any LLM client, run directory or loop iteration exists, so it needs no provider at all; a refusal still outranks it (BLOCKED is still exit 3, and a goal needing approval is still exit 4 without `--yes`), and it is mutually exclusive with `--json` because a preview has no run to fill that document's nine guaranteed keys; `--json` publishes the finished run as one `{goal_id, run_id, status, run_dir, artifacts, iterations_used, llm_calls_used, retries, parse_errors}` object on stdout -- the same document `run --json` nests under `dispatched` -- and moves the human summary to stderr, leaving stdout EMPTY on a refusal).|
-| `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration; `--json` makes the whole invocation scriptable -- stdout becomes one `{workspace_root, slate_path, goal_count, needs_approval, top_goal, dispatched, deferred}` object and the human progress moves to stderr; `--snapshot FILE` also persists the snapshot this run perceived, the same `signals --json`-shaped document `scan --snapshot` writes, so the slate `run` produces -- the one `make demo` and CI publish -- is directly checkable with `pla verify --slate ... --snapshot FILE` instead of being a claim with no evidence).|
+| `run`     | Scan, then auto-dispatch only the single top AUTO_DISPATCH goal (`--collector NAME` repeatable, restricts which collectors this verb perceives with and prints one `perception narrowed to N of M collectors: ...` line; `--dry-run` previews the goal it WOULD dispatch, still writing the slate, then stops before any run dir or loop iteration; `--json` makes the whole invocation scriptable -- stdout becomes one `{workspace_root, slate_path, goal_count, needs_approval, top_goal, dispatched, deferred}` object and the human progress moves to stderr; `--snapshot FILE` also persists the snapshot this run perceived, the same `signals --json`-shaped document `scan --snapshot` writes, so the slate `run` produces -- the one `make demo` and CI publish -- is directly checkable with `pla verify --slate ... --snapshot FILE` instead of being a claim with no evidence).|
 | `resume`  | Load a checkpoint from a run dir and continue the loop (`--run-dir DIR` required: a `run-<id>` dir as listed by `runs`; `--json` publishes the resumed run as the SAME `{goal_id, run_id, status, run_dir, artifacts, iterations_used, llm_calls_used, retries, parse_errors}` object `dispatch --json` does -- one document on stdout, human summary on stderr, stdout EMPTY when there is no checkpoint to resume).|
 | `runs`    | List past dispatched runs under the state dir (`--status STATUS` narrows to runs of one status and composes with `--json`; `--json` for a JSON array). `--prune` turns the same selection into the product's retention operation: it reports the run dirs it would delete and **deletes nothing unless `--yes` is also given** (dry run is the default, exit 0 either way), selects with the *listing's own* `--status` filter so "what will be deleted" is answerable by a read-only command, is contained to direct `run-*` children of the state dir (a nested `run-*`, a plain file named `run-*`, and any other child are never touched), refuses a `run-*` **symlink** on one `refused:` stderr line rather than following it, and under `--json` emits one `{dry_run, status, selected, refused, deleted}` object.|
 | `explain` | Audit gate decisions from a saved slate (`--slate FILE` required) — score math, decision + reason, and provenance. `--goal-id ID` audits one goal (`--json` → one object); omit `--goal-id` to audit the whole slate in ranked order (`--json` → a JSON array). Read-only, LLM-free.|
@@ -430,7 +430,22 @@ drift from it); an unknown name is an argparse usage error (exit 2), rejected
 before any collection runs. Absent (the default) every collector runs, so a bare
 `scan` is byte-identical to before. Use it to focus the scout ("only look at git
 state, ignore TODOs and large files"), which shrinks the synthesis prompt and
-narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects); `run`/`watch` do not accept it.
+narrows the proposed goals. `--collector` is also accepted by `signals` (the read-only perception inspector, where it restricts which collectors the raw-signals view inspects) and by `run` (the sole autonomous verb, which additionally REPORTS the narrowing -- see below); `watch` does not accept it.
+
+`run --collector NAME` is that same perception-INPUT allowlist on the ONE verb that acts
+on what it perceived. `run` scans and auto-dispatches in a single shot, so a mis-scoped
+perception here drives an unattended execution rather than a merely wrong report — and until
+this flag existed `run` was the only verb whose perception could not be narrowed at all, so a
+user who armed `--collector` on `scan` silently lost the scoping on reaching for `run`. It is
+repeatable, its accepted values are the live collector names (an unknown one is an exit-2 usage
+error rejected before any client, collector, slate, run dir or snapshot), and absent (the
+default) every collector runs, so a bare `run` is byte-identical to before. Unlike `scan`, `run`
+also SAYS that it narrowed, on exactly one line — `perception narrowed to 2 of 17 collectors:
+git_state, todos` — with the names sorted so the line is deterministic however the flags were
+ordered or repeated. The line sits above both the `--snapshot` write and the `--dry-run` return,
+so the audit document `pla verify` grades a slate against keeps meaning "what this run actually
+saw", and a preview reports the perception the real act would have used. Under `--json` it joins
+the human progress on stderr, leaving stdout a single JSON document with an unchanged key set.
 
 `run --json` publishes what an invocation of the sole autonomous verb actually
 produced, so a script never has to re-glob the state dir and guess at `run-*`

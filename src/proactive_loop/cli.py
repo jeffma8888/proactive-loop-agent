@@ -844,6 +844,32 @@ def build_parser() -> argparse.ArgumentParser:
             "verify --slate ... --snapshot FILE`. Default (absent) writes nothing."
         ),
     )
+    # The perception-INPUT allowlist `scan` and `signals` already carry, on the one
+    # verb that ACTS on what it perceived. WHY it matters more here than on either of
+    # those: `run` scans AND auto-dispatches in one shot, so a mis-scoped perception
+    # causes an unattended L1 execution rather than a merely wrong report -- and until
+    # now `run` was the ONLY verb whose perception could not be narrowed at all, so a
+    # user who armed --collector on `scan` and then reached for `run` silently lost the
+    # scoping. Repeatable (action="append"); absent (default None) = all collectors, so
+    # a bare `run` stays byte-identical. choices are derived from the LIVE registry via
+    # all_collectors() -- the SAME expression p_scan uses, NOT a hardcoded literal -- so
+    # the allowlist can never drift from the collector set, and an unknown name is a
+    # PARSE-time usage error (exit 2) naming the bad choice: no client built, no
+    # collector run, no slate, no run dir and no snapshot written. `watch` is unchanged.
+    p_run.add_argument(
+        "--collector",
+        action="append",
+        default=None,
+        choices=sorted(c.name for c in all_collectors()),
+        dest="collector",
+        metavar="NAME",
+        help=(
+            "Restrict perception to only the named collector(s); repeatable "
+            "(--collector todos --collector git_state). Accepted values are the "
+            "live collector names; an unknown name is a usage error (exit 2). "
+            "Default (absent) runs all collectors."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -1913,12 +1939,13 @@ def _collect(
     or absent git therefore still simply yields fewer signals.
 
     ``only`` is an optional UPSTREAM allowlist of collector names (from
-    ``scan --collector`` and ``signals --collector``, and from ``signals --kind``,
-    which resolves the kind to the collector that emits it): when not ``None``, a
-    collector whose ``.name`` is not in the set is skipped entirely (its
-    ``collect()`` never runs), so the caller can focus the scout on a subset of
-    the perception surface. ``None`` (the default, what ``run``/``watch`` pass,
-    and what ``signals`` passes when neither filter is given) runs every collector,
+    ``scan --collector``, ``signals --collector`` and ``run --collector``, and from
+    ``signals --kind``, which resolves the kind to the collector that emits it):
+    when not ``None``, a collector whose ``.name`` is not in the set is skipped
+    entirely (its ``collect()`` never runs), so the caller can focus the scout on
+    a subset of the perception surface. ``None`` (the default -- what ``watch``
+    passes, what ``run`` passes when ``--collector`` is absent, and what
+    ``signals`` passes when neither filter is given) runs every collector,
     byte-identical to before this knob existed; an empty set runs none. The
     filter is applied BEFORE the isolation try/except, so it changes only WHICH
     collectors run, never the never-raise / registry-order semantics of the
@@ -4895,7 +4922,32 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 return 2
         client = create_client(settings)
 
-        snapshot = _collect(workspace)
+        # --collector is a repeatable allowlist (argparse action="append" -> a list or
+        # None). Folded into _collect's EXISTING `only` parameter with the SAME
+        # expression _cmd_scan uses, so the two verbs cannot drift and there is no new
+        # helper and no second call site: a non-empty list restricts perception to those
+        # collectors; absent (None or []) => None => every collector, keeping a bare
+        # `run` byte-identical to before this flag existed. set() also folds a repeated
+        # name, so --collector todos --collector todos means what naming it once means.
+        only = set(args.collector) if args.collector else None
+        snapshot = _collect(workspace, only=only)
+        # Say out loud that perception was narrowed, from ONE site placed HERE -- below
+        # the collect it describes and ABOVE the snapshot write -- so --dry-run and
+        # --snapshot inherit the line by construction rather than by two print sites
+        # staying in sync (the dry-run return is far below, and the snapshot write is
+        # the next statement). WHY `run` announces the narrowing when `scan` does not:
+        # `run` is the verb that ACTS, so what it was allowed to see is a safety fact,
+        # not a display preference, and this line is the only channel that reports it.
+        # Sorted names and counts read off the LIVE registry make the line deterministic
+        # regardless of the order the flags were passed or how often one was repeated.
+        # Plain print (not stderr): under --json the whole body is already redirected,
+        # so the line joins the human progress on stderr and the JSON payload's key set
+        # is untouched; without --json it belongs on stdout with the rest of the report.
+        if only:
+            print(
+                f"perception narrowed to {len(only)} of {len(all_collectors())} "
+                f"collectors: {', '.join(sorted(only))}"
+            )
         # Written ONCE, here: after the collect that produced it and BEFORE synthesis.
         # That position is load-bearing twice, exactly as in _cmd_scan -- the perception
         # record survives a synthesis failure (the run that fails is the one whose

@@ -776,7 +776,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     document (shortened data rows only), all three with no note/trailer and no count
     key/row added. A
     non-positive or non-integer `--top` (`0`, `-1`, `abc`) is an argparse usage
-    error (exit 2) at PARSE time, before any client/collect/slate-write. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors feed synthesis (the perception-input knob, complementing `--top`/`--format` which shape the output view): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any client/collect/slate-write, absent (the default) runs all collectors byte-identically, and it is accepted by `scan` and `signals` (the perception inspector), while `run`/`watch` do not accept it. A missing
+    error (exit 2) at PARSE time, before any client/collect/slate-write. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors feed synthesis (the perception-input knob, complementing `--top`/`--format` which shape the output view): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any client/collect/slate-write, absent (the default) runs all collectors byte-identically, and it is accepted by `scan`, `signals` (the perception inspector) and `run` (the sole autonomous verb, which additionally REPORTS the narrowing -- see its entry), while `watch` does not accept it. A missing
     or non-directory `--workspace` fails fast with
     `error: workspace not found: <path>` on stderr and exit 2 (before any
     client/collect, regardless of `--format`), rather than degrading to an empty
@@ -793,7 +793,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
-  - `pla run --workspace W [--dry-run]` — scan then auto-dispatch the top
+  - `pla run --workspace W [--dry-run] [--collector NAME ...]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
@@ -803,6 +803,19 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     paste-ready `pla dispatch` command and returns 0 — building no GoalLoop, no run
     dir, and spending no loop iteration (the one synthesize LLM call still occurs;
     "dry" means no plan/act/check loop, not zero LLM calls).
+    `--collector NAME` is the same repeatable UPSTREAM allowlist `scan`/`signals` carry,
+    restricting WHICH collectors this verb perceives with: accepted values are exactly the
+    live collector names (derived from the registry, so they cannot drift), an unknown name
+    is an argparse usage error (exit 2) at PARSE time before any client/collect/slate/run
+    dir/snapshot, absent (the default) runs all collectors byte-identically, and a repeated
+    name means what naming it once means. It matters most on THIS verb because `run` is the
+    only one that ACTS on what it perceived, so unlike `scan` it also announces the
+    narrowing on exactly one line -- `perception narrowed to N of M collectors: <names>`,
+    names sorted so the line is deterministic, N distinct names given, M the live registry
+    size. The line is printed once, above the `--snapshot` write and above the `--dry-run`
+    return, so both inherit the narrowing (the snapshot keeps meaning "what this run
+    actually saw"); under `--json` it joins the human progress on stderr, leaving stdout
+    one JSON document whose key set is unchanged.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json]` — read-only, LLM-free lister of past dispatched runs
     under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,

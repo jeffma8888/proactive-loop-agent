@@ -258,14 +258,17 @@ def test_b09_valid_collector_with_no_signals_is_empty_not_error(capsys):
 
 
 # ===========================================================================
-# Behavior 10 --- run and watch STILL reject --collector at parse time (the
-# flag is now scan+signals, NOT all verbs). Surviving half of the iter-73
-# scan-only contract.
+# Behavior 10 --- watch STILL rejects --collector at parse time (the flag is
+# now scan+signals+run, NOT all verbs). Surviving half of the iter-73
+# scan-only contract, re-narrowed by the SPEC change in foundry iter 245 that
+# put the flag on `run` (the sole autonomous verb, where a mis-scoped
+# perception drives an unattended dispatch); `watch` is the one verb left
+# whose perception cannot be narrowed.
 # ===========================================================================
 
 
-@pytest.mark.parametrize("verb", ["run", "watch"])
-def test_b10_run_and_watch_still_reject_collector(verb, capsys):
+@pytest.mark.parametrize("verb", ["watch"])
+def test_b10_watch_still_rejects_collector(verb, capsys):
     capsys.readouterr()
     with pytest.raises(SystemExit) as ei:
         main([verb, "--workspace", str(FIXTURE), "--collector", "todos"])
