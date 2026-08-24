@@ -1,6 +1,15 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-242
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `run --json` publishes the goals the run DEFERRED, the one auto-approved fact only the human render carries
+    - Candidate A2 -- give `pla trace` its first consumer: grade that the demo's own run is legible from its own checkpoint
+    - Candidate A3 -- prove the paste-ready dispatch command actually runs, by executing it in the demo with `--dry-run`
+    - Candidate B1 -- One reader-resolution rule in the sandbox `ToolRegistry`: 7 hand-copied resolve loops, 6 copies of one error string
+    - Candidate B2 -- One definition per repeated CLI flag contract: 8 flags are declared 2-16 times and `cli.py` has ZERO flag helpers
+    winner: A1
+    ship: pending (not yet decided)
   iter-241
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- retire the stale spelled collector counts in 8 test names, behind a drift guard
@@ -10,7 +19,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- close the produce->consume loop inside the demo: feed the demo's OWN snapshot back as a `signals --baseline`
     - Candidate B3 -- `resume --json` gets its first gate consumer, reusing the ALREADY-SHIPPED grader
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 133c653
   iter-240
     lenses: unknown
     - Candidate A1 -- `pla policy --check-goal '<json>'`: ask the autonomy gate about a goal the USER names (closes queued row #245, 534 chars)
@@ -1218,4 +1227,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-122 scouted iterations
+123 scouted iterations

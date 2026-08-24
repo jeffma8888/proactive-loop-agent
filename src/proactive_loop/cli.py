@@ -2576,6 +2576,7 @@ def _run_json_payload(
     top: CandidateGoal | None,
     needs_approval: list[CandidateGoal],
     dispatched: tuple[RunState, Path, ToolRegistry] | None,
+    deferred: list[CandidateGoal],
 ) -> dict[str, Any]:
     """Build the ``run --json`` result document as a pure function of its inputs.
 
@@ -2584,12 +2585,13 @@ def _run_json_payload(
     never has to re-glob the state dir and guess at ``run-*`` names to learn what an
     invocation produced.
 
-    Exactly six top-level keys, ALWAYS present so a consumer can index without
+    Exactly seven top-level keys, ALWAYS present so a consumer can index without
     ``.get`` gymnastics: ``workspace_root``, ``slate_path``, ``goal_count``,
-    ``needs_approval``, ``top_goal``, ``dispatched``. The two "did it happen" facts
-    are carried by VALUE, not by absence -- ``top_goal``/``dispatched`` are ``null``
-    when there is no auto-dispatchable goal or the dispatch was skipped
-    (``--dry-run``).
+    ``needs_approval``, ``top_goal``, ``dispatched``, ``deferred``. The "did it
+    happen" facts are carried by VALUE, not by absence -- ``top_goal``/``dispatched``
+    are ``null`` when there is no auto-dispatchable goal or the dispatch was skipped
+    (``--dry-run``), and ``deferred`` is ``[]`` -- never absent, never ``null`` --
+    when the gated slate holds fewer than two auto-approved goals.
 
     WHY ``goal_count`` and not ``goals``: ``scan --format json`` already publishes
     ``goals`` as an ARRAY of goal objects, and one key name meaning two types across
@@ -2603,6 +2605,17 @@ def _run_json_payload(
     built by :func:`_dispatched_json_payload`, which ``dispatch --json`` also calls, so
     the two verbs cannot drift into two dialects of one fact. Kept pure/disk-free, like
     :func:`_scan_json_payload`, so it is testable without running a loop.
+
+    WHY *deferred* is a STRICT MIRROR of a ``needs_approval`` entry -- ``{id, title}``,
+    with no paste-ready command string: the two keys answer the same question about
+    two different classes, "which goals did this invocation NOT run", and publishing
+    only one of them was backwards for an UNATTENDED consumer. The withheld goals it
+    may not touch without a human were already here; the auto-approved goals a
+    single-goal dispatch simply did not reach were not, and those are the only class
+    the autonomy contract lets a script dispatch on its own. The command spelling
+    stays on the HUMAN surface (:func:`_render_deferred_dispatches`) because a person
+    has to type it, whereas a script composes its own argv from ``id`` -- so a command
+    here would be a second spelling of one fact, free to drift from the first.
     """
     payload: dict[str, Any] = {
         "workspace_root": slate.workspace_root,
@@ -2611,6 +2624,7 @@ def _run_json_payload(
         "needs_approval": [{"id": goal.id, "title": goal.title} for goal in needs_approval],
         "top_goal": None if top is None else {"id": top.id, "title": top.title},
         "dispatched": None,
+        "deferred": [{"id": goal.id, "title": goal.title} for goal in deferred],
     }
     if dispatched is not None:
         payload["dispatched"] = _dispatched_json_payload(dispatched)
@@ -4940,7 +4954,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if top is None:
             print("\nno auto-dispatchable goal in this slate; nothing to run.")
             if args.json:
-                payload = _run_json_payload(slate, slate_path, None, needs_approval, None)
+                # `deferred` is provably `[]` on this path -- the single pass above
+                # appends only once `top is not None` -- but it is passed rather than
+                # hardcoded so all three call sites carry the same local and no path
+                # can grow its own idea of what was deferred.
+                payload = _run_json_payload(
+                    slate, slate_path, None, needs_approval, None, deferred
+                )
                 print(json.dumps(payload, indent=2), file=result_stream)
             return 0
 
@@ -4957,7 +4977,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 # `top_goal` names the goal a real run WOULD dispatch while
                 # `dispatched` stays null: the preview reports its INTENT, never a
                 # run that happened.
-                payload = _run_json_payload(slate, slate_path, top, needs_approval, None)
+                payload = _run_json_payload(
+                    slate, slate_path, top, needs_approval, None, deferred
+                )
                 print(json.dumps(payload, indent=2), file=result_stream)
             return 0
 
@@ -4968,7 +4990,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         state, run_dir, tools = dispatched
         print(_render_run_summary(top, state, run_dir, tools))
         if args.json:
-            payload = _run_json_payload(slate, slate_path, top, needs_approval, dispatched)
+            payload = _run_json_payload(
+                slate, slate_path, top, needs_approval, dispatched, deferred
+            )
             print(json.dumps(payload, indent=2), file=result_stream)
         # DONE and BUDGET_EXHAUSTED are both valid loop terminations, not CLI faults.
         return 0

@@ -100,7 +100,7 @@ _SKIPPED_HEADER_RE = re.compile(r"auto-approved but not run", re.IGNORECASE)
 _DISPATCH_CMD = "pla dispatch"
 _HEX12 = re.compile(r"\b[0-9a-f]{12}\b")
 
-# The six documented top-level keys of `run --json` (behavior 6).
+# The seven documented top-level keys of `run --json` (behavior 6).
 _JSON_KEYS = {
     "workspace_root",
     "slate_path",
@@ -108,6 +108,7 @@ _JSON_KEYS = {
     "needs_approval",
     "top_goal",
     "dispatched",
+    "deferred",
 }
 
 
@@ -505,12 +506,12 @@ def test_b05_dry_run_renders_the_same_skipped_block_as_a_real_run(
 
 
 # ---------------------------------------------------------------------------
-# Behavior 6 -- `run --json` still publishes exactly the six documented keys.
+# Behavior 6 -- `run --json` still publishes exactly the seven documented keys.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("dry", [True, False], ids=["dry-run", "real"])
-def test_b06_json_document_still_has_exactly_six_top_level_keys(
+def test_b06_json_document_still_has_exactly_seven_top_level_keys(
     bed: dict[str, Path], tmp_path: Path, capsys, dry: bool
 ) -> None:
     state_dir = tmp_path / "state"

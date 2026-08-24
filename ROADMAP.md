@@ -104,3 +104,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #244 Done-ledger iteration tags relabelled to the vocabulary git carries, under a resolvability oracle (foundry iter 239)
 - #245 pla policy --check-goal: gate a user-named goal with no slate, no LLM, no workspace (foundry iter 240)
 - #117 Packaging-contract oracle: the declared `[project.scripts]` string resolves by import to `cli.main` (foundry iter 241)
+- #246 run --json publishes the AUTO_DISPATCH goals it deferred, as an always-present seventh key (foundry iter 242)

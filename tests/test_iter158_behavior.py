@@ -50,7 +50,15 @@ README = REPO / "README.md"
 
 # The published result schema (spec behaviors 2 and 3).
 _TOP_KEYS = frozenset(
-    {"workspace_root", "slate_path", "goal_count", "needs_approval", "top_goal", "dispatched"}
+    {
+        "workspace_root",
+        "slate_path",
+        "goal_count",
+        "needs_approval",
+        "top_goal",
+        "dispatched",
+        "deferred",
+    }
 )
 _DISPATCH_KEYS = frozenset(
     {
@@ -237,16 +245,16 @@ def test_b01_json_run_exits_zero_and_stdout_is_one_json_object(json_run) -> None
 
 
 # ===========================================================================
-# Behavior 2 -- exactly six top-level keys, with the published types
+# Behavior 2 -- exactly seven top-level keys, with the published types
 # ===========================================================================
 
 
-def test_b02_top_level_schema_is_exactly_the_six_published_keys(json_run) -> None:
+def test_b02_top_level_schema_is_exactly_the_seven_published_keys(json_run) -> None:
     proc, _sd, ws = json_run
     payload = _one_json_object(proc.stdout, "run --json")
 
     assert set(payload) == set(_TOP_KEYS), (
-        "the result object must carry exactly the six published keys; "
+        "the result object must carry exactly the seven published keys; "
         f"missing={sorted(_TOP_KEYS - set(payload))} extra={sorted(set(payload) - _TOP_KEYS)}"
     )
     assert isinstance(payload["workspace_root"], str), "workspace_root must be a str"
@@ -407,7 +415,7 @@ def test_b06_dry_run_json_previews_with_null_dispatched_and_no_run_dir(dry_json_
     )
     payload = _one_json_object(proc.stdout, "run --json --dry-run")
     assert set(payload) == set(_TOP_KEYS), (
-        f"the preview publishes the same six keys; got {sorted(payload)}"
+        f"the preview publishes the same seven keys; got {sorted(payload)}"
     )
     top = payload["top_goal"]
     assert isinstance(top, dict) and top["title"], (

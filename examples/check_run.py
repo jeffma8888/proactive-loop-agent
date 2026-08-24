@@ -12,7 +12,7 @@ WHY one consumer serves three verbs. ``run --json`` NESTS the nine-key
 dispatched document under its ``dispatched`` key; ``dispatch --json`` and
 ``resume --json`` publish that SAME document at top level. So a top-level
 ``status`` key discriminates the two shapes unambiguously: the ``run --json``
-wrapper publishes exactly six keys and ``status`` is not among them.
+wrapper publishes exactly seven keys and ``status`` is not among them.
 
 WHY the success value is imported and never typed. The terminal success status
 is ``done`` -- not the ``completed`` a careful reader guesses, which is exactly
