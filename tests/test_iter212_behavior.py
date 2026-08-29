@@ -334,13 +334,23 @@ def test_b01_help_advertises_the_glob_metavar(capsys: pytest.CaptureFixture[str]
 
 
 def test_b01_sibling_verbs_are_untouched() -> None:
-    """Acceptance criterion: only `scan` changes; `run` and `watch` gain nothing."""
+    """Scope fence, NARROWED in iter 249 -- point-in-time, not a product invariant.
+
+    Iteration 212's criterion was "only `scan` changes; `run` and `watch` gain
+    nothing", scoped by its own words "in this iteration". Row #249 removed `run`
+    from the fence on PM authority: it shipped `run --exclude-path`, the LOCATION
+    half of the pair whose `--collector` half shipped as row #248. `watch` stays
+    fenced because row #249's Out of Scope keeps it so -- "`--exclude-path` on
+    `watch` -- unchanged, exactly as iter-245 left `--collector` there". A later
+    iteration may narrow this further by PM decision; it may not widen it back
+    over `run`.
+    """
     parser = build_parser()
-    for verb in ("run", "watch"):
+    for verb in ("watch",):
         with pytest.raises(SystemExit) as exit_info:
             parser.parse_args([verb, "--workspace", "W", "--exclude-path", "x"])
         assert exit_info.value.code == 2, (
-            f"`{verb}` must not gain --exclude-path in this iteration"
+            f"`{verb}` must not gain --exclude-path: it is still fenced as of iter 249"
         )
 
 

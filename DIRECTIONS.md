@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-249
+    lenses: simplification-and-deletion (iteration 249), performance-and-throughput (iteration 249)
+    - Candidate A1 -- Relocate settled Done-ledger rows out of ROADMAP.md to restore the appendable budget
+    - Candidate B1 -- Introduce one JSON-or-human emit seam and delete the byte-identical copies
+    - Candidate C1 -- Collapse the two parallel collector maps into one, matching the tool catalog's existing shape
+    - Candidate A2 -- Cheap-reject prefilter for `syntax_error`, the 61% of a scan that emits nothing
+    - Candidate B2 -- Put a number on the warm `watch` tick, and gate it
+    - Candidate C2 -- One test is half the suite's wall clock; the tester stage is the loop's scarcest resource
+    winner: A1
+    ship: pending (not yet decided)
   iter-248
     lenses: integration-and-adoption (iteration 248), simplification-and-deletion (iteration 248)
     - Candidate A -- the demo grades the `watch` -> `diff`/`trend` stream arc that the bundled fixture already pays for
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- collapse FOUR copies of the root+direct-children walk into ONE parameterized walker (roadmap row #163, re-scoped)
     - Candidate B3 -- single-source the triplicated `--collector` registration inside `build_parser`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 5965e98
   iter-247
     lenses: hardening/DX -- iteration 247, integration-and-adoption -- iteration 247
     - Candidate A1 -- The `.PHONY` documentation guard passes VACUOUSLY: `make setup` and `make clean` are undocumented and the guard is green
@@ -1288,4 +1298,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-129 scouted iterations
+130 scouted iterations

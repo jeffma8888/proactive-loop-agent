@@ -870,6 +870,47 @@ def build_parser() -> argparse.ArgumentParser:
             "Default (absent) runs all collectors."
         ),
     )
+    # The LOCATION-shaped companion to that allowlist, completing the pair `scan` and
+    # `signals` already carry. WHY it lands on `run` last and still matters: --collector
+    # narrows WHICH collector may speak, this narrows WHERE any of them may speak from,
+    # and on the one verb that ACTS a mis-scoped perception causes an unattended L1
+    # execution against a vendored or generated subtree rather than a merely wrong
+    # report. A user who armed --exclude-path on `scan` and then reached for `run`
+    # silently lost the scoping until now -- the same "reached for it and lost it"
+    # defect the --collector row above fixed for the other half.
+    #
+    # Repeatable (action="append") with OR semantics; absent (None or []) keeps a bare
+    # `run` byte-identical. type=_nonempty_glob is the SAME validator both shipped
+    # callers use, so an empty pattern is a PARSE-time usage error (exit 2) here too.
+    p_run.add_argument(
+        "--exclude-path",
+        action="append",
+        default=None,
+        type=_nonempty_glob,
+        metavar="GLOB",
+        dest="exclude_path",
+        # Deliberately does NOT spell the literal `--json`, for the reason recorded at
+        # --snapshot above: test_iter158's run-help oracle locates the --json entry with
+        # rindex("--json"), so a LATER option whose prose names that flag becomes the
+        # match and the oracle grades the wrong help string. `scan`'s twin help may
+        # spell it because no oracle scans `scan --help` that way; this one may not.
+        help=(
+            "Keep signals whose path matches this glob OUT OF PERCEPTION -- the escape "
+            "hatch for a vendored, generated, fixture or settled-history tree, and the "
+            "way to stop this verb ACTING on one. Repeatable with OR semantics "
+            "(--exclude-path 'vendor/*' --exclude-path '*.min.js'). Matching is "
+            "identical to `scan --exclude-path`: CASE-INSENSITIVE, anchored at the "
+            "START of the path, tried against the whole path AND against every ANCESTOR "
+            "DIRECTORY of it (so a bare directory name excludes that whole SUBTREE), "
+            "and a trailing ':LINE' suffix does not defeat it. A signal with NO path "
+            "(repo-level perception) is NEVER excluded, not even by '*'. Composes as a "
+            "logical AND with --collector: every collector still RUNS and this subtracts "
+            "by LOCATION afterwards. It narrows the RECORD too -- the slate is "
+            "synthesized from the surviving signals and --snapshot writes exactly them "
+            "-- and the narrowing is reported on this run's own output. An empty "
+            "pattern is a usage error (exit 2)."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -4947,6 +4988,50 @@ def _cmd_run(args: argparse.Namespace) -> int:
             print(
                 f"perception narrowed to {len(only)} of {len(all_collectors())} "
                 f"collectors: {', '.join(sorted(only))}"
+            )
+        # The LOCATION filter, applied HERE -- below the collect that produced the
+        # snapshot and ABOVE every consumer of it -- so the --snapshot audit document,
+        # the synthesis prompt and the --dry-run report all inherit it by construction
+        # rather than by three call sites staying in sync. It filters the COLLECTED
+        # snapshot instead of pruning upstream because a signal's path does not exist
+        # until its collector has run; that is also why every collector still RUNS
+        # (so this composes with --collector as a plain AND, neither flag changing the
+        # other's meaning) and why a path-less repo-level signal can never be excluded,
+        # not even by '*'.
+        #
+        # _path_excluded is the SAME predicate _cmd_scan and _select_signals delegate
+        # their path clause to, so `run --exclude-path P` selects exactly what
+        # `scan --exclude-path P` does over the same snapshot -- there is no second
+        # matcher to drift, and this adds no module-level symbol. model_copy(update=...)
+        # rather than a fresh WorkspaceSnapshot(...) so `root` and the `collected_at`
+        # stamp survive verbatim, and the comprehension preserves collector order.
+        # Truthiness (not `is not None`) keeps both the no-flag and the empty-list paths
+        # byte-identical by skipping the rebuild AND the line below entirely.
+        #
+        # The rebuild and the count reported for it live in ONE block on purpose: the
+        # count is a difference across the rebuild, so splitting them would either
+        # thread a local across the --collector announce or re-derive a number that can
+        # then disagree with what was actually dropped. Placed BELOW the --collector
+        # line so a narrowing reads collector-then-location, and as a SEPARATE `if` so
+        # a --collector-only invocation's stdout stays byte-identical. Same reasons as
+        # that line for being a plain print and for reporting at all: `run` is the verb
+        # that ACTS, so what it was allowed to see is a safety fact, not a display
+        # preference, and under --json the whole body is already redirected to stderr so
+        # the JSON payload's key set is untouched. sorted(set(...)) makes the line
+        # identical regardless of the order the globs were passed or how often one was
+        # repeated.
+        if args.exclude_path:
+            globs = sorted(set(args.exclude_path))
+            before = len(snapshot.signals)
+            kept = [
+                s
+                for s in snapshot.signals
+                if not _path_excluded(s.path, args.exclude_path)
+            ]
+            snapshot = snapshot.model_copy(update={"signals": kept})
+            print(
+                f"perception excluded {before - len(kept)} of {before} signals "
+                f"by path: {', '.join(globs)}"
             )
         # Written ONCE, here: after the collect that produced it and BEFORE synthesis.
         # That position is load-bearing twice, exactly as in _cmd_scan -- the perception
