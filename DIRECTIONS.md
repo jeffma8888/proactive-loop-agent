@@ -1,6 +1,37 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-248
+    lenses: integration-and-adoption (iteration 248), simplification-and-deletion (iteration 248)
+    - Candidate A -- the demo grades the `watch` -> `diff`/`trend` stream arc that the bundled fixture already pays for
+    - Candidate B -- give `pla dispatch --dry-run` its first consumer: grade the `run` -> `dispatch` handoff
+    - Candidate C -- row #161: give `--baseline` its first consumer, armed on `ci_config` only
+    - Candidate B1 -- reclaim `ROADMAP.md` headroom: relocate the settled Done-ledger tail into `ROADMAP_ARCHIVE.md`
+    - Candidate B2 -- collapse FOUR copies of the root+direct-children walk into ONE parameterized walker (roadmap row #163, re-scoped)
+    - Candidate B3 -- single-source the triplicated `--collector` registration inside `build_parser`
+    winner: B1
+    ship: pending (not yet decided)
+  iter-247
+    lenses: hardening/DX -- iteration 247, integration-and-adoption -- iteration 247
+    - Candidate A1 -- The `.PHONY` documentation guard passes VACUOUSLY: `make setup` and `make clean` are undocumented and the guard is green
+    - Candidate A2 -- Extend the type oracle to the two graded example consumers (`mypy` stops at `src/`)
+    - Candidate A3 -- Make `make check`'s graded interpreter leg a CHOICE, not an accident
+    - Candidates I measured and DROPPED -- do not re-buy these
+    - Candidate B1 -- `pla resume --json` gets its first non-test consumer: the graded demo proves the checkpoint round-trip
+    - Candidate B2 -- `pla runs` gets its first consumer: bind the run REGISTRY to the run the demo just wrote
+    - Candidate B3 -- Row #184 (`signals --fail-over N`) RE-PRICED: the total is 75 and 65 of it is cap-pinned
+    winner: A1
+    ship: REVERTED
+  iter-246
+    lenses: unknown
+    - Candidate A1 -- `scan --min-weight FLOAT`: the RELEVANCE axis of the synthesis verb's perception filter
+    - Candidate A2 -- `diff --fail-on-changed`: the change feed's first exit-code gate
+    - Candidate A3 -- `explain --decision D`: the audit verb's first view filter
+    - Candidate B1 -- name the `PLA_*` env leak in ONE failure instead of leaving 13 cryptic ones
+    - Candidate B2 -- `make which-python`: report which CI matrix leg the local gate actually graded
+    - Candidate B3 -- row #232: `test_catalog_has_sixteen_entries` asserts 17, twice
+    winner: A2
+    ship: unknown
   iter-245
     lenses: narrative-and-docs, new-capability
     - A1 -- `SPEC.md` names 4 of the 9 `make` targets, at TWO sites, and hides all three machine gates
@@ -10,7 +41,7 @@ foundry directions -- proactive-loop-agent
     - B2 -- `run`/`resume --max-iterations N` / `--max-llm-calls N`: the L1 budget becomes SETTABLE
     - B3 -- `PythonVersionDriftCollector`: the 18th collector -- and its real price is 45 files, not "small"
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED eb9b83b
   iter-244
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- convert the 3 remaining mechanical walkers onto dir_source (6 physical traversals -> 3)
@@ -1257,4 +1288,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-126 scouted iterations
+129 scouted iterations

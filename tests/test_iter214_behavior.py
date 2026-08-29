@@ -141,6 +141,27 @@ def _ledger_rows(text: str) -> tuple[str, ...]:
     return tuple(m.group(1) for m in LEDGER_BULLET.finditer(text))
 
 
+def _relocated_bullets(text: str) -> tuple[str, ...]:
+    """The bullets for the rows :data:`RELOCATED_ROWS` names, in document order.
+
+    Scoped to THIS iteration's 40 rows rather than to every ledger bullet the archive
+    happens to hold, because that is the claim behavior 2 actually makes -- the slice this
+    iteration moved is verbatim, in order, once each. The unscoped form measured the whole
+    document, which silently turned a point-in-time proof into a prohibition: any LATER
+    relocation adding one bullet changed the digest, the endpoints and the row set at once.
+    That contradicted ``tests/test_roadmap_ledger_conservation.py``, whose stated purpose is
+    to be "the control that makes relocating safe to repeat", and it is what blocked the
+    second batch. Narrowing the DOMAIN leaves every pinned constant untouched: over the 40
+    named rows the digest, both endpoints and the census are bit-for-bit what they were.
+    """
+    wanted = frozenset(RELOCATED_ROWS)
+    return tuple(
+        line
+        for line in _ledger_bullets(text)
+        if (match := LEDGER_BULLET.match(line)) is not None and match.group(1) in wanted
+    )
+
+
 def _conservation_failures(
     roadmap_text: str, archive_text: str, anchor: tuple[str, ...]
 ) -> tuple[str, ...]:
@@ -189,9 +210,15 @@ def test_b1_every_relocated_row_left_the_roadmap_ledger() -> None:
 
 def test_b1_the_relocation_moved_exactly_forty_rows_and_kept_the_rest() -> None:
     assert len(RELOCATED_ROWS) == 40
-    rows = set(_ledger_rows(_read(ROADMAP)))
+    # VANISHED means gone from BOTH documents, which is what this assertion's own message
+    # says and what "the rest was kept" claims. Measuring only ROADMAP.md over-stated it
+    # into "the other 41 may never move", i.e. a ban on the second batch; a retained row
+    # relocated LATER is still kept, it just lives in the archive now.
+    recorded = set(_ledger_rows(_read(ROADMAP))) | set(_ledger_rows(_read(ARCHIVE)))
     retained = {row for row in PRE_RELOCATION_LEDGER if row not in set(RELOCATED_ROWS)}
-    assert retained <= rows, f"retained rows vanished: {sorted(retained - rows, key=int)}"
+    assert retained <= recorded, (
+        f"retained rows vanished: {sorted(retained - recorded, key=int)}"
+    )
 
 
 def test_b1_the_ledger_is_non_vacuous_so_the_absence_check_can_fail() -> None:
@@ -205,7 +232,7 @@ def test_b1_the_ledger_is_non_vacuous_so_the_absence_check_can_fail() -> None:
 
 
 def test_b2_the_relocated_bullets_are_byte_identical_to_the_pre_move_text() -> None:
-    bullets = _ledger_bullets(_read(ARCHIVE))
+    bullets = _relocated_bullets(_read(ARCHIVE))
     digest = hashlib.sha256(chr(10).join(bullets).encode("utf-8")).hexdigest()
     assert digest == RELOCATED_BULLETS_SHA256, (
         "archive ledger bullets differ from the pre-move slice in content or order; "
@@ -214,15 +241,18 @@ def test_b2_the_relocated_bullets_are_byte_identical_to_the_pre_move_text() -> N
 
 
 def test_b2_the_endpoints_are_quoted_verbatim_including_the_iteration_suffix() -> None:
-    bullets = _ledger_bullets(_read(ARCHIVE))
+    bullets = _relocated_bullets(_read(ARCHIVE))
     assert bullets[0] == OLDEST_RELOCATED
     assert bullets[-1] == NEWEST_RELOCATED
 
 
 def test_b2_every_relocated_row_is_recorded_in_the_archive_exactly_once() -> None:
     rows = _ledger_rows(_read(ARCHIVE))
-    assert sorted(rows, key=int) == sorted(RELOCATED_ROWS, key=int)
-    assert len(rows) == len(set(rows)), "a relocated row is recorded twice"
+    mine = tuple(row for row in rows if row in frozenset(RELOCATED_ROWS))
+    assert sorted(mine, key=int) == sorted(RELOCATED_ROWS, key=int)
+    # Kept over the WHOLE archive, not just this slice: a duplicate anywhere makes ``grep``
+    # ambiguous about where a ship record lives, whichever batch relocated it.
+    assert len(rows) == len(set(rows)), "a ship record is recorded twice in the archive"
 
 
 def test_b2_all_relocated_bullets_sit_under_one_dedicated_heading() -> None:

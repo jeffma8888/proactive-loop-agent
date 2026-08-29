@@ -406,3 +406,16 @@ _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-ord
 - #197 Content-digest memo for merge_conflict: one... (iter 159, factory iter 165)
 - #199 Retire the 5 stale "~Nx this repo" cap... (iter 160, factory iter 166)
 - #200 scan --snapshot FILE: perceived signals as a... (iter 161, factory iter 167)
+
+> Second batch, relocated for the same reason once the remaining ledger again approached the ceiling: the 10 oldest bullets left after the first batch, `#198` through `#211`, moved verbatim. `#168` stays in `ROADMAP.md` under its pin.
+
+- #198 Reclaim ROADMAP.md char headroom: retired 5 settled... (iter 162, factory iter 168)
+- #202 L2 fail-open stops being silent:... (iter 163, factory iter 169)
+- #203 signals --fail-on-kind fails CLOSED when an armed... (iter 165, re-land of 164, factory iter 170)
+- #204 Race-free collection-cleanliness oracle:... (iter 166, factory iter 171)
+- #207 Single-source the ROADMAP.md size budget (iter 168, factory iter 172)
+- #196 resume --json: the 9-key dispatched document from a... (iter 169, factory iter 173)
+- #208 examples/check_run.py: first committed consumer of... (iter 170, factory iter 174)
+- #209 One shared per-scan dirent provider: 2 collectors... (iter 171, factory iter 175)
+- #206 README suite-size ratchet gains a headroom gauge... (iter 172, factory iter 176, aae1a80)
+- #211 .gitignore + make clean cover the... (iter 174, factory iter 178)

@@ -58,16 +58,6 @@ _Rows are dropped from this index once shipped, and only after verifying the row
 A line records that a row SHIPPED, not that the archive holds its text (that happens on retirement); keep rows terse. **A row's cited iteration tag is the tag that appears VERBATIM in the shipping commit's subject** -- spell it `(foundry iter N)` exactly as `git log --format=%s` does, never a second private counter. `tests/test_iter218_behavior.py` reds a cited tag that resolves to no commit subject; the newest row alone is exempt. Oldest bullets RELOCATE into `ROADMAP_ARCHIVE.md` as this file tightens, and `tests/test_roadmap_ledger_conservation.py` reds a row recorded in neither document or in both.
 
 - #168 signals --fail-over N: a count-budget exit gate (iter 138, factory iter 145, 004f037)
-- #198 Reclaim ROADMAP.md char headroom: retired 5 settled... (iter 162, factory iter 168)
-- #202 L2 fail-open stops being silent:... (iter 163, factory iter 169)
-- #203 signals --fail-on-kind fails CLOSED when an armed... (iter 165, re-land of 164, factory iter 170)
-- #204 Race-free collection-cleanliness oracle:... (iter 166, factory iter 171)
-- #207 Single-source the ROADMAP.md size budget (iter 168, factory iter 172)
-- #196 resume --json: the 9-key dispatched document from a... (iter 169, factory iter 173)
-- #208 examples/check_run.py: first committed consumer of... (iter 170, factory iter 174)
-- #209 One shared per-scan dirent provider: 2 collectors... (iter 171, factory iter 175)
-- #206 README suite-size ratchet gains a headroom gauge... (iter 172, factory iter 176, aae1a80)
-- #211 .gitignore + make clean cover the... (iter 174, factory iter 178)
 - #201 pla verify --slate/--snapshot: resolve each goal's... (iter 173, factory iter 177)
 - #213 run --snapshot FILE: the autonomous verb persists... (iter 175, factory iter 179)
 - #214 `pla verify --fail-on-unresolved`: the exit code a caller can... (iter 176, factory iter 180)
