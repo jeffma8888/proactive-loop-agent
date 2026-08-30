@@ -456,10 +456,13 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
     (0, "success."),
     (
         1,
-        "operational fault -- a foreseeable operator or environment error "
-        "(an unknown --provider, a missing or malformed input file, or a "
-        "model-boundary failure once the retry budget is spent). Reported as "
-        "one 'error: ...' line on stderr, never a traceback.",
+        "operational fault, or a gate that could not be proven -- a "
+        "foreseeable operator or environment error (an unknown --provider, a "
+        "missing or malformed input file, or a model-boundary failure once the "
+        "retry budget is spent), or a collector owning a kind armed with "
+        "--fail-on-kind degraded mid-scan, so that gate fails closed rather "
+        "than certifying a green result it cannot prove. Reported as one "
+        "'error: ...' line on stderr, never a traceback.",
     ),
     (
         2,
@@ -1723,10 +1726,14 @@ def main(argv: list[str] | None = None) -> int:
     deliberate refusal apart from a fault):
 
     * ``0`` -- success.
-    * ``1`` -- operational fault: a foreseeable operator/environment error
-      (bad ``--provider``, missing/malformed input file, or a model-boundary
-      failure once the retry budget is spent). Reported as one ``error: ...``
-      line on stderr, never a raw traceback.
+    * ``1`` -- operational fault, or a gate that could not be proven: a
+      foreseeable operator/environment error (bad ``--provider``,
+      missing/malformed input file, or a model-boundary failure once the retry
+      budget is spent), or a collector owning a kind armed with
+      ``signals --fail-on-kind`` degraded mid-scan, so that gate fails closed
+      rather than certifying a green result it cannot prove -- a crashed
+      collector cannot tell absent from never-looked. Reported as one
+      ``error: ...`` line on stderr, never a raw traceback.
     * ``2`` -- not-found / no-checkpoint (a handler returned it explicitly).
     * ``3`` -- BLOCKED by the autonomy contract.
     * ``4`` -- needs-approval (re-run with ``--yes``).

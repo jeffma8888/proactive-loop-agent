@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-251
+    lenses: narrative-and-docs (iteration 251), new-capability (iteration 251)
+    - Candidate A1 -- SPEC section 2's layout tree names 8 of the 15 tracked top-level entries
+    - Candidate A2 -- producer-completeness is enforced for exit code 5 only, and exit code 1 has an undocumented producer
+    - Candidate A3 -- the README calls DIRECTIONS.md "one block per iteration"; 28 shipped iterations have no block
+    - Candidate B1 -- `watch --exclude-path` / `--collector`: the namesake proactive verb is the only workspace verb that cannot scope its perception
+    - Candidate B2 -- `scan --baseline FILE`: synthesize only what is NEW since a saved snapshot
+    - Candidate B3 -- the 18th collector: `python_version_drift`, the second RELATIONAL perception
+    winner: A2
+    ship: pending (not yet decided)
   iter-250
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Bound the unbounded parse: `syntax_error` has a per-FILE cap and no per-SCAN cap
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `SPEC.md` section 2's layout tree names 8 of the 15 tracked top-level entries
     - Candidate B3 -- eight test NAMES report a collector roster the registry outgrew, and the ban's tuple is missing one word
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED eefeee3
   iter-249
     lenses: simplification-and-deletion (iteration 249), performance-and-throughput (iteration 249)
     - Candidate A1 -- Relocate settled Done-ledger rows out of ROADMAP.md to restore the appendable budget
@@ -1308,4 +1318,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-131 scouted iterations
+132 scouted iterations

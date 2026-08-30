@@ -99,3 +99,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #248 run --collector NAME: the sole autonomous verb's perception becomes scopeable, and it reports the narrowing (foundry iter 245)
 - #249 run --exclude-path GLOB: the sole autonomous verb's perception narrows by LOCATION too (foundry iter 249)
 - #250 Spelled subparser counts in cli.py comments+docstrings bound to the live roster; the stale fifteen fixed (foundry iter 250)
+- #251 Exit code 1's gate-unproven producer named on the epilog + docstring, under a derived guard (foundry iter 251)
