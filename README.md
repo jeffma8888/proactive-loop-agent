@@ -227,6 +227,19 @@ Two more developer entry points exist, both opt-in rather than part of `make che
   public build. The guard enforcing that floor is silent while green, so this gauge is the only
   advance warning you get.
 
+Two housekeeping targets complete the set:
+
+- `make setup` -- install the exact locked dependency set into a project virtualenv
+  (`uv sync --locked`). Prefer it to a bare `uv sync`: CI installs with `--locked` and fails on
+  any `uv.lock` drift, so going through this target is what makes "clone -> `make setup` == CI
+  env" a guarantee rather than a hope.
+- `make clean` -- remove everything a local run generates: the `.pla_runs` state directory, the
+  `.coverage*` data files and `htmlcov/` that a coverage run leaves behind (including the
+  per-worker `.coverage.<host>.<pid>.<rand>` files `-n auto` writes), the `__pycache__` and
+  `.pytest_cache` caches, and the throwaway `.venv-py*` virtualenvs `make check-matrix` builds.
+  Reach for it when a coverage run has dirtied the tree; `make check` already discards
+  `.pla_runs` itself, for the same reason.
+
 ### Try it on your own repo
 
 Everything above points at this repo's bundled fixture. To point the

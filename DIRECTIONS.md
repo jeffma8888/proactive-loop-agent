@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-253
+    lenses: hardening/DX, integration-and-adoption (iteration 253)
+    - Candidate A1 -- re-land the reviewer-APPROVED iter-247 slice: two `make` entry points are documented NOWHERE and the guard reports full coverage
+    - Candidate A2 -- the type oracle stops at `src/`, so the two consumers `make check` and CI actually EXECUTE are unchecked
+    - Candidate A3 -- row #218 re-measured: one exported `PLA_*` knob still reds a clean checkout
+    - Candidate B1 -- `watch --json`: the one verb of 17 with no machine-readable output
+    - Candidate B2 -- `run --json` cannot report what the run actually looked at: three shipped flags are invisible to every machine consumer
+    - Candidate B3 -- `make demo` never exercises the baseline pair, so iter 252's feature ships with no runnable proof
+    winner: A1
+    ship: pending (not yet decided)
   iter-252
     lenses: new-capability, hardening/DX
     - Candidate A1 -- scan/run --baseline FILE: instance-level perception narrowing on the two synthesis verbs
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `make roadmap-headroom`: the gauge for the budget that has already destroyed an approved iteration
     - Candidate B3 -- `tests/conftest.py`: one exported `PLA_*` knob still reds a clean checkout
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 0f5507c
   iter-251
     lenses: narrative-and-docs (iteration 251), new-capability (iteration 251)
     - Candidate A1 -- SPEC section 2's layout tree names 8 of the 15 tracked top-level entries
@@ -1328,4 +1338,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-133 scouted iterations
+134 scouted iterations

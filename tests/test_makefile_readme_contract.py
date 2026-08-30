@@ -21,14 +21,16 @@ Both are now documented below the human-owned marker, and this module is the ora
 that reds the build when the NEXT target ships undocumented.
 
 Four design decisions worth the reader's time
-1. **The matcher is HYPHEN-aware, and that is the whole guard.** A substring matcher
-   passes VACUOUSLY here, measured: ``checkpoint`` occurs 17 times in this README and
-   contains ``check``, so a naive matcher reports the ``check`` target as documented on
-   the strength of a word about atomic writes. A plain ``\\b`` word boundary is not
-   enough either, because ``-`` is a non-word character: under ``\\bcheck\\b`` the
-   string ``make check-matrix`` would document the DIFFERENT target ``check``, and
+1. **The matcher is HYPHEN-aware on the target name, and that is HALF the guard.**
+   (Decision 4's ``make`` anchor is the other half.) A substring matcher passes
+   VACUOUSLY here, measured: ``checkpoint`` occurs 17 times in this README and contains
+   ``check``, so a naive matcher reports the ``check`` target as documented on the
+   strength of a word about atomic writes. A plain ``\\b`` word boundary is not enough
+   either, because ``-`` is a non-word character: under ``\\bcheck\\b`` the string
+   ``make check-matrix`` would document the DIFFERENT target ``check``, and
    ``mypy-check`` would document it too. So the boundary class is ``[\\w-]`` on both
-   sides: a longer hyphenated target never documents its own prefix.
+   sides of the target -- a longer hyphenated target never documents its own prefix --
+   and the same class sits before ``make``, so ``cmake check`` documents nothing.
 2. **The domain is the region BELOW the human-owned marker, and that is load-bearing.**
    Everything above it is frozen prose an automated contributor may not touch, so a
    target "documented" only up there could never be fixed by the process this guard
@@ -37,11 +39,20 @@ Four design decisions worth the reader's time
    would read as "nothing is undocumented" -- the exact fail-open shape this repo keeps
    rediscovering. An empty domain makes every membership check pass, so both readers
    fail loudly instead, and the live check carries anti-vacuity floors.
-4. **The rule is PRESENCE below the marker, not the ``make <target>`` invocation form.**
-   Measured: ``setup`` and ``clean`` appear as words but never as ``make setup`` /
-   ``make clean``, so an invocation-shaped rule would silently widen its own scope from
-   the two genuinely-undocumented targets to four. Presence is the weaker claim and the
-   honest one; a stronger form is a separate, deliberate decision.
+4. **The rule is the ``make <target>`` INVOCATION form, not mere presence of the word.**
+   Presence was this guard's original rule and it was measured VACUOUS for two of the
+   nine targets: below the marker, ``setup``'s only occurrence was the phrase ``argparse
+   setup.`` and ``clean``'s only two were ``sees one clean document``, so the guard
+   reported full coverage while telling a contributor nothing whatever about either
+   target -- documentation by accidental English. The earlier revision of this decision
+   deferred the tightening as "a separate, deliberate decision" and priced it at four
+   newly-missing targets. That price was stale: re-measured at ``0f5507c`` the set
+   missing under the stronger rule is exactly ``['clean', 'setup']``, because later
+   iterations documented ``cov``, ``test``, ``typecheck``, ``check-matrix`` and
+   ``readme-headroom`` in invocation form anyway. So adopting it costs only the two
+   README blocks shipped in the same commit as this decision, and it is the rule now in
+   force. The accepted spelling -- and, more usefully, the spellings deliberately NOT
+   accepted -- are named on ``_invocation``.
 
 Offline and cheap by construction: two tracked text files, one pure matcher, no product
 import, no subprocess, no ``tmp_path`` tree, no network, no clock. Nothing here asserts
@@ -113,18 +124,28 @@ def readme_below_marker(readme_text: str) -> str:
     return below
 
 
-def _mention(target: str) -> re.Pattern[str]:
-    """A boundary- AND hyphen-aware matcher for one target name.
+def _invocation(target: str) -> re.Pattern[str]:
+    """A boundary- AND hyphen-aware matcher for the ``make <target>`` invocation form.
 
-    ``[\\w-]`` on both sides, not ``\\b``: see design decision 1 in the module
-    docstring. ``re.escape`` because target names legitimately contain ``-``.
+    The one accepted spelling is the literal word ``make``, horizontal whitespace, then
+    the target name. Deliberately NOT accepted -- named here because a guard can never
+    see the forms it silently excludes, so the next contributor should read them rather
+    than discover them from a red build: ``make -C dir target``, ``$(MAKE) target``, a
+    bare recipe name with no ``make`` at all, and a LINE BREAK between the two tokens.
+    That last exclusion is why the separator is ``[ \\t]+`` and not ``\\s+``: a reader
+    cannot copy a wrapped command, and ``\\s+`` would let a ``make`` ending one
+    paragraph pair with an unrelated word opening the next.
+
+    ``[\\w-]`` rather than ``\\b`` on both sides, so ``make check-matrix`` documents only
+    ``check-matrix`` and ``cmake check`` documents nothing: see design decisions 1 and 4.
+    ``re.escape`` because target names legitimately contain ``-``.
     """
-    return re.compile(rf"(?<![\w-]){re.escape(target)}(?![\w-])")
+    return re.compile(rf"(?<![\w-])make[ \t]+{re.escape(target)}(?![\w-])")
 
 
 def documents_target(section_text: str, target: str) -> bool:
-    """Whether ``section_text`` mentions ``target`` as a standalone token."""
-    return _mention(target).search(section_text) is not None
+    """Whether ``section_text`` teaches ``target`` as a runnable ``make <target>`` command."""
+    return _invocation(target).search(section_text) is not None
 
 
 def undocumented_targets(section_text: str, targets: Iterable[str]) -> list[str]:
@@ -215,10 +236,26 @@ def test_a_hyphenated_prefix_does_not_document_the_target_either() -> None:
     assert undocumented_targets("mypy-check the package", ["check"]) == ["check"]
 
 
-def test_surrounding_punctuation_and_backticks_still_count_as_a_mention() -> None:
-    """The boundary class must admit the forms README actually uses."""
-    for text in ("`make check`", "run `check`, then ship", "(make check)", "make check\n"):
+def test_surrounding_punctuation_and_backticks_still_admit_an_invocation() -> None:
+    """The boundary classes must admit the invocation spellings README actually uses."""
+    for text in ("`make check`", "run `make check`, then ship", "(make check)", "make check\n"):
         assert undocumented_targets(text, ["check"]) == [], text
+
+
+def test_a_bare_token_with_no_make_no_longer_documents_the_target() -> None:
+    """Design decision 4's tightening, stated as the case it deliberately breaks.
+
+    ``run `check`, then ship`` was ADMITTED by the previous presence rule; it is now
+    rejected. It teaches a reader no runnable command, and admitting that shape is
+    exactly the fail-open that let the phrase ``argparse setup.`` report the ``setup``
+    target as documented while the README explained nothing about it.
+    """
+    assert undocumented_targets("run `check`, then ship", ["check"]) == ["check"]
+
+
+def test_a_different_program_taking_the_target_as_an_argument_does_not_count() -> None:
+    """``cmake`` ends in ``make``, so the boundary BEFORE ``make`` is load-bearing too."""
+    assert undocumented_targets("cmake check", ["check"]) == ["check"]
 
 
 # ==========================================================================
