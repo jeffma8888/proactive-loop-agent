@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-252
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- scan/run --baseline FILE: instance-level perception narrowing on the two synthesis verbs
+    - Candidate A2 -- run/dispatch --allow-tool NAME: narrow the ACT sandbox for one dispatch
+    - Candidate A3 -- run --max-iterations N / --max-llm-calls N: make the L1 budget settable per run
+    - Candidate B1 -- five test names misreport the collector roster; rename them behind a registry-bound guard
+    - Candidate B2 -- `make roadmap-headroom`: the gauge for the budget that has already destroyed an approved iteration
+    - Candidate B3 -- `tests/conftest.py`: one exported `PLA_*` knob still reds a clean checkout
+    winner: A1
+    ship: pending (not yet decided)
   iter-251
     lenses: narrative-and-docs (iteration 251), new-capability (iteration 251)
     - Candidate A1 -- SPEC section 2's layout tree names 8 of the 15 tracked top-level entries
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `scan --baseline FILE`: synthesize only what is NEW since a saved snapshot
     - Candidate B3 -- the 18th collector: `python_version_drift`, the second RELATIONAL perception
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED f6ef9ca
   iter-250
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- Bound the unbounded parse: `syntax_error` has a per-FILE cap and no per-SCAN cap
@@ -1318,4 +1328,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-132 scouted iterations
+133 scouted iterations

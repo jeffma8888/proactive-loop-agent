@@ -914,6 +914,62 @@ def build_parser() -> argparse.ArgumentParser:
             "pattern is a usage error (exit 2)."
         ),
     )
+    # The INSTANCE-shaped third member of this verb's perception trio, and the one that
+    # CLOSES it: --collector narrows WHICH collector may speak, --exclude-path narrows
+    # WHERE any of them may speak from, and this narrows to what is NEW -- "you already
+    # know about this one". WHY it matters most on `run` rather than on a report: this is
+    # the verb that ACTS, and its auto-dispatch gate picks the TOP of the ranked slate,
+    # so on a real repo 30 long-settled TODOs outrank the one thing that changed today
+    # and the L1 execution goes to the wrong work. The ratchet itself already shipped,
+    # but only where it could edit a LISTING, so its effect evaporated the moment the
+    # user reached for the verb that synthesizes and dispatches -- the same "reached for
+    # it and lost it" defect the two rows above fixed for source and location.
+    #
+    # Single-value (NOT action="append"), matching the shipped `signals` twin: passing it
+    # twice keeps the LAST path, because a second baseline is a replacement rather than
+    # another clause. Absent (default None) keeps a bare `run` byte-identical.
+    #
+    # CONSUME-only, so this verb gains no second output contract: the document is
+    # bring-your-own, and `run --snapshot FILE` / `scan --snapshot FILE` already write
+    # exactly the schema this reads (see _write_snapshot_document), so the round trip is
+    # between two shipped flags and there is no new file format.
+    p_run.add_argument(
+        "--baseline",
+        default=None,
+        metavar="FILE",
+        dest="baseline",
+        # Deliberately spells NEITHER the literal `--json` NOR the literal
+        # `--exclude-path`, and both bans are load-bearing rather than stylistic: this
+        # entry is appended to the SAME `run --help` string two shipped oracles grade by
+        # LAST occurrence. tests/test_iter158_behavior.py::test_b09_run_help_documents_json
+        # locates the --json entry with rindex("--json") and grades the 240 chars after
+        # it, and tests/test_iter227_behavior.py::test_b11_help_documents_the_flag_without_naming_json
+        # locates the location filter's entry with rindex on its name and grades
+        # everything after it -- so naming either flag here would silently move a green
+        # test onto the wrong prose. The producer is therefore named as the verb form
+        # (`pla run --snapshot FILE`), which teaches the round trip without spelling a
+        # banned token, and the sibling filters are referred to by ROLE, not by name.
+        help=(
+            "Hide every signal already recorded in FILE, a document you saved earlier "
+            "with `pla run --snapshot FILE` or `pla scan --snapshot FILE` -- so the "
+            "ranked slate this verb synthesizes, and the one goal it may auto-dispatch, "
+            "are built only from what is NEW since that snapshot. A signal's identity is "
+            "the six published keys (source, kind, summary, detail, path, weight); extra "
+            "keys are ignored, and differing in ANY one key (including weight) makes it a "
+            "different signal. Suppression is set-based, so one FILE entry hides every "
+            "live signal matching it. Single-value: passing it twice keeps the LAST FILE. "
+            "Composes as a logical AND with the collector allowlist and the path "
+            "exclusions -- every collector still RUNS and this subtracts by IDENTITY "
+            "afterwards. It narrows the RECORD too: the slate is synthesized from the "
+            "survivors, --snapshot writes exactly them, and the suppression is reported "
+            "on this run's own output. STALENESS FAILS TOWARD REPORTING -- a FILE entry "
+            "that no longer matches produces noise, never a missed finding. An empty "
+            "'signals' array is valid and suppresses nothing. A missing or malformed FILE "
+            "(not JSON, not an object, no 'signals' array, or an entry missing one of the "
+            "six keys) is a usage error (exit 2) reported before anything is collected. "
+            "Default (absent) hides nothing."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -4968,6 +5024,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
             if msg is not None:
                 print(f"error: {msg}", file=sys.stderr)
                 return 2
+        # Read HERE -- beside the two guards above and BEFORE both create_client and
+        # _collect -- because a baseline that cannot be loaded is a USAGE error, not a
+        # runtime one: nothing may be collected, no client may be built, stdout must stay
+        # EMPTY, and no run dir, slate or snapshot may be written. Fail-CLOSED for the
+        # same reason _load_signal_baseline is (see that docstring): degrading a typo'd
+        # path to "suppress nothing" would let it buy a real, unattended dispatch chosen
+        # from a slate computed against a baseline that never loaded -- the one direction
+        # this verb must never be wrong in. Loaded ONCE into a set of identity tuples.
+        #
+        # The EXISTING loader, on its default label, so every message reads "baseline
+        # file ..." exactly as the shipped `signals --baseline` does; there is no second
+        # loader and no second identity function to drift.
+        baseline: set[tuple[object, ...]] | None = None
+        baseline_path = args.baseline
+        if baseline_path is not None:
+            try:
+                baseline = _load_signal_baseline(Path(baseline_path))
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
         client = create_client(settings)
 
         # --collector is a repeatable allowlist (argparse action="append" -> a list or
@@ -5039,6 +5115,44 @@ def _cmd_run(args: argparse.Namespace) -> int:
             print(
                 f"perception excluded {before - len(kept)} of {before} signals "
                 f"by path: {', '.join(globs)}"
+            )
+        # The INSTANCE filter, applied HERE -- below the two narrowings it composes with
+        # and ABOVE every consumer of the snapshot -- so the --snapshot audit document,
+        # the synthesis prompt and the --dry-run report all inherit it by construction
+        # rather than by three call sites staying in sync. Placed LAST of the three so a
+        # narrowing always reads source, then location, then instance, and as a SEPARATE
+        # `if` so a --collector-only or path-only invocation's stdout stays byte-identical.
+        #
+        # `is not None`, deliberately NOT truthiness -- and this is the one place the
+        # trio's conventions diverge on purpose. An EMPTY set is a real answer here: a
+        # user-supplied document whose 'signals' array is [] says "nothing is known yet",
+        # and reporting "suppressed 0 of M" is what proves the file was read at all. The
+        # sibling filters may use truthiness because an empty append-list is
+        # indistinguishable from an absent flag; a loaded-but-empty baseline is not.
+        #
+        # _signal_identity over _SIGNAL_IDENTITY_KEYS is the SAME identity the loader
+        # keyed the set with, so membership cannot be computed two ways, and it is why
+        # every collector still RUNS: a signal's identity does not exist until its
+        # collector has produced it, which also makes this a plain AND with the filters
+        # above rather than something that changes their meaning.
+        # model_copy(update=...) rather than a fresh WorkspaceSnapshot(...) so `root` and
+        # the `collected_at` stamp survive verbatim, and the comprehension preserves
+        # collector order, leaving the survivors a SUBSEQUENCE of an unfiltered run's.
+        #
+        # The rebuild and its announce live in ONE block for the reason the location
+        # filter's comment gives: the count is a difference across the rebuild, so
+        # splitting them would re-derive a number that can then disagree with what was
+        # actually dropped. The path printed is the string the OPERATOR typed, not a
+        # resolved Path, so the line names the argument they can go fix. Plain print, so
+        # under --json the already-redirected body puts it on stderr with the rest of the
+        # human progress and the JSON payload's key set is untouched.
+        if baseline is not None:
+            before = len(snapshot.signals)
+            kept = [s for s in snapshot.signals if _signal_identity(s) not in baseline]
+            snapshot = snapshot.model_copy(update={"signals": kept})
+            print(
+                f"perception suppressed {before - len(kept)} of {before} signals "
+                f"by baseline: {baseline_path}"
             )
         # Written ONCE, here: after the collect that produced it and BEFORE synthesis.
         # That position is load-bearing twice, exactly as in _cmd_scan -- the perception
