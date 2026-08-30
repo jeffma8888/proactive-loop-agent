@@ -543,8 +543,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         # TOP-LEVEL only. A subcommand's help stays about that verb's flags; the
         # process-wide exit-code contract belongs where the whole tool is
-        # described, and duplicating it onto fifteen subparsers would be fifteen
-        # more copies to keep honest.
+        # described, and duplicating it onto seventeen subparsers would mean a
+        # copy per verb to keep honest.
         epilog=_exit_code_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-250
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- Bound the unbounded parse: `syntax_error` has a per-FILE cap and no per-SCAN cap
+    - Candidate A2 -- pending
+    - Candidate A3 -- pending
+    - Candidate B1 (primary) -- the word iter 232 BANNED still occurs twice in the file it banned it from
+    - Candidate B2 -- `SPEC.md` section 2's layout tree names 8 of the 15 tracked top-level entries
+    - Candidate B3 -- eight test NAMES report a collector roster the registry outgrew, and the ban's tuple is missing one word
+    winner: B1
+    ship: pending (not yet decided)
   iter-249
     lenses: simplification-and-deletion (iteration 249), performance-and-throughput (iteration 249)
     - Candidate A1 -- Relocate settled Done-ledger rows out of ROADMAP.md to restore the appendable budget
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Put a number on the warm `watch` tick, and gate it
     - Candidate C2 -- One test is half the suite's wall clock; the tester stage is the loop's scarcest resource
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 5f4d827
   iter-248
     lenses: integration-and-adoption (iteration 248), simplification-and-deletion (iteration 248)
     - Candidate A -- the demo grades the `watch` -> `diff`/`trend` stream arc that the bundled fixture already pays for
@@ -1298,4 +1308,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-130 scouted iterations
+131 scouted iterations
