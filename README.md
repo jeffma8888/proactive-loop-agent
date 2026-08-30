@@ -216,6 +216,24 @@ makes it the one caller that qualifies by construction. The gate steps that
 precede it (`test -f .pla_runs/slate.json`, `ls .pla_runs/run-*/artifacts/*.md`)
 only assert those files EXIST; this is the step that reads what they say.
 
+**And the build budgets what it cannot forbid.** `--fail-on-kind` can only arm a
+kind that is *zero* here, so the kinds that are merely supposed to stay small are
+beyond its reach. Both graded gates therefore also run a count budget:
+
+```bash
+uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
+```
+
+That view totals **9** today (`note` 5, `test_posture` 2, `ci_config` 1,
+`dependency` 1) and the boundary is strict, so 9 passes and the 10th signal is a
+red build. It names four collectors rather than budgeting the whole census on
+purpose: a full-view budget also counts `working_tree`, which emits one signal per
+changed path -- 75 signals with a clean tree, 76 with a single uncommitted edit --
+so it would be red for every developer mid-edit while CI, always a fresh checkout,
+stayed green. These four are the whole set that is both state-independent *and*
+unsaturated: `todo`, `recent_file` and `git_commit` sit on their caps, so a budget
+over them could never fire, and a gate that cannot fire is worse than no gate.
+
 Two more developer entry points exist, both opt-in rather than part of `make check`:
 
 - `make check-matrix` -- run the suite under both interpreters CI's matrix grades (3.12 and 3.13).

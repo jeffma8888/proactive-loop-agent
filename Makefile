@@ -130,9 +130,10 @@ clean:
 	rm -rf .venv-py*
 
 # Reproduce the EXACT CI graded gate locally, in CI's own order, in one command.
-# CI (.github/workflows/ci.yml) grades seven run-steps on every push: locked
+# CI (.github/workflows/ci.yml) grades eight run-steps on every push: locked
 # install -> suite -> mypy oracle -> offline demo -> demo-artifact assertions ->
-# armed source-citation verification -> armed signals self-scan.
+# armed source-citation verification -> armed signal COUNT BUDGET -> armed
+# signals self-scan.
 # Before this target there was no single local command to run that gate, and the
 # two demo-artifact assertions lived ONLY in ci.yml (nowhere runnable locally),
 # so they could silently rot. It reuses `$(MAKE) demo` (no re-inline) so the demo
@@ -141,17 +142,17 @@ clean:
 #
 # WHAT `check` IS NOT: everything CI grades. CI's `test` job is a
 # `fail-fast: false` matrix over python-version ["3.12", "3.13"], so it grades
-# those seven steps TWICE -- fourteen run-steps -- while `make check` runs them ONCE,
+# those eight steps TWICE -- sixteen run-steps -- while `make check` runs them ONCE,
 # under whichever interpreter uv last left in `.venv`. There is no
 # `.python-version` in this repo, so which leg runs locally is an accident
 # rather than a choice, and the gap is not hypothetical: a failure reproducible
 # only on the newer interpreter has already reached CI unseen. `make check-matrix`
 # (below) runs the SUITE under both matrix interpreters, which is the leg-varying
-# half of that gap; the second leg's demo, demo-artifact assertions and armed
-# self-scan stay CI-only, along with the second leg's citation verification, and
-# mypy is leg-invariant by config
-# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 9 of CI's 14
-# run-steps rather than all 14.
+# half of that gap; the second leg's demo, demo-artifact assertions, count budget
+# and armed self-scan stay CI-only, along with the second leg's citation
+# verification, and mypy is leg-invariant by config
+# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 10 of CI's 16
+# run-steps rather than all 16.
 #
 # WHY the recipe OPENS with `rm -rf .pla_runs` (the demo's own state dir): the
 # last two steps are EXISTENCE checks (`test -f` / `ls`) against a persistent,
@@ -192,6 +193,44 @@ clean:
 # the artifact assertions, which are its precondition: verification is
 # meaningless if the demo produced no slate at all.
 #
+# WHY the recipe also runs an armed COUNT BUDGET (`--fail-over N`, the step just
+# before the self-scan): `--fail-on-kind` can only arm a kind that is ZERO here,
+# so the kinds that are merely SUPPOSED to stay small -- `note`, `ci_config`,
+# `dependency`, `test_posture` -- are structurally beyond its reach (all non-zero
+# today: arming them by kind is red on arrival). `--fail-over N` is the count
+# budget for exactly that case, and until this step existed it had ZERO consumers
+# anywhere -- the same "advertised but never demonstrated" condition the two gates
+# below and above it were both added to end.
+#
+# WHY it selects FOUR collectors instead of budgeting the whole census, which is
+# the one decision in this step that is not obvious. A budget over the FULL view
+# counts `working_tree` too, and `working_tree` emits one signal per changed path:
+# measured on this repo, the census is 75 with a clean tree and 76 with a single
+# uncommitted edit. So a whole-census budget would be red for every developer
+# mid-edit while CI -- always a fresh checkout -- stayed green, which is verbatim
+# the failure the self-scan's arm set below refuses to ship. `--collector` is an
+# UPSTREAM filter, so naming these four both makes the count state-independent and
+# makes the step cheap (four collectors run, not seventeen).
+#
+# WHY these four and not the other thirteen: they are the whole set that is BOTH
+# state-independent AND unsaturated. `todo` (30/30), `recent_file` (20/20) and
+# `git_commit` (15/15) sit ON their caps, so a budget over them can never fire --
+# a gate that cannot fire is fail-open; `lockfile_drift` is mtime-driven (it is
+# the one signal that differs between this tree and a fresh clone); and
+# `working_tree` / `git_state` / `git_stash` are the local-state kinds. What is
+# left is these four, and they are also the only ones with real headroom.
+#
+# WHY 9, and why the boundary is safe: the four-collector view totals 9 here
+# (`note 5`, `test_posture 2`, `ci_config 1`, `dependency 1`) and `--fail-over` is
+# STRICTLY greater, so 9 is inside the budget and the 10th signal fails. Measured
+# in BOTH populations a gate has to survive -- this working tree and a throwaway
+# `git clone --no-hardlinks` of it -- the count is 9 either way, so no
+# `--exclude-path` equalisation is needed and nothing is blinded. Both directions
+# were run, because a gate proven green but never proven to fire is a fail-open
+# gate: `--fail-over 9` exits 0 with an empty stderr in both, and `--fail-over 8`
+# exits 5 in both with one `gate: fail-over tripped -- count=9 budget=8` line.
+# Raising this number is a deliberate act, which is the point of a ratchet.
+#
 # WHY the recipe CLOSES with an armed `pla signals` self-scan (the LAST step):
 # the product ships an enforcement mode -- `--fail-on-kind KIND` exits 5 when a
 # named signal kind is present -- and the README sells that exit code as "the
@@ -226,6 +265,7 @@ check:
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null
 	uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
+	uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
 	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
 
 # Run the suite under EVERY interpreter CI's matrix grades -- the SUITE half of the

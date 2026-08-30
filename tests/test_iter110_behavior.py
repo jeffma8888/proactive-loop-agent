@@ -62,7 +62,7 @@ PYPROJECT = REPO / "pyproject.toml"
 FRESHNESS_PRE_STEP = "rm -rf .pla_runs"
 DEMO_STATE_DIR = ".pla_runs"
 
-# The ordered eight commands of the CI graded gate (the first six unchanged from
+# The ordered nine commands of the CI graded gate (the first six unchanged from
 # iter-102; an armed `pla signals` self-scan added factory iter 128, and an armed
 # `pla verify --fail-on-unresolved` of the demo's own slate/snapshot pair added
 # factory iter 186 AHEAD of it, so the self-scan stays LAST).
@@ -82,6 +82,16 @@ CI_GATE_STEPS = (
     # inside the line budget -- count ENTRIES here, never lines.
     "uv run pla verify --slate .pla_runs/slate.json "
     "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
+    # The 9th step (added factory iter 254) is the COUNT BUDGET, the third
+    # ratchet, and the first consumer `--fail-over N` has ever had. It budgets the
+    # four kinds `--fail-on-kind` structurally cannot arm (all non-zero here, so
+    # arming them by kind is red on arrival) over an UPSTREAM `--collector`
+    # selection that is state-independent: a whole-census budget would also count
+    # `working_tree` (75 signals clean, 76 with one uncommitted edit) and so be red
+    # for every developer mid-edit while CI stayed green. ONE entry, written as
+    # fragments to stay inside the line budget -- count ENTRIES here, never lines.
+    "uv run pla signals --workspace . --collector notes --collector ci_config "
+    "--collector dependencies --collector test_posture --fail-over 9",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -103,10 +113,10 @@ ARTIFACT_ASSERTION_STEPS = CI_GATE_STEPS[4:6]
 # Pre-existing .PHONY targets that must survive this additive edit.
 PREEXISTING_TARGETS = ("setup", "test", "cov", "typecheck", "demo", "clean")
 
-# Graded `run:` steps ci.yml exposes today. Deliberately 7 while CI_GATE_STEPS
-# holds 8: the two demo-artifact assertions share one `run: |` block, so they are
+# Graded `run:` steps ci.yml exposes today. Deliberately 8 while CI_GATE_STEPS
+# holds 9: the two demo-artifact assertions share one `run: |` block, so they are
 # one graded step and two gate commands.
-EXPECTED_CI_RUN_STEPS = 7
+EXPECTED_CI_RUN_STEPS = 8
 
 # Only these command words may appear in the `check` recipe: pure shell plus
 # `$(MAKE)` and the `uv` runner. A new tool would trip behavior 7.
@@ -600,9 +610,17 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
         # factory iter 186: armed citation verification. Expensive for the SAME
         # reason as the steps around it -- it shells out to `uv`, which a nested
         # run inside the suite must never do -- and compared in CI_GATE_STEPS
-        # order, so it belongs immediately before the self-scan.
+        # order, so it sits after `make demo` and before the two gates below.
         "uv run pla verify --slate .pla_runs/slate.json "
         "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
+        # factory iter 254: the armed count budget. Expensive for the same reason
+        # (it shells out to `uv`), and inserted BEFORE the self-scan so that scan
+        # stays the final graded step. This is the one oracle in the set whose
+        # literal is spelled out rather than counted, which is why it does not
+        # move with the EXPECTED_* integers -- keep it byte-equal to the
+        # CI_GATE_STEPS entry above, same two-fragment split.
+        "uv run pla signals --workspace . --collector notes --collector ci_config "
+        "--collector dependencies --collector test_posture --fail-over 9",
         "uv run pla signals --workspace . --fail-on-kind merge_conflict "
         "--fail-on-kind syntax_error --fail-on-kind secret_file "
         "--fail-on-kind broken_link",

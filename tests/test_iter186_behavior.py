@@ -68,10 +68,16 @@ SLATE_ASSERTION: Final = "test -f .pla_runs/slate.json"
 ARTIFACT_ASSERTION: Final = "ls .pla_runs/run-*/artifacts/*.md"
 # The armed self-scan that must REMAIN the final graded step of both gates.
 SIGNALS_PREFIX: Final = "uv run pla signals --workspace ."
+# Since factory iter 254 the prefix above matches TWO gate steps -- the armed
+# count budget was inserted immediately before the self-scan -- so a first-match
+# `startswith(SIGNALS_PREFIX)` silently resolves to the budget. These are the
+# flags that tell them apart, spelled once so the three call sites cannot drift.
+SELF_SCAN_FLAG: Final = "--fail-on-kind"
+BUDGET_FLAG: Final = "--fail-over"
 
 # Spec behaviors 2/3: the shipped gate exit code, not a new one.
 GATE_EXIT: Final = 5
-EXPECTED_RUN_STEPS: Final = 7
+EXPECTED_RUN_STEPS: Final = 8
 
 # `verify`'s human-mode trailer carries the authoritative count.
 _TRAILER_RE: Final = re.compile(
@@ -320,13 +326,28 @@ def test_b4_check_recipe_verifies_after_the_artifacts_and_before_the_self_scan()
     idx_artifacts = next(
         i for i, step in enumerate(recipe) if step.startswith(ARTIFACT_ASSERTION)
     )
+    # factory iter 254 inserted a SECOND `pla signals` step (the armed count
+    # budget) ahead of the self-scan, so SIGNALS_PREFIX alone no longer
+    # identifies one step: a bare first-match resolves to the BUDGET. Locate
+    # each by the flag that makes it what it is.
     idx_signals = next(
-        i for i, step in enumerate(recipe) if step.startswith(SIGNALS_PREFIX)
+        i
+        for i, step in enumerate(recipe)
+        if step.startswith(SIGNALS_PREFIX) and SELF_SCAN_FLAG in step
+    )
+    idx_budget = next(
+        i
+        for i, step in enumerate(recipe)
+        if step.startswith(SIGNALS_PREFIX) and BUDGET_FLAG in step
     )
     assert idx_artifacts < idx_verify < idx_signals, (
         "verify must sit AFTER the demo-artifact assertions and BEFORE the "
         f"self-scan; got artifacts={idx_artifacts} verify={idx_verify} "
         f"signals={idx_signals}"
+    )
+    assert idx_verify < idx_budget < idx_signals, (
+        "the count budget must sit AFTER verify and BEFORE the self-scan; got "
+        f"verify={idx_verify} budget={idx_budget} self-scan={idx_signals}"
     )
     assert idx_signals == len(recipe) - 1, (
         f"the armed self-scan must remain the FINAL step; recipe is {recipe!r}"
@@ -353,9 +374,23 @@ def test_b5_ci_grades_the_byte_identical_step_in_the_same_position() -> None:
     idx_artifacts = next(
         i for i, s in enumerate(steps) if ARTIFACT_ASSERTION in s
     )
-    idx_signals = next(i for i, s in enumerate(steps) if s.startswith(SIGNALS_PREFIX))
+    # Narrowed for the same reason as behavior 4 above: two `pla signals` steps
+    # share SIGNALS_PREFIX since factory iter 254.
+    idx_signals = next(
+        i
+        for i, s in enumerate(steps)
+        if s.startswith(SIGNALS_PREFIX) and SELF_SCAN_FLAG in s
+    )
+    idx_budget = next(
+        i
+        for i, s in enumerate(steps)
+        if s.startswith(SIGNALS_PREFIX) and BUDGET_FLAG in s
+    )
     assert idx_artifacts < idx_verify < idx_signals, (
         f"artifacts={idx_artifacts} verify={idx_verify} signals={idx_signals}"
+    )
+    assert idx_verify < idx_budget < idx_signals, (
+        f"verify={idx_verify} budget={idx_budget} self-scan={idx_signals}"
     )
     assert idx_signals == len(steps) - 1, "the self-scan must stay the last graded step"
     # The local gate and CI cannot silently diverge.
@@ -390,7 +425,13 @@ def test_b5c_the_new_command_is_in_every_declared_gate_step_tuple() -> None:
         # Position: after the artifact assertion, before the self-scan.
         idx = tuple(gate).index(VERIFY_STEP)
         idx_art = next(i for i, s in enumerate(gate) if s.startswith(ARTIFACT_ASSERTION))
-        idx_sig = next(i for i, s in enumerate(gate) if s.startswith(SIGNALS_PREFIX))
+        # Narrowed for the same reason as behaviors 4/5: without SELF_SCAN_FLAG
+        # this stays GREEN while silently checking "before the count budget".
+        idx_sig = next(
+            i
+            for i, s in enumerate(gate)
+            if s.startswith(SIGNALS_PREFIX) and SELF_SCAN_FLAG in s
+        )
         assert idx_art < idx < idx_sig, f"{name}: art={idx_art} verify={idx} sig={idx_sig}"
 
 
@@ -421,9 +462,10 @@ def test_b6b_the_new_step_is_expensive_and_never_executed_by_the_suite() -> None
         "the verify step must NOT be classified as a cheap artifact assertion; "
         f"expensive set is {expensive!r}"
     )
-    assert len(expensive) == 6, (
-        f"the expensive set grows 5 -> 6 this iteration; got {len(expensive)}: "
-        f"{expensive!r}"
+    assert len(expensive) == 7, (
+        f"the expensive set grew 5 -> 6 in THIS iteration and 6 -> 7 in factory "
+        f"iter 254 (the armed count budget, another never-executed gate step); got "
+        f"{len(expensive)}: {expensive!r}"
     )
     # The safety rail behind the whole rule.
     assert "uv " in VERIFY_STEP

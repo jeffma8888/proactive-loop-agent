@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-254
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- arm the third ratchet: `signals --fail-over N` gets its first consumer
+    - Candidate A2 -- the adoption on-ramp reaches the gate, not just the listing
+    - Candidate A3 -- `make hooks`: the opt-in gate gains a one-command installer
+    - Candidate B1 -- collapse the duplicated sandbox directory resolution and walk shared by `search_files` and `find_files`
+    - Candidate B2 -- retire settled roadmap row #121 and the pin that keeps it alive
+    - Candidate B3 -- collapse the twelve-site sandbox path preamble in `ToolRegistry`
+    winner: A1
+    ship: pending (not yet decided)
   iter-253
     lenses: hardening/DX, integration-and-adoption (iteration 253)
     - Candidate A1 -- re-land the reviewer-APPROVED iter-247 slice: two `make` entry points are documented NOWHERE and the guard reports full coverage
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `run --json` cannot report what the run actually looked at: three shipped flags are invisible to every machine consumer
     - Candidate B3 -- `make demo` never exercises the baseline pair, so iter 252's feature ships with no runnable proof
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 37438d5
   iter-252
     lenses: new-capability, hardening/DX
     - Candidate A1 -- scan/run --baseline FILE: instance-level perception narrowing on the two synthesis verbs
@@ -1338,4 +1348,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-134 scouted iterations
+135 scouted iterations

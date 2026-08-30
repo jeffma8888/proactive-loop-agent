@@ -51,7 +51,7 @@ REPO = Path(__file__).resolve().parents[1]
 MAKEFILE = REPO / "Makefile"
 WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 
-# The ordered tuple of the eight commands that make up the CI graded gate. The
+# The ordered tuple of the nine commands that make up the CI graded gate. The
 # `check` recipe must reproduce these, in this order; each must also be a real
 # CI step. `make demo` is written `$(MAKE) demo` in the recipe (normalized
 # below); the two demo-artifact assertions live in ci.yml's single `run: |`
@@ -77,6 +77,16 @@ CI_GATE_STEPS = (
     # inside the line budget -- count ENTRIES here, never lines.
     "uv run pla verify --slate .pla_runs/slate.json "
     "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
+    # The 9th step (added factory iter 254) is the COUNT BUDGET, the third
+    # ratchet, and the first consumer `--fail-over N` has ever had. It budgets the
+    # four kinds `--fail-on-kind` structurally cannot arm (all non-zero here, so
+    # arming them by kind is red on arrival) over an UPSTREAM `--collector`
+    # selection that is state-independent: a whole-census budget would also count
+    # `working_tree` (75 signals clean, 76 with one uncommitted edit) and so be red
+    # for every developer mid-edit while CI stayed green. ONE entry, written as
+    # fragments to stay inside the line budget -- count ENTRIES here, never lines.
+    "uv run pla signals --workspace . --collector notes --collector ci_config "
+    "--collector dependencies --collector test_posture --fail-over 9",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -85,11 +95,12 @@ CI_GATE_STEPS = (
 # The number of graded `run:` steps ci.yml exposes today: locked install,
 # pytest, mypy, `make demo`, the single `run: |` block holding the two
 # demo-artifact assertions, the armed source-citation verification, and the armed
-# signals self-scan. If a CI run-step is added/removed, behavior 4 fails, forcing
-# CI_GATE_STEPS + the `check` recipe to be updated together. NOTE the count is 7
-# while CI_GATE_STEPS holds 8: the two demo-artifact assertions share one
-# `run: |` block, so they are one graded step and two gate commands.
-EXPECTED_CI_RUN_STEPS = 7
+# signal count budget, and the armed signals self-scan. If a CI run-step is
+# added/removed, behavior 4 fails, forcing CI_GATE_STEPS + the `check` recipe to
+# be updated together. NOTE the count is 8 while CI_GATE_STEPS holds 9: the two
+# demo-artifact assertions share one `run: |` block, so they are one graded step
+# and two gate commands.
+EXPECTED_CI_RUN_STEPS = 8
 
 # Every pre-existing .PHONY target that must survive this additive edit
 # (behavior 5): each must remain declared in .PHONY AND keep a non-empty recipe.

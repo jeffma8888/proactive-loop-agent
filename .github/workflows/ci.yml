@@ -91,6 +91,33 @@ jobs:
       - name: Verify the demo slate's cited sources resolve against its own snapshot
         run: uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
 
+      # The COUNT-BUDGET sibling of the gate below, and the third ratchet. The
+      # kind gate can only arm a kind that is ZERO in this repo, so the kinds
+      # that are merely supposed to stay SMALL are beyond its reach; this step
+      # budgets them instead, and until it existed `--fail-over` had zero
+      # consumers anywhere.
+      #
+      # WHY it names four collectors rather than budgeting the whole census: a
+      # full-view budget also counts `working_tree`, which emits one signal per
+      # changed path (measured: 75 signals with a clean tree, 76 with one
+      # uncommitted edit), so it would be red for every developer mid-edit while
+      # CI -- always a fresh checkout -- stayed green. These four are the whole
+      # set that is both state-independent and unsaturated: `todo`,
+      # `recent_file` and `git_commit` sit ON their caps so a budget over them
+      # could never fire, `lockfile_drift` is mtime-driven, and
+      # `working_tree`/`git_state`/`git_stash` are local state.
+      #
+      # The view totals 9 in BOTH populations this gate runs in (this working
+      # tree and a fresh clone), and the boundary is strict, so 9 passes and the
+      # 10th signal reds the build. Proven in both directions: `--fail-over 9`
+      # exits 0, `--fail-over 8` exits 5 naming count and budget.
+      #
+      # Byte-identical to the same step of `make check` (pinned by
+      # tests/test_iter102_behavior.py + tests/test_iter110_behavior.py), and
+      # placed BEFORE the self-scan so that scan stays the final graded step.
+      - name: Budget the state-independent signal kinds the kind gate cannot arm
+        run: uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
+
       # The product dogfoods its own enforcement mode: `--fail-on-kind KIND`
       # exits 5 when a named signal kind is present, and the README sells that
       # exit code as the channel a CI step branches on -- so THIS is that step.
