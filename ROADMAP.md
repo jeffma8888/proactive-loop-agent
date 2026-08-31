@@ -102,3 +102,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #256 SPEC.md section 4.5 documents the 9 shipped CLI long flags it omitted, under a parser-derived census oracle (foundry iter 256)
 - #257 run refuses an aliased --baseline/--snapshot path pair as a usage error (foundry iter 257)
 - #258 The aliased --baseline/--snapshot guard degrades to absolute() when the OS refuses to resolve, so an unresolvable path refuses cleanly on both CI legs (foundry iter 258)
+- #259 `pyproject.toml` declares `filterwarnings = ["error"]`: a warning raised anywhere in the suite is now a red build, under a two-sided live-and-declared oracle (foundry iter 259)

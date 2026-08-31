@@ -51,6 +51,30 @@ testpaths = ["tests"]
 # in tests/test_iter52_behavior.py pass an explicit `-n0` to opt back OUT.
 addopts = "-q -n auto"
 
+# Every warning the suite raises is an ERROR. A printed-and-forgotten
+# DeprecationWarning is the one failure class that stays silent until the day it
+# is a hard break, on a repo whose whole thesis is "resilient by design" and which
+# already gates itself with strict mypy, a locked install and a multi-interpreter
+# CI matrix. Declared HERE for the same reason as `addopts` above -- and never as
+# `-W error` in a recipe -- because the ini is the single declaration point: `make
+# test`, `make check`, the CI step, a bare `uv run pytest` and an IDE runner all
+# inherit it, so no invocation is silently left permissive and there is no second
+# spelling to drift from.
+#
+# The blast radius is bounded by a fact about this repo's CI rather than by
+# optimism: CI installs with `uv sync --locked` and `uv.lock` pins every
+# dependency exactly, so an upstream release cannot reach a graded run at all. A
+# new warning can only arrive when this repo bumps the lock or adds an interpreter
+# to the matrix -- precisely the two moments a maintainer wants to be told.
+#
+# The list is EXACTLY one element and it is `error`: no `ignore::` carve-out, now
+# or speculatively. A test that legitimately needs to OBSERVE a warning uses the
+# PER-TEST escape hatch (`@pytest.mark.filterwarnings("default")` around
+# `warnings.catch_warnings(record=True)`), so tolerating one warning never
+# requires widening this list for the whole suite. Any future narrowly-scoped
+# ignore must therefore be a visible, reviewed edit here AND to its oracle.
+filterwarnings = ["error"]
+
 [tool.coverage.run]
 # Measure only our package, with branch coverage so the report reflects
 # untested branches (not just lines). This is opt-in via `make cov`; it is

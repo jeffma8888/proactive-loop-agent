@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-259
+    lenses: HARDENING / DX -- factory iteration 259, integration-and-adoption (iteration 259)
+    - Candidate A1 -- The collector roster is stale in SIX test names, not one; rename them and bind a spelled roster count in a test name to the live registry
+    - Candidate A2 -- `filterwarnings = ["error"]`: make a swallowed deprecation a red build, measured green on BOTH CI legs
+    - Candidate A3 -- `tests/conftest.py` strips the `PLA_*` namespace: the suite is not environment-hermetic, and the coupling is 12 sites, not 9
+    - Candidate B1 -- `--baseline` gets its first consumer ever, scoped to the kinds whose identity does not decay on a clock
+    - Candidate B2 -- `pla policy --check-goal` gets its first consumer: the headline autonomy rule asserted hermetically, with no fixture, no LLM and no workspace
+    - Candidate B3 -- `pla runs` becomes the first consumer of the slate-history family, four verbs no recipe has ever executed
+    winner: A2
+    ship: pending (not yet decided)
   iter-258
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `scan --baseline FILE`: the verb that PRODUCES the ratchet document is the only perception verb that cannot CONSUME one
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the aliased-pair refusal prints the TOP-LEVEL usage block, so a `pla run` error shows 17 verb names and none of run's flags
     - Candidate B3 -- the at-most-once rule guards 2 flags, and its own shipped rationale names the flag it does NOT guard
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED c492f18
   iter-257
     lenses: narrative-and-docs (iteration 257), new-capability (iteration 257)
     - Candidate A1 -- SPEC.md is silent on 4 of the 14 exported names in `models.__all__`, and `atomic_write_text` is documented NOWHERE
@@ -1388,4 +1398,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-139 scouted iterations
+140 scouted iterations
