@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-256
+    lenses: performance-and-throughput (factory iter 256), narrative-and-docs (iteration 256)
+    - Candidate A1 (primary) -- Reserve CPU headroom for nested-pytest children: cap the xdist pool
+    - Candidate A2 -- Serialize the 13 nested-pytest children onto one worker via an xdist group
+    - Candidate A3 -- Cut the intrinsic cost of the child that sets the suite floor
+    - Candidate B1 (primary) -- `SPEC.md` is silent on 8 of 36 live CLI flags, including the 3 that the machine gates execute on every push
+    - Candidate B2 -- five test names misreport the collector, tool and verb rosters, and the guard that exists for exactly this drift stops at `src/`
+    - Candidate B3 -- re-measured row #231: the layout tree names 8 of 15 tracked top-level entries and 4 of 9 `Makefile` recipes
+    winner: B1
+    ship: pending (not yet decided)
   iter-255
     lenses: simplification-and-deletion (iteration 255), performance-and-throughput
     - Candidate A1 -- One atomic-write primitive replaces FOUR hand-copied copies of the same durability invariant
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Re-measure row #169 (`addopts` gains `--dist worksteal`) against a live baseline
     - Candidate B3 -- Publish the scan's parse cost as a per-file figure so a rising cost stops being invisible
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 05ae2a7
   iter-254
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- arm the third ratchet: `signals --fail-over N` gets its first consumer
@@ -1358,4 +1368,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-136 scouted iterations
+137 scouted iterations

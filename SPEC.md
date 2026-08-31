@@ -737,9 +737,9 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 
 ### 4.5 cli + scheduler + examples
 
-- `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`):
+- `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`, global `--version`):
   - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown,csv,html}]
-    [--top N] [--collector NAME ...]` —
+    [--top N] [--collector NAME ...] [--exclude-path GLOB ...]` —
     collect → synthesize → gate → render the ranked slate + gate decisions to
     stdout; write slate JSON. `--format` (default `table`, backward compatible)
     selects stdout rendering ONLY and never changes the persisted slate file:
@@ -789,11 +789,14 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     any client/collect/render/file write, mirroring the `--workspace` guard (a
     fully-absent parent chain and an existing plain-file `--out` stay legal —
     structural typing only, no write-permission pre-detection).
+    `--exclude-path GLOB` (repeatable; `run` and `signals` take the identical flag) drops
+    path-matching signals BEFORE synthesis, narrowing the persisted RECORD, not the view alone.
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
-  - `pla run --workspace W [--dry-run] [--collector NAME ...]` — scan then auto-dispatch the top
+  - `pla run --workspace W [--dry-run] [--collector NAME ...] [--exclude-path GLOB ...]
+    [--baseline FILE]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
@@ -817,13 +820,15 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     actually saw"); under `--json` it joins the human progress on stderr, leaving stdout
     one JSON document whose key set is unchanged.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
-  - `pla runs [--json]` — read-only, LLM-free lister of past dispatched runs
+  - `pla runs [--json] [--status STATUS] [--prune]` — read-only, LLM-free lister of past dispatched runs
     under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,
     artifact count, goal title, workspace, plus the two persisted resilience
     counters retries and parse errors), id-sorted and deterministic; a run
     dir with no loadable checkpoint degrades to a `(no checkpoint)` row rather
     than aborting. Makes `resume --run-dir DIR`'s argument discoverable. `--json`
-    emits a parseable array (`[]` when empty). Builds no `LLMClient`.
+    emits a parseable array (`[]` when empty). Builds no `LLMClient`. `--status STATUS`
+    narrows the listing to one `RunStatus`; `--prune` deletes the selected dirs instead of
+    listing them, DRY RUN unless `--yes`.
   - `pla explain --slate slate.json [--goal-id ID]` — read-only, LLM-free auditor
     of a saved slate. `--goal-id` is **optional**: given, it audits ONE goal;
     omitted, it audits the WHOLE slate in `ranked()` order in one pass (so a
@@ -874,7 +879,9 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `resume`); a corrupt checkpoint → exit 1 via the `main()` boundary. Builds
     no `LLMClient`. Completes the run-lifecycle triad runs (find) → trace
     (inspect) → resume (continue).
-  - `pla signals --workspace W [--json] [--kind K] [--min-weight FLOAT] [--collector NAME ...]` — read-only, LLM-free
+  - `pla signals --workspace W [--json] [--kind K] [--min-weight FLOAT] [--collector NAME ...]
+    [--exclude-path GLOB ...] [--baseline FILE] [--summary] [--timings]
+    [--fail-on-kind K ...] [--fail-over N]` — read-only, LLM-free
     inspector of the FIRST pipeline stage: the raw `ContextSignal`s the collectors
     perceive for a workspace, printed WITHOUT synthesizing (builds no `LLMClient`),
     so `scan`'s question "what does the scout actually see?" is answerable with
@@ -906,6 +913,11 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `error: workspace not found: <path>` on stderr + exit 2 (the verbatim iter-10
     guard, before any collection), regardless of `--json`/`--kind`. `--collector NAME` is a repeatable UPSTREAM allowlist restricting WHICH collectors are inspected (the perception-INPUT knob, mirroring `scan --collector`): its accepted values are exactly the live collector names (derived from the registry, so they cannot drift), an unknown name is an argparse usage error (exit 2) at PARSE time before any collection, absent (the default) inspects all collectors byte-identically, and it composes as a logical AND with `--kind`/`--min-weight`. Completes the
     transparency arc signals (see) → scan (propose) → explain (gate) → trace (did).
+    `--summary` prints a per-kind count rollup instead of the listing; `--baseline FILE`
+    hides signals a saved `--json` document already recorded; `--timings` adds a
+    per-collector cost table on stderr; and two stdout-neutral CI gates exit 5 instead of
+    0 -- `--fail-on-kind K` (repeatable) on a reported kind, `--fail-over N` once the
+    reported count exceeds N strictly.
   - `pla watch --workspace W [--interval S] [--max-scans N]` — the proactive
     watch loop: re-run the SAME `scan` pipeline (collect → synthesize → gate →
     render the ranked slate + gate decisions to stdout) every `--interval`
@@ -1143,7 +1155,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     of precedence. Takes no `--workspace` and no positional argument; builds no `LLMClient`
     (so a bad `--provider` is accepted but never validated), runs no collector and touches no
     filesystem. Human form is an `effective settings` header + `key: value` lines; exits 0.
-  - Global flags: `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
+  - Global flags: `--version`, `--provider`, `--scripted-responses`, `--state-dir`, `-v`/`--verbose`
     (repeatable `count`: absent -> silent, `-v` -> INFO, `-vv` -> DEBUG; configures the
     `proactive_loop` package logger once via a single guarded `StreamHandler(sys.stderr)`,
     so the L0 retry/backoff self-healing is visible on stderr as it happens while stdout
