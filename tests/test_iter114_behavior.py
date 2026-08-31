@@ -95,7 +95,17 @@ FROM_CONFIG: frozenset[str] = frozenset({"RetryPolicy", "Settings"})
 FROM_MODELS: frozenset[str] = frozenset(PROMISED) - FROM_CONFIG
 
 # Spec behavior 5: public in a backing module, deliberately NOT promised at root.
-ROOT_EXCLUDED: frozenset[str] = frozenset({"ensure_dir", "sanitize_validation_error"})
+# WHY three names, and why this list is hand-transcribed rather than derived from
+# ``models.__all__``: deriving it would make the set-equality below vacuous, so the
+# withheld INTERNAL HELPERS are pinned literally and any NEW one is a deliberate
+# edit. ``atomic_write_text`` (foundry iter 255) joins ``ensure_dir`` in exactly that
+# class -- a shared filesystem helper the L0/CLI writers delegate to, not a data
+# contract -- so it is withheld from the root's 13-name model surface on purpose.
+# The assertion below is UNCHANGED in shape: still an exact set equality, so a real
+# model silently escaping the promised API still reds.
+ROOT_EXCLUDED: frozenset[str] = frozenset(
+    {"ensure_dir", "atomic_write_text", "sanitize_validation_error"}
+)
 
 MARKER = "PORTFOLIO INTRO"  # spelled with an em dash in the file; match the prefix
 LIBRARY_HEADING = "## Use as a library"

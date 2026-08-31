@@ -102,3 +102,5 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #251 Exit code 1's gate-unproven producer named on the epilog + docstring, under a derived guard (foundry iter 251)
 - #252 run --baseline FILE: the sole autonomous verb suppresses by INSTANCE what a saved snapshot already recorded (foundry iter 252)
 - #253 README documents make setup + make clean; the target matcher tightens to the make-invocation form (foundry iter 253)
+- #254 Both graded gates budget the signal count with pla signals --fail-over (foundry iter 254)
+- #255 One atomic_write_text primitive replaces the temp-sibling + os.replace idiom hand-copied at four writers (foundry iter 255)

@@ -62,6 +62,7 @@ from .models import (
     RunStatus,
     StepKind,
     WorkspaceSnapshot,
+    atomic_write_text,
     ensure_dir,
     sanitize_validation_error,
 )
@@ -2168,26 +2169,14 @@ def _write_slate(slate: GoalSlate, out: Path) -> None:
     one filesystem, so a reader always sees either the previous slate or the
     complete new one -- never a half-written prefix.
 
+    The mechanism itself is :func:`~proactive_loop.models.atomic_write_text`, the one
+    primitive every writer in the product delegates to.
+
     Load-bearing since ``watch --out-dir`` made this a PER-TICK writer: a
     watcher normally exits by Ctrl-C or a kill, and a truncated ``slate-NNN.json``
     would be rejected by the two readers of that stream (``diff``, ``explain``).
     """
-    ensure_dir(out.parent)
-    tmp = out.with_name(out.name + ".tmp")
-    try:
-        tmp.write_text(slate.model_dump_json(indent=2))
-        os.replace(tmp, out)
-    finally:
-        # Best-effort cleanup so a failed swap cannot litter a user-chosen
-        # ``--out-dir`` with a stray ``.tmp``; after a successful replace the temp
-        # name is already gone, so one ``finally`` covers both paths. Cleanup
-        # errors are swallowed deliberately: the caller must keep seeing the
-        # PRIMARY OS error (the CLI ``error:`` boundary reports that one), never a
-        # secondary failure raised while tidying up.
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
+    atomic_write_text(out, slate.model_dump_json(indent=2))
 
 
 def _write_snapshot_document(snapshot: WorkspaceSnapshot, out: Path) -> None:
@@ -2217,23 +2206,10 @@ def _write_snapshot_document(snapshot: WorkspaceSnapshot, out: Path) -> None:
     the rename on that filesystem, so a reader -- here a later ``--baseline`` load -- sees
     either the previous document or the complete new one, never a truncated prefix that
     would fail-closed with a schema error. Parents are created on demand, matching the
-    ``--out`` guard's promise that a fully-absent parent chain is legal.
+    ``--out`` guard's promise that a fully-absent parent chain is legal. All of it is
+    delegated to :func:`~proactive_loop.models.atomic_write_text`.
     """
-    ensure_dir(out.parent)
-    tmp = out.with_name(out.name + ".tmp")
-    try:
-        tmp.write_text(json.dumps(_signals_json_payload(snapshot), indent=2))
-        os.replace(tmp, out)
-    finally:
-        # Best-effort, and identical in intent to _write_slate's: a failed swap must not
-        # litter a user-chosen directory with a stray `.tmp`, and after a successful
-        # replace the temp name is already gone, so one `finally` covers both paths.
-        # Cleanup errors are swallowed so the caller keeps seeing the PRIMARY OS error
-        # at the `main()` boundary, never a secondary failure raised while tidying up.
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
+    atomic_write_text(out, json.dumps(_signals_json_payload(snapshot), indent=2))
 
 
 def _state_dir_guard(state_dir: Path) -> str | None:
@@ -2777,27 +2753,19 @@ def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> Non
     run directory this writes into is a documented, user-visible layout that
     must not accumulate stray ``.tmp`` entries. Parent dirs are created on
     demand for parity with the sibling writers (the sole caller already creates
-    the run dir, so that tolerance is idiom parity, not a live-bug fix).
+    the run dir, so that tolerance is idiom parity, not a live-bug fix) -- the idiom
+    now BEING :func:`~proactive_loop.models.atomic_write_text`, shared with them.
     """
-    ensure_dir(run_dir)
-    path = run_dir / _META_NAME
-    tmp = path.with_name(path.name + ".tmp")
-    try:
-        tmp.write_text(
-            json.dumps(
-                {
-                    "workspace_root": str(workspace_root),
-                    "artifacts_dir": str(artifacts_dir),
-                },
-                indent=2,
-            )
-        )
-        os.replace(tmp, path)
-    finally:
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
+    atomic_write_text(
+        run_dir / _META_NAME,
+        json.dumps(
+            {
+                "workspace_root": str(workspace_root),
+                "artifacts_dir": str(artifacts_dir),
+            },
+            indent=2,
+        ),
+    )
 
 
 def _read_meta(run_dir: Path) -> dict[str, Any]:

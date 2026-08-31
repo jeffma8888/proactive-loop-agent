@@ -37,7 +37,8 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
     published claim are untouched by this iteration. These pins track the LIVE
     floor, not iter-171's: they were re-keyed 4,800 -> 4,900 at factory iter 207,
     4,900 -> 5,000 at factory iter 212 and 5,000 -> 5,100 at factory iter 242 and
-    5,100 -> 5,200 at factory iter 245 and 5,200 -> 5,300 at factory iter 251, when
+    5,100 -> 5,200 at factory iter 245 and 5,200 -> 5,300 at factory iter 251 and 5,300 -> 5,400
+    at factory iter 255, when
     suite growth forced the bump the iter-143 module owns.
 
 ISOLATION: written against the spec's Expected Behaviors and the public helper's
@@ -321,22 +322,22 @@ def test_b09_the_floor_verdict_the_oracle_relies_on_still_bites(
     nothing and cannot race a concurrent worker.
     """
     intro = guard._intro()
-    assert guard.suite_size_problems(intro, 5300 + guard.SUITE_SIZE_SLACK) != [], (
+    assert guard.suite_size_problems(intro, 5400 + guard.SUITE_SIZE_SLACK) != [], (
         "a floor a full slack behind the live count must be reported as stale"
     )
-    assert guard.suite_size_problems(intro, 5300 + 1) == [], (
+    assert guard.suite_size_problems(intro, 5400 + 1) == [], (
         "a floor one test behind the live count must be accepted as fresh"
     )
     monkeypatch.setattr(guard, "SUITE_SIZE_SLACK", 1, raising=True)
-    assert guard.suite_size_problems(intro, 5300 + 1) != [], (
+    assert guard.suite_size_problems(intro, 5400 + 1) != [], (
         "the staleness verdict does not derive from SUITE_SIZE_SLACK"
     )
 
 
 def test_b10_the_published_floor_constants_are_the_head_values() -> None:
     iter143 = ITER143.read_text(encoding="utf-8")
-    assert "PUBLISHED_FLOOR = 5300" in iter143, "the published floor moved unexpectedly"
-    assert 'STALE_FLOOR_TOKEN = "5,200"' in iter143, "the stale-floor token moved unexpectedly"
+    assert "PUBLISHED_FLOOR = 5400" in iter143, "the published floor moved unexpectedly"
+    assert 'STALE_FLOOR_TOKEN = "5,300"' in iter143, "the stale-floor token moved unexpectedly"
     assert guard.SUITE_SIZE_SLACK == 500, guard.SUITE_SIZE_SLACK
 
 
@@ -344,5 +345,5 @@ def test_b10_the_readme_still_publishes_the_same_floor_claim() -> None:
     intro = guard._intro()
     claim = guard.SUITE_CLAIM.search(intro)
     assert claim is not None, "the README lost its suite-size claim"
-    assert "5,300" in claim.group(0), claim.group(0)
-    assert "5,200" not in intro, "the stale floor token reappeared in the README"
+    assert "5,400" in claim.group(0), claim.group(0)
+    assert "5,300" not in intro, "the stale floor token reappeared in the README"

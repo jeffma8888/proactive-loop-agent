@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-255
+    lenses: simplification-and-deletion (iteration 255), performance-and-throughput
+    - Candidate A1 -- One atomic-write primitive replaces FOUR hand-copied copies of the same durability invariant
+    - Candidate A2 -- The provider roster is hand-maintained TWICE; one dict deletes the 14-line if/elif chain and makes the module's own docstring true
+    - Candidate A3 -- SPEC QUESTION FIRST: 172 lines of digest-memo are triplicated, and a WRITTEN convention forbids the merge
+    - Candidate B1 -- Prune the armed self-scan to the four collectors its verdict can reach (row #170, re-priced upward)
+    - Candidate B2 -- Re-measure row #169 (`addopts` gains `--dist worksteal`) against a live baseline
+    - Candidate B3 -- Publish the scan's parse cost as a per-file figure so a rising cost stops being invisible
+    winner: A1
+    ship: pending (not yet decided)
   iter-254
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- arm the third ratchet: `signals --fail-over N` gets its first consumer
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- retire settled roadmap row #121 and the pin that keeps it alive
     - Candidate B3 -- collapse the twelve-site sandbox path preamble in `ToolRegistry`
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED ba13145
   iter-253
     lenses: hardening/DX, integration-and-adoption (iteration 253)
     - Candidate A1 -- re-land the reviewer-APPROVED iter-247 slice: two `make` entry points are documented NOWHERE and the guard reports full coverage
@@ -1348,4 +1358,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-135 scouted iterations
+136 scouted iterations

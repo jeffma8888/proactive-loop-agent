@@ -7,6 +7,7 @@ them in one dependency-free module lets every layer evolve independently.
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -32,6 +33,7 @@ __all__ = [
     "LoopStep",
     "RunState",
     "ensure_dir",
+    "atomic_write_text",
     "sanitize_validation_error",
 ]
 
@@ -211,6 +213,41 @@ def ensure_dir(path: Path) -> Path:
     """Small shared helper: mkdir -p and return the path."""
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Write *text* to *path* via a temp sibling and one ``os.replace``.
+
+    WHY it lives here as ONE primitive: this is the L0 crash-safety invariant the
+    product's vision promises ("atomic JSON checkpoints -> resumable runs"), and it
+    used to be written out four times -- the checkpoint writer plus the CLI's slate,
+    snapshot-document and meta writers. One guarantee with four copies has four
+    places to drift and needs four oracles to prove one property, so the copies were
+    unevenly proven; a reader asking "how does this project keep a crash from
+    corrupting state?" should find one answer.
+
+    Mechanism: write a SIBLING temp file in the destination's OWN directory, then one
+    ``os.replace`` onto the target. Sibling placement is what holds the rename inside
+    a single filesystem, where ``os.replace`` is atomic, so a reader sees either the
+    previous bytes or the complete new ones -- never a half-written prefix. The parent
+    chain is created on demand, so a fully-absent parent is legal.
+
+    WHY the ``finally``: a raising swap must not leave a stray ``<name>.tmp`` behind in
+    a directory the user chose or the product documents as a layout. Cleanup is
+    best-effort and swallows its own ``OSError`` so the caller keeps seeing the PRIMARY
+    failure, never a secondary error raised while tidying up. After a successful
+    replace the temp name is already gone, so one ``finally`` covers both paths.
+    """
+    ensure_dir(path.parent)
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(text)
+        os.replace(tmp, path)
+    finally:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def sanitize_validation_error(kind: str, path: Path, exc: ValidationError) -> str:

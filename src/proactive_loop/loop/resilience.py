@@ -9,7 +9,6 @@ where it stopped).
 
 from __future__ import annotations
 
-import os
 import random
 import time
 from pathlib import Path
@@ -19,7 +18,7 @@ from pydantic import ValidationError
 
 from proactive_loop.config import RetryPolicy
 from proactive_loop.llm.client import LLMThrottleError, LLMTimeoutError
-from proactive_loop.models import RunState, ensure_dir, sanitize_validation_error
+from proactive_loop.models import RunState, atomic_write_text, sanitize_validation_error
 
 T = TypeVar("T")
 
@@ -86,7 +85,8 @@ class Checkpoint:
     def save(self, state: RunState) -> None:
         """Persist *state* atomically, creating the parent dir if needed.
 
-        Mechanism (identical to the slate writer's, deliberately): write a
+        Mechanism (identical to the slate writer's, deliberately -- both now
+        delegate to :func:`~proactive_loop.models.atomic_write_text`): write a
         SIBLING temp file, then one ``os.replace`` onto the target. Sibling
         placement is what keeps the rename inside a single filesystem, where
         ``os.replace`` is atomic, so a reader sees either the previous snapshot
@@ -100,16 +100,7 @@ class Checkpoint:
         while tidying up. After a successful replace the temp name is already
         gone, so one ``finally`` covers both paths.
         """
-        ensure_dir(self.path.parent)
-        tmp = self.path.with_name(self.path.name + ".tmp")
-        try:
-            tmp.write_text(state.to_json())
-            os.replace(tmp, self.path)
-        finally:
-            try:
-                tmp.unlink(missing_ok=True)
-            except OSError:
-                pass
+        atomic_write_text(self.path, state.to_json())
 
     def load(self) -> RunState | None:
         """Return the checkpointed state, or None if none has been saved.

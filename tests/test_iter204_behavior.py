@@ -82,7 +82,7 @@ PROMOTION_WORDS = ("authoritative", "canonical", "primary")
 
 # Behavior 10: the floor the guard's own derivation rule dictates for the live
 # count, i.e. ``live // 100 * 100``.  Not chosen -- computed.
-PUBLISHED_FLOOR = 5300
+PUBLISHED_FLOOR = 5400
 
 
 # --------------------------------------------------------------------------- #
@@ -522,9 +522,9 @@ def test_b09_docstring_reader_reports_an_empty_docstring() -> None:
 
 def test_b10_both_intro_claims_publish_the_corrected_floor() -> None:
     intro = _intro(_readme())
-    assert "**5,300+ tests**" in intro, intro[-1500:]
-    assert "**5,300+ passing tests**" in intro, intro[-1500:]
-    assert "5,200" not in intro, "the stale floor token survives in the intro"
+    assert "**5,400+ tests**" in intro, intro[-1500:]
+    assert "**5,400+ passing tests**" in intro, intro[-1500:]
+    assert "5,300" not in intro, "the stale floor token survives in the intro"
 
 
 def test_b10_the_guard_reports_no_suite_size_problem_for_the_live_count() -> None:
