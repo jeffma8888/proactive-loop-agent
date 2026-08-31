@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-258
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `scan --baseline FILE`: the verb that PRODUCES the ratchet document is the only perception verb that cannot CONSUME one
+    - Candidate A2 -- `watch --collector NAME` / `watch --exclude-path GLOB`: the only REPEATING verb cannot narrow what it re-perceives
+    - Candidate A3 -- `run`/`dispatch`/`resume --max-iterations N` and `--max-llm-calls N`: the L1 budget is REPORTABLE but not SETTABLE
+    - Candidate B1 -- the alias guard runs OUTSIDE `main()`'s error boundary, so a hostile path is an unhandled traceback on 3.12 and a clean refusal on 3.13
+    - Candidate B2 -- the aliased-pair refusal prints the TOP-LEVEL usage block, so a `pla run` error shows 17 verb names and none of run's flags
+    - Candidate B3 -- the at-most-once rule guards 2 flags, and its own shipped rationale names the flag it does NOT guard
+    winner: B1
+    ship: pending (not yet decided)
   iter-257
     lenses: narrative-and-docs (iteration 257), new-capability (iteration 257)
     - Candidate A1 -- SPEC.md is silent on 4 of the 14 exported names in `models.__all__`, and `atomic_write_text` is documented NOWHERE
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `watch --exclude-path GLOB`: the only REPEATING verb has zero perception-narrowing flags, so it re-perceives the same noise every tick forever
     - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector and only the 2nd RELATIONAL one (queued row #122)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 3e9ee1d
   iter-256
     lenses: performance-and-throughput (factory iter 256), narrative-and-docs (iteration 256)
     - Candidate A1 (primary) -- Reserve CPU headroom for nested-pytest children: cap the xdist pool
@@ -1378,4 +1388,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-138 scouted iterations
+139 scouted iterations

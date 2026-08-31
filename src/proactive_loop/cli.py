@@ -437,6 +437,38 @@ class _AtMostOnceAction(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+def _resolved_for_alias_compare(raw: str) -> Path:
+    """One operand of the aliasing compare: the resolved path, or the weaker absolute form.
+
+    WHY :meth:`Path.resolve` is attempted FIRST rather than simply replaced by
+    :meth:`Path.absolute`: symlink following is the whole reason the guard exists.
+    ``link.json`` and the ``b.json`` it points at are ONE file, and
+    :meth:`Path.absolute` cannot see that -- it only prefixes the cwd and normalises
+    nothing -- so an unconditional swap would let an aliased pair through into the
+    destructive ratchet write the guard is there to stop. Every path the OS can
+    resolve therefore still gets the strong comparison, unchanged.
+
+    WHY the fallback cannot reopen that hole: it is reachable ONLY when the OS refuses
+    to resolve the path at all -- a symlink loop reports ``OSError`` ``ELOOP``, which
+    3.12's ``pathlib`` deliberately re-raises as ``RuntimeError`` while 3.13 does not
+    raise -- and in exactly that state the baseline is refused downstream before
+    anything is written: ``_load_signal_baseline``'s ``is_file()`` check swallows the
+    ``ELOOP`` errno, so the run exits 2 with one ``error: `` line, no run directory and
+    no snapshot. Two unresolvable spellings can only compare EQUAL here when they are
+    the same string-normalised absolute path, which is still a refusal, never a write.
+
+    WHY it is caught here and not by widening ``main()``'s ``except`` tuple: this call
+    site sits BEFORE that boundary on purpose (zero side effects by construction), and
+    ``RuntimeError`` there would swallow unrelated programming errors across every verb.
+    """
+    try:
+        return Path(raw).resolve()
+    except (OSError, RuntimeError):
+        # The OS cannot resolve it; degrade to the spelling-only form so the guard
+        # reaches its own verdict instead of raising outside main()'s error boundary.
+        return Path(raw).absolute()
+
+
 def _aliased_ratchet_paths(args: argparse.Namespace) -> tuple[str, str] | None:
     """The typed ``--baseline``/``--snapshot`` spellings when they name ONE file, else None.
 
@@ -463,6 +495,10 @@ def _aliased_ratchet_paths(args: argparse.Namespace) -> tuple[str, str] | None:
     fine. It resolves symlinks but cannot see two distinct paths HARDLINKED to one
     inode; the guard is deliberately "same resolved path", not "same inode".
 
+    Each operand goes through :func:`_resolved_for_alias_compare`, so a path the OS
+    refuses to resolve degrades to its absolute spelling instead of raising -- this call
+    site is outside ``main()``'s error boundary, so a raise here would be a traceback.
+
     Returns the spellings AS TYPED (never the resolved form) so the error message can
     quote what the operator actually wrote.
     """
@@ -470,7 +506,7 @@ def _aliased_ratchet_paths(args: argparse.Namespace) -> tuple[str, str] | None:
     snapshot = getattr(args, "snapshot", None)
     if baseline is None or snapshot is None:
         return None
-    if Path(baseline).resolve() != Path(snapshot).resolve():
+    if _resolved_for_alias_compare(baseline) != _resolved_for_alias_compare(snapshot):
         return None
     return str(baseline), str(snapshot)
 
