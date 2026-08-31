@@ -58,13 +58,7 @@ _Rows are dropped from this index once shipped, and only after verifying the row
 A line records that a row SHIPPED, not that the archive holds its text (that happens on retirement); keep rows terse. **A row's cited iteration tag is the tag that appears VERBATIM in the shipping commit's subject** -- spell it `(foundry iter N)` exactly as `git log --format=%s` does, never a second private counter. `tests/test_iter218_behavior.py` reds a cited tag that resolves to no commit subject; the newest row alone is exempt. Oldest bullets RELOCATE into `ROADMAP_ARCHIVE.md` as this file tightens, and `tests/test_roadmap_ledger_conservation.py` reds a row recorded in neither document or in both.
 
 - #168 signals --fail-over N: a count-budget exit gate (iter 138, factory iter 145, 004f037)
-- #201 pla verify --slate/--snapshot: resolve each goal's... (iter 173, factory iter 177)
-- #213 run --snapshot FILE: the autonomous verb persists... (iter 175, factory iter 179)
-- #214 `pla verify --fail-on-unresolved`: the exit code a caller can... (iter 176, factory iter 180)
-- #129 todos prefilters its 2 regexes separately, sound derived tokens... (iter 177, factory iter 181)
 - #215 `SPEC.md` §4.1/§4.5 gain an oracle bound to the live registries + 4 omissions (iter 178, factory iter 182)
-- #216 README documents the 2 shipped-but-undocumented make targets + a .PHONY drift guard (iter 179, factory iter 183)
-- #217 dependencies + lockfile_drift each log ONE aggregated WARNING for absorbed manifests (iter 180, factory iter 184)
 - #219 3 default-asserting modules clear a derived `PLA_*` set, dead name dropped (iter 181, factory iter 185)
 - #185 The demo persists its snapshot and both gates verify the slate's cited sources resolve (iter 182, factory iter 186)
 - #220 secret_file + test_posture read the shared dirent listing; 4 collectors share 1 walk (iter 183, factory iter 187)
@@ -106,3 +100,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #254 Both graded gates budget the signal count with pla signals --fail-over (foundry iter 254)
 - #255 One atomic_write_text primitive replaces the temp-sibling + os.replace idiom hand-copied at four writers (foundry iter 255)
 - #256 SPEC.md section 4.5 documents the 9 shipped CLI long flags it omitted, under a parser-derived census oracle (foundry iter 256)
+- #257 run refuses an aliased --baseline/--snapshot path pair as a usage error (foundry iter 257)

@@ -437,6 +437,59 @@ class _AtMostOnceAction(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+def _aliased_ratchet_paths(args: argparse.Namespace) -> tuple[str, str] | None:
+    """The typed ``--baseline``/``--snapshot`` spellings when they name ONE file, else None.
+
+    WHY this refusal exists: ``--baseline FILE`` SUBTRACTS every signal FILE already
+    records, and ``--snapshot FILE`` WRITES exactly the survivors. Alias the two onto
+    one path and the write lands after the read, so the document is replaced by its own
+    complement -- and because each invocation reads what the previous one wrote, the
+    result ALTERNATES. Measured before this guard existed: one identical
+    ``run --baseline b.json --snapshot b.json`` repeated four times moved b.json's
+    ``signals`` array 33 -> 0 -> 33 -> 0, every time at exit 0, with the announce line
+    flipping between "suppressed 33 of 33" and "suppressed 0 of 33". Silent data loss on
+    an even number of runs, at a success exit code no script could branch on.
+
+    WHY it is namespace-driven rather than a per-verb check: the two ``getattr``s make
+    the guard a property of the FLAG PAIR, not of any verb, so it holds on ``run`` (the
+    only subparser owning both today) and any future verb that gains both -- with no
+    second call site to remember. Verbs owning one of the pair are untouched, because a
+    missing attribute reads as ``None``.
+
+    WHY resolved paths and not raw strings: ``b.json``, ``./b.json``, ``sub/../b.json``
+    and a symlink to ``b.json`` are the same file, and a raw-string compare would pass
+    three of those four straight into the destructive write. ``Path.resolve()`` is
+    non-strict on 3.12+, so a ``--snapshot`` that does not exist yet still compares
+    fine. It resolves symlinks but cannot see two distinct paths HARDLINKED to one
+    inode; the guard is deliberately "same resolved path", not "same inode".
+
+    Returns the spellings AS TYPED (never the resolved form) so the error message can
+    quote what the operator actually wrote.
+    """
+    baseline = getattr(args, "baseline", None)
+    snapshot = getattr(args, "snapshot", None)
+    if baseline is None or snapshot is None:
+        return None
+    if Path(baseline).resolve() != Path(snapshot).resolve():
+        return None
+    return str(baseline), str(snapshot)
+
+
+def _aliased_ratchet_error(baseline: str, snapshot: str) -> str:
+    """The ONE wording an aliased ``--baseline``/``--snapshot`` pair is rejected with.
+
+    One line, no traceback, and it names BOTH spellings as typed -- when they differ
+    (``b.json`` vs ``./b.json``) the operator cannot otherwise see why two arguments
+    that look distinct were refused.
+    """
+    return (
+        f"--baseline and --snapshot must name different files: --baseline {baseline} "
+        f"and --snapshot {snapshot} resolve to the same path, and --snapshot would "
+        "rewrite it with only the signals --baseline did not suppress -- replacing the "
+        "document with its own complement, so the answer would flip on every re-run"
+    )
+
+
 # The exit-code contract, written down ONCE here and rendered onto `pla --help`
 # by `_exit_code_epilog()` below. The CLI is the surface a scripting consumer
 # actually reaches for: someone who wires `pla` into a pre-commit hook, gets a
@@ -1820,6 +1873,12 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = build_parser()
     args = parser.parse_args(argv)  # argparse SystemExit (help/usage) stays outside the guard
+    # BEFORE _configure_logging and before any handler dispatch, so the refusal below has
+    # ZERO side effects by CONSTRUCTION rather than by inspection: no logging handler
+    # installed, no client built, no collector run, no run dir, no slate, no snapshot write.
+    aliased = _aliased_ratchet_paths(args)
+    if aliased is not None:
+        parser.error(_aliased_ratchet_error(*aliased))  # SystemExit(2), empty stdout
     # Configure package-logger verbosity ONCE, before dispatch, from the shared
     # -v/--verbose count. Level 0 (no -v) is a strict no-op, so default runs stay
     # byte-identical; -v/-vv route the executor L0-retry INFO/DEBUG records to

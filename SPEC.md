@@ -800,25 +800,24 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
-    run dir created). `--dry-run` (optional, default off) is the preview twin: it
-    runs the identical scan+gate+render+write path (the slate IS written) but,
-    instead of dispatching, prints the single goal it WOULD auto-dispatch plus a
-    paste-ready `pla dispatch` command and returns 0 — building no GoalLoop, no run
-    dir, and spending no loop iteration (the one synthesize LLM call still occurs;
-    "dry" means no plan/act/check loop, not zero LLM calls).
-    `--collector NAME` is the same repeatable UPSTREAM allowlist `scan`/`signals` carry,
-    restricting WHICH collectors this verb perceives with: accepted values are exactly the
-    live collector names (derived from the registry, so they cannot drift), an unknown name
-    is an argparse usage error (exit 2) at PARSE time before any client/collect/slate/run
-    dir/snapshot, absent (the default) runs all collectors byte-identically, and a repeated
-    name means what naming it once means. It matters most on THIS verb because `run` is the
-    only one that ACTS on what it perceived, so unlike `scan` it also announces the
-    narrowing on exactly one line -- `perception narrowed to N of M collectors: <names>`,
-    names sorted so the line is deterministic, N distinct names given, M the live registry
-    size. The line is printed once, above the `--snapshot` write and above the `--dry-run`
-    return, so both inherit the narrowing (the snapshot keeps meaning "what this run
-    actually saw"); under `--json` it joins the human progress on stderr, leaving stdout
-    one JSON document whose key set is unchanged.
+    run dir created). `--dry-run` (optional, default off) is the preview twin: it runs the
+    identical scan+gate+render+write path (the slate IS written) but instead of dispatching
+    prints the single goal it WOULD auto-dispatch plus a paste-ready `pla dispatch` command
+    and returns 0 -- no GoalLoop, no run dir, no loop iteration spent (the one synthesize
+    LLM call still occurs; "dry" means no plan/act/check loop, not zero LLM calls).
+    `--collector NAME` is the same repeatable UPSTREAM allowlist `scan`/`signals` carry --
+    see `scan`'s entry for the registry-derived accepted values, the parse-time refusal of
+    an unknown name, and the byte-identical default. Because `run` ACTS on what it
+    perceived, it is the one verb that also REPORTS the narrowing, on exactly one line --
+    `perception narrowed to N of M collectors: <names>`, names sorted so the line is
+    deterministic, N distinct names given, M the live registry size. Printed once, above the
+    `--snapshot` write and above the `--dry-run` return so both inherit it; under `--json`
+    it joins the human progress on stderr, leaving stdout one JSON document whose key set is
+    unchanged.
+    `--baseline FILE` and `--snapshot FILE` may not resolve to the SAME path: `--snapshot`
+    would rewrite FILE with only the signals `--baseline` did not suppress, replacing the
+    document with its own complement, so an aliased pair is an argparse usage error (exit 2)
+    at PARSE time, before anything is collected or written.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json] [--status STATUS] [--prune]` — read-only, LLM-free lister of past dispatched runs
     under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,

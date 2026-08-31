@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-257
+    lenses: narrative-and-docs (iteration 257), new-capability (iteration 257)
+    - Candidate A1 -- SPEC.md is silent on 4 of the 14 exported names in `models.__all__`, and `atomic_write_text` is documented NOWHERE
+    - Candidate A2 -- ROADMAP.md row #231 is a malformed table row: GitHub drops its Source and Status cells and renders "Low" as its Status
+    - Candidate A3 -- (measuring) stale roster counts spelled into test names
+    - Candidate B1 -- `scan --baseline FILE`: the verb that PRODUCES the ratchet document is the only perception verb that cannot CONSUME one
+    - Candidate B2 -- `watch --exclude-path GLOB`: the only REPEATING verb has zero perception-narrowing flags, so it re-perceives the same noise every tick forever
+    - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector and only the 2nd RELATIONAL one (queued row #122)
+    winner: B1
+    ship: pending (not yet decided)
   iter-256
     lenses: performance-and-throughput (factory iter 256), narrative-and-docs (iteration 256)
     - Candidate A1 (primary) -- Reserve CPU headroom for nested-pytest children: cap the xdist pool
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- five test names misreport the collector, tool and verb rosters, and the guard that exists for exactly this drift stops at `src/`
     - Candidate B3 -- re-measured row #231: the layout tree names 8 of 15 tracked top-level entries and 4 of 9 `Makefile` recipes
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED e06ad6c
   iter-255
     lenses: simplification-and-deletion (iteration 255), performance-and-throughput
     - Candidate A1 -- One atomic-write primitive replaces FOUR hand-copied copies of the same durability invariant
@@ -1368,4 +1378,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-137 scouted iterations
+138 scouted iterations
