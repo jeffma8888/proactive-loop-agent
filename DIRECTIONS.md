@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-260
+    lenses: integration-and-adoption, simplification-and-deletion (iteration 260)
+    - Candidate A1 -- `pla policy --check-goal` gains its first consumer: a standing, LLM-free autonomy assertion
+    - Candidate A2 -- the slate-stream triple finally runs end to end: `watch --out-dir` produces, `diff --dir` and `trend --dir` consume
+    - Candidate A3 -- `--baseline` still has zero consumers, and it has quietly grown a SECOND carrier
+    - Candidate B1 -- one digest-memo primitive replaces the FIFO-capped memo hand-copied at THREE collectors
+    - Candidate B2 -- finish the collapse iter 243 started: the two scan-scoped caches still keep separate bookkeeping
+    - Candidate B3 -- one `--snapshot` pre-check replaces the guard block copied verbatim at two verbs
+    winner: B1
+    ship: pending (not yet decided)
   iter-259
     lenses: HARDENING / DX -- factory iteration 259, integration-and-adoption (iteration 259)
     - Candidate A1 -- The collector roster is stale in SIX test names, not one; rename them and bind a spelled roster count in a test name to the live registry
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla policy --check-goal` gets its first consumer: the headline autonomy rule asserted hermetically, with no fixture, no LLM and no workspace
     - Candidate B3 -- `pla runs` becomes the first consumer of the slate-history family, four verbs no recipe has ever executed
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED f58bcab
   iter-258
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `scan --baseline FILE`: the verb that PRODUCES the ratchet document is the only perception verb that cannot CONSUME one
@@ -1398,4 +1408,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-140 scouted iterations
+141 scouted iterations

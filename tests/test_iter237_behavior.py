@@ -44,7 +44,7 @@ of a silent one-line append. Behavior 7 pins the single declaration point -- no
 into an existing module.
 
 SUITE-SIZE NOTE, stated because it shaped this module and a reader deserves to
-know. The repo publishes a rounded ``5,400+ tests`` floor in its README, and
+know. The repo publishes a rounded ``5,500+ tests`` floor in its README, and
 ``tests/test_iter204_behavior.py`` reds the build the moment the collected count
 crosses the next hundred. HEAD collects 5,489, so this module had a budget of 10
 new test FUNCTIONS, not of assertions. Every assertion the eight behaviors call

@@ -103,3 +103,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #257 run refuses an aliased --baseline/--snapshot path pair as a usage error (foundry iter 257)
 - #258 The aliased --baseline/--snapshot guard degrades to absolute() when the OS refuses to resolve, so an unresolvable path refuses cleanly on both CI legs (foundry iter 258)
 - #259 `pyproject.toml` declares `filterwarnings = ["error"]`: a warning raised anywhere in the suite is now a red build, under a two-sided live-and-declared oracle (foundry iter 259)
+- #260 The published test floor rises 5,400 -> 5,500 at every carrier that pins it, under a two-sided census oracle naming the carrier set (foundry iter 260)

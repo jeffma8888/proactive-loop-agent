@@ -870,3 +870,206 @@ def test_missing_verbs_reports_exactly_the_one_absent_verb() -> None:
             f"| `{v}`| does something.|" for v in verbs if v != omitted
         )
         assert missing_verbs(section, verbs) == [omitted]
+
+
+# --------------------------------------------------------------------------- #
+# the published-floor CARRIER CENSUS
+# --------------------------------------------------------------------------- #
+#
+# Why this exists. The rounded ``N,N00+ tests`` floor above the marker is pinned in
+# FIVE other tracked files as well as the README, and a bump has to re-key all of
+# them inside one commit. Nothing enumerated that set, so the set was knowledge
+# held only in the previous bump's diff. Two consequences, both observed: a carrier
+# missed by a bump went red only if it happened to ASSERT the floor, and a carrier
+# that merely STATED the floor in prose went stale silently -- which is what
+# ``tests/test_iter237_behavior.py`` did, carrying a superseded floor with nothing
+# able to notice. This census names the set and checks it in BOTH directions: a
+# declared carrier that stops claiming the live floor fails, and an undeclared
+# tracked file that starts claiming it fails. Adding a carrier therefore becomes a
+# reviewed edit here rather than a discovery made by the next bump.
+
+#: Every tracked path that pins the README's rounded suite-size floor.
+PUBLISHED_FLOOR_CARRIERS: tuple[str, ...] = (
+    "README.md",
+    "tests/test_iter143_behavior.py",
+    "tests/test_iter171_behavior.py",
+    "tests/test_iter204_behavior.py",
+    "tests/test_iter234_behavior.py",
+    "tests/test_iter237_behavior.py",
+)
+
+# A line that RECORDS a superseded floor instead of claiming the live one. The repo
+# writes bump history with an ASCII arrow (``4,900+ -> 5,000+``) and tags it with
+# the factory iteration that moved it; the roadmap's Done row uses the same arrow.
+# Those lines must go on naming old floors forever, so they are never claims -- and
+# separating the two roles is precisely why a naive "the superseded token is gone
+# from the repo" scan cannot serve as this census.
+FLOOR_HISTORY_MARKERS: tuple[str, ...] = ("->", "factory iter")
+
+
+def floor_token(floor: int) -> str:
+    """The comma-grouped token a floor of ``floor`` is published as.
+
+    Asserts the shape rather than formatting anything handed to it: the README
+    publishes a floor ROUNDED DOWN to a hundred, which is the only shape the
+    carriers hard-code, so a caller passing a live count is a bug worth failing on.
+    """
+    assert 1_000 <= floor < 10_000 and floor % 100 == 0, f"{floor} is not a rounded floor"
+    return f"{floor // 1000},{floor % 1000:03d}"
+
+
+def published_floor() -> int:
+    """The floor the README's own intro claims, as an int.
+
+    DERIVED so that the census has exactly one source of truth for the number. A
+    census carrying its own copy of the floor would be the seventh carrier, and the
+    first one nothing checks.
+    """
+    claim = SUITE_CLAIM.search(_intro())
+    assert claim is not None, "the README lost its suite-size claim"
+    assert claim.group(2) == "+", "the suite-size claim is an exact count, not a floor"
+    return int(claim.group(1).replace(",", ""))
+
+
+def floor_claim_lines(text: str, token: str) -> tuple[int, ...]:
+    """1-based line numbers where ``text`` claims ``token`` as the LIVE floor.
+
+    Bump-history lines are excluded. A claim is what a bump must RE-KEY; a history
+    line is what a bump must LEAVE ALONE, so a scan that cannot tell them apart
+    reports every past bump as a defect and gets deleted.
+    """
+    return tuple(
+        number
+        for number, line in enumerate(text.splitlines(), start=1)
+        if token in line and not any(marker in line for marker in FLOOR_HISTORY_MARKERS)
+    )
+
+
+def published_floor_disagreements(
+    sources: Mapping[str, str],
+    floor: int,
+    carriers: Iterable[str] = PUBLISHED_FLOOR_CARRIERS,
+) -> list[str]:
+    """Two-sided census verdict over ``sources`` (repo-relative path -> text).
+
+    Reports, in a stable order: a declared carrier missing from the tree, a declared
+    carrier that no longer claims ``floor`` (the bump missed it -- the failure this
+    census exists to catch), then any undeclared source that claims ``floor``.
+
+    Pure and offline; the caller owns reading the tree, so every branch is reachable
+    from a dict literal in a unit test.
+    """
+    declared = tuple(carriers)
+    token = floor_token(floor)
+    problems: list[str] = []
+    for path in declared:
+        if path not in sources:
+            problems.append(f"{path}: declared floor carrier is not in the tracked tree")
+        elif not floor_claim_lines(sources[path], token):
+            problems.append(f"{path}: declared floor carrier no longer claims the floor {token}")
+    for path in sorted(set(sources) - set(declared)):
+        lines = floor_claim_lines(sources[path], token)
+        if lines:
+            at = ", ".join(str(number) for number in lines)
+            problems.append(f"{path}: undeclared file claims the floor {token} at line(s) {at}")
+    return problems
+
+
+def tracked_text_sources() -> dict[str, str]:
+    """Every tracked, UTF-8-decodable file keyed by its repo-relative path.
+
+    ``git ls-files`` is the domain on purpose: an untracked scratch file must not be
+    able to manufacture a census finding, and a file outside the shipping tree is
+    not a carrier of a published claim. Undecodable files are skipped rather than
+    guessed at -- they cannot hold a comma-grouped floor token.
+    """
+    listing = subprocess.run(
+        ("git", "ls-files", "-z"),
+        cwd=REPO,
+        capture_output=True,
+        check=True,
+        timeout=60,
+    ).stdout
+    sources: dict[str, str] = {}
+    for raw in listing.split(b"\0"):
+        if not raw:
+            continue
+        rel = raw.decode("utf-8")
+        try:
+            sources[rel] = (REPO / rel).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+    return sources
+
+
+# A synthetic floor for the unit tests below, deliberately NOT the live one: writing
+# the live token into this module would make the census's own home an undeclared
+# carrier and fail the live guard.
+_SYNTHETIC_FLOOR = 7_700
+_SYNTHETIC_TOKEN = "7,700"
+
+
+def test_floor_token_formats_the_published_comma_shape() -> None:
+    assert floor_token(_SYNTHETIC_FLOOR) == _SYNTHETIC_TOKEN
+    assert floor_token(1_000) == "1,000"
+    with pytest.raises(AssertionError, match="rounded floor"):
+        floor_token(5_499)
+
+
+def test_published_floor_is_derived_from_the_readme_and_is_a_rounded_hundred() -> None:
+    """The one number the census does not own a copy of."""
+    floor = published_floor()
+    assert floor % 100 == 0, floor
+    assert floor_token(floor) in _intro()
+
+
+def test_floor_claim_lines_ignores_a_bump_history_line() -> None:
+    """Known-bad sample for the exclusion: history must not read as a claim."""
+    text = (
+        f"the floor is {_SYNTHETIC_TOKEN}+\n"
+        f"re-keyed 7,600 -> {_SYNTHETIC_TOKEN} at some point\n"
+        f"bumped to {_SYNTHETIC_TOKEN} at factory iter 260\n"
+    )
+    assert floor_claim_lines(text, _SYNTHETIC_TOKEN) == (1,)
+
+
+def test_published_floor_disagreements_is_empty_when_every_carrier_agrees() -> None:
+    sources = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    assert published_floor_disagreements(sources, _SYNTHETIC_FLOOR) == []
+
+
+def test_published_floor_disagreements_names_the_carrier_a_bump_missed() -> None:
+    """The whole point: one carrier left behind at the superseded floor."""
+    sources = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    missed = PUBLISHED_FLOOR_CARRIERS[3]
+    sources[missed] = "claims 7,600+\n"
+    problems = published_floor_disagreements(sources, _SYNTHETIC_FLOOR)
+    assert len(problems) == 1, problems
+    assert missed in problems[0] and _SYNTHETIC_TOKEN in problems[0]
+
+
+def test_published_floor_disagreements_names_a_declared_carrier_that_vanished() -> None:
+    sources = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    gone = sources.pop(PUBLISHED_FLOOR_CARRIERS[1])
+    assert _SYNTHETIC_TOKEN in gone
+    problems = published_floor_disagreements(sources, _SYNTHETIC_FLOOR)
+    assert len(problems) == 1, problems
+    assert "not in the tracked tree" in problems[0]
+
+
+def test_published_floor_disagreements_names_an_undeclared_carrier() -> None:
+    """The other side: a NEW pin must be declared, not discovered by the next bump."""
+    sources = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    sources["tests/test_iter999_behavior.py"] = f"x\nassert '{_SYNTHETIC_TOKEN}+' in readme\n"
+    problems = published_floor_disagreements(sources, _SYNTHETIC_FLOOR)
+    assert problems == [
+        f"tests/test_iter999_behavior.py: undeclared file claims the floor {_SYNTHETIC_TOKEN} "
+        "at line(s) 2"
+    ], problems
+
+
+def test_every_floor_carrier_agrees_with_the_readme_on_the_live_tree() -> None:
+    """The live census: the shipping tree, the README's own floor, both directions."""
+    sources = tracked_text_sources()
+    assert "README.md" in sources, "git ls-files returned no README -- the domain is broken"
+    assert published_floor_disagreements(sources, published_floor()) == []
