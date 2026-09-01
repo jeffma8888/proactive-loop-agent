@@ -30,8 +30,9 @@ matrix legs cannot diverge here.
 
 Coverage (numbered to match the spec's Expected Behaviors):
 
-1. One ``cli._collect`` over the repo root reports ``hits == 5`` / ``misses == 1``
-   from ``walk_cache_stats()`` (batch 2 measured 3 hits, 1 miss).
+1. One ``cli._collect`` over the repo root reports ``hits == 8`` / ``misses == 1``
+   from ``walk_cache_stats()`` (batch 2 measured 3 hits, 1 miss; 5 when this module
+   shipped as batch 3; batch 4 added three more callers).
 2. Inside ONE ``walk_scope()``, the two collectors together perform exactly ONE
    physical ``os.walk`` rooted at the shared root (it was two).
 3. Signals are unchanged, pinned as literals captured from the PARENT commit.
@@ -41,8 +42,9 @@ Coverage (numbered to match the spec's Expected Behaviors):
 6. Traversal-order independence: with ``os.walk`` yielding reversed directory
    entries, both collectors return byte-identical signals.
 7. Source census: neither module names ``os.walk(``, ``_SKIP_DIRS`` or
-   ``_is_hidden``, and exactly 6 files under ``collectors/`` still call
-   ``os.walk(``.
+   ``_is_hidden``, and the equality pin names every ``collectors/`` file that still
+   calls ``os.walk(`` -- 6 when this module shipped, 3 since batch 4 (foundry iter
+   263) converted ``todos`` + ``large_file`` + ``syntax_error``.
 """
 
 from __future__ import annotations
@@ -208,9 +210,11 @@ class TestBehavior1SharedTraversalCounters:
         cli._collect(workspace)
 
         stats = walk_cache_stats()
-        assert (stats["hits"], stats["misses"]) == (5, 1), (
-            "one _collect must serve SIX collectors from ONE traversal: expected "
-            f"hits=5 misses=1 (batch 2 measured hits=3 misses=1); got {stats!r}"
+        assert (stats["hits"], stats["misses"]) == (8, 1), (
+            "one _collect must serve every converted collector from ONE traversal: "
+            "expected hits=8 misses=1 (batch 2 measured hits=3, batch 3 hits=5, and "
+            "batch 4 -- todos + large_file + syntax_error, foundry iter 263 -- added "
+            f"three more); got {stats!r}"
         )
 
     def test_scope_leaves_no_cached_dirents_behind(self, workspace: Path) -> None:
@@ -450,7 +454,7 @@ class TestBehavior7SourceCensus:
                     f"found {text.count(symbol)} occurrence(s)"
                 )
 
-    def test_exactly_six_collector_modules_still_walk(self) -> None:
+    def test_exactly_three_collector_modules_still_walk(self) -> None:
         modules = sorted(p.name for p in COLLECTORS_DIR.glob("*.py"))
         assert len(modules) >= 15, (
             f"census domain regression -- expected the collectors package; got {modules!r}"
@@ -463,23 +467,23 @@ class TestBehavior7SourceCensus:
         assert walkers == [
             "dir_source.py",
             "filesystem.py",
-            "large_file.py",
             "notes.py",
-            "syntax_error.py",
-            "todos.py",
         ], (
-            "exactly 6 collector modules may still own an os.walk (was 8 before "
-            "batch 3 converted merge_conflict + broken_link: dir_source and "
-            "filesystem keep theirs by design, plus the four unconverted "
-            "collectors). A later batch that converts one of these must update "
-            f"this iteration-scoped pin. Got {walkers!r}"
+            "exactly 3 collector modules may still own an os.walk (13 before the "
+            "provider landed, 8 before batch 3 converted merge_conflict + "
+            "broken_link, 6 when this module shipped, 3 since batch 4 -- foundry "
+            "iter 263 -- converted todos + large_file + syntax_error). dir_source "
+            "owns the one shared traversal; filesystem and notes keep theirs by "
+            "design, and dir_source.py's docstring records why for each. A later "
+            f"batch that converts one of these must update this pin. Got {walkers!r}"
         )
         # Every collector converted by this program so far, asserted absent -- the
         # list above is an equality pin, so this is a second, named-symbol view of
         # the same claim that says WHICH module regressed rather than just showing
         # a changed list.
         for converted in ("secret_file.py", "test_posture.py", "merge_conflict.py",
-                          "broken_link.py"):
+                          "broken_link.py", "todos.py", "large_file.py",
+                          "syntax_error.py"):
             assert converted not in walkers, (
                 f"{converted} was converted to dir_source.walk by row #210's program; "
                 "it must never own an os.walk again"

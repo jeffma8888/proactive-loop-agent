@@ -45,7 +45,8 @@ the source (see the parse-memo block below). Output is unchanged: the memo
 returns exactly what ``compile`` would have returned for that same source
 text.
 
-Pure stdlib (``os`` / ``pathlib`` / ``hashlib`` / builtin ``compile``) only, so
+Pure stdlib (``pathlib`` / ``hashlib`` / builtin ``compile``, plus the shared
+pruned traversal from ``collectors/dir_source``) only, so
 the runtime stays pydantic-v2-only and fully offline; never raises -> ``[]``. A new
 ``kind="syntax_error"`` flows into the synthesis prompt automatically because
 ``synthesizer._build_prompt`` iterates ``snapshot.by_kind()``, so this file plus
@@ -56,19 +57,19 @@ the two-line registry wiring is the whole cost -- additive, no version bump
 from __future__ import annotations
 
 import hashlib
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned
-# shared seam, mirroring merge_conflict.py / large_file.py) so a broken file
-# buried in node_modules/.venv/a hidden dir is invisible here too.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# Only the FILE-level rule is imported now. The DIRECTORY prune moved to
+# dir_source, which applies it during the one shared traversal, so a broken file
+# buried in node_modules/.venv/a hidden dir is still invisible here without this
+# module restating the rule -- mirroring merge_conflict.py / broken_link.py.
+from proactive_loop.collectors.filesystem import _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
-# The MODULE is imported (not its ``read_text`` function) so all three content
-# collectors resolve the provider through ONE patchable attribute.
-from proactive_loop.collectors import text_source
+# The MODULES are imported (not their functions) so every collector resolves the
+# two shared per-scan providers through ONE patchable attribute each.
+from proactive_loop.collectors import dir_source, text_source
 from proactive_loop.models import ContextSignal
 
 
@@ -245,14 +246,14 @@ class SyntaxErrorCollector(BaseCollector):
             return []
 
         # Collect (relpath, signal) pairs so we can order deterministically
-        # regardless of os.walk traversal order across platforms.
+        # regardless of the order the shared traversal serves entries in.
         found: list[tuple[str, ContextSignal]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to the sibling
-            # collectors, so os.walk never descends into them.
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden DIRS: dir_source
+        # owns the package dir-prune policy and applies it during the traversal,
+        # so this collector no longer carries the rule -- and inside the scan
+        # scope opened by cli._collect that ONE traversal is shared with every
+        # sibling walking the same root instead of being re-paid per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 # A hidden FILE (name starting with '.') is skipped too, so
                 # `.broken.py` is never scanned.

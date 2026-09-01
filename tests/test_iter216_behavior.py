@@ -111,6 +111,12 @@ RESOLVING_DOC = "See [sibling](guide.md) which exists.\n"
 # across the two runs and are asserted in behaviors 1, 2 and 6: parent
 # ``hits=3 misses=1`` / two physical walks for the pair / no-scope miss delta 0
 # -> this change ``hits=5 misses=1`` / ONE physical walk / miss delta 2.
+#
+# The SIGNAL rows above are frozen provenance and never move. The hit COUNTER is
+# not iteration-scoped -- it counts every converted collector in the scan -- so it
+# has since risen to ``hits=8 misses=1``, batch 4 (foundry iter 263) having
+# converted todos + large_file + syntax_error. Behavior 1 asserts the live 8; the
+# 5 recorded above stays as this module's own measurement, not as a live claim.
 # ---------------------------------------------------------------------------
 
 Row = tuple[str, str, str, str, str | None, float, Any]
@@ -235,14 +241,17 @@ def _source(name: str) -> str:
 
 
 class TestBehavior1SharedTraversalCounters:
-    def test_one_collect_reports_five_hits_and_one_miss(self, workspace: Path) -> None:
+    def test_one_collect_reports_eight_hits_and_one_miss(self, workspace: Path) -> None:
         clear_walk_cache()
         cli._collect(workspace)
 
         stats = walk_cache_stats()
-        assert (stats["hits"], stats["misses"]) == (5, 1), (
-            "one _collect must serve SIX collectors from ONE traversal: expected "
-            f"hits=5 misses=1 (parent commit measured hits=3 misses=1); got {stats!r}"
+        assert (stats["hits"], stats["misses"]) == (8, 1), (
+            "one _collect must serve every converted collector from ONE traversal: "
+            "expected hits=8 misses=1 (parent commit measured hits=3 misses=1; this "
+            "module shipped pinning hits=5 for its own batch-3 pair; batch 4 -- "
+            "foundry iter 263 -- converted todos + large_file + syntax_error and "
+            f"added three more); got {stats!r}"
         )
 
     def test_scope_leaves_no_cached_dirents_behind(self, workspace: Path) -> None:
@@ -542,7 +551,7 @@ class TestBehavior8SourceCensus:
                 "above are also satisfied by a collector that walks nothing"
             )
 
-    def test_exactly_six_collector_modules_still_walk(self) -> None:
+    def test_exactly_three_collector_modules_still_walk(self) -> None:
         modules = sorted(p.name for p in COLLECTORS_DIR.glob("*.py"))
         assert len(modules) >= 15, (
             "census domain regression -- an empty or truncated glob reads as a pass; "
@@ -555,20 +564,19 @@ class TestBehavior8SourceCensus:
         assert walkers == [
             "dir_source.py",
             "filesystem.py",
-            "large_file.py",
             "notes.py",
-            "syntax_error.py",
-            "todos.py",
         ], (
-            "exactly 6 collector modules may still own an os.walk (was 8 before this "
-            "batch converted merge_conflict + broken_link: dir_source and filesystem "
-            "keep theirs by design, plus the four collectors row #210 leaves for "
-            "batch 4). A later batch that converts one of these must update this "
-            f"iteration-scoped pin. Got {walkers!r}"
+            "exactly 3 collector modules may still own an os.walk (was 8 before this "
+            "batch converted merge_conflict + broken_link, and 6 until batch 4 -- "
+            "foundry iter 263 -- converted todos + large_file + syntax_error). "
+            "dir_source owns the one shared traversal; filesystem and notes keep "
+            "theirs by design. A later batch that converts one of these must update "
+            f"this iteration-scoped pin. Got {walkers!r}"
         )
         # A second, named-symbol view of the same claim, so a regression says WHICH
         # module came back rather than just showing a changed list.
-        for converted in ("secret_file.py", "test_posture.py", *BATCH3):
+        for converted in ("secret_file.py", "test_posture.py", *BATCH3,
+                          "todos.py", "large_file.py", "syntax_error.py"):
             assert converted not in walkers, (
                 f"{converted} was converted to dir_source.walk by row #210's "
                 "program; it must never own an os.walk again"

@@ -19,20 +19,25 @@ judgement -- the synthesizer LLM decides whether a goal is warranted, exactly li
 DependencyCollector. It reads only `st_size` metadata and NEVER opens file
 content, so it structurally cannot raise on binary/non-UTF-8 bytes (SPEC Out of
 Scope: no content reading, no MIME sniffing, no git/.gitignore awareness). Pure
-stdlib (`os`/`pathlib`) only, so the runtime stays pydantic-v2-only and offline.
+stdlib (`pathlib` here, plus the shared pruned traversal from
+`collectors/dir_source`) only, so the runtime stays pydantic-v2-only and offline.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT skip rules RecentFilesCollector uses (the SPEC-sanctioned shared
-# seam, mirroring dependencies.py / test_posture.py) so a large file buried in
-# node_modules/.venv/a hidden dir is invisible here too (spec Behavior 6).
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# Only the FILE-level rule is imported now. The DIRECTORY prune moved to
+# dir_source, which applies it during the one shared traversal, so a large file
+# buried in node_modules/.venv/a hidden dir is still invisible here (spec
+# Behavior 6) without this module restating the rule -- mirroring
+# merge_conflict.py / broken_link.py.
+from proactive_loop.collectors.filesystem import _is_hidden
+# The MODULE is imported (not its ``walk`` function) so every converted
+# collector resolves the shared traversal through ONE patchable attribute.
+from proactive_loop.collectors import dir_source
 from proactive_loop.models import ContextSignal
 
 # The ONE home for "how big is too big" in the perception layer.
@@ -77,19 +82,21 @@ class LargeFileCollector(BaseCollector):
     min_bytes: int = LARGE_FILE_MIN_BYTES
 
     def _collect(self, root: Path) -> list[ContextSignal]:
-        """Walk *root* and return one signal per oversized file."""
+        """Read the shared pruned listing of *root*; one signal per oversized file."""
         if not root.is_dir():
             return []
 
         # (size, relpath, absolute-path) triples, so we can order deterministically
-        # by descending size then ascending relpath regardless of os.walk order.
+        # by descending size then ascending relpath regardless of the order the
+        # shared traversal serves entries in.
         candidates: list[tuple[int, str, Path]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Prune noise + hidden dirs in place, identical to the sibling
-            # collectors, so os.walk never descends into them (spec Behavior 6).
-            dirnames[:] = [
-                d for d in dirnames if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden DIRS (spec
+        # Behavior 6): dir_source owns the package dir-prune policy and applies
+        # it during the traversal, so this collector no longer carries the rule
+        # -- and inside the scan scope opened by cli._collect that ONE traversal
+        # is shared with every sibling walking the same root instead of being
+        # re-paid per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 # Hidden files are skipped like RecentFilesCollector (spec Behavior 6).
                 if _is_hidden(fname):

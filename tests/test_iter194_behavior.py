@@ -13,6 +13,19 @@ silently split the product's pruning in two, under a docstring asserting that
 cannot happen.  This iteration deletes the copies so the two holdouts import the
 single owner's rules, and guards the property with a census.
 
+LATER NARROWING (foundry iter 263), recorded here so it is not misread as row #178
+being weakened.  ``todos`` no longer references ``_SKIP_DIRS`` at all: batch 4 of row
+#210's shared-walk program converted it onto ``dir_source.walk``, which applies the
+directory prune ONCE inside the single shared traversal, so the module has no prune
+call site left.  It left the ``_SKIP_DIRS`` referrer set by CONVERSION, not by drift,
+and the outcome is strictly STRONGER than importing the owner's object -- zero copies
+and zero re-application sites.  ``notes`` is the one remaining referrer (its
+``dirnames.clear()`` really is a different prune, so it is deliberately unconverted).
+The no-drift property still covers ``todos``: behaviors 2/3 census the WHOLE package
+for module-level definitions, so a re-declared copy reds the build whether or not the
+module still walks.  ``_is_hidden`` is a FILE-level rule applied per filename at the
+call site, so the conversion does not touch it and both modules still share it.
+
 THE VACUOUS-PROOF TRAP, and the three things that guard against it here.  An
 "unchanged behavior" test would pass just as well against two equal copies, so:
 
@@ -193,14 +206,15 @@ def _normalised(path: Path) -> str:
 
 # --------------------------------------------------------------------------
 # behavior 1 -- IDENTITY, not equality
+#
+# ``notes`` is the single remaining ``_SKIP_DIRS`` referrer; ``todos`` stopped
+# referencing the set in foundry iter 263 by CONVERSION (see the module docstring's
+# LATER NARROWING note). ``_is_hidden`` is a FILE-level rule and both still share it.
 # --------------------------------------------------------------------------
-def test_b01_both_holdouts_share_the_owners_prune_rules_by_identity() -> None:
-    assert todos._SKIP_DIRS is filesystem._SKIP_DIRS, (
-        "todos._SKIP_DIRS must be the SAME OBJECT as filesystem._SKIP_DIRS; an "
-        "equal-but-separate copy is exactly the drift this iteration removes"
-    )
+def test_b01_holdouts_share_the_owners_prune_rules_by_identity() -> None:
     assert notes._SKIP_DIRS is filesystem._SKIP_DIRS, (
-        "notes._SKIP_DIRS must be the SAME OBJECT as filesystem._SKIP_DIRS"
+        "notes._SKIP_DIRS must be the SAME OBJECT as filesystem._SKIP_DIRS; an "
+        "equal-but-separate copy is exactly the drift this iteration removes"
     )
     assert todos._is_hidden is filesystem._is_hidden, (
         "todos._is_hidden must be the SAME FUNCTION OBJECT as filesystem._is_hidden"
@@ -210,6 +224,15 @@ def test_b01_both_holdouts_share_the_owners_prune_rules_by_identity() -> None:
     )
     # ...and the surviving object really is defined by the owner, not re-bound.
     assert filesystem._is_hidden.__module__ == FILESYSTEM_MOD
+    # Two-sided on the narrowing itself, so dropping the old todos._SKIP_DIRS
+    # assertion does not silently drop the guard with it: a converted collector must
+    # not RE-ACQUIRE the directory rule, because a prune site coming back is exactly
+    # how the package's pruning would split in two again.
+    assert not hasattr(todos, "_SKIP_DIRS"), (
+        "todos inherits the directory prune from dir_source.walk since foundry iter "
+        "263, so it must hold no _SKIP_DIRS binding at all; one reappearing means a "
+        "prune call site came back"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -351,8 +374,16 @@ def test_b06_todo_markers_inside_pruned_directories_are_never_collected(
 # Acceptance Criteria that are checkable by SHAPE (never by guessed prose)
 # --------------------------------------------------------------------------
 def test_ac_holdouts_import_the_rules_and_declare_neither() -> None:
+    # Which RULES each module must import from the single owner. ``notes`` is
+    # unconverted and applies both. ``todos`` was converted onto ``dir_source.walk``
+    # in foundry iter 263, so it inherits the DIRECTORY prune and keeps only the
+    # FILE-level rule -- see the module docstring's LATER NARROWING note.
+    required_imports = {
+        "notes.py": ("_SKIP_DIRS", "_is_hidden"),
+        "todos.py": ("_is_hidden",),
+    }
     sources = _collectors_sources()
-    for mod_name in ("notes.py", "todos.py"):
+    for mod_name, required_names in required_imports.items():
         tree = ast.parse(sources[mod_name], filename=mod_name)
         assert "_SKIP_DIRS" not in _module_level_bindings(tree), (
             f"{mod_name} still declares its own _SKIP_DIRS"
@@ -362,11 +393,20 @@ def test_ac_holdouts_import_the_rules_and_declare_neither() -> None:
         )
         froms = _from_imports(COLLECTORS / mod_name)
         imported = froms.get(FILESYSTEM_MOD, set())
-        for required in ("_SKIP_DIRS", "_is_hidden"):
+        for required in required_names:
             assert required in imported, (
                 f"{mod_name} must import {required} from {FILESYSTEM_MOD}; its "
                 f"from-imports are {froms}"
             )
+    # Two-sided on the narrowing: the converted module must import the FILE rule and
+    # NOT the directory rule, so this reds both when todos loses _is_hidden and when
+    # a returning prune site re-imports _SKIP_DIRS.
+    todos_imported = _from_imports(COLLECTORS / "todos.py").get(FILESYSTEM_MOD, set())
+    assert "_SKIP_DIRS" not in todos_imported, (
+        "todos.py inherits the directory prune from dir_source.walk since foundry "
+        "iter 263; importing _SKIP_DIRS again means a prune call site came back. Its "
+        f"filesystem imports are {sorted(todos_imported)}"
+    )
 
 
 def test_ac_owner_value_is_unchanged_and_immutable() -> None:

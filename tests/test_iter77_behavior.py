@@ -558,11 +558,16 @@ def test_b12_dangling_symlink_degrades(tmp_path: Path) -> None:
 
 
 def test_b12_oswalk_raises_degrades_to_empty(tmp_path: Path, monkeypatch) -> None:
+    # The traversal seam moved from ``syntax_error.os.walk`` to the shared
+    # ``dir_source.walk`` provider in foundry iter 263 (batch 4 of row #210). The
+    # behavior under test is unchanged and is the reason the seam is patched at
+    # all: whatever supplies the directory listing, a raise from it must degrade
+    # this collector to zero signals rather than propagate out of ``collect``.
     _write(tmp_path / "broken.py")
 
     def _boom(*_a, **_k):
-        raise OSError("simulated os.walk failure")
+        raise OSError("simulated directory-listing failure")
 
-    monkeypatch.setattr(syntax_error_mod.os, "walk", _boom)
+    monkeypatch.setattr(syntax_error_mod.dir_source, "walk", _boom)
 
     assert SyntaxErrorCollector().collect(tmp_path) == []

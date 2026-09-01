@@ -17,14 +17,26 @@ walk "the missing half: the I/O". This module is that half, one level up from
 bytes to dirents. The two are deliberately separate caches with the same shape:
 text_source answers "what is IN this file", dir_source answers "what IS there".
 
-WHY sharing is safe here, and why it needed no union computation: every walking
-collector imports the SAME two prune rules from the SAME place
-(``filesystem._SKIP_DIRS`` / ``filesystem._is_hidden``) and applies the
-character-for-character identical in-place prune, so the product has exactly ONE
-prune set and there is no set-difference risk to reconcile. ``filesystem.py``
-itself is deliberately NOT a caller: its walk prunes ADDITIONALLY for recency, so
-it is the one walker whose prune set genuinely differs and a shared listing would
-change which files it sees.
+WHY sharing is safe here, and why it needed no union computation: the package's
+two prune rules live in exactly ONE place (``filesystem._SKIP_DIRS`` /
+``filesystem._is_hidden``) and every walker applied the character-for-character
+identical in-place directory prune, so the product has exactly ONE prune set and
+there is no set-difference risk to reconcile. A converted collector stops naming
+the directory rule at all -- it inherits an already-pruned listing -- and keeps
+only ``_is_hidden`` for the per-FILE policy each one owns.
+
+WHY ``filesystem.py`` is not a caller, stated correctly: NOT because its prune set
+differs. Both of its walk sites apply the byte-identical directory prune, and its
+recency test is a per-FILE ``st_mtime >= cutoff`` comparison applied to the
+``filenames`` a triple already carries, so it never removes a directory and a
+shared listing would serve it exactly the same tree. The real reason is
+``_has_source``, which early-returns on the FIRST source file it finds while this
+module materialises the whole pruned tree: converting it would turn a
+one-directory peek into a full traversal for a library consumer running outside a
+scope. That is a cost decision, not a mechanical conversion, so it is left to the
+row that prices it. ``notes.py`` is the other deliberate holdout, and there the
+prune genuinely DOES differ: it additionally calls ``dirnames.clear()`` on a
+notes-style directory.
 
 Pure stdlib, no network, deterministic: the served order is a total function of
 the tree (sorted), never of platform ``os.walk`` enumeration order.

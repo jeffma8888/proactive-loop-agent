@@ -59,6 +59,13 @@ TESTS_DIR: Final[Path] = THIS_MODULE.parent
 REPO: Final[Path] = THIS_MODULE.parents[1]
 ROADMAP: Final[Path] = REPO / "ROADMAP.md"
 
+#: ``DIRECTIONS.md`` is the foundry's tracked, offline record of the iterations that were actually
+#: scouted -- one indented ``iter-NNN`` block each, written in the SAME commit as the roadmap row.
+#: It is NOT an audit target (``test_b09`` states that boundary); it is read ONLY as evidence for
+#: the PENDING bound, because git alone cannot tell an honest row for an iteration git LOST to a
+#: revert from a mistyped one.
+DIRECTIONS: Final[Path] = REPO / "DIRECTIONS.md"
+
 #: The heading that opens the LEDGER region; the region runs to end of file.
 LEDGER_HEADING: Final[str] = "## Done ledger"
 
@@ -69,6 +76,11 @@ ROW_RE: Final[re.Pattern[str]] = re.compile(r"(?m)^- #(\d+) ")
 #: A CITED TAG, read as the pair ``(vocabulary, number)``. The number is parsed as an int so
 #: the early zero-padded subjects (``factory iter 01``) compare equal to an unpadded citation.
 TAG_RE: Final[re.Pattern[str]] = re.compile(r"\b(factory|foundry) iter (\d+)\b")
+
+#: A ``DIRECTIONS.md`` iteration-block HEADER, e.g. ``  iter-263``. Indent-anchored and
+#: end-anchored on purpose: a prose mention of ``iter-263`` inside a candidate line must not
+#: count, or the bound could be widened by narrative text rather than by a real scouted block.
+DIRECTED_ITER_RE: Final[re.Pattern[str]] = re.compile(r"(?m)^[ \t]+iter-(\d+)[ \t]*$")
 
 #: The 8 tag strings iteration 239 retired. Their numbers sit ABOVE git's highest ``factory``
 #: number, which is why the exemption must be pinned to the maximum CITED number.
@@ -110,6 +122,12 @@ RELABELLED_ROW_ITERATIONS: Final[dict[str, int]] = {
 MIN_PRESENT_TAGS: Final[int] = 200
 MIN_LEDGER_ROWS: Final[int] = 40
 MIN_RESOLVED_TAGS: Final[int] = 30
+
+#: Anti-vacuity floor for the PENDING bound's evidence. If :data:`DIRECTED_ITER_RE` ever stops
+#: matching ``DIRECTIONS.md``'s real shape, :func:`_newest_directed_iteration` returns ``None``,
+#: the bound silently degrades to the strict ``+ 1``, and an honest row reverts a green iteration
+#: for a reason no message names. Measured 144 blocks on the tree that added this floor.
+MIN_DIRECTED_BLOCKS: Final[int] = 100
 
 
 # --------------------------------------------------------------------------- pure functions
@@ -160,6 +178,35 @@ def pending_tags(ledger_text: str) -> frozenset[tuple[str, int]]:
     return frozenset(
         (vocabulary, number) for _, vocabulary, number, _ in tags if number == newest
     )
+
+
+def directed_iterations(directions_text: str) -> frozenset[int]:
+    """Return every iteration number ``DIRECTIONS.md`` records as a scouted BLOCK.
+
+    Pure over text so the anchoring is provable with no I/O: only an indented, line-terminating
+    ``iter-NNN`` header counts, never a mention of the same token inside candidate prose.
+    """
+    return frozenset(int(match.group(1)) for match in DIRECTED_ITER_RE.finditer(directions_text))
+
+
+def pending_bound(newest_present: int, newest_directed: int | None) -> int:
+    """Return the largest cited iteration number the PENDING exemption may legitimately cover.
+
+    ``newest_present + 1`` alone assumes the iteration counter advances by exactly ONE per
+    commit. The loop's revert path breaks that: iterations 261 and 262 were both reverted, so
+    git's newest subject was ``foundry iter 260`` while the honest row for iteration 263 sat
+    THREE ahead. Bounding it at ``+ 1`` would have reverted a correct row -- and dropping the row
+    is what reverted iteration 262 in the first place.
+
+    So the allowance is the LOOSER of two in-repo facts: the one-iteration same-commit race, OR
+    the newest iteration ``DIRECTIONS.md`` records as scouted. Both are evidence-backed; neither
+    is slack. A mistyped ``foundry iter 2390`` still fails, because it would also need an
+    ``iter-2390`` block in ``DIRECTIONS.md``, which the same commit would have to invent.
+    ``None`` means the record is unreadable, and the bound then degrades to the strict ``+ 1``.
+    """
+    if newest_directed is None:
+        return newest_present + 1
+    return max(newest_present + 1, newest_directed)
 
 
 def unresolved_cited_tags(
@@ -221,6 +268,20 @@ def _git_subjects() -> str:
 
 def _roadmap() -> str:
     return ROADMAP.read_text(encoding="utf-8")
+
+
+def _newest_directed_iteration() -> int | None:
+    """The newest iteration ``DIRECTIONS.md`` records, or ``None`` when it records none.
+
+    Degrades rather than errors for the same reason the git probe skips: a checkout that lacks
+    the companion doc must not turn a bound into a crash.
+    """
+    try:
+        text = DIRECTIONS.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    numbers = directed_iterations(text)
+    return max(numbers) if numbers else None
 
 
 def _load_sibling_guard(stem: str) -> ModuleType:
@@ -423,9 +484,19 @@ def test_b08_the_ledger_preamble_states_the_tag_contract_and_names_this_oracle()
 
 
 def test_b09_this_module_audits_roadmap_md_and_nothing_else() -> None:
-    """Behavior 9: the audit domain is one document -- no archive, no ``src/``, no other doc."""
+    """Behavior 9: the AUDIT domain is one document -- no archive, no ``src/``, no other doc.
+
+    ``DIRECTIONS.md`` joined the allowlist when :func:`pending_bound` was widened, and the
+    distinction is worth stating rather than leaving to a reader: no assertion audits its
+    CONTENT, and no cited tag is ever resolved against it. It is read for exactly one integer --
+    the newest scouted iteration -- because git cannot distinguish an honest row for an iteration
+    it LOST to a revert from a mistyped one. ``ROADMAP_ARCHIVE.md``, ``src/`` and every other
+    document stay out, which is what this guard still refuses.
+    """
     paths = {value for value in globals().values() if isinstance(value, Path)}
-    assert paths == {THIS_MODULE, TESTS_DIR, REPO, ROADMAP}, sorted(str(p) for p in paths)
+    assert paths == {THIS_MODULE, TESTS_DIR, REPO, ROADMAP, DIRECTIONS}, sorted(
+        str(p) for p in paths
+    )
 
 
 def test_b09_this_module_imports_no_product_code() -> None:
@@ -526,9 +597,13 @@ def test_t04_the_pending_exemption_cannot_be_widened_by_a_mistyped_number() -> N
 
     Because PENDING is whatever is numerically newest, a row that mistypes its tag -- say
     ``foundry iter 2390`` -- becomes the maximum and exempts ITSELF, so the one row nobody has
-    checked yet is also the one row the oracle refuses to check. Bound it: the newest cited
-    number may run at most ONE ahead of the newest number git carries, which is exactly the
-    same-commit race behavior 3 grants an exemption for and nothing wider.
+    checked yet is also the one row the oracle refuses to check. Bound it (:func:`pending_bound`):
+    the newest cited number may run at most ONE ahead of the newest number git carries, OR up to
+    the newest iteration ``DIRECTIONS.md`` records as scouted -- the same-commit race, plus an
+    iteration git LOST to a revert, and nothing wider. The second allowance is not slack: it was
+    added when iterations 261 and 262 were both reverted, leaving git at ``foundry iter 260``
+    while the honest row for iteration 263 was three ahead, and a ``+ 1`` bound would have
+    reverted a correct row.
     """
     ledger = ledger_region(_roadmap())
     present = present_tags(_git_subjects())
@@ -536,11 +611,64 @@ def test_t04_the_pending_exemption_cannot_be_widened_by_a_mistyped_number() -> N
     assert tags, "no cited tags parsed"
     newest_cited = max(number for _, _, number, _ in tags)
     newest_present = max(number for _, number in present)
-    assert newest_cited <= newest_present + 1, (
+    newest_directed = _newest_directed_iteration()
+    bound = pending_bound(newest_present, newest_directed)
+    assert newest_cited <= bound, (
         f"the ledger's newest cited iteration is {newest_cited} while git's newest is "
-        f"{newest_present}: a tag more than one iteration ahead exempts itself from behavior 3"
+        f"{newest_present} and DIRECTIONS.md's newest scouted iteration is {newest_directed}: "
+        "a tag ahead of BOTH exempts itself from behavior 3"
     )
     expected_pending = frozenset(
         (vocabulary, number) for _, vocabulary, number, _ in tags if number == newest_cited
     )
     assert pending_tags(ledger) == expected_pending, pending_tags(ledger)
+
+
+def test_t05_the_widened_pending_bound_is_two_sided_and_cannot_be_slack() -> None:
+    """The bound gained a second allowance, so prove it did not fail open. Pure, no I/O.
+
+    Written with :func:`pending_bound` because the live tree can only ever exhibit ONE of these
+    situations at a time, and a guard that is loosened without a known-bad arm is the fail-open
+    shape this repo keeps rediscovering.
+    """
+    # The original same-commit race, unchanged, and unchanged when no record can be read.
+    assert pending_bound(260, None) == 261
+    assert pending_bound(260, 261) == 261
+
+    # An iteration git LOST to a revert: git sits at 260, DIRECTIONS.md records 263, so the
+    # honest row for 263 passes. This is the case that reverted nothing but a stale oracle.
+    assert pending_bound(260, 263) == 263
+    assert 263 <= pending_bound(260, 263)
+
+    # KNOWN BAD, the hole test_t04 exists to close: a mistyped tag is still refused, because it
+    # would need an `iter-2390` block in DIRECTIONS.md as well.
+    assert 2390 > pending_bound(260, 263)
+    assert 2390 > pending_bound(260, None)
+
+    # A record that lags git can never TIGHTEN the bound below the same-commit race, or an
+    # honest row would revert whenever DIRECTIONS.md was written a commit late.
+    assert pending_bound(260, 200) == 261
+
+
+def test_t05_the_directions_probe_is_anchored_and_not_vacuous_on_the_real_file() -> None:
+    """The evidence must come from real scouted BLOCKS, and the parse must not be empty.
+
+    Two failure modes, both silent: a prose mention widening the bound (so the anchoring arm),
+    and the regex ceasing to match the file at all, which degrades the bound to ``+ 1`` and
+    reverts an honest row with a message that blames git (so the floor).
+    """
+    prose_only = "\n".join(
+        (
+            "foundry directions -- proactive-loop-agent",
+            "    - Candidate A1 -- rework what iter-2390 left behind",
+            "    winner: A1",
+        )
+    )
+    assert directed_iterations(prose_only) == frozenset()
+
+    block = "foundry directions -- proactive-loop-agent\n  iter-263\n    winner: A1\n"
+    assert directed_iterations(block) == frozenset({263})
+
+    live = directed_iterations(DIRECTIONS.read_text(encoding="utf-8"))
+    assert len(live) >= MIN_DIRECTED_BLOCKS, len(live)
+    assert _newest_directed_iteration() == max(live)

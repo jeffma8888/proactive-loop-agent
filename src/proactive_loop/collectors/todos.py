@@ -23,28 +23,26 @@ would have produced for that same text.
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
 from proactive_loop.collectors.base import BaseCollector
-# Reuse the EXACT walk-prune rules RecentFilesCollector uses (the SPEC-sanctioned
-# shared seam, mirroring large_file.py / merge_conflict.py) rather than restating
-# them here. WHY an import and not a copy: dir_source.py serves ONE shared
-# directory listing to the walking collectors on the load-bearing claim that the
-# package has "exactly ONE prune set and there is no set-difference risk to
-# reconcile". A hand-copied set makes that claim false the moment the copies
-# drift -- and they HAD drifted (this module's copy was missing ".tox"),
-# invisibly, only because every prune site ANDs the hidden rule and ".tox" is
-# dot-prefixed.
-from proactive_loop.collectors.filesystem import _SKIP_DIRS, _is_hidden
+# Only the FILE-level rule is imported. The DIRECTORY prune this module used to
+# restate is now inherited: ``dir_source`` applies it during the one shared
+# traversal, so a converted collector stops needing the rule at all. That is
+# strictly stronger than importing it -- the rule cannot be mis-applied at a call
+# site that no longer has one. (Row #178's hoist was the necessary step: this
+# module once hand-copied the set and the copy HAD drifted, missing ".tox",
+# invisibly, because every prune site ANDs the hidden rule and ".tox" is
+# dot-prefixed. The set now has exactly one home and one applier.)
+from proactive_loop.collectors.filesystem import _is_hidden
 from proactive_loop.collectors.large_file import LARGE_FILE_MIN_BYTES
-# The MODULE is imported (not its ``read_text`` function) so all three content
-# collectors resolve the provider through ONE patchable attribute -- a test can
-# instrument or assert the shared seam in a single place.
-from proactive_loop.collectors import text_source
+# The MODULES are imported (not their functions) so every collector resolves the
+# two shared per-scan providers through ONE patchable attribute each -- a test can
+# instrument or assert either seam in a single place.
+from proactive_loop.collectors import dir_source, text_source
 from proactive_loop.models import ContextSignal
 
 # Matches TODO / FIXME / XXX anywhere in a line (case-insensitive).
@@ -331,14 +329,15 @@ class TodoCollector(BaseCollector):
             return []
 
         # Accumulate (relpath, lineno, signal) so we can order deterministically
-        # regardless of os.walk traversal order across platforms.
+        # regardless of the order the shared traversal serves entries in.
         found: list[tuple[str, int, ContextSignal]] = []
 
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [
-                d for d in dirnames
-                if not _is_hidden(d) and d not in _SKIP_DIRS
-            ]
+        # The listing arrives ALREADY pruned of noise + hidden DIRS: dir_source
+        # owns the package dir-prune policy and applies it during the traversal,
+        # so this collector no longer carries the rule -- and inside the scan
+        # scope opened by cli._collect that ONE traversal is shared with every
+        # sibling walking the same root instead of being re-paid per collector.
+        for dirpath, _dirnames, filenames in dir_source.walk(root):
             for fname in filenames:
                 if _is_hidden(fname):
                     continue
@@ -368,7 +367,7 @@ class TodoCollector(BaseCollector):
                 found.extend(_extract_todos(text, full, root, self.name))
 
         # Deterministic: sort by (relpath, lineno) ascending, then cap -- so which
-        # todos survive the cap and their order are a total, os.walk-order-independent
+        # todos survive the cap and their order are a total, traversal-order-independent
         # function of the filesystem, matching the sibling file-scanning collectors.
         found.sort(key=lambda item: (item[0], item[1]))
         return [signal for _, _, signal in found[: self.max_items]]

@@ -1,6 +1,46 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-264
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `scan --baseline FILE`: let the synthesis verb consume the snapshot it already writes
+    - Candidate A2 -- `watch --collector NAME`: the namesake long-lived verb gains its first perception knob
+    - Candidate A3 -- `PythonVersionDriftCollector` (roadmap row #122), re-priced: it is the 18th collector, not the 17th
+    - Candidate B1 -- teach `readme-headroom` the boundary that actually reds the build
+    - Candidate B2 -- the floor-bump obligation census names 6 of its 7 files
+    - Candidate B3 -- a headroom gauge for `ROADMAP.md`, the ratchet with a body count
+    winner: B1
+    ship: pending (not yet decided)
+  iter-263
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- SPEC.md's layout tree names 8 of 15 tracked top-level entries, and four of them exist NOWHERE in the spec
+    - Candidate A2 -- the roadmap's own headroom contract is documented nowhere a contributor will look, and it is actively destroying green iterations
+    - Candidate A3 -- `test_catalog_has_sixteen_entries` asserts 17
+    - Candidate B1 -- `pla scan --baseline FILE`: the verb that WRITES the ratchet document is the only perception verb that cannot READ one
+    - Candidate B2 -- `pla watch --json`: the only verb of 17 with no machine-readable mode, and the census guard was built as a FLOOR precisely to admit it
+    - Candidate B3 -- `run`/`dispatch --allow-tool NAME`: the autonomy contract gates WHETHER a goal runs, never WHAT it may touch
+    winner: A2
+    ship: REVERTED
+  iter-262
+    lenses: performance-and-throughput (iteration 262), narrative-and-docs
+    - Candidate A1 -- finish the dir_source conversion for the three sibling walkers
+    - Candidate A2 -- convert `_has_source`, the CI/license gate that walks the tree TWICE per scan
+    - Candidate A3 -- a targeted-subset test path, because `-n auto` is 3.5x SLOWER on one module
+    - Candidate B1 -- the README names 4 collectors as served by the shared walk; the live number is 6
+    - Candidate B2 -- DIRECTIONS.md is advertised as "one block per iteration" and is missing 28 consecutive blocks, 6 of them shipped
+    - Candidate B3 -- a WHY comment gives a false reason for a design boundary, and that false reason has been capping the work
+    winner: A1
+    ship: REVERTED
+  iter-261
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Hoist the FIFO digest memo triplicated at three collectors into one `base` helper
+    - Candidate A2 -- Migrate the last two hand-rolled workspace-relative path sites onto `BaseCollector._relative`
+    - Candidate A3 -- Hoist the byte-identical permissive `_dirs_to_scan` shared by `git_stash` and `git_state`
+    - Candidate B1 -- Cut the suite's critical path: two nested-pytest tests cost 13.6s of the 76s suite
+    - Candidate B2 -- Retire the deferred `Path.stat` seam with the number that kills it, and tighten `STATS_PER_PATH`
+    - Candidate B3 -- Price the ONE-SHOT regime: the first scan in a fresh process costs 4x the steady-state scan
+    winner: A2
+    ship: REVERTED
   iter-260
     lenses: integration-and-adoption, simplification-and-deletion (iteration 260)
     - Candidate A1 -- `pla policy --check-goal` gains its first consumer: a standing, LLM-free autonomy assertion
@@ -10,7 +50,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- finish the collapse iter 243 started: the two scan-scoped caches still keep separate bookkeeping
     - Candidate B3 -- one `--snapshot` pre-check replaces the guard block copied verbatim at two verbs
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9b13289
   iter-259
     lenses: HARDENING / DX -- factory iteration 259, integration-and-adoption (iteration 259)
     - Candidate A1 -- The collector roster is stale in SIX test names, not one; rename them and bind a spelled roster count in a test name to the live registry
@@ -1408,4 +1448,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-141 scouted iterations
+145 scouted iterations

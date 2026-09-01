@@ -19,8 +19,11 @@ They drive ONLY the public surface
 under ``src/`` was read, no engineer/reviewer note was consulted, and no ``git
 diff`` was read.** Every test is fully offline/deterministic: real files under a
 pytest ``tmp_path``; the one seam monkeypatched
-(``proactive_loop.collectors.todos.os.walk``) is the seam the spec names
-explicitly, and ``monkeypatch`` auto-restores it.
+(``proactive_loop.collectors.todos.dir_source.walk``) is the traversal this
+collector consumes. It was ``todos.os.walk`` -- the seam THIS iteration's spec
+named -- until foundry iter 263 converted the collector onto the shared per-scan
+provider; the guard is unchanged in kind, because ``dir_source.walk`` is still the
+one place a discovery order enters ``_collect``. ``monkeypatch`` auto-restores it.
 
 File naming: the prompt's state-dir iteration is 80, but
 ``tests/test_iter80_behavior.py`` already exists (an earlier commit-seq
@@ -63,10 +66,22 @@ def _paths(sigs) -> list[str]:
 
 
 def _fake_walk(root: Path, order: list[str]):
-    """An ``os.walk`` replacement yielding exactly ``order`` under ``root`` (a
-    flat dir; no subdirs). Used to force a specific discovery order and prove
+    """A ``dir_source.walk`` replacement yielding exactly ``order`` under ``root``
+    (a flat dir; no subdirs). Used to force a specific discovery order and prove
     input-order independence. Files must already exist on disk (the collector
-    reads each ``root / name``)."""
+    reads each ``root / name``).
+
+    Deliberately still a GENERATOR taking ``(top, *args, **kwargs)``: the provider
+    returns a list of ``(dirpath, dirnames, filenames)`` triples and the collector
+    only iterates it, so this stays shape-compatible with both the old ``os.walk``
+    seam and the provider that replaced it. ``dir_source.walk`` SORTS what it
+    serves, so forcing an unsorted order here still exercises ``todos``'s own
+    ``(relpath, lineno)`` sort rather than re-testing the provider.
+
+    ``_td.dir_source`` is the SHARED provider module object, so the patch is
+    package-wide for its duration -- exactly as the old ``_td.os`` seam was, since
+    that was the shared ``os`` module. Harmless here (each test drives only
+    ``TodoCollector``), and ``monkeypatch`` restores it either way."""
 
     def _walk(_top, *args, **kwargs):
         yield (str(root), [], list(order))
@@ -104,15 +119,15 @@ def test_b1_cap_selection_independent_of_walk_order(
     for nm in ("z.py", "a.py", "m.py"):
         _write(tmp_path, nm, f"# TODO: {nm}-1\n# TODO: {nm}-2\n")
 
-    monkeypatch.setattr(_td.os, "walk", _fake_walk(tmp_path, ["z.py", "a.py", "m.py"]))
+    monkeypatch.setattr(_td.dir_source, "walk", _fake_walk(tmp_path, ["z.py", "a.py", "m.py"]))
     kept1 = _paths(TodoCollector(max_items=3).collect(tmp_path))
 
-    monkeypatch.setattr(_td.os, "walk", _fake_walk(tmp_path, ["m.py", "z.py", "a.py"]))
+    monkeypatch.setattr(_td.dir_source, "walk", _fake_walk(tmp_path, ["m.py", "z.py", "a.py"]))
     kept2 = _paths(TodoCollector(max_items=3).collect(tmp_path))
 
     assert kept1 == kept2 == ["a.py:1", "a.py:2", "m.py:1"], (
         "the surviving todo SET must be a function of filesystem content, not "
-        f"os.walk order; walk1={kept1!r} walk2={kept2!r}"
+        f"traversal order; walk1={kept1!r} walk2={kept2!r}"
     )
 
 
@@ -130,7 +145,7 @@ def test_b2_emission_order_relpath_ascending(
     _write(tmp_path, "a.py", "# TODO: ay\n")
 
     # Force a discovery order that a naive emit-in-walk-order impl would keep.
-    monkeypatch.setattr(_td.os, "walk", _fake_walk(tmp_path, ["b.py", "a.py"]))
+    monkeypatch.setattr(_td.dir_source, "walk", _fake_walk(tmp_path, ["b.py", "a.py"]))
     order = _paths(TodoCollector().collect(tmp_path))
 
     assert order == ["a.py:1", "b.py:1"], (
@@ -177,10 +192,10 @@ def test_b4_input_order_independence(
     for nm in ("z.py", "a.py", "m.py"):
         _write(tmp_path, nm, f"# TODO: {nm}\n")
 
-    monkeypatch.setattr(_td.os, "walk", _fake_walk(tmp_path, ["z.py", "a.py", "m.py"]))
+    monkeypatch.setattr(_td.dir_source, "walk", _fake_walk(tmp_path, ["z.py", "a.py", "m.py"]))
     r1 = _paths(TodoCollector().collect(tmp_path))
 
-    monkeypatch.setattr(_td.os, "walk", _fake_walk(tmp_path, ["m.py", "z.py", "a.py"]))
+    monkeypatch.setattr(_td.dir_source, "walk", _fake_walk(tmp_path, ["m.py", "z.py", "a.py"]))
     r2 = _paths(TodoCollector().collect(tmp_path))
 
     assert r1 == r2 == ["a.py:1", "m.py:1", "z.py:1"], (
