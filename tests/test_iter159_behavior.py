@@ -79,6 +79,8 @@ from typing import NamedTuple
 
 import pytest
 
+from tests.test_iter52_behavior import EXPECTED_ADDOPTS
+
 REPO = Path(__file__).resolve().parents[1]
 TESTS_DIR = REPO / "tests"
 TARGET = TESTS_DIR / "test_iter142_behavior.py"
@@ -86,7 +88,9 @@ GUARD = TESTS_DIR / "test_iter149_behavior.py"
 
 EB8_PREFIX = "test_eb8_"
 EB9_PREFIX = "test_eb9_"
-EXPECTED_ADDOPTS = "-q -n auto"
+# ``EXPECTED_ADDOPTS`` is imported above, not re-spelled: iteration 52 owns the single
+# definition. The artifact under test is ``pyproject.toml``, so the assertion below
+# stays two-sided while the third duplicate copy this module used to carry is gone.
 EXPECTED_RUNTIME_DEPS = ["pydantic>=2.7"]
 REQUIRED_DEV_TOOLS = {"pytest", "pytest-cov", "pytest-xdist", "mypy"}
 MAX_WORKERS = 4

@@ -53,6 +53,9 @@ MAKEFILE = REPO / "Makefile"
 COV_SOURCE = "proactive_loop"                     # [tool.coverage.run].source entry
 COV_FLAG = "--cov=proactive_loop"                 # the package-scoping cov flag
 COV_REPORT_FLAG = "--cov-report=term-missing"     # the terminal-report flag
+# The SINGLE definition of the expected addopts string in the whole test corpus:
+# tests/test_iter142_behavior.py and tests/test_iter159_behavior.py IMPORT this name
+# rather than re-spelling it (factory iter 266), so do not localize it back.
 EXPECTED_ADDOPTS = "-q -n auto"                   # addopts MUST stay exactly this
 SERIAL = "-n0"                                    # opt a subprocess run back OUT of xdist
 COV_MODULE = "tests/test_scheduler.py"            # the BOUNDED single-module subset

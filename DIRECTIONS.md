@@ -1,6 +1,15 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-267
+    lenses: SIMPLIFICATION AND DELETION, performance-and-throughput
+    - Candidate A1 -- Single-source `EXPECTED_ADDOPTS`: three copies of one string become one, and the drift guard that exists only because of the copies is deleted
+    - Candidate A2 -- Empty the one-member `SETTLED_ROWS_PINNED_TO_INDEX` allowlist: retire settled ROADMAP row #121 from the index it is only held in by test pins
+    - Candidate A3 -- Fold `git_activity`'s inline repo walk into the gated helper, and stop two different walks sharing the name `_dirs_to_scan`
+    - Candidate B1 -- one shared per-scan stat provider (`stat_source`)
+    - Candidate B2 -- cut the fixed per-invocation import floor every verb pays
+    winner: A1
+    ship: pending (not yet decided)
   iter-266
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `policy --check-goal` gains its first consumer: the four published autonomy rules become machine-checked
@@ -10,7 +19,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `CI_GATE_STEPS` gets ONE definition site: 2,438 chars of literal declared twice
     - Candidate B3 -- one memo primitive replaces the hit/miss/evict trio hand-copied at three collectors
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 75d5e48
   iter-265
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `make roadmap-headroom`: a readable gauge for the ratchet that reverted three of the last five iterations
@@ -1468,4 +1477,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-147 scouted iterations
+148 scouted iterations

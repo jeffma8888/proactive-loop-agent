@@ -47,9 +47,11 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
 
 Behaviors 10, 11 and 14 are deliberately NOT duplicated here: 10/11 live in
 ``tests/test_iter52_behavior.py`` (whose own assertions are the oracle), and 14 is
-the full-suite outcome, which is the suite run itself rather than a test. A single
-drift-guard below does pin iteration 52's expected-``addopts`` constant against the
-one asserted here, so the two oracles cannot disagree silently.
+the full-suite outcome, which is the suite run itself rather than a test. The
+expected-``addopts`` value is IMPORTED from that module rather than re-spelled here,
+so the two oracles cannot disagree AT ALL: there is one constant, not two copies
+policed by a source-text drift guard (which could only ever see one of the two
+duplicates, and is deleted in factory iter 266).
 
 Offline, deterministic. EVERY nested subprocess test keeps its coverage artifact in
 ``tmp_path`` via ``COVERAGE_FILE`` so it can never race the repo-root ``.coverage``
@@ -68,20 +70,24 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_iter52_behavior import EXPECTED_ADDOPTS
+
 REPO = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO / "pyproject.toml"
 UV_LOCK = REPO / "uv.lock"
 MAKEFILE = REPO / "Makefile"
 CI_YML = REPO / ".github" / "workflows" / "ci.yml"
 SRC_PKG = REPO / "src" / "proactive_loop"
-ITER52 = Path(__file__).resolve().with_name("test_iter52_behavior.py")
 
 # --------------------------------------------------------------------------
 # Spec-declared ground facts (pm.md), encoded here rather than imported, to keep
-# these tests black-box against the contract.
+# these tests black-box against the contract. ONE exception, imported above:
+# ``EXPECTED_ADDOPTS``. The artifact under test is ``pyproject.toml``, never iteration
+# 52's module, so sharing the EXPECTED spelling is not the import-and-assert-itself
+# tautology `test_iter164` warns about -- it keeps both oracles two-sided while making
+# a disagreement between them unrepresentable rather than merely detected. The token
+# form is derived (``.split()``) for the same reason.
 # --------------------------------------------------------------------------
-EXPECTED_ADDOPTS = "-q -n auto"
-EXPECTED_ADDOPTS_TOKENS = ["-q", "-n", "auto"]
 EXPECTED_RUNTIME_DEPS = ["pydantic>=2.7"]
 REQUIRED_DEV_DEPS = {"pytest", "pytest-cov", "mypy", "pytest-xdist"}
 PREEXISTING_DEV_DEPS = {"pytest", "pytest-cov", "mypy"}
@@ -222,7 +228,14 @@ class TestAddoptsContract:
         )
 
     def test_eb5_addopts_tokenizes_to_exactly_three_flags(self) -> None:
-        assert _addopts().split() == EXPECTED_ADDOPTS_TOKENS
+        # Derived, never re-spelled: a second literal token list is exactly the
+        # duplicate this iteration removes. The length assertion keeps this
+        # function's name ("three flags") load-bearing rather than decorative.
+        expected = EXPECTED_ADDOPTS.split()
+        assert len(expected) == 3, (
+            f"the pinned addopts stopped being three flags: {EXPECTED_ADDOPTS!r}"
+        )
+        assert _addopts().split() == expected
 
     def test_eb6_addopts_never_enables_coverage_globally(self) -> None:
         addopts = _addopts().lower()
@@ -231,16 +244,6 @@ class TestAddoptsContract:
             f"{_addopts()!r}"
         )
         assert not any(tok.startswith("--cov") for tok in addopts.split())
-
-    def test_eb11_iter52_expected_addopts_constant_agrees(self) -> None:
-        # Cross-oracle drift guard: iteration 52 owns the exact-equality guard on
-        # this same string. If the two constants ever disagree, one of them is a
-        # stale advertisement of a value the build no longer ships.
-        text = ITER52.read_text(encoding="utf-8")
-        assert f'EXPECTED_ADDOPTS = "{EXPECTED_ADDOPTS}"' in text, (
-            "tests/test_iter52_behavior.py must pin the same addopts value; its "
-            "constant looks stale relative to " f"{EXPECTED_ADDOPTS!r}"
-        )
 
 
 # ==========================================================================
