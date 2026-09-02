@@ -47,10 +47,19 @@ VALID_PROVIDERS: tuple[str, ...] = (
 def create_client(settings: Settings) -> LLMClient:
     """Return the `LLMClient` implementation named by `settings.provider`.
 
-    Dispatch is data-driven off a small map so adding a provider means adding
-    one branch, not editing a long if/elif chain. Unknown providers fail fast
-    with a message that lists the valid options -- misconfiguration should be
-    obvious, not a cryptic AttributeError deep in a request.
+    WHY this is a flat run of `provider == ...` branches, one per name in
+    `VALID_PROVIDERS`, and not a name-keyed collection of factories: each
+    live provider imports its heavyweight optional SDK INSIDE its own branch
+    (see the module docstring, and `_require`), so hoisting those factories
+    out of their branches would hoist the imports with them -- costing the
+    offline scripted default its SDK-free `sys.modules` for a structure that
+    still carries one entry per provider. Adding a provider is therefore two
+    edits that must stay in step: a name in `VALID_PROVIDERS`, and a branch
+    here.
+
+    Unknown providers fail fast with a message that lists the valid options --
+    misconfiguration should be obvious, not a cryptic AttributeError deep in a
+    request.
     """
     provider = settings.provider
     if provider == "scripted":

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-268
+    lenses: performance-and-throughput, narrative-and-docs (iteration 268)
+    - Candidate A1 -- a shared per-scan `stat_source`, killing a measured 4.91x `Path.stat` fan-out
+    - Candidate A2 -- settle roadmap row #257 (`--maxprocesses`) with a real repeat measurement, because it does not reproduce
+    - Candidate A3 -- price the suite against the budget that really binds, because the 120s cliff the repo steers by does not exist
+    - Candidate B1 -- A count word this corpus formally RETIRED survives in 7 test function names, the one surface every existing guard is blind to
+    - Candidate B2 -- `create_client`'s docstring advertises a dispatch mechanism the module does not have, and self-contradicts in one sentence
+    - Candidate B3 -- SPEC.md section 2's layout tree names 8 of 15 tracked top-level entries, 4 of 9 Makefile recipes, and 2 of 4 `examples/` files
+    winner: B2
+    ship: pending (not yet decided)
   iter-267
     lenses: SIMPLIFICATION AND DELETION, performance-and-throughput
     - Candidate A1 -- Single-source `EXPECTED_ADDOPTS`: three copies of one string become one, and the drift guard that exists only because of the copies is deleted
@@ -9,7 +19,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 -- one shared per-scan stat provider (`stat_source`)
     - Candidate B2 -- cut the fixed per-invocation import floor every verb pays
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 3fae2b7
   iter-266
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `policy --check-goal` gains its first consumer: the four published autonomy rules become machine-checked
@@ -1477,4 +1487,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-148 scouted iterations
+149 scouted iterations
