@@ -256,6 +256,24 @@ clean:
 # this repo today: red on arrival). It runs LAST so a tripped scan can never
 # mask the demo-artifact assertions, and after `uv sync --locked` because it
 # needs the project venv to resolve the `pla` console script.
+#
+# The `--baseline` ROUND TRIP (added factory iter 264) is the step that gives that
+# flag its first executable consumer: `pla run --snapshot` (inside `make demo`,
+# above) PRODUCES `.pla_runs/snapshot.json`, and until now nothing in any gate
+# CONSUMED it, so the ratchet this product advertises was never demonstrated by
+# the gates that grade it.
+#
+# WHY the pair is same-run rather than a committed baseline: a checked-in snapshot
+# needs a refresh rule nobody owns and rots into a blindfold. Produced and consumed
+# inside ONE gate invocation, there is nothing to refresh -- the same structural
+# argument `verify --fail-on-unresolved` above already relies on.
+#
+# WHY `--workspace examples/fixture_workspace` and never `.`: this gate writes
+# `.pla_runs/` into the repo root BETWEEN the produce and the consume, so a
+# root-scoped round trip would perceive its own artifacts as new `recent_file`
+# signals and be red for everyone. The fixture workspace holds nothing a gate writes.
+# A non-empty residual therefore means `--snapshot` and `--baseline` have stopped
+# agreeing on the six identity keys they share, which is a real contract break.
 check:
 	rm -rf .pla_runs
 	uv sync --locked
@@ -265,6 +283,7 @@ check:
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null
 	uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
+	uv run pla signals --workspace examples/fixture_workspace --baseline .pla_runs/snapshot.json --fail-over 0
 	uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
 	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
 

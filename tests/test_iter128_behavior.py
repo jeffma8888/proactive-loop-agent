@@ -112,7 +112,7 @@ ARTIFACT_ASSERTIONS = (
 # own slate/snapshot pair AHEAD of this iteration's self-scan, and 7 -> 8 by
 # factory iter 254, which added an armed `pla signals --fail-over 9` count budget
 # in the same slot for the same reason: this self-scan stays LAST.
-EXPECTED_CI_RUN_STEPS = 8
+EXPECTED_CI_RUN_STEPS = 9
 
 # Behavior 7: entries the two sibling drift guards' CI_GATE_STEPS tuples declare.
 # It exceeds EXPECTED_CI_RUN_STEPS by one because the two demo-artifact
@@ -120,7 +120,9 @@ EXPECTED_CI_RUN_STEPS = 8
 # 8 -> 9 in factory iter 254 (the armed count budget). This literal is the thing
 # doing the work: it pins the SIZE of the gate, so it must move deliberately and
 # cannot be derived from CI_GATE_STEPS without becoming a tautology.
-EXPECTED_TOTAL_GATE_STEPS = 9
+# 9 until factory iter 264 inserted the same-run `--baseline` round trip ahead of
+# the two `--workspace .` gates; the self-scan is still LAST.
+EXPECTED_TOTAL_GATE_STEPS = 10
 
 # Behavior 8: the `check` recipe stays pure shell + $(MAKE) + the uv runner.
 ALLOWED_CHECK_COMMANDS = frozenset({"rm", "test", "ls", "uv", "make"})

@@ -77,7 +77,17 @@ CI_GATE_STEPS = (
     # inside the line budget -- count ENTRIES here, never lines.
     "uv run pla verify --slate .pla_runs/slate.json "
     "--snapshot .pla_runs/snapshot.json --fail-on-unresolved",
-    # The 9th step (added factory iter 254) is the COUNT BUDGET, the third
+    # The 9th step (added factory iter 264) is the `--baseline` ROUND TRIP, and
+    # the first executable consumer that flag has ever had: `make demo` (step 5)
+    # PRODUCED `.pla_runs/snapshot.json` via `pla run --snapshot`, and this step
+    # CONSUMES it, requiring an EMPTY residual. Same-run BY CONSTRUCTION, so no
+    # committed baseline has to be refreshed; scoped to the fixture workspace
+    # because the gate writes `.pla_runs/` into the ROOT between the two halves.
+    # ONE entry, written as fragments to stay inside the line budget -- count
+    # ENTRIES here, never lines.
+    "uv run pla signals --workspace examples/fixture_workspace "
+    "--baseline .pla_runs/snapshot.json --fail-over 0",
+    # The 10th step (added factory iter 254) is the COUNT BUDGET, the third
     # ratchet, and the first consumer `--fail-over N` has ever had. It budgets the
     # four kinds `--fail-on-kind` structurally cannot arm (all non-zero here, so
     # arming them by kind is red on arrival) over an UPSTREAM `--collector`
@@ -100,7 +110,7 @@ CI_GATE_STEPS = (
 # be updated together. NOTE the count is 8 while CI_GATE_STEPS holds 9: the two
 # demo-artifact assertions share one `run: |` block, so they are one graded step
 # and two gate commands.
-EXPECTED_CI_RUN_STEPS = 8
+EXPECTED_CI_RUN_STEPS = 9
 
 # Every pre-existing .PHONY target that must survive this additive edit
 # (behavior 5): each must remain declared in .PHONY AND keep a non-empty recipe.

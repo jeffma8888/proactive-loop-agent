@@ -91,6 +91,32 @@ jobs:
       - name: Verify the demo slate's cited sources resolve against its own snapshot
         run: uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
 
+      # The ratchet's CONSUMER, and the second gate to read what the demo wrote
+      # rather than merely that it exists. `make demo` above ran `pla run
+      # --snapshot`, which PRODUCED `.pla_runs/snapshot.json`; until this step
+      # existed `--baseline` had 37 prose mentions and zero executable consumers,
+      # so the subtraction this product advertises was never demonstrated by the
+      # gates that grade it.
+      #
+      # WHY same-run rather than a committed baseline: a checked-in snapshot needs
+      # a refresh rule nobody owns and rots into a blindfold. Produced and consumed
+      # in ONE gate run, there is nothing to refresh -- the same structural argument
+      # the step above relies on.
+      #
+      # WHY the fixture workspace and never `.`: this gate writes `.pla_runs/` into
+      # the repo root BETWEEN produce and consume, so a root-scoped round trip would
+      # see its own artifacts as new `recent_file` signals and be red for everyone.
+      # `--fail-over 0` demands an EMPTY residual, so a non-empty one means
+      # `--snapshot` and `--baseline` have stopped agreeing on their six shared
+      # identity keys. Proven in both directions: 0 residual here, and deleting one
+      # signal from the baseline exits 5 naming count and budget.
+      #
+      # Byte-identical to the same step of `make check` (pinned by
+      # tests/test_iter102_behavior.py + tests/test_iter110_behavior.py), and
+      # placed BEFORE the self-scan so that scan stays the final graded step.
+      - name: Round-trip the same-run snapshot through the --baseline ratchet
+        run: uv run pla signals --workspace examples/fixture_workspace --baseline .pla_runs/snapshot.json --fail-over 0
+
       # The COUNT-BUDGET sibling of the gate below, and the third ratchet. The
       # kind gate can only arm a kind that is ZERO in this repo, so the kinds
       # that are merely supposed to stay SMALL are beyond its reach; this step

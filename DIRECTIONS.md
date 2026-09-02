@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-265
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `make roadmap-headroom`: a readable gauge for the ratchet that reverted three of the last five iterations
+    - Candidate A2 -- Buy back roadmap headroom now: relocate settled ledger rows into the archive
+    - Candidate A3 -- Guard a test NAME that states a roster count its own body contradicts
+    - Candidate B1 -- Give `--baseline` its first consumer as a SAME-RUN round trip (not a committed snapshot)
+    - Candidate B2 -- Put the exit-code contract on the 17 verbs that actually return the codes
+    - Candidate B3 -- The out-of-box default cannot run: `pla scan` exits 1 on a fresh clone
+    winner: B1
+    ship: pending (not yet decided)
   iter-264
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `scan --baseline FILE`: let the synthesis verb consume the snapshot it already writes
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the floor-bump obligation census names 6 of its 7 files
     - Candidate B3 -- a headroom gauge for `ROADMAP.md`, the ratchet with a body count
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 665d67f
   iter-263
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC.md's layout tree names 8 of 15 tracked top-level entries, and four of them exist NOWHERE in the spec
@@ -1448,4 +1458,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-145 scouted iterations
+146 scouted iterations

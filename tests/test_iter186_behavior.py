@@ -77,7 +77,9 @@ BUDGET_FLAG: Final = "--fail-over"
 
 # Spec behaviors 2/3: the shipped gate exit code, not a new one.
 GATE_EXIT: Final = 5
-EXPECTED_RUN_STEPS: Final = 8
+# 8 until factory iter 264 inserted the same-run `--baseline` round trip between
+# the citation verification and the two `--workspace .` gates.
+EXPECTED_RUN_STEPS: Final = 9
 
 # `verify`'s human-mode trailer carries the authoritative count.
 _TRAILER_RE: Final = re.compile(
@@ -462,9 +464,10 @@ def test_b6b_the_new_step_is_expensive_and_never_executed_by_the_suite() -> None
         "the verify step must NOT be classified as a cheap artifact assertion; "
         f"expensive set is {expensive!r}"
     )
-    assert len(expensive) == 7, (
-        f"the expensive set grew 5 -> 6 in THIS iteration and 6 -> 7 in factory "
-        f"iter 254 (the armed count budget, another never-executed gate step); got "
+    assert len(expensive) == 8, (
+        f"the expensive set grew 5 -> 6 in THIS iteration, 6 -> 7 in factory "
+        f"iter 254 (the armed count budget) and 7 -> 8 in factory iter 264 (the "
+        f"same-run `--baseline` round trip), each a never-executed gate step; got "
         f"{len(expensive)}: {expensive!r}"
     )
     # The safety rail behind the whole rule.

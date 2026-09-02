@@ -102,12 +102,31 @@ DIRECTIONS: Final[Path] = REPO / "DIRECTIONS.md"
 LEDGER_ROW: Final[re.Pattern[str]] = re.compile(r"^- #(\d+) ")
 
 #: This iteration's ship record, per ``pm.md`` Expected Behavior 13.
+#:
+#: DESIGN NOTE (factory iter 264, resolving the reviewer's finding 3 -- read this
+#: before re-keying anything below). These pins used to be POSITIONAL: the record
+#: had to be the LAST ledger line, and the tail had to run ``[260, 261]``. That
+#: made this module hostile to its own successors -- appending the mandatory ship
+#: row is exactly what iteration 262 was reverted for OMITTING, so every later
+#: iteration was forced to either red the suite or re-key these literals and
+#: thereby stop verifying iteration 263's paperwork at all. Generalized instead to
+#: an IDENTITY claim: iteration 263's record must be PRESENT, unique, well-formed
+#: and UNDISPLACED relative to its predecessor. That claim is true forever, so
+#: successors append freely and nothing here needs re-keying again.
 SHIP_ROW_PREFIX: Final[str] = "- #261 "
 SHIP_ROW_SUFFIX: Final[str] = "(foundry iter 263)"
 SHIP_ROW_MAX_CHARS: Final[int] = 120
 
-#: ``pm.md`` Expected Behavior 14: 47 rows at HEAD plus exactly one.
-EXPECTED_LEDGER_ROWS: Final[int] = 48
+#: The ledger numbers whose ADJACENCY this module pins: #261 must sit immediately
+#: after #260, which is what "no row displaced" means once "is the tail" is gone.
+PREV_SHIP_NUMBER: Final[int] = 260
+SHIP_NUMBER: Final[int] = 261
+
+#: ``pm.md`` Expected Behavior 14, as a FLOOR rather than an equality: 47 rows at
+#: HEAD plus this iteration's one. A count BELOW this is the defect the message
+#: names (a relocation riding along on a feature commit); a count ABOVE it is just
+#: a later iteration shipping, which its OWN behavior module pins.
+MIN_LEDGER_ROWS: Final[int] = 48
 
 #: ``pm.md`` Expected Behavior 15: the sha iteration 260 actually shipped as.
 ITER_260_SHIP: Final[str] = "ship: PUSHED 9b13289"
@@ -174,18 +193,34 @@ def ship_record_problems(text: str) -> list[str]:
     lines = text.splitlines()
     if not lines:
         return ["the document is empty"]
-    last = lines[-1]
-    if not last.startswith(SHIP_ROW_PREFIX):
-        problems.append(f"last line does not start with {SHIP_ROW_PREFIX!r}: {last!r}")
-    if not last.endswith(SHIP_ROW_SUFFIX):
-        problems.append(f"last line does not end with {SHIP_ROW_SUFFIX!r}: {last!r}")
-    if len(last) > SHIP_ROW_MAX_CHARS:
-        problems.append(f"last line is {len(last)} chars, over {SHIP_ROW_MAX_CHARS}")
+    rows = [ln for ln in lines if ln.startswith(SHIP_ROW_PREFIX)]
+    if not rows:
+        problems.append(f"no ledger line starts with {SHIP_ROW_PREFIX!r}")
+    elif len(rows) > 1:
+        problems.append(f"{SHIP_ROW_PREFIX!r} appears {len(rows)} times: {rows!r}")
+    else:
+        row = rows[0]
+        if not row.endswith(SHIP_ROW_SUFFIX):
+            problems.append(
+                f"the ship record does not end with {SHIP_ROW_SUFFIX!r}: {row!r}"
+            )
+        if len(row) > SHIP_ROW_MAX_CHARS:
+            problems.append(
+                f"the ship record is {len(row)} chars, over {SHIP_ROW_MAX_CHARS}"
+            )
     numbers = _ledger_numbers(text)
     if len(numbers) != len(set(numbers)):
         problems.append(f"a ledger number is recorded twice: {numbers}")
-    if numbers[-2:] != [260, 261]:
-        problems.append(f"the ledger tail must run #260 then #261; got {numbers[-2:]}")
+    if SHIP_NUMBER not in numbers or PREV_SHIP_NUMBER not in numbers:
+        problems.append(
+            f"the ledger must hold both #{PREV_SHIP_NUMBER} and #{SHIP_NUMBER}; "
+            f"got {numbers}"
+        )
+    elif numbers.index(SHIP_NUMBER) != numbers.index(PREV_SHIP_NUMBER) + 1:
+        problems.append(
+            f"#{SHIP_NUMBER} must sit immediately after #{PREV_SHIP_NUMBER}, with no "
+            f"row displaced between them; got {numbers}"
+        )
     return problems
 
 
@@ -282,27 +317,29 @@ def _isolate_walk_cache() -> Iterator[None]:
 # ---------------------------------------------------------------------------
 
 
-def test_b13a_the_ship_record_is_the_last_line_of_the_roadmap() -> None:
+def test_b13a_the_ship_record_is_present_and_well_formed_in_the_roadmap() -> None:
     text = ROADMAP.read_text(encoding="utf-8")
     lines = text.splitlines()
     assert lines, "ROADMAP.md must not be empty"
-    last = lines[-1]
-    assert last.startswith(SHIP_ROW_PREFIX), (
+    rows = [ln for ln in lines if ln.startswith(SHIP_ROW_PREFIX)]
+    assert len(rows) == 1, (
         "iteration 262 was reverted with a green suite for exactly this reason: the "
-        "Done-ledger ship record was never appended. ROADMAP.md's last line must be "
-        f"the new row starting {SHIP_ROW_PREFIX!r}; got {last!r}"
+        "Done-ledger ship record was never appended. ROADMAP.md must hold EXACTLY ONE "
+        f"row starting {SHIP_ROW_PREFIX!r}; got {len(rows)}: {rows!r}"
     )
-    assert last.endswith(SHIP_ROW_SUFFIX), (
-        f"the ship record must end with the literal {SHIP_ROW_SUFFIX!r}; got {last!r}"
+    row = rows[0]
+    assert row.endswith(SHIP_ROW_SUFFIX), (
+        f"the ship record must end with the literal {SHIP_ROW_SUFFIX!r}; got {row!r}"
     )
-    assert len(last) <= SHIP_ROW_MAX_CHARS, (
+    assert len(row) <= SHIP_ROW_MAX_CHARS, (
         f"the ship record must be <= {SHIP_ROW_MAX_CHARS} chars to stay inside the "
-        f"roadmap headroom; got {len(last)}: {last!r}"
+        f"roadmap headroom; got {len(row)}: {row!r}"
     )
 
 
 def test_b13b_the_ship_record_names_the_work_that_was_re_landed() -> None:
-    row = ROADMAP.read_text(encoding="utf-8").splitlines()[-1]
+    lines = ROADMAP.read_text(encoding="utf-8").splitlines()
+    row = next(ln for ln in lines if ln.startswith(SHIP_ROW_PREFIX))
     for token in ("todos", "large_file", "syntax_error"):
         assert token in row, (
             "the ship record must name the three converted collectors so the ledger "
@@ -320,12 +357,20 @@ def test_b13c_no_existing_ledger_row_was_deleted_reordered_or_renumbered() -> No
     assert len(numbers) == len(set(numbers)), (
         f"a ship-record number appears twice in ROADMAP.md: {numbers}"
     )
-    assert numbers[-1] == 261, (
-        f"the newest ledger row must be #261; got #{numbers[-1]}"
+    assert SHIP_NUMBER in numbers, (
+        f"this iteration's ledger row #{SHIP_NUMBER} must still be recorded in "
+        f"ROADMAP.md; got {numbers}"
     )
-    assert numbers[-2] == 260, (
-        "the new row must sit immediately after the previous ship (#260) with no gap "
-        f"and no row displaced; got #{numbers[-2]} before #{numbers[-1]}"
+    assert PREV_SHIP_NUMBER in numbers, (
+        f"the previous ship #{PREV_SHIP_NUMBER} must not have been relocated out of "
+        f"ROADMAP.md by a later commit; got {numbers}"
+    )
+    # ADJACENCY rather than "is the tail": a later iteration appending its own row
+    # after #261 is correct and must stay green, but INSERTING one between #260 and
+    # #261 -- or deleting either -- still displaces recorded history.
+    assert numbers.index(SHIP_NUMBER) == numbers.index(PREV_SHIP_NUMBER) + 1, (
+        f"#{SHIP_NUMBER} must sit immediately after #{PREV_SHIP_NUMBER} with no row "
+        f"displaced between them; got {numbers}"
     )
 
 
@@ -357,10 +402,12 @@ def test_b14b_the_shipped_budget_guard_agrees() -> None:
 
 def test_b14c_the_ledger_is_non_vacuous_and_grew_by_exactly_one() -> None:
     rows = _ledger_rows(ROADMAP.read_text(encoding="utf-8"))
-    assert len(rows) == EXPECTED_LEDGER_ROWS, (
-        f"ROADMAP.md must hold {EXPECTED_LEDGER_ROWS} Done-ledger rows (47 at HEAD "
-        f"plus this iteration's one); got {len(rows)}. A count BELOW this means a "
-        "relocation rode along on a feature commit, which pm.md puts out of scope"
+    assert len(rows) >= MIN_LEDGER_ROWS, (
+        f"ROADMAP.md must hold at least {MIN_LEDGER_ROWS} Done-ledger rows (47 at "
+        f"HEAD plus this iteration's one); got {len(rows)}. A count BELOW this means "
+        "a relocation rode along on a feature commit, which pm.md puts out of scope. "
+        "This is a FLOOR, not an equality: a later iteration appending its own "
+        "mandatory ship row is correct and its own module pins the exact count"
     )
 
 
@@ -582,12 +629,12 @@ def test_the_ship_record_predicate_is_silent_on_the_shipped_roadmap() -> None:
 @pytest.mark.parametrize(
     "mutation, expect",
     [
-        pytest.param("drop_row", "does not start with", id="row-never-appended"),
-        pytest.param("blank_after", "does not start with", id="trailing-blank-line"),
+        pytest.param("drop_row", "no ledger line starts with", id="row-never-appended"),
+        pytest.param("displaced", "immediately after", id="row-displaced-by-an-insert"),
         pytest.param("wrong_tag", "does not end with", id="wrong-iteration-tag"),
         pytest.param("too_long", "over 120", id="row-over-the-char-cap"),
         pytest.param("duplicate", "recorded twice", id="duplicate-ship-number"),
-        pytest.param("archive_gap", "tail must run", id="row-relocated-out"),
+        pytest.param("archive_gap", "must hold both", id="predecessor-relocated-out"),
     ],
 )
 def test_the_ship_record_predicate_fires_on_each_way_the_record_can_be_wrong(
@@ -595,20 +642,24 @@ def test_the_ship_record_predicate_fires_on_each_way_the_record_can_be_wrong(
 ) -> None:
     text = ROADMAP.read_text(encoding="utf-8")
     lines = text.splitlines()
+    # Every mutation attacks the record BY IDENTITY, not by position: the tail of a
+    # live ROADMAP.md belongs to whichever iteration shipped last, so mutating
+    # ``lines[-1]`` would silently stop testing THIS record the moment one did.
+    idx = next(i for i, ln in enumerate(lines) if ln.startswith(SHIP_ROW_PREFIX))
     if mutation == "drop_row":
-        lines = lines[:-1]
-    elif mutation == "blank_after":
-        lines = [*lines, ""]
+        del lines[idx]
+    elif mutation == "displaced":
+        lines.insert(idx, "- #999 a row inserted into recorded history (foundry iter 999)")
     elif mutation == "wrong_tag":
-        lines[-1] = lines[-1].replace(SHIP_ROW_SUFFIX, "(foundry iter 262)")
+        lines[idx] = lines[idx].replace(SHIP_ROW_SUFFIX, "(foundry iter 262)")
     elif mutation == "too_long":
-        lines[-1] = lines[-1].replace(
+        lines[idx] = lines[idx].replace(
             SHIP_ROW_SUFFIX, "and a great deal of further explanatory prose " + SHIP_ROW_SUFFIX
         )
     elif mutation == "duplicate":
-        lines = [*lines, lines[-1]]
+        lines = [*lines, lines[idx]]
     elif mutation == "archive_gap":
-        lines = [ln for ln in lines if not ln.startswith("- #260 ")]
+        lines = [ln for ln in lines if not ln.startswith(f"- #{PREV_SHIP_NUMBER} ")]
     problems = ship_record_problems("\n".join(lines) + "\n")
     assert any(expect in p for p in problems), (
         f"mutation {mutation!r} must be caught; predicate said {problems}"

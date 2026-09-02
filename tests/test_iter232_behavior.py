@@ -70,6 +70,15 @@ WORKFLOW: Final = REPO / ".github" / "workflows" / "ci.yml"
 # smallest tokens that tell the count budget from the kind self-scan.
 BUDGET_FLAG: Final = "--fail-over"
 SELF_SCAN_FLAG: Final = "--fail-on-kind"
+# LOCATING the count-budget step needs a token the round trip does NOT share:
+# factory iter 264 added a second `--fail-over` bearer (the same-run `--baseline`
+# round trip at `--fail-over 0`), so the flag alone stopped being unique and every
+# locator in this module went ambiguous. The explicit collector set is carried by
+# the count budget ALONE (measured: 1 of the `check` recipe's 11 steps, 1 of
+# ci.yml's 10), so it LOCATES the step while BUDGET_FLAG stays the token every
+# value-parsing site reads. Locating on the literal `--fail-over 9` would also
+# work but rots the moment the budget number changes.
+BUDGET_LOCATOR: Final = "--collector"
 SIGNALS_PREFIX: Final = "uv run pla signals"
 
 _REDIRECT_SUFFIX: Final = re.compile(r"\s*>\s*/dev/null\s*$")
@@ -214,7 +223,7 @@ def _budget_argv(*, override: str | None = None) -> list[str]:
     arm proves the flag is enforcing rather than inert.
     """
     steps = _check_steps()
-    tokens = steps[_sole_index(steps, BUDGET_FLAG, "`check` recipe")].split()
+    tokens = steps[_sole_index(steps, BUDGET_LOCATOR, "`check` recipe")].split()
     assert tokens[:3] == ["uv", "run", "pla"], (
         f"the budget step must invoke the product's console script; got {tokens}"
     )
@@ -237,7 +246,7 @@ def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
 # ==========================================================================
 def test_b1_check_recipe_runs_an_armed_count_budget() -> None:
     steps = _check_steps()
-    index = _sole_index(steps, BUDGET_FLAG, "`check` recipe")
+    index = _sole_index(steps, BUDGET_LOCATOR, "`check` recipe")
     step = steps[index]
 
     assert step.startswith(SIGNALS_PREFIX), (
@@ -257,7 +266,7 @@ def test_b1_check_recipe_runs_an_armed_count_budget() -> None:
 # ==========================================================================
 def test_b2_budget_precedes_the_self_scan_which_stays_last() -> None:
     steps = _check_steps()
-    idx_budget = _sole_index(steps, BUDGET_FLAG, "`check` recipe")
+    idx_budget = _sole_index(steps, BUDGET_LOCATOR, "`check` recipe")
     idx_self_scan = _sole_index(steps, SELF_SCAN_FLAG, "`check` recipe")
 
     assert idx_self_scan == len(steps) - 1, (
@@ -282,8 +291,8 @@ def test_b2_budget_precedes_the_self_scan_which_stays_last() -> None:
 def test_b3_ci_runs_the_byte_identical_budget_step() -> None:
     make_steps = _check_steps()
     ci_steps = _ci_commands()
-    make_budget = make_steps[_sole_index(make_steps, BUDGET_FLAG, "`check` recipe")]
-    ci_budget = ci_steps[_sole_index(ci_steps, BUDGET_FLAG, "ci.yml run")]
+    make_budget = make_steps[_sole_index(make_steps, BUDGET_LOCATOR, "`check` recipe")]
+    ci_budget = ci_steps[_sole_index(ci_steps, BUDGET_LOCATOR, "ci.yml run")]
 
     assert ci_budget == make_budget, (
         "the CI budget step must be BYTE-IDENTICAL to the `check` recipe's, so "
@@ -294,7 +303,7 @@ def test_b3_ci_runs_the_byte_identical_budget_step() -> None:
 
 def test_b3b_ci_self_scan_also_stays_last() -> None:
     ci_steps = _ci_commands()
-    idx_budget = _sole_index(ci_steps, BUDGET_FLAG, "ci.yml run")
+    idx_budget = _sole_index(ci_steps, BUDGET_LOCATOR, "ci.yml run")
     idx_self_scan = _sole_index(ci_steps, SELF_SCAN_FLAG, "ci.yml run")
 
     assert idx_self_scan == len(ci_steps) - 1, (
@@ -342,7 +351,7 @@ def _measured_count() -> tuple[int, str]:
 
 def test_b4_armed_budget_passes_against_this_repo() -> None:
     steps = _check_steps()
-    step = steps[_sole_index(steps, BUDGET_FLAG, "`check` recipe")]
+    step = steps[_sole_index(steps, BUDGET_LOCATOR, "`check` recipe")]
     budget = int(step.split()[step.split().index(BUDGET_FLAG) + 1])
 
     result = _run(_budget_argv())
@@ -390,7 +399,7 @@ def test_b4c_budget_is_scoped_to_an_explicit_collector_set() -> None:
     property that makes the same number hold in both populations.
     """
     steps = _check_steps()
-    step = steps[_sole_index(steps, BUDGET_FLAG, "`check` recipe")]
+    step = steps[_sole_index(steps, BUDGET_LOCATOR, "`check` recipe")]
     collectors = re.findall(r"--collector\s+([A-Za-z_]+)", step)
 
     assert len(collectors) >= 2, (
