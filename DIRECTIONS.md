@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-266
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `policy --check-goal` gains its first consumer: the four published autonomy rules become machine-checked
+    - Candidate A2 -- `pla runs` gains its first consumer: the run registry must list the run the demo just dispatched
+    - Candidate A3 -- the README's published `watch` -> `diff` stream workflow gets executed for the first time
+    - Candidate B1 -- the permissive `_dirs_to_scan` gets ONE definition site (unblocks queued row #163, open since iter-132)
+    - Candidate B2 -- `CI_GATE_STEPS` gets ONE definition site: 2,438 chars of literal declared twice
+    - Candidate B3 -- one memo primitive replaces the hit/miss/evict trio hand-copied at three collectors
+    winner: B1
+    ship: pending (not yet decided)
   iter-265
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `make roadmap-headroom`: a readable gauge for the ratchet that reverted three of the last five iterations
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Put the exit-code contract on the 17 verbs that actually return the codes
     - Candidate B3 -- The out-of-box default cannot run: `pla scan` exits 1 on a fresh clone
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 8a4fe3c
   iter-264
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `scan --baseline FILE`: let the synthesis verb consume the snapshot it already writes
@@ -1458,4 +1468,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-146 scouted iterations
+147 scouted iterations

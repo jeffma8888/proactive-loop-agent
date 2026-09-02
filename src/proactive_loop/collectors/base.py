@@ -160,9 +160,10 @@ class BaseCollector:
     * Not a decorator: ``mypy strict`` runs with ``disallow_untyped_decorators``, and
       a base class is simpler to read than a correctly-typed generic decorator.
 
-    It also hosts ``_relative`` and ``_log_absorbed`` for the same reason and by the
-    same precedent: a path-shape rule every path-emitting collector must satisfy had
-    been hand-copied into six of them, and the aggregated absorbed-failure record into
+    It also hosts ``_relative``, ``_log_absorbed`` and ``_dirs_to_scan`` for the same
+    reason and by the same precedent: a path-shape rule every path-emitting collector
+    must satisfy had been hand-copied into six of them, the permissive root-plus-direct-
+    children walk into two, and the aggregated absorbed-failure record into
     two -- where the two copies' ~31-line docstrings had already DRIFTED apart while
     describing one contract, each naming its own item-cap field. Anything added here
     must stay a plain method or a ``staticmethod`` -- never an annotated attribute --
@@ -308,3 +309,45 @@ class BaseCollector:
             return path.relative_to(root).as_posix()
         except ValueError:
             return path.as_posix()
+
+    @staticmethod
+    def _dirs_to_scan(root: Path) -> list[Path]:
+        """*root* itself, plus EVERY direct child directory, in ``iterdir`` order.
+
+        WHY only root + its direct children: a workspace usually nests several
+        sub-projects, each its own repo, so inspecting every direct child lets the
+        scout surface findings across all of them for one cheap listing. The nesting
+        is ONE level only, deliberately -- a marker two levels down is never
+        surfaced, which bounds the walk to a single ``iterdir`` per scan instead of
+        an unbounded recursive descent through a workspace of dependency trees.
+
+        WHY the result is neither ``sorted()`` nor deduplicated, and why the slate is
+        still deterministic anyway: every collector that inherits this walk sorts its
+        own signals by ``summary`` before applying ``max_items``, so the order this
+        list comes back in is unobservable in the output and an arbitrary ``iterdir``
+        order cannot make two runs disagree. Whether a candidate directory is really
+        a repo is decided per-directory by the caller, so a child that is not one
+        just contributes nothing.
+
+        WHY this permissive flavor is hosted here while ``WorkingTreeCollector``
+        keeps its own gated override, instead of the two being folded into one walk:
+        that collector -- and ``GitActivityCollector``'s inline block -- take their
+        cross-repo output order FROM the directory order, so their walk must be
+        ``sorted()`` and ``.git``-gated to stay reproducible. Folding the flavors
+        would change the directory SET the callers here scan, not merely its order,
+        so the two are kept apart on purpose; see roadmap row #163.
+
+        WHY on the base class, by ``_relative``'s precedent above: this is ONE walk,
+        so it gets ONE implementation. It had been hand-copied into two collectors,
+        and the suite carried a text-equality guard whose only job was to notice the
+        copies drifting apart. Inheriting the walk retires that guard in favor of
+        object identity, which cannot drift.
+        """
+        dirs: list[Path] = [root]
+        try:
+            for child in root.iterdir():
+                if child.is_dir():
+                    dirs.append(child)
+        except OSError:
+            pass
+        return dirs

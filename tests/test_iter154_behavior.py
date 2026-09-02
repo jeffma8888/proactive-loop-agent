@@ -9,8 +9,14 @@ invitation to merge two walks that visit different directory sets (ROADMAP #163 
 Because prose cannot be regression-tested by prose, this module also pins the
 structure the corrected prose now describes: an ``ast`` census of the collectors
 package proves there are exactly THREE ``_dirs_to_scan`` helpers, and a
-docstring-stripped ``ast.unparse`` comparison proves they fall into exactly TWO
-equivalence classes (the permissive pair, and ``working_tree``'s gated walk).
+docstring-stripped ``ast.unparse`` comparison proves the two surviving flavors are
+different equivalence classes.
+
+RE-KEYED for factory iter 265 (ROADMAP #262): the permissive walk was hoisted onto
+``BaseCollector``, so ``git_state`` and ``git_stash`` INHERIT it and the census is
+now TWO definitions (``base.py`` plus ``working_tree.py``'s gated override), not
+three. The pair's text-equality claim became object IDENTITY -- a strictly stronger
+guard, since an inherited attribute cannot drift the way two copies could.
 Behaviors 6-7 re-assert that no observable collector behavior changed.
 
 ISOLATION CONTRACT (honored): every assertion here was written strictly from this
@@ -49,6 +55,7 @@ from proactive_loop.collectors import (
     GitStateCollector,
     WorkingTreeCollector,
 )
+from proactive_loop.collectors.base import BaseCollector
 
 # The collectors package directory, resolved from the IMPORTED package rather
 # than a hardcoded "src/proactive_loop/collectors" path, so the census works in
@@ -57,12 +64,20 @@ COLLECTORS_DIR = Path(collectors_pkg.__file__).resolve().parent
 
 HELPER = "_dirs_to_scan"
 
-# The three modules the spec says own a `_dirs_to_scan` helper.
-_EXPECTED_HELPER_MODULES = frozenset({"git_stash.py", "git_state.py", "working_tree.py"})
+# The modules that DEFINE a `_dirs_to_scan` helper: the base class now owns the
+# permissive walk, and `working_tree` keeps the one justified gated override.
+_EXPECTED_HELPER_MODULES = frozenset({"base.py", "working_tree.py"})
 
-# The permissive pair (one equivalence class) and the gated walk (the other).
-_PERMISSIVE_PAIR = ("git_stash.py", "git_state.py")
+# The single definition site of the permissive walk, and the gated walk that is
+# deliberately a different equivalence class from it.
+_PERMISSIVE_OWNER = "base.py"
 _GATED = "working_tree.py"
+
+# The two collector modules that INHERIT the permissive walk (they no longer
+# define it -- that is exactly what Behavior 4 now asserts). Their `__doc__`
+# reaches the base docstring by attribute access, so the Behavior 1/2 prose
+# claims still apply to them.
+_PERMISSIVE_PAIR = ("git_stash.py", "git_state.py")
 
 # The banned self-description: a docstring that defers to a sibling collector.
 _PARITY_TOKEN = "identical"
@@ -156,8 +171,16 @@ def _body_source(func: ast.FunctionDef) -> str:
 
 
 def _helper_docs() -> dict[str, str | None]:
-    """The three helpers' live ``__doc__`` values, keyed by module basename."""
+    """Live ``__doc__`` values keyed by module basename, via ATTRIBUTE access.
+
+    Attribute access, not the file census, is what makes the prose claims survive
+    the hoist: ``git_stash.py`` and ``git_state.py`` no longer define the helper,
+    so what they resolve to IS ``base.py``'s docstring -- which is the point. The
+    keys are kept distinct so a future re-divergence (either collector taking back
+    its own override) is still covered by Behaviors 1 and 2.
+    """
     return {
+        "base.py": BaseCollector._dirs_to_scan.__doc__,
         "git_stash.py": GitStashCollector._dirs_to_scan.__doc__,
         "git_state.py": GitStateCollector._dirs_to_scan.__doc__,
         "working_tree.py": WorkingTreeCollector._dirs_to_scan.__doc__,
@@ -212,10 +235,10 @@ def test_b03_census_population_is_non_empty() -> None:
     assert len(files) > 1, f"suspiciously small collectors package: {[p.name for p in files]}"
 
 
-def test_b03_exactly_three_dirs_to_scan_helpers() -> None:
+def test_b03_exactly_two_dirs_to_scan_helpers() -> None:
     census = _helper_census()
     total = sum(len(v) for v in census.values())
-    assert total == 3, f"expected exactly 3 {HELPER} FunctionDefs, found {total}: {census.keys()}"
+    assert total == 2, f"expected exactly 2 {HELPER} FunctionDefs, found {total}: {census.keys()}"
     assert set(census) == set(_EXPECTED_HELPER_MODULES), (
         f"{HELPER} owners drifted: {sorted(census)} != {sorted(_EXPECTED_HELPER_MODULES)}"
     )
@@ -226,25 +249,50 @@ def test_b03_exactly_three_dirs_to_scan_helpers() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_b04_permissive_pair_bodies_are_one_equivalence_class() -> None:
+def test_b04_permissive_pair_inherits_the_base_walk_by_identity() -> None:
+    """The migrated collectors share the permissive walk as an OBJECT, not as text.
+
+    This replaces the text-equality guard the previous revision carried. That guard
+    could only notice two hand-copied bodies AFTER they drifted apart; an inherited
+    attribute cannot drift at all, so the claim is strictly stronger. The census
+    half is what makes it a deduplication test rather than an aliasing test: it
+    proves the copies are GONE, not merely equal.
+    """
     census = _helper_census()
-    left, right = (_body_source(census[name][0]) for name in _PERMISSIVE_PAIR)
-    assert left, "unparsed helper body is empty -- assertion would be vacuous"
-    assert left == right, (
-        "the permissive pair's walks diverged:\n"
-        f"--- {_PERMISSIVE_PAIR[0]} ---\n{left}\n--- {_PERMISSIVE_PAIR[1]} ---\n{right}"
+    for name in _PERMISSIVE_PAIR:
+        assert name not in census, (
+            f"{name} still DEFINES {HELPER}: the permissive walk must be INHERITED "
+            f"from {_PERMISSIVE_OWNER}, not copied ({len(census.get(name, []))} def(s))"
+        )
+    assert _PERMISSIVE_OWNER in census, (
+        f"{_PERMISSIVE_OWNER} does not define {HELPER}, so the identity assertions "
+        "below would hold vacuously over an attribute nobody owns"
     )
+    assert _body_source(census[_PERMISSIVE_OWNER][0]), (
+        f"{_PERMISSIVE_OWNER}'s unparsed {HELPER} body is empty"
+    )
+    base_walk = BaseCollector._dirs_to_scan
+    for collector in (GitStashCollector, GitStateCollector):
+        assert collector._dirs_to_scan is base_walk, (
+            f"{collector.__name__}.{HELPER} is not the {_PERMISSIVE_OWNER} object "
+            "itself -- it has been shadowed by a fresh definition somewhere"
+        )
 
 
 def test_b04_gated_walk_is_a_different_equivalence_class() -> None:
     census = _helper_census()
     gated = _body_source(census[_GATED][0])
-    for name in _PERMISSIVE_PAIR:
-        other = _body_source(census[name][0])
-        assert gated != other, (
-            f"{_GATED}'s gated walk is now byte-identical to {name}'s permissive walk "
-            "-- the two-flavor claim is no longer true"
-        )
+    permissive = _body_source(census[_PERMISSIVE_OWNER][0])
+    assert gated, f"{_GATED}: unparsed body is empty -- assertion would be vacuous"
+    assert permissive, f"{_PERMISSIVE_OWNER}: unparsed body is empty -- vacuous"
+    assert gated != permissive, (
+        f"{_GATED}'s gated walk is now byte-identical to {_PERMISSIVE_OWNER}'s "
+        "permissive walk -- the two-flavor claim is no longer true, so the override "
+        "should be deleted rather than kept as a silent duplicate"
+    )
+    assert WorkingTreeCollector._dirs_to_scan is not BaseCollector._dirs_to_scan, (
+        f"{_GATED} no longer overrides {HELPER}; its gated walk has been lost"
+    )
 
 
 # ---------------------------------------------------------------------------
