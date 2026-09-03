@@ -107,3 +107,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #161 `--baseline` gains its first consumer: `make check` + CI round-trip the same-run snapshot (foundry iter 264)
 - #262 One permissive `_dirs_to_scan` on `BaseCollector`: git_state + git_stash inherit it, working_tree keeps the gated override (foundry iter 265)
 - #263 `EXPECTED_ADDOPTS` is defined once and imported, not re-spelled three times; the duplication-only cross-module literal guard is deleted, unblocking #257 (foundry iter 266)
+- #264 The published test floor rises 5,600 -> 5,700 at every carrier that pins it (foundry iter 269)

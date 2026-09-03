@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-269
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- README promises DIRECTIONS.md records "what was rejected and why"; the artifact contains zero lines that could carry a why
+    - Candidate A2 -- SPEC.md's layout tree names 8 of 15 tracked top-level entries, and the two recipes that ARE the quality bar appear NOWHERE in SPEC.md
+    - Candidate A3 -- the published test floor has 3 tests of headroom, so the next ordinary iteration detonates a 17-site coupled edit
+    - Candidate B1 -- `pla scan --from-snapshot FILE`: re-synthesize a slate from RECORDED evidence instead of re-walking the workspace
+    - Candidate B2 -- `pla watch --json`: the verb that embodies proactivity is the ONE verb of 17 with no machine-readable form
+    - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector and the 3rd relational one (roadmap row #122, re-measured -- BOTH of its headline figures have rotted)
+    winner: A3
+    ship: pending (not yet decided)
   iter-268
     lenses: performance-and-throughput, narrative-and-docs (iteration 268)
     - Candidate A1 -- a shared per-scan `stat_source`, killing a measured 4.91x `Path.stat` fan-out
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `create_client`'s docstring advertises a dispatch mechanism the module does not have, and self-contradicts in one sentence
     - Candidate B3 -- SPEC.md section 2's layout tree names 8 of 15 tracked top-level entries, 4 of 9 Makefile recipes, and 2 of 4 `examples/` files
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED e0bc386
   iter-267
     lenses: SIMPLIFICATION AND DELETION, performance-and-throughput
     - Candidate A1 -- Single-source `EXPECTED_ADDOPTS`: three copies of one string become one, and the drift guard that exists only because of the copies is deleted
@@ -1487,4 +1497,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-149 scouted iterations
+150 scouted iterations

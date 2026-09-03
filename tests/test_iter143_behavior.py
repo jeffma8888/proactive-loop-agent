@@ -28,8 +28,8 @@ it past 5,500, and 5,500+ -> 5,600+ at factory iter 263).
 
 Coverage (numbered to match the iteration spec's Expected Behaviors):
 
-1. The published floor is ``5,600+`` in BOTH intro sentences and the string
-   ``5,500`` is gone from ``README.md`` entirely.
+1. The published floor is ``5,700+`` in BOTH intro sentences and the string
+   ``5,600`` is gone from ``README.md`` entirely.
 2. Nothing else above the marker changed: with the digits of the three permitted
    claims neutralized, the intro is byte-identical to the same slice at ``HEAD``
    (plus, while ``HEAD`` is still the pre-bump revision, the strict form -- putting
@@ -86,8 +86,8 @@ PYPROJECT = REPO / "pyproject.toml"
 MAKEFILE = REPO / "Makefile"
 MARKER = "PORTFOLIO INTRO"
 
-PUBLISHED_FLOOR = 5600
-STALE_FLOOR_TOKEN = "5,500"
+PUBLISHED_FLOOR = 5700
+STALE_FLOOR_TOKEN = "5,600"
 
 # The synthetic live count for the checks that feed the REAL published intro to the
 # pure helper, so they need no second ``--collect-only`` subprocess. DERIVED from the
@@ -183,8 +183,8 @@ def _joined(problems: object) -> str:
 
 def test_readme_intro_publishes_the_bumped_floor_in_both_sentences() -> None:
     intro = _intro_of(README.read_text(encoding="utf-8"))
-    assert "**5,600+ tests**" in intro
-    assert "**5,600+ passing tests**" in intro
+    assert "**5,700+ tests**" in intro
+    assert "**5,700+ passing tests**" in intro
 
 
 def test_the_stale_floor_token_is_gone_from_the_readme() -> None:
@@ -235,7 +235,7 @@ def test_the_bump_is_exactly_two_digit_tokens_while_head_is_pre_bump() -> None:
             head_intro
         )
         return
-    assert intro.replace("5,600", STALE_FLOOR_TOKEN) == head_intro
+    assert intro.replace("5,700", STALE_FLOOR_TOKEN) == head_intro
 
 
 # --------------------------------------------------------------------------- #
@@ -291,7 +291,7 @@ def _real_intro() -> str:
 
 
 def test_a_fabricated_floor_is_rejected_and_both_numbers_are_named() -> None:
-    fabricated = _real_intro().replace("5,600+", "9,000+")
+    fabricated = _real_intro().replace("5,700+", "9,000+")
     problems = _joined(guard.suite_size_problems(fabricated, 3357))
     assert problems != "", "a floor ABOVE the live count must be rejected"
     assert "9,000" in problems or "9000" in problems
@@ -299,7 +299,7 @@ def test_a_fabricated_floor_is_rejected_and_both_numbers_are_named() -> None:
 
 
 def test_a_true_but_stale_floor_is_rejected() -> None:
-    stale = _real_intro().replace("5,600+", "1,000+")
+    stale = _real_intro().replace("5,700+", "1,000+")
     problems = _joined(guard.suite_size_problems(stale, 3357))
     assert problems != "", "a floor 2,357 below the live count must be rejected"
     lowered = problems.lower()
@@ -307,7 +307,7 @@ def test_a_true_but_stale_floor_is_rejected() -> None:
 
 
 def test_an_exact_count_is_still_rejected() -> None:
-    exact = _real_intro().replace("5,600+", "5,157")
+    exact = _real_intro().replace("5,700+", "5,157")
     problems = _joined(guard.suite_size_problems(exact, 3357))
     assert problems != "", "an exact count is self-invalidating and must be rejected"
 

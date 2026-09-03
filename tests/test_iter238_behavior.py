@@ -81,10 +81,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 #: The floor this iteration raises the published claim TO, as a bare int (no
 #: comma-grouped token -- see the module docstring).
-EXPECTED_FLOOR = 5_600
+EXPECTED_FLOOR = 5_700
 
 #: The floor it is raised FROM.
-SUPERSEDED_FLOOR = 5_500
+SUPERSEDED_FLOOR = 5_600
 
 _LIVE_COUNT: list[int] = []
 
