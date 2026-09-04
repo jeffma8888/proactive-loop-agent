@@ -132,7 +132,14 @@ EXPECTED_STANDALONE = frozenset(
 EXPECTED_PRIOR_RUN = frozenset({"diff", "explain", "trace", "trend", "verify"})
 
 # Spec behavior 2: the Quickstart block, in order, commands only (comments stripped).
+# Kept CURRENT, not frozen at this iteration: an exact ORDERED pin exists so that
+# changing the block a reader copies first is a deliberate act. Factory iter 277 opened
+# it with ``make help``, which is now the default goal -- bare ``make`` used to run the
+# install and now prints the target listing -- so the safe zero-argument probe is the
+# first thing the Quickstart teaches. The install line itself is unchanged, and every
+# assertion below about it is position-independent.
 EXPECTED_QUICKSTART_COMMANDS = [
+    "make help",
     "uv sync --locked",
     "make demo",
     "make test",

@@ -1,5 +1,42 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: setup test cov typecheck readme-headroom demo clean check check-matrix
+.PHONY: help setup test cov typecheck readme-headroom demo clean check check-matrix
+
+# Bare `make` prints this listing.
+#
+# WHY the default goal is `help` and not the first rule that happened to be here:
+# before this target, `make` with no argument ran `setup`, whose recipe resolves and
+# installs the locked dependency set -- an unannounced NETWORK fetch, triggered by the
+# universal "what does this do?" probe, on a repo whose headline property is being
+# offline-first. A zero-argument invocation is the one a reader runs blind, so it now
+# reads nothing but this file and writes nothing at all.
+#
+# WHY `help` is declared the default goal AND kept as the FIRST rule in the file: make
+# falls back to the first rule when `.DEFAULT_GOAL` is unset (it arrived in GNU make
+# 3.81), so stating it twice makes the property hold under either rule instead of
+# resting on one. Consequence for the next contributor: a new rule goes BELOW `help`.
+#
+# WHY plain `echo` lines instead of generating the listing from `##` target comments
+# with grep/sed/awk: the recipe stays tool-free, deterministic and decidable from the
+# committed text, which is what lets a test bind this listing to the `.PHONY` set --
+# so a target shipped without a help line reds the build. Drift is prevented by that
+# oracle, not by the recipe being clever. Keep every step an `echo`, one per target.
+.DEFAULT_GOAL := help
+
+help:
+	@echo "proactive-loop-agent -- developer entry points (all of them run offline):"
+	@echo ""
+	@echo "  make help             print this listing; the default goal, and it changes nothing"
+	@echo "  make setup            install the exact locked dependency set into the project venv"
+	@echo "  make test             run the whole test suite"
+	@echo "  make cov              run the suite with a coverage report (term-missing)"
+	@echo "  make typecheck        type-check the package and the two graded examples/ consumers"
+	@echo "  make readme-headroom  print how many tests fit under the published README floor"
+	@echo "  make demo             scan the fixture workspace and auto-dispatch the top goal"
+	@echo "  make clean            delete generated run state, coverage artifacts and caches"
+	@echo "  make check            reproduce the CI graded gate locally, in CI's own order"
+	@echo "  make check-matrix     run the suite under both interpreters CI's matrix grades"
+	@echo ""
+	@echo "README.md documents what each one grades. Nothing here touches a network."
 
 # Resolve and install the locked dependency set into a project virtualenv.
 # Uses --locked (not bare 'uv sync') so a local install resolves the EXACT

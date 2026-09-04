@@ -59,11 +59,15 @@ README = REPO / "README.md"
 MAKEFILE = REPO / "Makefile"
 GUARD_MODULE = REPO / "tests" / "test_makefile_readme_contract.py"
 
-# Behavior 4: the ``.PHONY`` snapshot measured at this iteration. This iteration adds no
-# target, so the count is unchanged at nine; an oracle may pin the exact set where the
-# permanent guard deliberately keeps a loose floor.
+# Behavior 4: the ``.PHONY`` snapshot, kept CURRENT rather than frozen at this
+# iteration. It added no target itself, so the count was nine here; factory iter 277
+# added ``help`` (bare ``make`` now prints a listing instead of running a network
+# install) and moved this pin -- and the count below -- to ten in the same commit as
+# the Makefile. An oracle may pin the exact set where the permanent guard
+# (``test_makefile_readme_contract``) deliberately keeps a loose floor.
 EXPECTED_PHONY_TARGETS = frozenset(
     {
+        "help",
         "setup",
         "test",
         "cov",
@@ -245,7 +249,7 @@ def test_b3_the_planted_text_really_contains_the_bare_word(target: str) -> None:
 # ==========================================================================
 
 
-def test_b4_the_phony_set_is_exactly_the_nine_measured_targets() -> None:
+def test_b4_the_phony_set_is_exactly_the_measured_targets() -> None:
     parsed = phony_targets(MAKEFILE.read_text(encoding="utf-8"))
     assert parsed == EXPECTED_PHONY_TARGETS, (
         "the Makefile's .PHONY set moved away from this iteration's measured snapshot: "
@@ -253,7 +257,7 @@ def test_b4_the_phony_set_is_exactly_the_nine_measured_targets() -> None:
         f"missing {sorted(EXPECTED_PHONY_TARGETS - parsed)}. A new target must be "
         "documented below the README marker in invocation form in the same commit."
     )
-    assert len(parsed) == 9
+    assert len(parsed) == 10
 
 
 def test_b4_every_phony_target_is_documented_in_invocation_form_below_the_marker() -> None:
@@ -406,7 +410,7 @@ def test_b9_a_section_documenting_every_target_reports_nothing_missing() -> None
     assert undocumented_targets(planted, targets) == []
 
 
-def test_b9_a_section_documenting_the_words_but_never_the_commands_reports_all_nine() -> None:
+def test_b9_a_section_documenting_the_words_but_never_the_commands_reports_them_all() -> None:
     """The tightening's whole point, stated over the live target set.
 
     Every target name is present as a bare token and NOT ONE is credited.

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-277
+    lenses: hardening/DX (iteration 277), integration-and-adoption (iteration 277)
+    - Candidate A1 -- the armed `syntax_error` gate is blind to Python that CPython itself refuses to parse
+    - Candidate A2 -- bare `make` in a fresh clone runs a network install, and the 9 recipes are undiscoverable
+    - Candidate A3 -- no leg of the CI matrix ever proves which interpreter it actually ran
+    - Candidate B1 -- the `watch --out-dir` slate stream and BOTH its documented consumers (`diff --dir`, `trend --dir`) have zero executable consumers
+    - Candidate B2 -- `resume` is the L0 headline claim, and its grader arm already ships with zero callers
+    - Candidate B3 -- both graded gates check the run directory by EXISTENCE only; `trace --json` is the surface that could make them read it
+    winner: A2
+    ship: pending (not yet decided)
   iter-276
     lenses: new-capability (foundry iteration 276), hardening/DX (foundry iteration 276)
     - Candidate A1 -- `pla scan --from-snapshot FILE`: re-land iteration 270's reverted build
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `make doc-headroom`: a printed gauge for the SPEC byte budget and the ROADMAP char ceiling
     - Candidate B3 -- every gate transcript records the interpreter leg it graded
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 807b0b9
   iter-270
     lenses: NEW-CAPABILITY, HARDENING/DX
     - Candidate A1 (primary) -- `pla scan --from-snapshot FILE`: replay a recorded perception instead of re-walking the workspace
@@ -1517,4 +1527,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-152 scouted iterations
+153 scouted iterations

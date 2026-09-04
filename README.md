@@ -140,6 +140,7 @@ code.
 ## Quickstart
 
 ```bash
+make help      # list every developer entry point; this is also what bare `make` prints
 uv sync --locked # install the exact locked dependency set (pydantic + pytest, pytest-cov, pytest-xdist, mypy)
 make demo      # scan the fixture workspace and auto-dispatch the top goal
 make test      # run the full offline test suite

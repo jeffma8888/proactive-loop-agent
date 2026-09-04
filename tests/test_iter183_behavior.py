@@ -45,10 +45,14 @@ MAKEFILE = REPO / "Makefile"
 PYPROJECT = REPO / "pyproject.toml"
 GUARD_MODULE = REPO / "tests" / "test_makefile_readme_contract.py"
 
-# Behavior 1: the exact ``.PHONY`` set measured at this iteration. Nine developer entry
-# points, two of which were undocumented before this change.
+# Behavior 1: the exact ``.PHONY`` set, kept CURRENT rather than frozen at this
+# iteration. It was nine developer entry points when this module shipped, two of which
+# were undocumented before that change; factory iter 277 added ``help`` (bare ``make``
+# now prints a listing instead of running a network install), so this pin moved with
+# the Makefile in the same commit -- which is exactly what an exact-set pin is for.
 EXPECTED_PHONY_TARGETS = frozenset(
     {
+        "help",
         "setup",
         "test",
         "cov",
@@ -112,7 +116,7 @@ def _block_introducing(section_text: str, target: str) -> str:
 # ==========================================================================
 
 
-def test_behavior_1_phony_set_is_exactly_the_nine_measured_targets() -> None:
+def test_behavior_1_phony_set_is_exactly_the_measured_targets() -> None:
     parsed = phony_targets(MAKEFILE.read_text(encoding="utf-8"))
     assert parsed, "an empty .PHONY set would make every membership check below vacuous"
     assert parsed == EXPECTED_PHONY_TARGETS, (
