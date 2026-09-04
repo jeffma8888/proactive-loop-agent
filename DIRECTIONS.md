@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-276
+    lenses: new-capability (foundry iteration 276), hardening/DX (foundry iteration 276)
+    - Candidate A1 -- `pla scan --from-snapshot FILE`: re-land iteration 270's reverted build
+    - Candidate A2 -- `pla run/dispatch --allow-tool NAME`: narrow the ACT sandbox for one dispatch
+    - Candidate A3 -- `pla watch --collector NAME` / `--exclude-path GLOB`
+    - Candidate B1 -- the mypy oracle covers the two GRADED `examples/` consumers
+    - Candidate B2 -- `make doc-headroom`: a printed gauge for the SPEC byte budget and the ROADMAP char ceiling
+    - Candidate B3 -- every gate transcript records the interpreter leg it graded
+    winner: B1
+    ship: pending (not yet decided)
+  iter-270
+    lenses: NEW-CAPABILITY, HARDENING/DX
+    - Candidate A1 (primary) -- `pla scan --from-snapshot FILE`: replay a recorded perception instead of re-walking the workspace
+    - Candidate A2 -- `pla scan --min-score N`: the number the whole product ranks on is filterable nowhere
+    - Candidate A3 -- `pla run --max-iterations N`: bound the only verb that writes, from the command line
+    - Candidate B1 (primary) -- `make roadmap-headroom`: a gauge for the ONE budget that has actually reverted iterations
+    - Candidate B2 -- widen the type oracle to `examples/`
+    - Candidate B3 -- pin the local interpreter with `.python-version`
+    winner: A1
+    ship: unknown
   iter-269
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README promises DIRECTIONS.md records "what was rejected and why"; the artifact contains zero lines that could carry a why
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla watch --json`: the verb that embodies proactivity is the ONE verb of 17 with no machine-readable form
     - Candidate B3 -- `PythonVersionDriftCollector`: the 18th collector and the 3rd relational one (roadmap row #122, re-measured -- BOTH of its headline figures have rotted)
     winner: A3
-    ship: pending (not yet decided)
+    ship: PUSHED 5e4db0d
   iter-268
     lenses: performance-and-throughput, narrative-and-docs (iteration 268)
     - Candidate A1 -- a shared per-scan `stat_source`, killing a measured 4.91x `Path.stat` fan-out
@@ -1497,4 +1517,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-150 scouted iterations
+152 scouted iterations

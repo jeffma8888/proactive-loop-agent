@@ -94,7 +94,8 @@ FORBIDDEN_KINDS = frozenset(
 PREEXISTING_GATE_STEPS = (
     "uv sync --locked",
     "uv run pytest",
-    "uv run mypy src/proactive_loop",
+    "uv run mypy src/proactive_loop "
+    "examples/check_run.py examples/check_autonomy.py",
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",

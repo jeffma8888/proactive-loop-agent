@@ -70,7 +70,8 @@ DEMO_STATE_DIR = ".pla_runs"
 CI_GATE_STEPS = (
     "uv sync --locked",
     "uv run pytest",
-    "uv run mypy src/proactive_loop",
+    "uv run mypy src/proactive_loop "
+    "examples/check_run.py examples/check_autonomy.py",
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",
@@ -615,7 +616,8 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
     assert expensive == [
         "uv sync --locked",
         "uv run pytest",
-        "uv run mypy src/proactive_loop",
+        "uv run mypy src/proactive_loop "
+        "examples/check_run.py examples/check_autonomy.py",
         "make demo",
         # factory iter 186: armed citation verification. Expensive for the SAME
         # reason as the steps around it -- it shells out to `uv`, which a nested

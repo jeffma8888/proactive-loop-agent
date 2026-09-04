@@ -134,6 +134,26 @@ def _demo() -> list[str]:
     return _recipe("demo")
 
 
+def _invokes(text: str, script: str) -> bool:
+    """True when ``text`` RUNS ``script`` as a program, rather than merely NAMING it
+    as an input to some other tool.
+
+    Behavior 10 bans a second *invocation* of the grader, not every mention of its
+    path, and factory iter 276 made that distinction load-bearing: the type oracle
+    was widened to ``uv run mypy src/proactive_loop examples/check_run.py
+    examples/check_autonomy.py``, which grades the grader's source without executing
+    it.  A bare ``"check_autonomy" in text`` substring ban read that static check as
+    a new gate step -- a fail-CLOSED reading of a rule about runtime.
+
+    The discriminator is the interpreter, because this repo runs a script exactly one
+    way: ``python <path>`` (``CONSUMER_STEP`` is the reference spelling).  So the
+    token immediately before the path decides, and ``mypy <path>`` is not an
+    invocation.  The callers pair this with a positive assertion that any NAMING
+    site is the type oracle, so the loosened ban cannot fail open.
+    """
+    return re.search(rf"\bpython[0-9.]*\s+\S*{re.escape(script)}", text) is not None
+
+
 def _grade(payload: str, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Run the COMMITTED grader exactly as the ``demo`` recipe does -- script,
     stdin, exit code.  ``sys.executable`` under ``uv run pytest`` is the project
@@ -654,21 +674,68 @@ def test_b9_runtime_dependency_set_is_still_pydantic_only() -> None:
 
 def test_b10_ci_workflow_gains_no_step_of_its_own() -> None:
     """Spec behavior 10: the gate rides CI's existing ``make demo`` step.  A second
-    invocation would double the runtime and give the gate two definitions."""
+    invocation would double the runtime and give the gate two definitions.
+
+    Widened factory iter 276 from a substring ban to an INVOCATION ban plus a
+    whitelist of the one NAMING site -- see ``_invokes``.  The claim is unchanged
+    (nothing but ``make demo`` may RUN the grader in CI) and it is now asserted in
+    two directions, so the type oracle may cite the grader as a file to check while
+    a second ``run:`` step that executes it is still red.
+    """
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert "check_autonomy" not in workflow, (
+    assert not _invokes(workflow, GRADER_NAME), (
         "the autonomy gate must reach CI via the existing `make demo` step, not a "
-        "new `run:` step of its own"
+        "new `run:` step that invokes the grader itself"
+    )
+    naming = [
+        line.split("run:", 1)[1].strip()
+        for line in workflow.splitlines()
+        if line.lstrip().startswith("run:") and "check_autonomy" in line
+    ]
+    assert all(command.startswith("uv run mypy ") for command in naming), (
+        "the only CI step allowed to NAME the grader is the static type oracle; got "
+        f"{naming!r}"
     )
     assert "make demo" in workflow, "CI must still run `make demo`, which is the gate's only route"
 
 
 def test_b10_make_check_gains_no_step_of_its_own() -> None:
     """Spec behavior 10: ``make check`` must not grow a step either -- it already
-    runs the demo, so a direct invocation would be a second definition."""
+    runs the demo, so a direct invocation would be a second definition.  Same iter-276
+    widening as the CI guard above: an invocation ban, plus the type oracle as the one
+    permitted naming site.
+    """
     steps = _recipe("check")
-    offenders = [s for s in steps if "check_autonomy" in s]
-    assert not offenders, f"`make check` must not invoke the grader directly; got {offenders!r}"
+    invoking = [s for s in steps if _invokes(s, GRADER_NAME)]
+    assert not invoking, f"`make check` must not invoke the grader directly; got {invoking!r}"
+    naming = [s for s in steps if "check_autonomy" in s]
+    assert all(s.startswith("uv run mypy ") for s in naming), (
+        "inside `make check` the grader may be NAMED only by the static type oracle, "
+        f"never run as a step of its own; got {naming!r}"
+    )
+
+
+def test_b10_the_invocation_ban_is_not_vacuous() -> None:
+    """Anti-vacuity control for the two guards above, added factory iter 276 with the
+    widening itself: a ban is worthless if its discriminator matches nothing.
+
+    The positive arm is the REAL step -- the demo recipe's own grader invocation, read
+    from the shipped ``Makefile`` -- and the negative arm is the type-oracle spelling,
+    which names the same path as a file to CHECK.  Both live in the shipped tree, so
+    this control moves with them rather than with a hand-typed sample.
+    """
+    invocation = f"uv run python {GRADER_NAME} < {STATE_DIR_NAME}/{AUDIT_NAME}"
+    assert invocation in _demo(), (
+        f"the demo recipe must still invoke the grader as {invocation!r}; got {_demo()!r}"
+    )
+    assert _invokes(invocation, GRADER_NAME), (
+        "the discriminator must MATCH the real invocation, or both bans above are "
+        f"vacuous: {invocation!r}"
+    )
+    assert not _invokes(f"uv run mypy src/proactive_loop {GRADER_NAME}", GRADER_NAME), (
+        "naming the grader as an input to a static type checker is not an invocation, "
+        "so the type oracle may cite it"
+    )
 
 
 def test_b10_the_consumer_is_still_the_demos_last_step() -> None:

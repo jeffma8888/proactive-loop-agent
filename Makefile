@@ -23,11 +23,22 @@ test:
 cov:
 	uv run pytest --cov=proactive_loop --cov-report=term-missing
 
-# Type-check the package with the locked mypy -- the local half of the
-# permanent oracle for the README's "fully type-hinted" claim (the CI type
-# step is the other half). Runs the pinned mypy from the project venv, offline.
+# Type-check the package AND the two graded examples/ consumers with the locked
+# mypy -- the local half of the permanent oracle for the README's "fully
+# type-hinted" claim (the CI type step is the other half). Runs the pinned mypy
+# from the project venv, offline.
+#
+# WHY the two example scripts are named EXPLICITLY, and the `examples` directory
+# never is: `check_run.py` and `check_autonomy.py` are GRADED code, not
+# decoration -- `make demo`, `make check` and CI execute them on every push and
+# they import `proactive_loop.models`, so they are the exact usage contract a
+# stranger copies. Under `strict = true` an UNANNOTATED `def` is not merely
+# ungraded, it is invisible, so leaving them outside the oracle is how the two
+# most-read files drift untyped while CI stays green. `examples/fixture_workspace`
+# is deliberately OUT: it exists to be imperfect (a directory-form `mypy examples`
+# reports 7 real errors, all inside it), so scope by file, never by directory.
 typecheck:
-	uv run mypy src/proactive_loop
+	uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py
 
 # Print the README suite-size ratchet's HEADROOM: how many tests may still be added
 # before the published floor in the human-owned intro goes stale and reds a PUBLIC
@@ -278,7 +289,7 @@ check:
 	rm -rf .pla_runs
 	uv sync --locked
 	uv run pytest
-	uv run mypy src/proactive_loop
+	uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py
 	$(MAKE) demo
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null

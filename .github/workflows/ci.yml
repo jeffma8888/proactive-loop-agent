@@ -57,9 +57,14 @@ jobs:
 
       # The README advertises the package as "fully type-hinted"; this step is
       # the permanent oracle for that claim -- the whole src/proactive_loop
-      # package must type-check clean under the locked mypy on every push.
-      - name: Type-check the package (mypy, locked)
-        run: uv run mypy src/proactive_loop
+      # package must type-check clean under the locked mypy on every push, and so
+      # must the two examples/ consumer scripts the steps below EXECUTE
+      # (`check_run.py`, `check_autonomy.py`). Both are named as explicit paths:
+      # `examples/fixture_workspace` exists to be imperfect, so a directory-form
+      # `mypy examples` would red this build for no defect. Byte-identical to the
+      # same step of `make check`.
+      - name: Type-check the package and the graded examples (mypy, locked)
+        run: uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py
 
       # A green suite with a broken demo is still a broken product: the suite
       # exercises units and CLI surfaces, the demo exercises the whole stack.
