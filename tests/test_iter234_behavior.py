@@ -379,7 +379,7 @@ def test_b7_readme_carved_out_numbers_still_agree_with_the_live_registries() -> 
     readme = README_PATH.read_text(encoding="utf-8")
     assert f"{EXPECTED_COLLECTOR_COUNT} context collectors" in readme
     assert f"{EXPECTED_VERB_COUNT} CLI verbs" in readme
-    assert "5,700+" in readme, "the README tests floor is no longer '5,700+'; behavior 7 expects it unchanged"
+    assert "5,800+" in readme, "the README tests floor is no longer '5,800+'; behavior 7 expects it unchanged"
 
 
 def test_b7_spec_stays_under_the_byte_budget() -> None:

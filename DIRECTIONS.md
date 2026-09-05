@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-281
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- `make readme-headroom` says 401 tests of headroom; the true number is 0, and it cost iter 280 five failures
+    - Candidate A2 -- The done ledger is guarded in one direction only; 5 shipped commits have no row anywhere
+    - Candidate A3 -- SPEC.md never names a single `make` recipe, and its one Makefile comment names 4 of 10
+    - Candidate B1 -- `scan` is the only perception verb that cannot subtract a `--baseline`
+    - Candidate B2 -- the baseline ratchet has no RESOLVED half: the product can say what is NEW, never what got FIXED
+    - Candidate B3 -- the L1 budget is reportable but not settable (roadmap row #190)
+    winner: A1
+    ship: pending (not yet decided)
   iter-280
     lenses: performance-and-throughput (iteration 280), narrative-and-docs (iteration 280)
     - Candidate A1 -- give `broken_link` the content-digest memo every other content collector already has
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- exit code 2 has 30 producer sites and one clause of published meaning
     - Candidate B3 -- `git log` renamed its iteration tag and jumped its counter on one day, and the convention line asserts the opposite
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 6de66cd
   iter-279
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- git_activity's inline gated repo walk is deleted; both gated callers share one helper
@@ -1557,4 +1567,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-156 scouted iterations
+157 scouted iterations

@@ -23,9 +23,13 @@ WHAT THIS ITERATION CLAIMS (restated from the spec so this file stands alone):
 WHY THIS MODULE HOLDS NO COMMA-GROUPED FLOOR TOKEN. Every token it needs is DERIVED
 through ``guard.floor_token`` instead of spelled out. That is not style: the live
 census fails on any undeclared tracked file that CLAIMS the live floor, and a test
-module quoting the token in prose would become exactly that -- the seventh carrier,
-and the first one nothing declared. ``test_readme_and_ci_contract`` protects itself
-the same way with a deliberately synthetic ``7,700``.
+module quoting the token in prose would become exactly that -- an undeclared
+carrier, and the first one nothing checks. ``test_readme_and_ci_contract`` protects
+itself the same way with a deliberately synthetic ``7,700``. AMENDED at factory iter
+281: the census now also reads the PEP 515 underscore spelling, so the
+``EXPECTED_FLOOR`` pin below made this module a carrier in fact, and it is a DECLARED
+one from that iteration on. The rule above is unchanged and still load-bearing --
+being declared is what makes a pin safe, not being unreadable.
 
 Black-box contract honored: this module drives the published documents and the
 census helpers that already ship under ``tests/``. It reads no file under ``src/``,
@@ -48,14 +52,14 @@ ARCHIVE = REPO / "ROADMAP_ARCHIVE.md"
 
 #: The floor this iteration raises the published claim TO, as a bare int. Bare on
 #: purpose -- see the module docstring on why no comma-grouped token appears here.
-EXPECTED_FLOOR = 5_700
+EXPECTED_FLOOR = 5_800
 
 #: The floor it is raised FROM.
-SUPERSEDED_FLOOR = 5_600
+SUPERSEDED_FLOOR = 5_700
 
 #: The widest live count that still rounds to ``EXPECTED_FLOOR`` under BOTH
 #: invariants ``test_iter238`` pins (``live // 100 * 100`` and ``(live + 1) // 100
-#: * 100``). The upper bound is 5798, not 5799, because the second invariant is
+#: * 100``). The upper bound is 5898, not 5899, because the second invariant is
 #: what makes the wall one test narrower than it looks.
 FLOOR_WINDOW = (EXPECTED_FLOOR, EXPECTED_FLOOR + 98)
 
@@ -189,7 +193,7 @@ def test_b3b_a_second_edit_to_the_intro_would_be_caught() -> None:
 
 def test_b4_published_floor_derives_the_new_floor_without_editing_the_derivation() -> None:
     assert guard.published_floor() == EXPECTED_FLOOR
-    assert guard.floor_token(EXPECTED_FLOOR) == "5," + "700"
+    assert guard.floor_token(EXPECTED_FLOOR) == "5," + "800"
 
 
 # --------------------------------------------------------------------------- b5
@@ -203,7 +207,10 @@ def test_b5a_the_tracked_tree_has_no_floor_disagreement() -> None:
     assert problems == [], "floor census disagreements: " + "; ".join(problems)
 
 
-def test_b5b_the_declared_carrier_set_is_unchanged_at_its_six_members() -> None:
+def test_b5b_the_declared_carrier_set_names_all_eight_pinning_files() -> None:
+    """Grown from six to eight at factory iter 281, when the census learned to see
+    the PEP 515 underscore spelling and the two modules pinning the floor that way
+    stopped being invisible to it."""
     assert guard.PUBLISHED_FLOOR_CARRIERS == (
         "README.md",
         "tests/test_iter143_behavior.py",
@@ -211,13 +218,25 @@ def test_b5b_the_declared_carrier_set_is_unchanged_at_its_six_members() -> None:
         "tests/test_iter204_behavior.py",
         "tests/test_iter234_behavior.py",
         "tests/test_iter237_behavior.py",
+        "tests/test_iter238_behavior.py",
+        "tests/test_iter245_behavior.py",
     )
 
 
-def test_b5c_this_module_is_not_a_seventh_carrier() -> None:
-    """The oracle must not itself claim the live floor -- see the module docstring."""
+def test_b5c_this_module_pins_the_floor_only_in_the_underscore_spelling() -> None:
+    """Inverted at factory iter 281: this module is now a DECLARED carrier.
+
+    The original form asserted it claimed the floor NOWHERE, which was true only
+    because the census could not see the ``EXPECTED_FLOOR`` pin at the top of this
+    file. The intent that survives is the narrower one: no comma-grouped token in
+    prose, so the module can still never become a carrier nothing declared.
+    """
     own = Path(__file__).read_text(encoding="utf-8")
-    assert guard.floor_claim_lines(own, _new_token()) == ()
+    assert _new_token() not in own, "this module spells the comma-grouped live floor"
+    assert guard.floor_claim_lines(own, _new_token()) != (), (
+        "the underscore pin above is invisible to the census again"
+    )
+    assert "tests/test_iter245_behavior.py" in guard.PUBLISHED_FLOOR_CARRIERS
 
 
 # --------------------------------------------------------------------------- b6
@@ -294,7 +313,7 @@ def test_b9a_the_roadmap_records_the_bump_as_history_never_as_a_claim() -> None:
     assert token in roadmap, "the roadmap does not record the bump at all"
     assert guard.floor_claim_lines(roadmap, token) == (), (
         "the roadmap CLAIMS the new floor on a line carrying no history marker, "
-        "which would make it an undeclared seventh carrier"
+        "which would make it an undeclared carrier"
     )
 
 

@@ -81,10 +81,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 #: The floor this iteration raises the published claim TO, as a bare int (no
 #: comma-grouped token -- see the module docstring).
-EXPECTED_FLOOR = 5_700
+EXPECTED_FLOOR = 5_800
 
 #: The floor it is raised FROM.
-SUPERSEDED_FLOOR = 5_600
+SUPERSEDED_FLOOR = 5_700
 
 _LIVE_COUNT: list[int] = []
 
@@ -340,7 +340,7 @@ def test_b7b_the_census_module_is_not_itself_an_undeclared_carrier() -> None:
     text = (REPO_ROOT / census_rel).read_text(encoding="utf-8")
     token = guard.floor_token(guard.published_floor())
     assert guard.floor_claim_lines(text, token) == (), (
-        f"{census_rel} hard-codes the live floor {token}, so it is a seventh carrier"
+        f"{census_rel} hard-codes the live floor {token}, so it is an undeclared carrier"
     )
     assert census_rel not in guard.PUBLISHED_FLOOR_CARRIERS
 

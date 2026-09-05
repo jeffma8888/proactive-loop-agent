@@ -322,22 +322,22 @@ def test_b09_the_floor_verdict_the_oracle_relies_on_still_bites(
     nothing and cannot race a concurrent worker.
     """
     intro = guard._intro()
-    assert guard.suite_size_problems(intro, 5700 + guard.SUITE_SIZE_SLACK) != [], (
+    assert guard.suite_size_problems(intro, 5800 + guard.SUITE_SIZE_SLACK) != [], (
         "a floor a full slack behind the live count must be reported as stale"
     )
-    assert guard.suite_size_problems(intro, 5700 + 1) == [], (
+    assert guard.suite_size_problems(intro, 5800 + 1) == [], (
         "a floor one test behind the live count must be accepted as fresh"
     )
     monkeypatch.setattr(guard, "SUITE_SIZE_SLACK", 1, raising=True)
-    assert guard.suite_size_problems(intro, 5700 + 1) != [], (
+    assert guard.suite_size_problems(intro, 5800 + 1) != [], (
         "the staleness verdict does not derive from SUITE_SIZE_SLACK"
     )
 
 
 def test_b10_the_published_floor_constants_are_the_head_values() -> None:
     iter143 = ITER143.read_text(encoding="utf-8")
-    assert "PUBLISHED_FLOOR = 5700" in iter143, "the published floor moved unexpectedly"
-    assert 'STALE_FLOOR_TOKEN = "5,600"' in iter143, "the stale-floor token moved unexpectedly"
+    assert "PUBLISHED_FLOOR = 5800" in iter143, "the published floor moved unexpectedly"
+    assert 'STALE_FLOOR_TOKEN = "5,700"' in iter143, "the stale-floor token moved unexpectedly"
     assert guard.SUITE_SIZE_SLACK == 500, guard.SUITE_SIZE_SLACK
 
 
@@ -345,5 +345,5 @@ def test_b10_the_readme_still_publishes_the_same_floor_claim() -> None:
     intro = guard._intro()
     claim = guard.SUITE_CLAIM.search(intro)
     assert claim is not None, "the README lost its suite-size claim"
-    assert "5,700" in claim.group(0), claim.group(0)
-    assert "5,600" not in intro, "the stale floor token reappeared in the README"
+    assert "5,800" in claim.group(0), claim.group(0)
+    assert "5,700" not in intro, "the stale floor token reappeared in the README"

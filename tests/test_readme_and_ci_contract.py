@@ -896,6 +896,14 @@ PUBLISHED_FLOOR_CARRIERS: tuple[str, ...] = (
     "tests/test_iter204_behavior.py",
     "tests/test_iter234_behavior.py",
     "tests/test_iter237_behavior.py",
+    # Declared at factory iter 281. These two own the rounding window that forces
+    # every raise, and each pins the floor as a PEP 515 underscore literal because a
+    # Python module cannot write a comma-grouped token. This census matched only the
+    # comma spelling, so it was blind to both and reported 6 of the 8 files a raise
+    # must re-key -- understating the obligation in the one direction that ships a
+    # red build, since both go red the moment the README moves without them.
+    "tests/test_iter238_behavior.py",
+    "tests/test_iter245_behavior.py",
 )
 
 # A line that RECORDS a superseded floor instead of claiming the live one. The repo
@@ -918,6 +926,21 @@ def floor_token(floor: int) -> str:
     return f"{floor // 1000},{floor % 1000:03d}"
 
 
+def floor_tokens(floor: int) -> tuple[str, ...]:
+    """Every spelling a tracked file may pin ``floor`` as, comma-grouped FIRST.
+
+    Markdown publishes the comma-grouped token, but a Python module cannot write
+    one, so the two oracles that own the rounding window pin the floor as a PEP 515
+    underscore literal instead. Matching only the comma spelling made this census
+    blind to them: it reported 6 of the 8 files a raise must re-key, understating
+    the obligation in the one direction that ships a red build. Comma FIRST so
+    ``floor_tokens(f)[0] is floor_token(f)`` -- every message a caller quotes keeps
+    naming the published spelling, and the shape assertion is inherited rather than
+    re-spelled here.
+    """
+    return (floor_token(floor), f"{floor:_}")
+
+
 def published_floor() -> int:
     """The floor the README's own intro claims, as an int.
 
@@ -937,11 +960,17 @@ def floor_claim_lines(text: str, token: str) -> tuple[int, ...]:
     Bump-history lines are excluded. A claim is what a bump must RE-KEY; a history
     line is what a bump must LEAVE ALONE, so a scan that cannot tell them apart
     reports every past bump as a defect and gets deleted.
+
+    ``token`` stays the comma-grouped spelling every caller already passes; the
+    other spellings are DERIVED from it, so a Python module that pins the floor as
+    an underscore literal is seen as the carrier it is without any caller changing.
     """
+    spellings = floor_tokens(int(token.replace(",", "")))
     return tuple(
         number
         for number, line in enumerate(text.splitlines(), start=1)
-        if token in line and not any(marker in line for marker in FLOOR_HISTORY_MARKERS)
+        if any(spelling in line for spelling in spellings)
+        and not any(marker in line for marker in FLOOR_HISTORY_MARKERS)
     )
 
 
@@ -1007,6 +1036,7 @@ def tracked_text_sources() -> dict[str, str]:
 # carrier and fail the live guard.
 _SYNTHETIC_FLOOR = 7_700
 _SYNTHETIC_TOKEN = "7,700"
+_SYNTHETIC_UNDERSCORE = f"{_SYNTHETIC_FLOOR:_}"
 
 
 def test_floor_token_formats_the_published_comma_shape() -> None:
@@ -1021,6 +1051,44 @@ def test_published_floor_is_derived_from_the_readme_and_is_a_rounded_hundred() -
     floor = published_floor()
     assert floor % 100 == 0, floor
     assert floor_token(floor) in _intro()
+
+
+def test_floor_tokens_offers_both_spellings_comma_grouped_first() -> None:
+    """Comma first, so every census message keeps quoting the published spelling."""
+    assert floor_tokens(_SYNTHETIC_FLOOR) == (_SYNTHETIC_TOKEN, _SYNTHETIC_UNDERSCORE)
+    assert floor_tokens(_SYNTHETIC_FLOOR)[0] == floor_token(_SYNTHETIC_FLOOR)
+    with pytest.raises(AssertionError, match="rounded floor"):
+        floor_tokens(_SYNTHETIC_FLOOR + 1)
+
+
+def test_floor_claim_lines_sees_a_pep_515_underscore_pin() -> None:
+    """The blindness this seam closes: a Python pin is a claim a raise must re-key."""
+    text = f"a\nEXPECTED_FLOOR = {_SYNTHETIC_UNDERSCORE}\nb\n**{_SYNTHETIC_TOKEN}+ tests**\n"
+    assert floor_claim_lines(text, _SYNTHETIC_TOKEN) == (2, 4)
+    assert floor_claim_lines("neither spelling appears here\n", _SYNTHETIC_TOKEN) == ()
+
+
+def test_floor_claim_lines_excludes_history_in_the_underscore_spelling_too() -> None:
+    """A widened matcher that dropped the exclusion reports every past bump."""
+    text = (
+        f"- the floor rises 7,600 -> {_SYNTHETIC_TOKEN} (foundry iter 281)\n"
+        f"EXPECTED_FLOOR = {_SYNTHETIC_UNDERSCORE}  # factory iter 281\n"
+    )
+    assert floor_claim_lines(text, _SYNTHETIC_TOKEN) == ()
+
+
+def test_published_floor_disagreements_accepts_an_underscore_only_carrier() -> None:
+    """Two-sided on the new seam: an underscore pin counts, no pin at all does not."""
+    underscore_carrier = "tests/test_iter238_behavior.py"
+    assert underscore_carrier in PUBLISHED_FLOOR_CARRIERS
+    sources = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    sources[underscore_carrier] = f"EXPECTED_FLOOR = {_SYNTHETIC_UNDERSCORE}\n"
+    assert published_floor_disagreements(sources, _SYNTHETIC_FLOOR) == []
+    sources[underscore_carrier] = "no floor pin at all\n"
+    assert published_floor_disagreements(sources, _SYNTHETIC_FLOOR) == [
+        f"{underscore_carrier}: declared floor carrier no longer claims "
+        f"the floor {_SYNTHETIC_TOKEN}"
+    ]
 
 
 def test_floor_claim_lines_ignores_a_bump_history_line() -> None:
