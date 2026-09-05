@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-280
+    lenses: performance-and-throughput (iteration 280), narrative-and-docs (iteration 280)
+    - Candidate A1 -- give `broken_link` the content-digest memo every other content collector already has
+    - Candidate A2 -- a stat-gated identity fast path, so a warm tick stops re-reading 6.7 MB to recompute keys it already holds
+    - Candidate A3 -- derive the memo key ONCE per path per scan instead of once per memo
+    - Candidate B1 -- the README tool-allowlist table loses the write-containment fact on all five mutating tools
+    - Candidate B2 -- exit code 2 has 30 producer sites and one clause of published meaning
+    - Candidate B3 -- `git log` renamed its iteration tag and jumped its counter on one day, and the convention line asserts the opposite
+    winner: A1
+    ship: pending (not yet decided)
   iter-279
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- git_activity's inline gated repo walk is deleted; both gated callers share one helper
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the `make check` kind-gate stops running 13 collectors it does not read
     - Candidate B3 -- one content digest per file per scan instead of three
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 4e542a5
   iter-278
     lenses: integration-and-adoption (iteration 278), simplification-and-deletion (iteration 278)
     - Candidate A1 -- the graded gate reads the demo's own checkpoint back through `pla trace`
@@ -1547,4 +1557,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-155 scouted iterations
+156 scouted iterations

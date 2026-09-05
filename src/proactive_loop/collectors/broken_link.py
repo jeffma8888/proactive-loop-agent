@@ -34,12 +34,32 @@ SCOPE, deliberately narrow (each exclusion is a false-positive class, not lazine
   is tested against the destination, not the whole link: a code-formatted LABEL is
   prose formatting and must not hide a dead target.
 
+EXTRACT ONCE PER CONTENT. Splitting a document into link candidates is a pure
+function of its text, and ``pla watch`` calls the whole census once per tick INSIDE
+ONE PROCESS, so any cost a tick does not amortize is re-paid for the life of that
+process. Measured 2026-09-04 over three consecutive censuses in one process, before
+this memo existed: this collector cost 18.9 / 18.8 / 18.6 ms -- dead flat -- while
+its memoized siblings amortized theirs away (``syntax_error`` 370.6 -> 10.2 ms,
+``merge_conflict`` 32.8 -> 11.4 ms), which left it the third most expensive
+collector on a warm tick. That is a DATED record of one past run, not a claim about
+whatever tree this checkout holds today. So the text -> link-candidate pass is
+memoized on a digest of the decoded text (see the link-memo block below), exactly as
+``todos`` does it.
+
+What is NOT memoized is the point of the seam: a broken link is a fact about the
+text AND about the filesystem, so every ``.exists()`` probe re-runs on every scan.
+Caching this collector's ANSWER would keep reporting a link as fine after its target
+was deleted -- the precise false negative it exists to catch -- so the retained value
+holds no existence verdict, no resolved path, no root-relative path and no
+``ContextSignal``.
+
 Pure stdlib (``re``/``pathlib``) plus the shared internal helpers, so the
 runtime stays pydantic-v2-only and fully offline.
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -189,6 +209,216 @@ def _target_paths(target: str) -> tuple[str, ...]:
     return tuple(forms) or ("",)
 
 
+# ---------------------------------------------------------------------------
+# Link memo: one text -> link-candidate extraction per distinct FILE CONTENT,
+# process-wide.
+#
+# WHY MODULE level and not an instance attribute: ``all_collectors()`` builds a
+# FRESH ``BrokenDocLinkCollector`` on every call and ``cli._collect`` calls it
+# once per invocation, so ``pla watch`` constructs a new instance every tick. An
+# instance memo would never hit in the ONE workload this exists to fix, while
+# still passing any test that reuses a single collector object -- a fail-silent
+# perf regression that measures as a win. Being process-wide, the state is made
+# INSPECTABLE (``broken_link_memo_stats``) and RESETTABLE
+# (``clear_broken_link_memo``) rather than hidden. This is the fourth instance of
+# a shape already shipped by ``todos``, ``syntax_error`` and ``merge_conflict``;
+# the maps are deliberately SEPARATE (no shared helper) so no module's oracle can
+# be broken by a change made for another.
+#
+# The memo is a pure speed-up, never a semantic change: the extracted candidates
+# are a pure function of the text, so a hit, a miss and an eviction all yield
+# byte-identical signals.
+# ---------------------------------------------------------------------------
+
+# One link candidate found in a document:
+# ``(lineno, column, target, candidate_paths, detail)``.
+# Deliberately NOT a ``ContextSignal`` and deliberately NOT resolved: a signal
+# carries the CONTAINING file's relative path and a resolution carries a verdict
+# about the filesystem, and both differ per file (and per moment) while the text's
+# candidates do not. ``candidate_paths`` is what ``_target_paths`` derives from the
+# link TEXT alone -- unresolved names, never joined to a base directory -- so
+# caching it lets K byte-identical documents share ONE extraction and still each
+# probe their own directory and report their own path.
+_LinkRef = tuple[int, int, str, tuple[str, ...], str]
+
+# Hard cap on retained per-file candidate lists, so scanning an unbounded monorepo
+# cannot grow this map without limit. The bound is stated ABSOLUTELY and never as a
+# ratio against whatever tree this checkout holds, because such a ratio decays on
+# every commit while claiming to describe today; ``tests/test_source_comment_bounds.py``
+# reds that shape. 4096 documents holding links covers a typical service repo
+# outright, and past the cap the oldest entries are evicted, which costs speed and
+# NEVER correctness. Matches its three siblings' entry cap so all four memos are one
+# shape. Read at call time, so a test may lower it.
+BROKEN_LINK_MEMO_MAX_ENTRIES: int = 4096
+
+# Hard cap on the number of candidates inside a RETAINED value, because the entry
+# cap alone does not bound memory: unlike ``merge_conflict``, whose memoized value
+# is a single ``int`` and therefore needs no second cap, this value GROWS with the
+# document -- one entry per matched link, each keeping the target plus a stripped
+# line slice. The size the reader is bounded by is ``max_read_bytes``, which equals
+# the named code constant ``LARGE_FILE_MIN_BYTES`` (5,000,000 bytes), and a document
+# built entirely of 12-byte ``[a](b.md)`` links reaches that bound at roughly 400,000
+# candidates in ONE value -- about 1,600x this cap -- so without this the true
+# ceiling would be 4096 x 5 MB. With it, the map is bounded by
+# entries x candidates x line length. 256 is far above what any hand-written document
+# carries; the generated tables that blow past it are exactly the values not worth
+# retaining. A value with MORE candidates than this is simply not retained --
+# retention is an optimization, so declining it costs speed and never correctness:
+# the caller always receives the COMPLETE candidate list. (Truncating instead would
+# change emitted signals, since ``max_items`` applies only after the global sort.)
+# Read at call time, so a test may lower it.
+BROKEN_LINK_MEMO_MAX_LINKS_PER_FILE: int = 256
+
+# 128 bits of digest. Collisions are the only way this memo could serve the wrong
+# candidates, and at 2**-128 per pair that is far below the probability of the
+# filesystem handing back wrong bytes; a shorter digest saves nothing measurable.
+_DIGEST_SIZE: int = 16
+
+_BROKEN_LINK_MEMO: dict[bytes, tuple[_LinkRef, ...]] = {}
+_BROKEN_LINK_MEMO_COUNTS: dict[str, int] = {"hits": 0, "misses": 0}
+
+
+def clear_broken_link_memo() -> None:
+    """Empty the link memo and zero its counters.
+
+    WHY this is public on a module that otherwise exposes one collector class: a
+    process-wide cache that cannot be reset is hidden global state -- untestable,
+    and a liability in the long-lived ``watch`` process it exists to serve. It
+    clears IN PLACE rather than rebinding, so any holder of the dict object sees
+    the same emptying. Touches ONLY this memo: the todo, parse and merge-marker
+    memos are separate maps and are unaffected.
+    """
+    _BROKEN_LINK_MEMO.clear()
+    _BROKEN_LINK_MEMO_COUNTS["hits"] = 0
+    _BROKEN_LINK_MEMO_COUNTS["misses"] = 0
+
+
+def broken_link_memo_stats() -> dict[str, int]:
+    """Return a fresh snapshot: ``{"hits", "misses", "entries"}``.
+
+    ``hits`` = candidate lists served without re-extracting; ``misses`` =
+    extractions performed (whether or not the result was retained); ``entries`` =
+    candidate lists currently retained, never above
+    ``BROKEN_LINK_MEMO_MAX_ENTRIES``. A COPY is returned so a caller cannot mutate
+    the live counters, and ``entries`` is DERIVED from the map (never tracked
+    separately) so it cannot drift from what is actually retained.
+
+    Note what these counters do NOT count: existence probes, which re-run for
+    every candidate on every scan and are therefore not part of the memo at all.
+    """
+    return {
+        "hits": _BROKEN_LINK_MEMO_COUNTS["hits"],
+        "misses": _BROKEN_LINK_MEMO_COUNTS["misses"],
+        "entries": len(_BROKEN_LINK_MEMO),
+    }
+
+
+def _remember_refs(digest: bytes, refs: tuple[_LinkRef, ...]) -> None:
+    """Retain one candidate list under both caps, evicting the OLDEST entries first.
+
+    FIFO (``dict`` preserves insertion order) rather than LRU: eviction order is
+    then a pure function of the insertion sequence, so two identical scans evict
+    identically -- deterministic, which access-ordered eviction is not without
+    extra bookkeeping this cannot justify. An entry cap of ``<= 0`` disables
+    retention entirely (nothing is stored, so nothing can hit), which keeps the
+    "entries never exceeds the cap" invariant true for every cap value.
+    """
+    cap = BROKEN_LINK_MEMO_MAX_ENTRIES
+    if cap <= 0:
+        return
+    if len(refs) > BROKEN_LINK_MEMO_MAX_LINKS_PER_FILE:
+        # Over-large value: skipped so aggregate memory is bounded by
+        # entries x candidates x line length instead of by one document's size.
+        return
+    while len(_BROKEN_LINK_MEMO) >= cap:
+        del _BROKEN_LINK_MEMO[next(iter(_BROKEN_LINK_MEMO))]
+    _BROKEN_LINK_MEMO[digest] = refs
+
+
+def _link_refs(text: str) -> tuple[_LinkRef, ...]:
+    """Return *text*'s link candidates, extracting at most once per distinct text.
+
+    WHY the key is a DIGEST OF THE TEXT and never ``(path, mtime, size)``: this
+    memo may only ever return what the extraction pass would return TODAY, and with
+    a content digest that proof is definitional -- digest equality IS input
+    equality, so an edited document cannot hit a stale entry. An mtime/size key
+    cannot promise that (a coarse mtime plus an unchanged size serves a stale
+    result), and trading determinism for speed is not a trade worth making here.
+
+    The digest is taken over the DECODED TEXT because that is exactly the argument
+    handed to the extraction, so the soundness proof is about the memoized
+    function's INPUT rather than about the file -- and no second read is needed,
+    which matters because the single ``read_text`` decode is a pinned seam (the
+    oversized-file guard's proof counts exactly one read per candidate document).
+    Note this is a property of the TEXT, not of the bytes: ``read_text`` applies
+    universal-newline translation, so a CRLF document and its LF twin share ONE
+    entry -- correctly, since the extraction sees identical input in both cases.
+    """
+    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=_DIGEST_SIZE).digest()
+    if digest in _BROKEN_LINK_MEMO:
+        _BROKEN_LINK_MEMO_COUNTS["hits"] += 1
+        return _BROKEN_LINK_MEMO[digest]
+
+    refs = _scan_link_refs(text)
+    _BROKEN_LINK_MEMO_COUNTS["misses"] += 1
+    _remember_refs(digest, refs)
+    return refs
+
+
+def _scan_link_refs(text: str) -> tuple[_LinkRef, ...]:
+    """Extract every testable link candidate from *text* -- the memoized work.
+
+    PURE and path-free by construction: it reads nothing but *text* and touches no
+    filesystem, which is what makes the digest key sound and what lets one result
+    serve every document holding these bytes. A tuple is returned (not a list) so a
+    retained value cannot be mutated by a caller through the memo.
+
+    Everything decided here is a property of the text: the fenced-block mask, the
+    inline-code mask, whether a target names a path at all, and which on-disk NAMES
+    a target may denote. The one thing left to the caller is whether any of those
+    names is actually there -- see ``_broken_links_in``.
+    """
+    lines = text.splitlines()
+    in_fence = _fence_mask(lines)
+
+    refs: list[_LinkRef] = []
+    for idx, line in enumerate(lines):
+        if in_fence[idx]:
+            continue
+        code_ranges = _code_span_ranges(line)
+        for match in _LINK_RE.finditer(line):
+            # Exactly one of the two destination alternatives participates; the
+            # bracketed one yields the destination WITHOUT its brackets, which is also
+            # what the emitted summary should name.
+            angle = match.group("angle")
+            group = "angle" if angle is not None else "target"
+            dest_start, dest_end = match.span(group)
+            # WHY the mask is compared against the DESTINATION's span and not against
+            # the whole match: a code-formatted LABEL (``[`SPEC.md`](SPEC.md)``, this
+            # product's own dominant citation idiom) is prose formatting on the
+            # READER's side of the link, yet under a whole-match test those backticks
+            # masked the link and hid a dead target from a gate that ARMS this kind.
+            # What a code span legitimately hides is a documented sample, and that is
+            # decided by where the DESTINATION sits -- so a link wholly inside a code
+            # span stays silent, while a backticked label no longer blinds the
+            # collector.
+            if any(
+                dest_start < end and start < dest_end
+                for start, end in code_ranges
+            ):
+                continue  # The destination is inside a code span: a code sample.
+            target = angle if angle is not None else match.group("target")
+            if not _is_filesystem_target(target):
+                continue
+            candidates = _target_paths(target)
+            if not candidates[0]:
+                continue
+            refs.append(
+                (idx + 1, match.start(), target, candidates, line.strip()[:200])
+            )
+    return tuple(refs)
+
+
 @dataclass
 class BrokenDocLinkCollector(BaseCollector):
     """Emit one ContextSignal per Markdown link whose relative target is missing.
@@ -272,6 +502,14 @@ def _broken_links_in(
 ) -> list[tuple[str, int, int, ContextSignal]]:
     """Return *text*'s broken links as ``(relpath, lineno, column, signal)`` tuples.
 
+    This is the thin PATH-AWARE half of the work: everything that depends on
+    *file_path* / *root* -- or on what is on disk right now -- lives here, and the
+    text -> candidate extraction it wraps is memoized on the text alone. Keeping the
+    two apart is what makes the memo correct for repeated content AND safe for a
+    long-lived ``watch`` process: the extraction is retained, the ``.exists()``
+    probes below are not, so deleting a target that a previous scan resolved turns
+    the very next scan's silence into a finding. See ``_link_refs``.
+
     Resolution is relative to the CONTAINING FILE's directory, which is how a
     Markdown renderer resolves it -- not relative to the workspace root (Behavior 7).
     The emitted ``path`` is the containing file, never the missing target: the target
@@ -279,64 +517,32 @@ def _broken_links_in(
     document to edit.
     """
     rel = BaseCollector._relative(root, file_path)
-    lines = text.splitlines()
-    in_fence = _fence_mask(lines)
     base = file_path.parent
 
     found: list[tuple[str, int, int, ContextSignal]] = []
-    for idx, line in enumerate(lines):
-        if in_fence[idx]:
+    for lineno, column, target, candidates, detail in _link_refs(text):
+        try:
+            if any((base / candidate).exists() for candidate in candidates):
+                continue
+        except (OSError, ValueError):
+            # An unusable target (embedded NUL, a name the platform rejects)
+            # is not evidence of a broken link -- stay silent rather than
+            # guess.
             continue
-        code_ranges = _code_span_ranges(line)
-        for match in _LINK_RE.finditer(line):
-            # Exactly one of the two destination alternatives participates; the
-            # bracketed one yields the destination WITHOUT its brackets, which is also
-            # what the emitted summary should name.
-            angle = match.group("angle")
-            group = "angle" if angle is not None else "target"
-            dest_start, dest_end = match.span(group)
-            # WHY the mask is compared against the DESTINATION's span and not against
-            # the whole match: a code-formatted LABEL (``[`SPEC.md`](SPEC.md)``, this
-            # repo's own dominant citation idiom) is prose formatting on the READER's
-            # side of the link, yet under a whole-match test those backticks masked the
-            # link and hid a dead target from a gate that ARMS this kind. What a code
-            # span legitimately hides is a documented sample, and that is decided by
-            # where the DESTINATION sits -- so a link wholly inside a code span stays
-            # silent, while a backticked label no longer blinds the collector.
-            if any(
-                dest_start < end and start < dest_end
-                for start, end in code_ranges
-            ):
-                continue  # The destination is inside a code span: a code sample.
-            target = angle if angle is not None else match.group("target")
-            if not _is_filesystem_target(target):
-                continue
-            candidates = _target_paths(target)
-            if not candidates[0]:
-                continue
-            try:
-                if any((base / candidate).exists() for candidate in candidates):
-                    continue
-            except (OSError, ValueError):
-                # An unusable target (embedded NUL, a name the platform rejects)
-                # is not evidence of a broken link -- stay silent rather than
-                # guess.
-                continue
-            lineno = idx + 1
-            found.append(
-                (
-                    rel,
-                    lineno,
-                    match.start(),
-                    ContextSignal(
-                        source=source_name,
-                        kind="broken_link",
-                        summary=f"{rel}:{lineno}: broken link -> {target}",
-                        detail=line.strip()[:200],
-                        path=rel,
-                        weight=0.6,
-                        timestamp=None,
-                    ),
-                )
+        found.append(
+            (
+                rel,
+                lineno,
+                column,
+                ContextSignal(
+                    source=source_name,
+                    kind="broken_link",
+                    summary=f"{rel}:{lineno}: broken link -> {target}",
+                    detail=detail,
+                    path=rel,
+                    weight=0.6,
+                    timestamp=None,
+                ),
             )
+        )
     return found
