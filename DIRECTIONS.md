@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-279
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- git_activity's inline gated repo walk is deleted; both gated callers share one helper
+    - Candidate A2 -- the manifest-scan skeleton hand-copied in dependencies + lockfile_drift collapses into one primitive
+    - Candidate A3 -- retire the two rows the roadmap itself marks as not-worth-building, restoring append headroom
+    - Candidate B1 -- the suite's wall clock stops being set by one 51s test
+    - Candidate B2 -- the `make check` kind-gate stops running 13 collectors it does not read
+    - Candidate B3 -- one content digest per file per scan instead of three
+    winner: B1
+    ship: pending (not yet decided)
+  iter-278
+    lenses: integration-and-adoption (iteration 278), simplification-and-deletion (iteration 278)
+    - Candidate A1 -- the graded gate reads the demo's own checkpoint back through `pla trace`
+    - Candidate A2 -- the Quickstart's first six commands never invoke `pla`; teach one zero-input verb
+    - Candidate A3 -- bare `pla` is a usage ERROR: the same blind probe iter 277 just fixed for bare `make`
+    - Candidate B1 (primary) -- one FIFO content-memo primitive replaces the cache machinery hand-copied at three collectors
+    - Candidate B2 -- the strict `.git`-gated child walk exists twice; collapse it to one owner on `BaseCollector`
+    - Candidate B3 -- the `--collector` allowlist is derived three times in `cli.py`
+    winner: B1
+    ship: REVERTED
   iter-277
     lenses: hardening/DX (iteration 277), integration-and-adoption (iteration 277)
     - Candidate A1 -- the armed `syntax_error` gate is blind to Python that CPython itself refuses to parse
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `resume` is the L0 headline claim, and its grader arm already ships with zero callers
     - Candidate B3 -- both graded gates check the run directory by EXISTENCE only; `trace --json` is the surface that could make them read it
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED fbf2a64
   iter-276
     lenses: new-capability (foundry iteration 276), hardening/DX (foundry iteration 276)
     - Candidate A1 -- `pla scan --from-snapshot FILE`: re-land iteration 270's reverted build
@@ -1527,4 +1547,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-153 scouted iterations
+155 scouted iterations

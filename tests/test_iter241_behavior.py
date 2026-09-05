@@ -34,21 +34,43 @@ git and resolved from ``__file__``: no network and no ``git`` invocation. The
 two behaviors that must EXECUTE the round trip (spec behaviors 4 and 5) do NOT
 read ``.pla_runs/`` -- that directory is gitignored and absent from a fresh
 clone, which is the iter-154 trap. They instead reproduce the gate's own two
-halves against the TRACKED ``examples/fixture_workspace`` with ``--state-dir``
-and ``--snapshot`` pointed into ``tmp_path``, which is exactly what ``make
-demo`` does with ``.pla_runs``. Nothing asserts on docstring or help-text
-indentation, so the 3.12/3.13 matrix legs cannot diverge here.
+halves with ``--state-dir`` and ``--snapshot`` pointed into ``tmp_path``, which
+is exactly what ``make demo`` does with ``.pla_runs``. Nothing asserts on
+docstring or help-text indentation, so the 3.12/3.13 matrix legs cannot diverge
+here.
 
-NO SIGNAL COUNT IS PINNED, DELIBERATELY. The population of the fixture
-workspace is state-dependent: the PM measured **38** signals in a fresh clone
-(``recent_file`` fires 5 times against checkout-time mtimes) and this tester
-measured **46** in the warm tree (``recent_file`` fires 0 times, other
-collectors more). A test pinning either number is red on the other machine, so
-the executable arms assert the state-INDEPENDENT invariant instead: the
-identity set the produce half records EQUALS the set the consume half perceives,
-so the residual is empty whatever the population is. Non-vacuousness is
-asserted rather than assumed -- every empty-residual arm is paired with a
-control arm proving the same workspace emits signals at all.
+REPAIRED IN STATE DIR 279 -- THE EXECUTABLE ARMS NOW SCAN A COPY, NOT THE
+TRACKED DIRECTORY. As shipped, those arms passed ``--workspace
+examples/fixture_workspace``, which made them a function of that directory's
+MTIMES. mtimes are ambient state that ``git status`` cannot show, so the module
+was vacuous in every working tree (files older than the collector's 14-day
+window emit nothing, so the round trip subtracted an empty set from an empty
+set) and RED in a fresh clone (all mtimes are the checkout instant, so all five
+files enter the window, the two halves straddle a 120.96s weight quantum, and
+all five signals surface as residual). The second half of that is what reverted
+state dir 278's approved, 5,796-green commit at ``foundry.py preship``. The
+``round_trip`` fixture now copies the tracked CONTENT into ``tmp_path`` and
+stamps every copied file to age 0 immediately before each ``pla`` invocation, so
+both halves read a weight of exactly 1.0. The GATE itself is unchanged and still
+scans ``examples/fixture_workspace`` in place; behaviors 1, 2, 3 and 6 assert
+that separation. Full reasoning: the ``round_trip`` docstring and
+``WEIGHT_QUANTUM_SECONDS``.
+
+NO TOTAL SIGNAL COUNT IS PINNED, DELIBERATELY -- BUT THE MTIME-DRIVEN COUNT IS,
+AND IT IS DERIVED. The total population was state-dependent as shipped: the PM
+measured **38** signals in a fresh clone (``recent_file`` fires 5 times against
+checkout-time mtimes) and the original tester measured **46** in the warm tree
+(``recent_file`` fires 0 times, other collectors more). A test pinning either
+number is red on the other machine, so the executable arms assert the
+state-INDEPENDENT invariant instead: the identity set the produce half records
+EQUALS the set the consume half perceives, so the residual is empty whatever the
+population is. State dir 279 adds the one count that CAN be made deterministic:
+because the fixture stamps the copy itself, ``recent_file`` must now fire exactly
+once per scanned file -- and that expected set is derived from the tracked
+directory by ``_scannable_files``, never hardcoded, so adding a fixture file
+cannot make the assertion stale. Non-vacuousness is asserted rather than assumed:
+every empty-residual arm is paired with a control arm proving the same workspace
+emits signals at all, and now proving the mtime-driven collector is among them.
 
 PINNED BY IDENTITY, NOT BY POSITION -- a deliberate, disclosed deviation from
 the literal wording of spec behavior 8 ("the Done ledger ENDS with" the #161
@@ -68,7 +90,10 @@ Coverage (numbered to match the spec's Expected Behaviors):
 3. In BOTH files the step sits AFTER ``pla verify --fail-on-unresolved`` and
    BEFORE both ``--workspace .`` steps, leaving the repo self-scan last.
 4. The green arm: a same-run snapshot leaves zero residual and ``--fail-over 0``
-   exits 0 printing the empty marker.
+   exits 0 printing the empty marker -- against a stamped tmp COPY, with one
+   ``recent_file`` signal per copied file at weight exactly 1.0 on BOTH sides,
+   and with the clone-like arrival (mtime = now) covered as well as the
+   warm-tree one (state dir 279's behaviors 1-4 and 6).
 5. The FIRE arm: deleting ONE live signal from the baseline exits 5 and names
    both ``count=1`` and ``budget=0``.
 6. ``test_iter102`` and ``test_iter110`` each carry the step at index 7 of
@@ -87,10 +112,12 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, Final
 
@@ -127,6 +154,36 @@ IDENTITY_KEYS: Final[tuple[str, ...]] = (
     "path",
     "weight",
 )
+
+#: The tracked workspace whose CONTENT the round trip copies. The GATE still
+#: scans this directory in place (behavior 9) and must keep doing so; a TEST that
+#: scans it inherits its mtimes, which are ambient state -- see
+#: ``WEIGHT_QUANTUM_SECONDS`` and the ``round_trip`` docstring.
+FIXTURE_WORKSPACE: Final[Path] = REPO_ROOT / "examples" / "fixture_workspace"
+
+#: One 1e-4 rounding step of a ``recent_file`` weight, expressed in seconds of
+#: file age: ``1e-4 * within_days(14.0) * 86_400``. That weight is a CLOCK
+#: reading (``collectors/filesystem.py``: ``1 - age_days / within_days``, rounded
+#: to 4 dp) AND it is one of the six ``IDENTITY_KEYS`` above, so two captures
+#: that straddle one step disagree about EVERY recent file at once. Measured, not
+#: derived on paper, against ``RecentFilesCollector(within_days=14.0)``: age
+#: 0s/30s/59s -> 1.0, age 120s -> 0.9999, age 200s -> 0.9998. The bands are
+#: 1.0 below 60.48s, 0.9999 in [60.48, 181.44), 0.9998 in [181.44, 302.40).
+WEIGHT_QUANTUM_SECONDS: Final[float] = 1e-4 * 14.0 * 86_400  # == 120.96
+
+#: Half a quantum: below this age the 4-dp weight is exactly 1.0 -- a PLATEAU,
+#: and the only age band in which the produce and consume halves are comparable
+#: by construction. The fixture stamps every scanned file to age 0 immediately
+#: before each half, so both sides read 1.0 with ~60s of margin against a
+#: sub-second collect. This is WHY the round trip may not simply sleep or retry.
+WEIGHT_PLATEAU_SECONDS: Final[float] = WEIGHT_QUANTUM_SECONDS / 2  # == 60.48
+
+#: The age the COPY arrives with, deliberately older than the collector's
+#: 14-day window. Aging the arrival is what proves the fixture's own ``os.utime``
+#: -- and not the incoming filesystem state -- decides the outcome, so a warm
+#: working tree, a fresh clone and an extracted archive all take the same path
+#: through this module (behavior 6 of state dir 279's spec).
+ARRIVAL_AGE_SECONDS: Final[float] = 30.0 * 86_400
 
 #: The effective ROADMAP.md ceiling, COMPOSED from the two live guards rather
 #: than hardcoded as 36,000: a scout measured that a reader who knows only the
@@ -244,23 +301,96 @@ def _identity(record: dict[str, Any]) -> tuple[Any, ...]:
     return tuple(record.get(key) for key in IDENTITY_KEYS)
 
 
+def _scannable_files(root: Path) -> tuple[Path, ...]:
+    """Every file the mtime-driven collector can see under *root*, sorted.
+
+    Mirrors that collector's own skip rule (hidden files, and files under a
+    hidden directory, are pruned) so the "faithful copy" and
+    "one signal per file" claims below are DERIVED from the tree rather than
+    hardcoded to today's five fixture files.
+    """
+    return tuple(
+        sorted(
+            path
+            for path in root.rglob("*")
+            if path.is_file()
+            and not any(
+                part.startswith(".") for part in path.relative_to(root).parts
+            )
+        )
+    )
+
+
+def _relative_posix(root: Path, files: tuple[Path, ...]) -> frozenset[str]:
+    """The *files* as root-relative POSIX strings -- comparable across roots."""
+    return frozenset(path.relative_to(root).as_posix() for path in files)
+
+
+def _stamp_age(files: tuple[Path, ...], age_seconds: float) -> None:
+    """Set every file's mtime to exactly *age_seconds* old.
+
+    WHY the test owns the mtimes: a checkout's mtimes are AMBIENT STATE -- a
+    fresh clone stamps them all NOW, a warm working tree keeps whatever the last
+    edit left -- and the mtime-driven collector both fires and weights on them.
+    Stamping makes this module's outcome a property of the code under test only,
+    which is the difference between an oracle and a coin flip.
+    """
+    when = time.time() - age_seconds
+    for path in files:
+        os.utime(path, (when, when))
+
+
 @pytest.fixture(scope="module")
 def round_trip(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    """Reproduce the gate's two halves with tmp_path standing in for .pla_runs.
+    """Reproduce the gate's two halves against a tmp COPY this fixture controls.
 
     The PRODUCE half is ``make demo``'s own invocation with ``--state-dir`` and
     ``--snapshot`` redirected into a throwaway dir; the CONSUME half is the exact
     new gate step with the same redirection. Nothing is written inside the
-    workspace being scanned, which is the property that makes
-    ``--workspace examples/fixture_workspace`` (and never ``--workspace .``)
-    correct for this gate.
+    workspace being scanned, which is the property that makes a scoped
+    ``--workspace`` (and never ``--workspace .``) correct for this gate.
+
+    WHY A COPY, and not the tracked ``examples/fixture_workspace`` the gate step
+    itself names -- the repair state dir 279 exists for. Scanning the tracked
+    directory made this round trip a function of AMBIENT MTIMES, and it therefore
+    had two opposite failure modes at once:
+
+    * **Vacuous here.** The tracked files' mtimes are months old, older than the
+      collector's 14-day window, so ZERO ``recent_file`` signals were emitted and
+      the round trip subtracted an empty set from an empty set. It passed that way
+      for 37 iterations without ever exercising the mtime-driven collector.
+    * **Red in a fresh clone.** A clone stamps every mtime at the checkout
+      instant, so all five files enter the window, the round trip runs for the
+      FIRST time, and the two halves -- two separate processes -- straddle a
+      ``WEIGHT_QUANTUM_SECONDS`` step of the weight. All five signals then differ
+      in an IDENTITY key and all five surface as residual. That is what reverted
+      state dir 278's approved, 5,796-green commit at ``foundry.py preship``, and
+      no in-loop stage can see it because ``git status`` cannot show an mtime.
+
+    Copying the CONTENT and stamping the copy to age 0 immediately before each
+    half removes both: the collector always fires, and always fires at weight
+    exactly 1.0 (``WEIGHT_PLATEAU_SECONDS``). The copy deliberately ARRIVES aged
+    past the window (``ARRIVAL_AGE_SECONDS``), so this fixture also proves the
+    outcome is decided by the stamping and not by the state it inherited.
     """
     tmp = tmp_path_factory.mktemp("iter241_round_trip")
+    scanned = tmp / "workspace"
+    shutil.copytree(FIXTURE_WORKSPACE, scanned)
+    files = _scannable_files(scanned)
+    assert _relative_posix(scanned, files) == _relative_posix(
+        FIXTURE_WORKSPACE, _scannable_files(FIXTURE_WORKSPACE)
+    ), (
+        "the copy must mirror the tracked fixture workspace file for file, or the "
+        "round trip is not exercising the gate's own corpus"
+    )
+    _stamp_age(files, ARRIVAL_AGE_SECONDS)
+
     snapshot = tmp / "snapshot.json"
+    _stamp_age(files, 0.0)
     produce = _pla(
         "run",
         "--workspace",
-        "examples/fixture_workspace",
+        str(scanned),
         "--provider",
         "scripted",
         "--scripted-responses",
@@ -278,14 +408,15 @@ def round_trip(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     assert snapshot.is_file(), "the produce half must write the snapshot document"
     recorded = json.loads(snapshot.read_text(encoding="utf-8"))["signals"]
 
-    control = _pla(
-        "signals", "--workspace", "examples/fixture_workspace", "--json"
-    )
+    _stamp_age(files, 0.0)
+    control = _pla("signals", "--workspace", str(scanned), "--json")
     assert control.returncode == 0, f"control arm stderr={control.stderr!r}"
     perceived = json.loads(control.stdout)["signals"]
 
     return {
         "tmp": tmp,
+        "scanned": scanned,
+        "files": files,
         "snapshot": snapshot,
         "recorded": recorded,
         "perceived": perceived,
@@ -403,24 +534,63 @@ def test_b04_control_arm_proves_the_fixture_workspace_emits_signals(
     round_trip: dict[str, Any],
 ) -> None:
     """Non-vacuousness: without a baseline the same command perceives signals, so
-    the green arm below is a real subtraction and not a silent collector."""
+    the green arm below is a real subtraction and not a silent collector.
+
+    EXTENDED after state dir 278 was reverted at the fresh-clone gate: it is not
+    enough for SOME collector to fire. The MTIME-DRIVEN one must fire on both
+    sides too, because its weight is the only identity input that differs between
+    a warm tree and a clone -- so a round trip in which it emits nothing is
+    exactly the round trip that passes here and fails there.
+    """
     assert len(round_trip["perceived"]) > 0, (
-        "fixture precondition: `pla signals --workspace "
-        "examples/fixture_workspace` must emit at least one signal, or an empty "
-        "residual proves nothing"
+        "fixture precondition: `pla signals --workspace <the tmp copy>` must "
+        "emit at least one signal, or an empty residual proves nothing"
     )
     assert len(round_trip["recorded"]) > 0, (
         "the produce half must record at least one signal in its snapshot"
     )
 
+    expected = _relative_posix(round_trip["scanned"], round_trip["files"])
+    assert expected, "fixture precondition: the copy must contain scannable files"
+    for half in ("recorded", "perceived"):
+        recent = [
+            record for record in round_trip[half] if record["kind"] == "recent_file"
+        ]
+        assert recent, (
+            f"the {half} half emitted ZERO `recent_file` signals, so this round "
+            "trip did not exercise the mtime-driven collector at all and an empty "
+            "residual proves nothing about --baseline. This is the vacuity that "
+            "hid a fresh-clone failure for 37 iterations"
+        )
+        # The wire ``path`` is already root-RELATIVE POSIX (measured: 'README.md',
+        # 'notes/journal.md', ...), which is the reason a snapshot taken under one
+        # root is comparable to a scan under another at all.
+        got = {record["path"] for record in recent}
+        assert got == expected, (
+            f"the {half} half must carry one `recent_file` signal per scanned "
+            f"file; missing={sorted(expected - got)} "
+            f"unexpected={sorted(got - expected)}"
+        )
+        weights = sorted({record["weight"] for record in recent})
+        assert weights == [1.0], (
+            f"every `recent_file` weight in the {half} half must be EXACTLY 1.0 "
+            f"-- the plateau below {WEIGHT_PLATEAU_SECONDS:.2f}s of age that makes "
+            f"the two halves comparable at all -- got {weights}. A value off the "
+            "plateau means the stamping in `round_trip` stopped working, and the "
+            "next symptom is every recent file appearing as residual"
+        )
+
 
 def test_b04_same_run_baseline_leaves_zero_residual_and_exits_zero(
     round_trip: dict[str, Any],
 ) -> None:
+    # Re-stamp so this half reads the same weight plateau the produce half did,
+    # however long pytest took to schedule this test. See WEIGHT_QUANTUM_SECONDS.
+    _stamp_age(round_trip["files"], 0.0)
     result = _pla(
         "signals",
         "--workspace",
-        "examples/fixture_workspace",
+        str(round_trip["scanned"]),
         "--baseline",
         str(round_trip["snapshot"]),
         "--fail-over",
@@ -458,17 +628,149 @@ def test_b04b_produce_and_consume_agree_on_the_wire_contract_both_ways(
     )
 
 
-def test_b04c_no_identity_key_carries_a_timestamp_or_an_age(
+def test_b04c_a_snapshot_signal_carries_exactly_the_six_identity_keys(
     round_trip: dict[str, Any],
 ) -> None:
-    """Why the round trip cannot churn between produce and consume: none of the
-    six identity keys is a clock reading. Asserted structurally (the key SET is
-    exactly the six published names) rather than by sleeping."""
+    """The wire shape a ``--baseline`` subtraction is defined over: a snapshot
+    signal object carries exactly the six published identity keys and nothing
+    else, so the produce and consume halves cannot compare different tuples.
+
+    CORRECTION (state dir 279). This test used to be named for, and its docstring
+    used to claim, "none of the six identity keys is a clock reading". That is
+    FALSE: ``weight`` is one for every ``recent_file`` signal, and the old
+    assertion could not catch it because it only compares key NAMES. The real
+    defence against churn is the fixture stamping every scanned file onto the
+    weight plateau, not an absence of clock readings -- see
+    ``WEIGHT_QUANTUM_SECONDS`` and the weight assertions in the control arm.
+    """
     for record in round_trip["recorded"]:
         assert set(record.keys()) == set(IDENTITY_KEYS), (
             "a snapshot signal object must carry exactly the six published "
             f"identity keys, got {sorted(record.keys())}"
         )
+
+
+def test_b04d_the_round_trip_scans_a_tmp_copy_and_never_the_tracked_fixture(
+    round_trip: dict[str, Any],
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """The scanned root is a faithful COPY under pytest's temp root.
+
+    Two claims, because either alone is satisfiable by an accident. (a) The root
+    really is disposable and really is not the tracked directory -- asserted
+    against ``tmp_path_factory``'s own base temp dir, and by AST over this
+    fixture's source, so a future edit that re-points it at the repo fails here
+    rather than in a clone three iterations later. (b) The copy still mirrors the
+    gate's corpus, so relocating it did not quietly narrow what is exercised.
+    """
+    scanned = Path(round_trip["scanned"])
+    basetemp = tmp_path_factory.getbasetemp().resolve()
+    assert scanned.resolve().is_relative_to(basetemp), (
+        f"the scanned root must live under pytest's temp root {basetemp}, got "
+        f"{scanned}"
+    )
+    assert scanned.resolve() != FIXTURE_WORKSPACE.resolve(), (
+        "the round trip must NOT scan the tracked fixture workspace: its mtimes "
+        "are ambient state, which is what made this module vacuous here and red "
+        "in a fresh clone"
+    )
+
+    fixture_source = next(
+        node
+        for node in ast.walk(ast.parse(Path(__file__).resolve().read_text("utf-8")))
+        if isinstance(node, ast.FunctionDef) and node.name == "round_trip"
+    )
+    # Grade the EXECUTABLE body only: the fixture's docstring names the tracked
+    # directory on purpose, to explain why it must not be scanned. A guard that
+    # cannot tell prose from an argument would forbid documenting the decision.
+    body = (
+        fixture_source.body[1:]
+        if ast.get_docstring(fixture_source) is not None
+        else fixture_source.body
+    )
+    literals = {
+        node.value
+        for statement in body
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    assert not any("fixture_workspace" in literal for literal in literals), (
+        "the fixture body must not name the tracked workspace as a --workspace "
+        f"argument; it reaches it only via FIXTURE_WORKSPACE. Offenders: "
+        f"{sorted(l for l in literals if 'fixture_workspace' in l)}"
+    )
+
+    assert _relative_posix(scanned, round_trip["files"]) == _relative_posix(
+        FIXTURE_WORKSPACE, _scannable_files(FIXTURE_WORKSPACE)
+    ), (
+        "the copy must mirror the tracked fixture workspace file for file; "
+        f"copy={sorted(_relative_posix(scanned, round_trip['files']))}"
+    )
+
+
+def test_b04e_the_residual_is_empty_whatever_mtimes_the_copy_arrives_with(
+    tmp_path: Path,
+) -> None:
+    """Behavior 6: the fixture's own ``os.utime`` decides the outcome, not the
+    state the tree arrives in -- which is the whole point of copying.
+
+    The module fixture already covers the WARM-TREE arrival (files aged
+    ``ARRIVAL_AGE_SECONDS``, i.e. 30 days, well past the collector's 14-day
+    window). This arm covers the FRESH-CLONE arrival, where every mtime is the
+    checkout instant. That second case is the one that reverted state dir 278's
+    approved work at ``foundry.py preship`` and that no working tree could
+    reproduce, so it is asserted here rather than trusted.
+    """
+    scanned = tmp_path / "clone_like_workspace"
+    shutil.copytree(FIXTURE_WORKSPACE, scanned)
+    files = _scannable_files(scanned)
+    _stamp_age(files, 0.0)  # a clone stamps every mtime at the checkout instant
+
+    snapshot = tmp_path / "snapshot.json"
+    _stamp_age(files, 0.0)
+    produce = _pla(
+        "run",
+        "--workspace",
+        str(scanned),
+        "--provider",
+        "scripted",
+        "--scripted-responses",
+        "examples/scripted_responses.json",
+        "--state-dir",
+        str(tmp_path / "state"),
+        "--snapshot",
+        str(snapshot),
+        "--json",
+    )
+    assert produce.returncode == 0, (
+        f"the produce half must succeed offline; exit {produce.returncode}, "
+        f"stderr={produce.stderr!r}"
+    )
+    recorded = json.loads(snapshot.read_text(encoding="utf-8"))["signals"]
+    recent = [record for record in recorded if record["kind"] == "recent_file"]
+    assert len(recent) == len(files), (
+        "a clone-aged copy must record one `recent_file` signal per file "
+        f"({len(files)}), got {len(recent)} -- otherwise this arm is vacuous too"
+    )
+
+    _stamp_age(files, 0.0)
+    consume = _pla(
+        "signals",
+        "--workspace",
+        str(scanned),
+        "--baseline",
+        str(snapshot),
+        "--fail-over",
+        "0",
+    )
+    assert consume.returncode == 0, (
+        "a clone-aged arrival must round-trip to an empty residual exactly like a "
+        f"warm one; exit {consume.returncode}, stdout={consume.stdout!r}, "
+        f"stderr={consume.stderr!r}"
+    )
+    assert consume.stdout == "(no signals collected)\n", (
+        f"the residual must be empty; stdout={consume.stdout!r}"
+    )
 
 
 # ======================================================================================
@@ -500,10 +802,11 @@ def test_b05_deleting_one_live_signal_from_the_baseline_trips_the_budget(
         encoding="utf-8",
     )
 
+    _stamp_age(round_trip["files"], 0.0)
     result = _pla(
         "signals",
         "--workspace",
-        "examples/fixture_workspace",
+        str(round_trip["scanned"]),
         "--baseline",
         str(holed),
         "--fail-over",
