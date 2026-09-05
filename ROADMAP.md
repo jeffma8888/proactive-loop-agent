@@ -111,3 +111,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #265 The type oracle covers the two GRADED examples/ consumers: make typecheck + the CI step add check_run.py and check_autonomy.py (foundry iter 276)
 - #266 Bare `make` prints a help listing instead of running a network install: help is the default goal, bound to the .PHONY set by an oracle (foundry iter 277)
 - #267 Test floor rises 5,700 -> 5,800; the floor-carrier census reads the underscore spelling too (foundry iter 281)
+- #268 The two position-keyed roadmap fixtures retire: `HISTORY_LINES` selects history lines by content anchor and the `max(ids)` newest-row pin is deleted, so an iteration's own ROADMAP edit can no longer red a HEAD-blind gate (foundry iter 283)

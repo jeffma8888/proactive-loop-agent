@@ -69,13 +69,39 @@ FLOOR_WINDOW = (EXPECTED_FLOOR, EXPECTED_FLOOR + 98)
 LEDGER_ID = "#264"
 ITERATION_TAG = "(foundry iter 269)"
 
-#: Lines that RECORD a superseded floor and must survive the bump byte-identical.
-HISTORY_LINES: tuple[tuple[str, int], ...] = (
-    ("ROADMAP.md", 105),
-    ("ROADMAP.md", 106),
-    ("tests/test_iter143_behavior.py", 26),
-    ("tests/test_iter143_behavior.py", 27),
-    ("tests/test_iter171_behavior.py", 41),
+#: Lines that RECORD a superseded floor and must survive the bump byte-identical,
+#: each keyed by a CONTENT ANCHOR rather than by an absolute line number.
+#:
+#: WHY ANCHORS, re-keyed at factory iter 283. The original fixture paired each
+#: path with a bare absolute LINE NUMBER, and ``_head_text`` reads
+#: ``git show HEAD:<rel>`` -- the
+#: PREVIOUS commit. So a fixture that the commit under construction slides one row
+#: down still measures green in every pre-commit stage and reds only in ``preship``,
+#: which clones the NEW commit. That is not hypothetical: it reverted a fully green
+#: iteration 282. ``ROADMAP.md``'s own index header retires a queued row "once
+#: shipped", the retirement deleted one physical line ABOVE the Done ledger, and
+#: line 106 came to rest on a row carrying neither history marker -- so the
+#: fixture-sanity assert fired, correctly reporting that the test could no longer
+#: find its own subject. An anchor names the row instead of its address, so no
+#: append above or below it can move the subject out from under this test.
+#:
+#: ANCHOR RULES, both MEASURED below rather than trusted (see
+#: ``_select_history_line``): an anchor must select EXACTLY ONE line of the file at
+#: HEAD, and that line must carry a ``FLOOR_HISTORY_MARKERS`` entry. Ledger anchors
+#: use the whole ``- #NNN <opening words>`` prefix, which cannot collide with a
+#: later row that merely CITES ``#NNN`` in prose, and cannot be duplicated either
+#: because ledger ids are unique (``test_b11d``). Prose anchors deliberately carry
+#: no comma-grouped floor token, so quoting them here cannot turn this module into
+#: a floor carrier -- the rule the module docstring above calls load-bearing.
+HISTORY_LINES: tuple[tuple[str, str], ...] = (
+    ("ROADMAP.md", "- #260 The published test floor rises"),
+    ("ROADMAP.md", "- #261 todos + large_file + syntax_error"),
+    (
+        "tests/test_iter143_behavior.py",
+        "at factory iter 260, when this iteration's behavior module carried",
+    ),
+    ("tests/test_iter143_behavior.py", "at factory iter 263)."),
+    ("tests/test_iter171_behavior.py", "at factory iter 255 and"),
 )
 
 _LIVE_COUNT: list[int] = []
@@ -117,6 +143,38 @@ def _git(*args: str) -> str:
 
 def _head_text(rel: str) -> str:
     return _git("show", f"HEAD:{rel}")
+
+
+def _is_index_row(text_line: str) -> bool:
+    """True for a row of ``ROADMAP.md``'s queued-work table: ``| <id> | ... |``.
+
+    Used only to build the synthetic retirement in ``test_b8c``; retiring an index
+    row is the real-world edit that shifts every line below it.
+    """
+    fields = text_line.split("|")
+    return text_line.startswith("|") and len(fields) > 2 and fields[1].strip().isdigit()
+
+
+def _select_history_line(text: str, rel: str, anchor: str) -> str:
+    """The one line of ``text`` carrying ``anchor``, proven unique and proven history.
+
+    Text-only and side-effect free so the SAME selector can be pointed at a
+    synthetic document (``test_b8c``) without mutating the repo. Both preconditions
+    are asserted rather than assumed: a 0-match or 2-match anchor is a broken
+    fixture and must say so by name, and the line it lands on must still read as
+    bump HISTORY, which is the fixture-sanity check that caught iteration 282.
+    """
+    hits = [line for line in text.splitlines() if anchor in line]
+    assert len(hits) == 1, (
+        f"the anchor {anchor!r} matches {len(hits)} line(s) of {rel}, not exactly "
+        "one; a history fixture must name its line unambiguously"
+    )
+    line = hits[0]
+    assert any(marker in line for marker in guard.FLOOR_HISTORY_MARKERS), (
+        f"{rel}: the line anchored by {anchor!r} carries none of the history markers "
+        f"{guard.FLOOR_HISTORY_MARKERS}, so this fixture is wrong: {line!r}"
+    )
+    return line
 
 
 def _ledger_rows(text: str) -> list[str]:
@@ -273,23 +331,20 @@ def test_b7_superseded_floor_advanced_one_step() -> None:
 # --------------------------------------------------------------------------- b8
 
 
-@pytest.mark.parametrize(("rel", "number"), HISTORY_LINES)
-def test_b8_bump_history_lines_are_not_re_keyed(rel: str, number: int) -> None:
+@pytest.mark.parametrize(("rel", "anchor"), HISTORY_LINES)
+def test_b8_bump_history_lines_are_not_re_keyed(rel: str, anchor: str) -> None:
     """A history line must survive the bump verbatim, wherever it now sits.
 
-    Compared by CONTENT rather than by position: appending a ledger row must not be
-    able to break this test, and a line that moved is still a line that survived.
+    Compared by CONTENT at BOTH ends. The anchor finds the line at HEAD without
+    caring what address it has, and the worktree is then searched for that text
+    rather than for that position -- so a row appended below it or retired above it
+    cannot fail this test, while re-keying or deleting the line still does.
     """
-    head_lines = _head_text(rel).splitlines()
-    assert len(head_lines) >= number, f"{rel} has no line {number} at HEAD"
-    expected = head_lines[number - 1]
-    assert any(marker in expected for marker in guard.FLOOR_HISTORY_MARKERS), (
-        f"{rel}:{number} is not a history line, so this fixture is wrong"
-    )
+    expected = _select_history_line(_head_text(rel), rel, anchor)
     worktree = (REPO / rel).read_text(encoding="utf-8").splitlines()
     assert expected in worktree, (
-        f"the history line {rel}:{number} was re-keyed or deleted; it reads "
-        f"{expected!r} at HEAD and no line matches it in the worktree"
+        f"the history line in {rel} anchored by {anchor!r} was re-keyed or deleted; "
+        f"it reads {expected!r} at HEAD and no line matches it in the worktree"
     )
 
 
@@ -302,6 +357,61 @@ def test_b8b_the_history_census_is_unchanged_in_both_files() -> None:
         head_history = [ln for ln in head if token in ln and guard.floor_claim_lines(ln, token) == ()]
         live_history = [ln for ln in live if token in ln and guard.floor_claim_lines(ln, token) == ()]
         assert live_history == head_history, f"{rel}: the bump chronicle changed"
+
+
+def test_b8c_the_anchor_selector_is_shift_immune_where_the_line_number_was_not() -> None:
+    """One synthetic retirement, two verdicts: the anchor holds, the number breaks.
+
+    ``ROADMAP.md``'s index header drops a queued row "once shipped", so an ordinary
+    iteration deletes one physical line above the Done ledger. That shift is
+    reproduced HERE, in memory, from the HEAD text -- no repo file is written and no
+    commit is needed -- because the shift is invisible to every pre-commit stage and
+    waiting for ``preship`` to reveal it is what cost iteration 282 a green tree.
+
+    Both halves are asserted together on purpose: an oracle proven green but never
+    proven to FIRE is fail-open, so this test also insists the retired selector
+    genuinely lands on a non-history line once the document moves.
+    """
+    head = _head_text("ROADMAP.md")
+    head_lines = head.splitlines()
+
+    ledger_at = next((i for i, line in enumerate(head_lines) if line.startswith("- #")), None)
+    assert ledger_at is not None, "ROADMAP.md has no Done-ledger row at HEAD"
+    retired_at = next(
+        (i for i, line in enumerate(head_lines[:ledger_at]) if _is_index_row(line)), None
+    )
+    assert retired_at is not None, "ROADMAP.md has no index row above the ledger to retire"
+    shifted_lines = head_lines[:retired_at] + head_lines[retired_at + 1 :]
+    shifted = "\n".join(shifted_lines) + "\n"
+
+    for rel, anchor in HISTORY_LINES:
+        if rel != "ROADMAP.md":
+            continue
+        assert _select_history_line(shifted, rel, anchor) == _select_history_line(
+            head, rel, anchor
+        ), f"the anchor {anchor!r} selects a different row once one row above it retires"
+
+    # The address the retired selector used to hold, DERIVED from the row it used to
+    # select rather than written down as a number: the second ``ROADMAP.md`` fixture
+    # is the deepest of the two, so the row below it is the one that slides up. This
+    # is ``106`` at HEAD ``53180b3``, so the demonstration is byte-equivalent to the
+    # hardcoded one -- and it cannot go stale, which is the whole point of the re-key.
+    victim = _select_history_line(head, "ROADMAP.md", HISTORY_LINES[1][1])
+    victim_at = head_lines.index(victim)
+    before = head_lines[victim_at]
+    after = shifted_lines[victim_at]
+    assert any(marker in before for marker in guard.FLOOR_HISTORY_MARKERS), (
+        f"vacuous demonstration: ROADMAP.md line {victim_at + 1} carries no history "
+        "marker at HEAD either, so there is nothing for the shift to break"
+    )
+    assert after != before, (
+        f"the synthetic retirement did not move line {victim_at + 1}; the deleted "
+        "line must sit above it"
+    )
+    assert not any(marker in after for marker in guard.FLOOR_HISTORY_MARKERS), (
+        f"line {victim_at + 1} still carries a history marker after a one-row "
+        f"retirement, so this proof no longer proves the re-key was needed: {after!r}"
+    )
 
 
 # --------------------------------------------------------------------------- b9

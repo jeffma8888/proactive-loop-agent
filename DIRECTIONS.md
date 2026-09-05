@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-283
+    lenses: hardening/DX (foundry iter 283), integration-and-adoption
+    - Candidate A1 -- re-key `HISTORY_LINES` by row IDENTITY: the absolute-line-number pin that reverted iter 282 fires on EVERY iteration that ships a queued roadmap row
+    - Candidate A2 -- give the "never pin by position" rule its first oracle: a census that fails when a fixture keys a tracked file by absolute line number
+    - Candidate A3 -- `make clone-check`: make the clone-parity claim the Makefile already makes in prose executable, offline, in one command
+    - Candidate B1 -- `pla config --json` gains its first executable consumer: the README's published `PLA_*` table becomes machine-checked in the graded gate
+    - Candidate B2 -- `make hooks`: the shipped gate's install is prose-only, and `make help` is now the discovery surface that makes a one-command on-ramp real
+    - Candidate B3 -- `make check` and CI grade the shipped hook by EXECUTING it, so the hook runs against the real CLI for the first time
+    winner: A1
+    ship: pending (not yet decided)
+  iter-282
+    lenses: new-capability (factory iter 282)
+    - Candidate A1 -- `run --max-iterations N` / `--max-llm-calls N`: make the L1 budget settable from the command line
+    - Candidate A2 -- `run --allow-tool NAME` (repeatable): narrow the ACT sandbox for one dispatch
+    - Candidate A3 -- 18th collector: `PythonVersionDriftCollector` (`kind="python_version_drift"`)
+    - Candidate B1 -- a char budget for `SPEC.md`, the largest per-iteration required read (row #109's SPEC half)
+    - Candidate B2 -- FIVE test names misreport the collector roster, not one (row #232 is 1 of 5)
+    - Candidate B3 -- the env-hermeticity residual: one exported `PLA_*` knob still reds a clean checkout (row #218)
+    winner: A1
+    ship: REVERTED
   iter-281
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- `make readme-headroom` says 401 tests of headroom; the true number is 0, and it cost iter 280 five failures
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the baseline ratchet has no RESOLVED half: the product can say what is NEW, never what got FIXED
     - Candidate B3 -- the L1 budget is reportable but not settable (roadmap row #190)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 53180b3
   iter-280
     lenses: performance-and-throughput (iteration 280), narrative-and-docs (iteration 280)
     - Candidate A1 -- give `broken_link` the content-digest memo every other content collector already has
@@ -1567,4 +1587,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-157 scouted iterations
+159 scouted iterations

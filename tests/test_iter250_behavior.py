@@ -313,6 +313,15 @@ def test_b10_the_roadmap_records_the_raise_once_and_stays_inside_its_budget() ->
 
     The row is checked to carry the arrow as well, because a Done row that reads
     as a CLAIM instead of as history would make ``ROADMAP.md`` a ninth carrier.
+
+    NO CLAIM IS MADE ABOUT THE LEDGER TAIL, retired at factory iter 283. This test
+    used to assert that this row's id equalled the MAXIMUM id in the ledger, which
+    made THIS row's position in the tail load-bearing and therefore reddened on the
+    very next iteration's append -- the second instance of the position-keyed-fixture
+    defect that reverted iteration 282. Ledger ids are not even monotonic (``#161``
+    sits between ``#261`` and ``#262``), so "newest" was never a property of the
+    maximum. The row is selected by IDENTITY -- its iteration tag -- and its id is
+    pinned; uniqueness is still enforced across the whole ledger above.
     """
     roadmap = (REPO / "ROADMAP.md").read_text(encoding="utf-8")
     rows = re.findall(r"^- #(\d+) (.+)$", roadmap, flags=re.MULTILINE)
@@ -323,7 +332,6 @@ def test_b10_the_roadmap_records_the_raise_once_and_stays_inside_its_budget() ->
     assert len(tagged) == 1, f"expected exactly one row tagged for this iteration: {tagged}"
     (row_id, body), = tagged
     assert row_id == 267, f"the new row is #{row_id}, expected #267"
-    assert row_id == max(ids), "the new row is not the newest id in the ledger"
     assert "->" in body, "the Done row must read as history, never as a live claim"
     assert guard.floor_claim_lines(roadmap, guard.floor_token(_floor())) == ()
     assert "ROADMAP.md" not in guard.PUBLISHED_FLOOR_CARRIERS
