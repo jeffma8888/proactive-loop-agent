@@ -103,7 +103,6 @@ SOURCE_EXTENSIONS: Final[tuple[str, ...]] = (
 DECLARED_ABSENT: Final[dict[str, str]] = {
     "pm.md": "a foundry per-iteration state artifact, outside this repo by design",
     "pm_scout_b.md": "a foundry per-iteration state artifact, outside this repo by design",
-    "SPEC_ARCHIVE.md": "only PROPOSED by a queued row, never created",
     "tests/conftest.py": "cited as a NEGATIVE existence claim -- the repo has none",
 }
 

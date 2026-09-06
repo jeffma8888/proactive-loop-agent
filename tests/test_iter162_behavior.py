@@ -42,6 +42,7 @@ EXPECTED_ROOT_DOCS = frozenset(
         "ROADMAP.md",
         "ROADMAP_ARCHIVE.md",
         "SPEC.md",
+        "SPEC_ARCHIVE.md",
     }
 )
 
@@ -135,7 +136,7 @@ def test_b2_nested_tracked_markdown_is_listed_by_git_but_never_audited() -> None
 
     audited = guard.tracked_root_markdown()
     assert set(audited) == EXPECTED_ROOT_DOCS, (
-        f"audited set {sorted(audited)} != the 5 tracked root docs "
+        f"audited set {sorted(audited)} != the {len(EXPECTED_ROOT_DOCS)} tracked root docs "
         f"{sorted(EXPECTED_ROOT_DOCS)}"
     )
     for nested in NESTED_TRACKED_MARKDOWN:
@@ -198,15 +199,19 @@ def test_b3_a_subset_reds_the_guard(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ==========================================================================
-# Behavior 4 -- the anti-vacuity floor covers all 5 docs, and runs FIRST.
+# Behavior 4 -- the anti-vacuity floor covers EVERY tracked doc, and runs FIRST.
 # ==========================================================================
 
 
 @pytest.mark.parametrize("dropped", sorted(EXPECTED_ROOT_DOCS))
-def test_b4_floor_covers_every_one_of_the_five_docs(
+def test_b4_floor_covers_every_one_of_the_tracked_docs(
     dropped: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Dropping ANY of the 5 must red the guard: that is what "floor of 5" means."""
+    """Dropping ANY tracked doc must red the guard: that is the anti-vacuity floor.
+
+    Parametrized over ``EXPECTED_ROOT_DOCS`` rather than a spelled count, so adding a
+    root doc widens the floor automatically instead of leaving a stale number here.
+    """
     monkeypatch.setattr(
         guard,
         "tracked_root_markdown",

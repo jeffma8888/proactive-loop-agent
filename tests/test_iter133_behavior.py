@@ -97,6 +97,7 @@ TRACKED_ROOT_DOCS = (
     "ROADMAP.md",
     "ROADMAP_ARCHIVE.md",
     "SPEC.md",
+    "SPEC_ARCHIVE.md",
 )
 
 _FENCE_RE = re.compile(r"^\s*(?:```|~~~)")

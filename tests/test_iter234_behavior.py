@@ -382,7 +382,7 @@ def test_b7_readme_carved_out_numbers_still_agree_with_the_live_registries() -> 
     readme = README_PATH.read_text(encoding="utf-8")
     assert f"{EXPECTED_COLLECTOR_COUNT} context collectors" in readme
     assert f"{EXPECTED_VERB_COUNT} CLI verbs" in readme
-    assert "5,800+" in readme, "the README tests floor is no longer '5,800+'; behavior 7 expects it unchanged"
+    assert "5,900+" in readme, "the README tests floor is no longer '5,900+'; behavior 7 expects it unchanged"
 
 
 def test_b7_spec_stays_under_the_byte_budget() -> None:
@@ -392,14 +392,19 @@ def test_b7_spec_stays_under_the_byte_budget() -> None:
     not grow at all", which is a snapshot rather than a policy and cannot survive
     the next contract addition (foundry iter 282 documented two new `run` flags in
     4.5 and needed 383 of those 9 bytes). Re-keyed to the number the product's own
-    roadmap already publishes: rows #109/#179 record SPEC.md as the largest
-    per-iteration required read and say to slice it into a `SPEC_ARCHIVE.md` at
+    roadmap already publishes: row #109 records SPEC.md as the largest
+    per-iteration required read and says to slice it into a `SPEC_ARCHIVE.md` at
     ~100,000 chars. So the budget now MEANS that policy, and crossing it is the
     signal to do the archive slice -- not to raise this literal again.
+
+    Row #179 named the same action point and was RETIRED in foundry iter 288, which
+    relocated section 4.2's settled provider contract into `SPEC_ARCHIVE.md`. That
+    file now EXISTS, so the next crossing relocates ANOTHER settled section into it
+    rather than creating it; row #109 stays live as the threshold question.
     """
     size = len(SPEC_PATH.read_bytes())
     assert size < 100_000, (
         f"SPEC.md is {size} bytes, at or over the 100,000-byte action point ROADMAP "
-        "rows #109/#179 name. Do the SPEC_ARCHIVE.md slice they queued; do not raise "
-        "this literal."
+        "row #109 names. Relocate another settled section into the existing "
+        "SPEC_ARCHIVE.md; do not raise this literal."
     )

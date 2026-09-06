@@ -56,6 +56,13 @@ REPO = Path(__file__).resolve().parent.parent
 #: found without this module naming either number.
 ANY_FLOOR_TOKEN = re.compile(r"\b\d,\d00\+")
 
+#: The bare-digit floor the ``tests/test_iter249_behavior.py`` record narrates, as a
+#: LITERAL. It was derived as ``_floor() - 100`` and that silently assumed the live
+#: floor would sit exactly one bump above a FIXED historical verdict forever; the next
+#: raise (foundry iter 288) broke it and its message accused the record of having been
+#: edited away. The record is history and never moves, so the pin belongs here.
+HISTORICAL_BARE_FLOOR_DIGITS = "5700"
+
 #: The two files that were invisible to the census: a Python module cannot write a
 #: comma-grouped literal, so each pins the floor with an underscore instead.
 UNDERSCORE_CARRIERS = (
@@ -243,17 +250,19 @@ def test_b7_the_live_tracked_tree_has_no_floor_disagreement() -> None:
 def test_b7b_the_historical_verdict_line_is_not_read_as_a_claim() -> None:
     """Behavior 7 / acceptance: a quoted past verdict must stay untouched.
 
-    ``tests/test_iter249_behavior.py`` records a verbatim failure message naming
-    the SUPERSEDED floor in bare digits. It is history, not a claim, so the census
+    ``tests/test_iter249_behavior.py`` records a verbatim failure message naming a
+    superseded floor in bare digits. It is history, not a claim, so the census
     must ignore it -- and if it ever did flag it, the exclusion rule would be what
-    needs fixing, not the record.
+    needs fixing, not the record. The digits are pinned in
+    ``HISTORICAL_BARE_FLOOR_DIGITS`` rather than derived from the live floor: the
+    record is fixed, so a derived expectation makes every future raise look like
+    tampering with it.
     """
     floor = _floor()
-    superseded_digits = str(floor - 100)
     text = guard.tracked_text_sources()["tests/test_iter249_behavior.py"]
-    assert superseded_digits in text, (
-        "the historical verdict naming the superseded floor was edited away; it is a "
-        "record of a real failure and must be left alone"
+    assert HISTORICAL_BARE_FLOOR_DIGITS in text, (
+        "the historical verdict naming a superseded floor in bare digits was edited "
+        "away; it is a record of a real failure and must be left alone"
     )
     assert guard.floor_claim_lines(text, guard.floor_token(floor)) == ()
 

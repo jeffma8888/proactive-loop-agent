@@ -52,10 +52,10 @@ ARCHIVE = REPO / "ROADMAP_ARCHIVE.md"
 
 #: The floor this iteration raises the published claim TO, as a bare int. Bare on
 #: purpose -- see the module docstring on why no comma-grouped token appears here.
-EXPECTED_FLOOR = 5_800
+EXPECTED_FLOOR = 5_900
 
 #: The floor it is raised FROM.
-SUPERSEDED_FLOOR = 5_700
+SUPERSEDED_FLOOR = 5_800
 
 #: The widest live count that still rounds to ``EXPECTED_FLOOR`` under BOTH
 #: invariants ``test_iter238`` pins (``live // 100 * 100`` and ``(live + 1) // 100
@@ -251,7 +251,7 @@ def test_b3b_a_second_edit_to_the_intro_would_be_caught() -> None:
 
 def test_b4_published_floor_derives_the_new_floor_without_editing_the_derivation() -> None:
     assert guard.published_floor() == EXPECTED_FLOOR
-    assert guard.floor_token(EXPECTED_FLOOR) == "5," + "800"
+    assert guard.floor_token(EXPECTED_FLOOR) == "5," + "900"
 
 
 # --------------------------------------------------------------------------- b5

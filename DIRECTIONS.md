@@ -1,6 +1,46 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-288
+    lenses: new-capability (foundry iter 288), hardening/DX (foundry iter 288)
+    - Candidate A1 -- `signals --summary` gains the ratchet's RESOLVED half: the product can say what is NEW, never what got FIXED
+    - Candidate A2 -- `resume --dry-run`: the preview twin exists for `run` and `dispatch`, but not for the L0 headline verb
+    - Candidate A3 -- 18th collector `PythonVersionDriftCollector` (`kind="python_version_drift"`), roadmap row #122 -- MEASURED BLOCKED, listed so the lead does not spend the iteration discovering that
+    - Candidate B1 -- `make clone-check`: the population that reverted iter 278 costs 5.85 s to reach and no command reaches it
+    - Candidate B2 -- the census that reverted iter 287 is red on the honest spelling and blind to the sanctioned one
+    - Candidate B3 -- `test_catalog_has_sixteen_entries` asserts 17: the last shipped test name that misreports the collector roster
+    winner: B2
+    ship: pending (not yet decided)
+  iter-287
+    lenses: narrative-and-docs, NEW-CAPABILITY
+    - Candidate A1 (primary) -- re-land iteration 286's floor-bump + `SPEC_ARCHIVE.md` narrative, with the pin's site list corrected 3 -> 16 and two preconditions measured
+    - Candidate A2 -- `ROADMAP.md` publishes "the newest row alone is exempt", but the enforced exemption is bounded by an auto-maintained file the prose never names
+    - Candidate A3 -- `SPEC.md` annotates the suite as "one `test_iterNN_behavior.py` per increment", which is measurably not what NN means -- and that belief has already destroyed a shipped module
+    - Candidate B1 -- `--model NAME`: the provider is a command-line flag, the model it talks to is not
+    - Candidate B2 -- `resume --goal-id ID`: the L0 headline verb is the only goal-addressed verb that demands a filesystem path
+    - Candidate B3 -- `run`/`dispatch`/`resume --max-attempts N`: the L0 retry budget is the last budget that is reportable but not settable
+    winner: A1
+    ship: REVERTED
+  iter-286
+    lenses: performance-and-throughput (iteration 286), narrative-and-docs (iteration 286)
+    - Candidate A1 -- Cap the xdist pool: settle roadmap row #257 with a fresh repeat measurement
+    - Candidate A2 -- `signals --fail-on-kind` narrows the collectors it runs: measured 682 ms -> 460 ms, 0.90 s -> 0.64 s wall
+    - Candidate A3 -- Cut the fixed per-invocation import floor by deferring the heaviest module off the CLI import path
+    - Candidate B1 -- `make readme-headroom` publishes 402 tests of room when the true number is 1, and the false figure is printed in three places
+    - Candidate B2 -- the mandated 5,800 -> 5,900 bump has a narrative half that nothing derives, and one of its four carriers is a ledger row whose ID is not 286
+    - Candidate B3 -- a shipped oracle carries a DEFERRAL RECORD that has been false for nine floor bumps
+    winner: B2
+    ship: REVERTED
+  iter-285
+    lenses: simplification-and-deletion (iteration 285), performance-and-throughput (iteration 285)
+    - Candidate A1 -- do the queued `SPEC_ARCHIVE.md` slice: SPEC.md is 209 bytes from a hard wall that forbids raising the literal
+    - Candidate A2 -- one sandbox-directory resolver replaces the dual-root block `loop/tools.py` hand-copies THREE times
+    - Candidate A3 -- three near-duplicate path-target guards in `cli.py` become one general rule
+    - Candidate B1 -- cap the xdist pool (`--maxprocesses=8`): roadmap row #257's queued one-constant edit, now re-measured
+    - Candidate B2 -- delete one of the three nested pytest pools: the two `test_eb9` children are byte-identical argv
+    - Candidate B3 -- `syntax_error` is 55.0% of a 692.90 ms scan and returns zero signals; give it the content-digest memo `broken_link` got in iter-280
+    winner: A1
+    ship: REVERTED
   iter-284
     lenses: integration-and-adoption (iteration 284), simplification-and-deletion (iteration 284)
     - Candidate B1 -- `pla policy --json` gets its first executable consumer: the graded autonomy grader stops reaching past it into `Settings`
@@ -10,7 +50,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the roadmap index carries a row NO iteration is permitted to build
     - Candidate B3 -- 26 duplicated test bodies re-freeze the same global counts, and today's `17` is ambiguous
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 4276da7
   iter-283
     lenses: hardening/DX (foundry iter 283), integration-and-adoption
     - Candidate A1 -- re-key `HISTORY_LINES` by row IDENTITY: the absolute-line-number pin that reverted iter 282 fires on EVERY iteration that ships a queued roadmap row
@@ -1597,4 +1637,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-160 scouted iterations
+164 scouted iterations

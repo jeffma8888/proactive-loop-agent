@@ -156,7 +156,6 @@ ACCEPTED_SAMPLES: Final[tuple[str, ...]] = (
 CITED_BUT_UNTRACKED: Final[dict[str, str]] = {
     "pm.md": "a foundry per-iteration state artifact, outside this repo by design",
     "pm_scout_b.md": "a foundry per-iteration state artifact, outside this repo by design",
-    "SPEC_ARCHIVE.md": "PROPOSED by a queued row (the SPEC.md counterpart of the roadmap archive)",
     "tests/conftest.py": "PROPOSED by queued row #218; the repo deliberately has no conftest yet",
 }
 
