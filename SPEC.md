@@ -796,7 +796,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
   - `pla run --workspace W [--dry-run] [--collector NAME ...] [--exclude-path GLOB ...]
-    [--baseline FILE]` — scan then auto-dispatch the top
+    [--baseline FILE] [--max-iterations N] [--max-llm-calls N]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
@@ -814,6 +814,10 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `--snapshot` write and above the `--dry-run` return so both inherit it; under `--json`
     it joins the human progress on stderr, leaving stdout one JSON document whose key set is
     unchanged.
+    `--max-iterations N` / `--max-llm-calls N` bound THIS run's L1 budget, overriding
+    `PLA_MAX_ITERATIONS` / `PLA_MAX_LLM_CALLS`; absent, the environment or the built-in
+    default (8 / 24) stands. A non-positive or non-integer value is an argparse usage
+    error (exit 2) at PARSE time, before any client, collector or run dir exists.
     `--baseline FILE` and `--snapshot FILE` may not resolve to the SAME path: `--snapshot`
     would rewrite FILE with only the signals `--baseline` did not suppress, replacing the
     document with its own complement, so an aliased pair is an argparse usage error (exit 2)

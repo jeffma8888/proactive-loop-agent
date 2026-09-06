@@ -419,13 +419,15 @@ def test_b5_flag_column_matches_live_parser() -> None:
     universe = long_options()
     assert len(universe) >= 4
     flagged = [(n, f) for n, f, _d in rows if f != ENV_ONLY_CELL]
-    assert len(flagged) == 4
+    # Six / eight as of foundry iter 282, which gave the two L1 budget knobs a flag on
+    # `run` (`--max-iterations` / `--max-llm-calls`); the split was four / ten before it.
+    assert len(flagged) == 6
     for name, cell in flagged:
         match = re.fullmatch(r"`(--[a-z0-9-]+)`", cell)
         assert match is not None, f"{name}: unparsable flag cell {cell!r}"
         assert match.group(1) in universe, f"{name}: {cell} not accepted by parser"
     env_only = [n for n, f, _d in rows if f == ENV_ONLY_CELL]
-    assert len(env_only) == 10
+    assert len(env_only) == 8
     for name in env_only:
         derived = "--" + name[len(ENV_PREFIX) :].lower().replace("_", "-")
         assert derived not in universe, f"{name} is marked env-only but {derived} exists"
@@ -448,7 +450,7 @@ def test_b6_prose_number_words_match_the_counts() -> None:
     rows = parse_rows(section)
     flagged = sum(1 for _n, f, _d in rows if f != ENV_ONLY_CELL)
     env_only = sum(1 for _n, f, _d in rows if f == ENV_ONLY_CELL)
-    words = {4: "Four", 10: "ten"}
+    words = {6: "Six", 8: "eight"}
     assert f"{words[flagged]} settings also have a direct CLI flag" in section
     assert f"the remaining {words[env_only]} are environment-only" in section
 
@@ -494,14 +496,23 @@ def _mutate(text: str, old: str, new: str) -> str:
     ("label", "old", "new"),
     [
         (
+            # Re-anchored by foundry iter 282: this row's flag cell stopped reading
+            # *(env-only)* when `--max-iterations` became a real flag on `run`. The
+            # drift being planted is UNCHANGED -- a documented default that no longer
+            # matches the live field default -- only the anchor moved.
             "default digit changed",
-            "| `PLA_MAX_ITERATIONS` | *(env-only)* | `8` |",
-            "| `PLA_MAX_ITERATIONS` | *(env-only)* | `9` |",
+            "| `PLA_MAX_ITERATIONS` | `--max-iterations` | `8` |",
+            "| `PLA_MAX_ITERATIONS` | `--max-iterations` | `9` |",
         ),
         (
+            # Re-pointed at PLA_MODEL by foundry iter 282: planting `--max-iterations`
+            # no longer names a ghost, because that iteration made it a real flag on
+            # `run`. `--model` is the same shape of claim (an env-only row inventing the
+            # flag a reader would guess) and is accepted by no parser -- b5's env-only
+            # arm asserts that for EVERY env-only row, so this case cannot go vacuous.
             "env-only row claims a flag",
-            "| `PLA_MAX_ITERATIONS` | *(env-only)* |",
-            "| `PLA_MAX_ITERATIONS` | `--max-iterations` |",
+            "| `PLA_MODEL` | *(env-only)* |",
+            "| `PLA_MODEL` | `--model` |",
         ),
         (
             "documented row deleted",

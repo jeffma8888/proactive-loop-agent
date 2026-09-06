@@ -909,6 +909,56 @@ def build_parser() -> argparse.ArgumentParser:
             "then STOP before executing the loop -- no run dir, no loop iteration."
         ),
     )
+    # The L1 loop budget, on the one verb that RUNS a loop. Until now it was
+    # REPORTABLE but not SETTABLE: `config --json` publishes both budgets and `run
+    # --json` publishes what a run SPENT, yet the only way to SET either was a PLA_*
+    # env var -- a global, invisible mutation of the caller's shell -- and `--dry-run`
+    # runs ZERO iterations, so there was no way to ask for a BOUNDED REAL run at all.
+    #
+    # WHY here and not on `globals_`: the four zero-input catalog verbs (`tools`,
+    # `providers`, `collectors`, `policy`) would inherit a budget flag their contract
+    # pins INERT, which is a promise the CLI cannot keep. `dispatch`/`resume` run loops
+    # too and are a defensible follow-up, but each is a separate Settings consumer.
+    #
+    # WHY default=None rather than 8/24: `_settings` hands every flag to
+    # `Settings.from_env`, whose documented contract DROPS a None override, so an
+    # unspecified flag never clobbers PLA_MAX_ITERATIONS/PLA_MAX_LLM_CALLS or the field
+    # default. Spelling the numbers here would make the flag beat the env ALWAYS.
+    #
+    # WHY type=_positive_int and not the model's own ge=1 bound: `Settings`' fields are
+    # `Field(ge=1)`, but pydantic's ValidationError IS a ValueError, so a `0` reaching
+    # the model would surface through main()'s (LLMError, ValueError, OSError) handler
+    # as the vendor's multi-line dump -- the [type=greater_than_equal] taxonomy, the
+    # input_value= echo and the errors.pydantic.dev URL this CLI closes everywhere else
+    # (see sanitize_validation_error). Reusing the shipped argparse validator `scan
+    # --top` and `watch --max-scans` already carry rejects a bad value at PARSE time
+    # instead: exit 2, one usage line, before any client is built, any collector runs
+    # or any run dir exists.
+    p_run.add_argument(
+        "--max-iterations",
+        default=None,
+        type=_positive_int,
+        metavar="N",
+        help=(
+            "Bound this run's dispatched loop to at most N PLAN/ACT/CHECK iterations, "
+            "overriding PLA_MAX_ITERATIONS (default 8). Absent leaves the environment "
+            "or built-in default in force. Must be >= 1; anything else is a usage "
+            "error (exit 2) at parse time."
+        ),
+    )
+    p_run.add_argument(
+        "--max-llm-calls",
+        default=None,
+        type=_positive_int,
+        metavar="N",
+        help=(
+            "Bound this run's dispatched loop to at most N LLM calls across its "
+            "PLAN/CHECK steps, overriding PLA_MAX_LLM_CALLS (default 24). This is "
+            "the L1 backstop; the scan's own synthesize call is not counted against "
+            "it. Absent leaves the environment or built-in default in force. Must "
+            "be >= 1; anything else is a usage error (exit 2) at parse time."
+        ),
+    )
     p_run.add_argument(
         "--json",
         action="store_true",
@@ -1936,7 +1986,10 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
     """Fold CLI flags over PLA_* env defaults; flags win, unset flags fall back.
 
     ``Settings.from_env`` drops ``None`` overrides, so an unspecified flag never
-    clobbers an environment value or the built-in default.
+    clobbers an environment value or the built-in default. That contract is what
+    lets this ONE fold serve every verb: the two L1 budget flags are declared on
+    ``run`` alone, and ``getattr(..., None)`` reads them as absent on every other
+    verb's namespace, so no caller needs a branch and no other verb changes.
     """
     scripted = getattr(args, "scripted_responses", None)
     state_dir = getattr(args, "state_dir", None)
@@ -1945,6 +1998,8 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
         scripted_responses_path=Path(scripted) if scripted else None,
         state_dir=Path(state_dir) if state_dir else None,
         workspace_root=workspace_root,
+        max_iterations=getattr(args, "max_iterations", None),
+        max_llm_calls=getattr(args, "max_llm_calls", None),
     )
 
 

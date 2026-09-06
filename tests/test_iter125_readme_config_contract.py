@@ -632,10 +632,19 @@ def test_flag_column_agrees_with_the_live_parser(readme_text: str) -> None:
     documented = {
         flag for row in rows for flag in BACKTICKED_FLAG.findall(row.flag_cell)
     }
-    assert documented == {"--provider", "--scripted-responses", "--state-dir", "--workspace"}
+    # Six as of foundry iter 282, which gave the two L1 budget knobs a flag on `run`
+    # (`--max-iterations` / `--max-llm-calls`); it was four before that.
+    assert documented == {
+        "--max-iterations",
+        "--max-llm-calls",
+        "--provider",
+        "--scripted-responses",
+        "--state-dir",
+        "--workspace",
+    }
     assert documented <= set(universe)
     env_only = [row.name for row in rows if row.flag_cell == ENV_ONLY_CELL]
-    assert len(env_only) == 10
+    assert len(env_only) == 8
     assert all(derived_flag(name) not in universe for name in env_only)
 
 
@@ -664,14 +673,14 @@ def test_section_prose_agrees_with_its_own_table(readme_text: str) -> None:
     }
     flagged = sum(1 for row in rows if row.flag_cell != ENV_ONLY_CELL)
     env_only = sum(1 for row in rows if row.flag_cell == ENV_ONLY_CELL)
-    assert (flagged, env_only, flagged + env_only) == (4, 10, EXPECTED_ROWS)
+    assert (flagged, env_only, flagged + env_only) == (6, 8, EXPECTED_ROWS)
 
 
 def test_prose_problems_fires_when_the_prose_count_stops_matching() -> None:
     section = config_section(README.read_text(encoding="utf-8"))
     rows = parse_rows(section)
     reworded = section.replace(
-        "Four settings also have a direct CLI flag", "Five settings also have a direct CLI flag"
+        "Six settings also have a direct CLI flag", "Five settings also have a direct CLI flag"
     )
     assert reworded != section
     assert any("prose claims Five" in p for p in prose_problems(reworded, rows))
@@ -715,8 +724,14 @@ def test_the_shipped_readme_passes_every_check(readme_text: str) -> None:
             "PLA_MAX_ITERATIONS",
         ),
         (
+            # Re-pointed at PLA_MODEL by foundry iter 282: `--max-iterations` became a
+            # REAL flag on `run` that iteration, so planting it no longer names a ghost.
+            # `--model` is the same shape of claim (an env-only row inventing the flag a
+            # reader would guess) and is still accepted by no parser -- behavior 5's
+            # `all(derived_flag(name) not in universe ...)` assertion proves that for
+            # every env-only row, so this case cannot silently go vacuous again.
             "an env-only row claiming a flag that does not exist",
-            lambda t: with_cell(t, "PLA_MAX_ITERATIONS", 1, "`--max-iterations`"),
+            lambda t: with_cell(t, "PLA_MODEL", 1, "`--model`"),
             "exists on no parser",
         ),
         (

@@ -100,7 +100,10 @@ OWNED_PAIRS: tuple[tuple[str, str], ...] = tuple(
     (flag, verb) for flag, verbs in sorted(EXPECTED_OWNERS.items()) for verb in sorted(verbs)
 )
 
-EXPECTED_FLAG_COUNT = 36
+#: 36 at iteration 256; 38 since foundry iter 282 gave `run` the two L1 budget
+#: flags (`--max-iterations`, `--max-llm-calls`). A live flag the contract does not
+#: name is what behavior 2 catches, so this literal only has to track the roster.
+EXPECTED_FLAG_COUNT = 38
 EXPECTED_VERB_COUNT = 17
 EXPECTED_COLLECTOR_COUNT = 17
 
@@ -383,5 +386,20 @@ def test_b7_readme_carved_out_numbers_still_agree_with_the_live_registries() -> 
 
 
 def test_b7_spec_stays_under_the_byte_budget() -> None:
+    """SPEC.md stays under the size the ROADMAP itself calls the action point.
+
+    Iteration 256 pinned 99,500 -- the then-live 99,491 bytes rounded up, i.e. "do
+    not grow at all", which is a snapshot rather than a policy and cannot survive
+    the next contract addition (foundry iter 282 documented two new `run` flags in
+    4.5 and needed 383 of those 9 bytes). Re-keyed to the number the product's own
+    roadmap already publishes: rows #109/#179 record SPEC.md as the largest
+    per-iteration required read and say to slice it into a `SPEC_ARCHIVE.md` at
+    ~100,000 chars. So the budget now MEANS that policy, and crossing it is the
+    signal to do the archive slice -- not to raise this literal again.
+    """
     size = len(SPEC_PATH.read_bytes())
-    assert size < 99_500, f"SPEC.md is {size} bytes, over this iteration's 99,500-byte budget"
+    assert size < 100_000, (
+        f"SPEC.md is {size} bytes, at or over the 100,000-byte action point ROADMAP "
+        "rows #109/#179 name. Do the SPEC_ARCHIVE.md slice they queued; do not raise "
+        "this literal."
+    )

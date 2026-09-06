@@ -703,35 +703,75 @@ def test_b8b_row_ids_stay_unique_across_the_document_pair() -> None:
 
 
 def test_b8c_no_pre_existing_ledger_row_was_edited_reordered_or_deleted() -> None:
-    """Behavior 8: the HEAD ledger is an unbroken PREFIX of the shipping one."""
+    """Behavior 8: the HEAD ledger is an unbroken PREFIX of the shipping one.
+
+    Stated WITHOUT the premise that the shipping iteration is this module's own.
+    A byte-equality pin against ``HEAD`` is green only at the commit that adds
+    THIS module's row and red for every successor appending its own mandatory Done
+    row, so the invariant is spelled append-only instead: nothing ahead of the new
+    tail may move, and one iteration adds at most one row (zero once the row is
+    committed, which is what ``preship`` and CI see).
+    """
     head_rows = _ledger_rows(_head_text("ROADMAP.md"))
     live_rows = _ledger_rows(_worktree("ROADMAP.md"))
-    if any(row.startswith(f"- {LEDGER_ID} ") for row in head_rows):
-        assert live_rows == head_rows, "running at the shipping commit: the ledger moved"
-        return
     assert live_rows[: len(head_rows)] == head_rows, (
         "a pre-existing ledger row was edited, reordered or deleted"
     )
-    assert len(live_rows) == len(head_rows) + 1, (
+    assert len(live_rows) - len(head_rows) <= 1, (
         f"the ledger went {len(head_rows)} -> {len(live_rows)}; one iteration is one row"
     )
-    assert live_rows[-1].startswith(f"- {LEDGER_ID} "), "the new row is not appended last"
 
 
-def test_b8d_no_index_row_was_retired_this_iteration() -> None:
-    """Behavior 8: minimum shift -- the queued-work table is byte-for-byte the same."""
-    assert _index_rows(_worktree("ROADMAP.md")) == _index_rows(_head_text("ROADMAP.md")), (
-        "an index row was retired, which is the shift this iteration exists to survive"
+def test_b8d_a_retired_index_row_is_accounted_for_in_the_archive() -> None:
+    """Behavior 8: retiring a queued row is allowed, LOSING one silently is not.
+
+    Byte-equality of the queued table against ``HEAD`` would forbid the repo's own
+    mandatory practice (a short-headroom iteration must relocate at least what it
+    adds), so the graded property is accounting: a surviving row is unedited, and a
+    row that leaves the table has a retirement bullet in the archive.
+    """
+    head_index = _index_rows(_head_text("ROADMAP.md"))
+    live_by_id = {
+        row.split("|")[1].strip(): row for row in _index_rows(_worktree("ROADMAP.md"))
+    }
+    archive = _worktree("ROADMAP_ARCHIVE.md")
+    for row in head_index:
+        row_id = row.split("|")[1].strip()
+        survivor = live_by_id.get(row_id)
+        if survivor is not None:
+            assert survivor == row, f"queued index row {row_id} was edited in place"
+            continue
+        assert f"- **#{row_id} --" in archive, (
+            f"queued index row {row_id} left ROADMAP.md with no `- **#{row_id} --` "
+            "retirement bullet in ROADMAP_ARCHIVE.md"
+        )
+
+
+def test_b8e_the_archive_never_loses_a_retirement() -> None:
+    """Behavior 8: an archive may GAIN relocated text, never lose any.
+
+    ``==`` against ``HEAD`` was a property of one commit, not an invariant, and a
+    prefix test is wrong too: measured, a retirement bullet is inserted INSIDE the
+    document rather than at its end. So the graded property is that every non-blank
+    line archived at ``HEAD`` survives, and that the Done row this commit appends
+    went to the ledger rather than here.
+    """
+    archived_at_head = {
+        line for line in _head_text("ROADMAP_ARCHIVE.md").splitlines() if line.strip()
+    }
+    live_archive = _worktree("ROADMAP_ARCHIVE.md")
+    live_lines = {line for line in live_archive.splitlines() if line.strip()}
+    lost = sorted(archived_at_head - live_lines)
+    assert lost == [], (
+        f"ROADMAP_ARCHIVE.md lost {len(lost)} archived line(s); the archive is "
+        f"add-only. Sample: {' | '.join(lost[:2])}"
     )
-
-
-def test_b8e_the_archive_is_byte_unchanged() -> None:
-    """Behavior 8: no relocation rode along with the append."""
-    assert _worktree("ROADMAP_ARCHIVE.md") == _head_text("ROADMAP_ARCHIVE.md"), (
-        "ROADMAP_ARCHIVE.md changed; this iteration relocates nothing"
-    )
-    assert f"- {LEDGER_ID} " not in _worktree("ROADMAP_ARCHIVE.md")
-    assert ITERATION_TAG not in _worktree("ROADMAP_ARCHIVE.md")
+    head_rows = _ledger_rows(_head_text("ROADMAP.md"))
+    for row in _ledger_rows(_worktree("ROADMAP.md"))[len(head_rows) :]:
+        assert row not in live_archive, (
+            "a Done-ledger row appended this commit belongs in ROADMAP.md, not in "
+            f"the archive: {row[:120]}"
+        )
 
 
 # --------------------------------------------------------------------------- b9

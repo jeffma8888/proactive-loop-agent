@@ -381,10 +381,11 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # iteration 244 retired row #247 (the line-number-anchor ban), and 74 before
     # iteration 249 retired row #249 (`run --exclude-path`), and 75 before
     # iteration 265 retired row #161 (`--baseline`'s first consumer).
+    # and 76 before iteration 282 retired row #190 (the settable L1 budget).
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 76, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 76). If you just "
+    assert sum(counts.values()) == 77, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 77). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

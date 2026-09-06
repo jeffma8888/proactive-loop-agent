@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-284
+    lenses: integration-and-adoption (iteration 284), simplification-and-deletion (iteration 284)
+    - Candidate B1 -- `pla policy --json` gets its first executable consumer: the graded autonomy grader stops reaching past it into `Settings`
+    - Candidate B2 -- `python -m proactive_loop` fails; the standard PATH-free on-ramp does not exist
+    - Candidate B3 -- `pla runs --json` replaces the shell glob that both graded gates use to read the demo's own run directory
+    - Candidate B1 -- the content memo is hand-copied FOUR times, and 2 of its 3 parts are one body
+    - Candidate B2 -- the roadmap index carries a row NO iteration is permitted to build
+    - Candidate B3 -- 26 duplicated test bodies re-freeze the same global counts, and today's `17` is ambiguous
+    winner: B1
+    ship: pending (not yet decided)
   iter-283
     lenses: hardening/DX (foundry iter 283), integration-and-adoption
     - Candidate A1 -- re-key `HISTORY_LINES` by row IDENTITY: the absolute-line-number pin that reverted iter 282 fires on EVERY iteration that ships a queued roadmap row
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `make hooks`: the shipped gate's install is prose-only, and `make help` is now the discovery surface that makes a one-command on-ramp real
     - Candidate B3 -- `make check` and CI grade the shipped hook by EXECUTING it, so the hook runs against the real CLI for the first time
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 1fd0000
   iter-282
     lenses: new-capability (factory iter 282)
     - Candidate A1 -- `run --max-iterations N` / `--max-llm-calls N`: make the L1 budget settable from the command line
@@ -1587,4 +1597,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-159 scouted iterations
+160 scouted iterations
