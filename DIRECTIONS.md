@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-290
+    lenses: integration-and-adoption (foundry iter 290), simplification-and-deletion (foundry iter 290)
+    - Candidate A1 -- the README's only Python fence has never been executed by anything
+    - Candidate A2 -- the copy-paste block aimed at a stranger's repo publishes bare `pla`, which cannot exist after the documented install
+    - Candidate A3 -- exit codes 3 and 4, the two that encode the autonomy thesis, are dogfooded by nothing (finding real; every honest shape is EXPENSIVE)
+    - Candidate B1 -- the ACT sandbox's write-target guard is hand-copied 4 times in `loop/tools.py`, and the read-target resolver 10 times
+    - Candidate B2 -- 28 groups of byte-identical test bodies re-freeze four global constants; the version freeze alone is 21 copies
+    - Candidate B3 -- three roadmap rows are permanently dead, the brake cannot see them, and deleting them triples the roadmap's runway
+    winner: B1
+    ship: pending (not yet decided)
   iter-289
     lenses: hardening/DX (foundry iter 289), integration-and-adoption (foundry iter 289)
     - Candidate A1 -- `make readme-headroom` reports 455 tests of room; the binding wall leaves 54
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `trend` has exactly ONE possible producer, and the two exit-2 messages a user hits never name it
     - Candidate B3 -- the stream producer never names the two consumers built for it, though the precedent for exactly that is shipped
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED e9e43c9
   iter-288
     lenses: new-capability (foundry iter 288), hardening/DX (foundry iter 288)
     - Candidate A1 -- `signals --summary` gains the ratchet's RESOLVED half: the product can say what is NEW, never what got FIXED
@@ -1647,4 +1657,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-165 scouted iterations
+166 scouted iterations

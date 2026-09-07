@@ -114,3 +114,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #269 `run --max-iterations` / `--max-llm-calls`: the L1 loop budget becomes settable per invocation, reusing the shipped `_positive_int` parse-time validator (foundry iter 284)
 - #270 `SPEC.md`'s settled §4.2 provider contract relocates to a new tracked `SPEC_ARCHIVE.md`, retiring row #179; test floor rises 5,800 -> 5,900 to seat the relocation's oracle (foundry iter 288)
 - #272 `diff --dir` / `trend --dir` refusals print a paste-ready `pla watch --out-dir` hint single-sourced from the stream-name constants; the ledger max-id pin retires (foundry iter 289)
+- #273 One `_resolve_write_target` helper replaces the artifacts-dir containment guard `loop/tools.py` hand-copied at six write sites; every refusal message and precedence pinned black-box; the 12-site dual-root READ resolver stays open (foundry iter 290)

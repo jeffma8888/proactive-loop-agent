@@ -144,11 +144,9 @@ class ToolRegistry:
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
-        target = self.artifacts_dir / path
-        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
-        # destination is still inside the sandbox before touching the disk.
-        if not self._within(target, self.artifacts_dir):
-            return f"error: refusing to write outside artifacts dir: {path!r}"
+        target = self._resolve_write_target(path, verb="write")
+        if isinstance(target, str):
+            return target
         ensure_dir(target.parent)
         target.write_text(content)
         rel = str(target.relative_to(self.artifacts_dir))
@@ -173,11 +171,9 @@ class ToolRegistry:
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
-        target = self.artifacts_dir / path
-        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
-        # destination is still inside the sandbox before touching the disk.
-        if not self._within(target, self.artifacts_dir):
-            return f"error: refusing to write outside artifacts dir: {path!r}"
+        target = self._resolve_write_target(path, verb="write")
+        if isinstance(target, str):
+            return target
         ensure_dir(target.parent)
         # Append mode ("a"), never write_text, so an existing artifact is
         # extended rather than clobbered.
@@ -214,12 +210,9 @@ class ToolRegistry:
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
-        target = self.artifacts_dir / path
-        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
-        # target is still inside the sandbox BEFORE any unlink (load-bearing for
-        # a destructive op -- must fire before touching disk).
-        if not self._within(target, self.artifacts_dir):
-            return f"error: refusing to remove outside artifacts dir: {path!r}"
+        target = self._resolve_write_target(path, verb="remove")
+        if isinstance(target, str):
+            return target
         if not target.exists():
             return f"error: no such artifact: {path!r}"
         if target.is_dir():
@@ -273,16 +266,17 @@ class ToolRegistry:
         rejection = self._reject_unsafe(dst)
         if rejection is not None:
             return rejection
-        src_target = self.artifacts_dir / src
-        dst_target = self.artifacts_dir / dst
-        # Belt-and-suspenders against symlink tricks: confirm BOTH the resolved
-        # src and the resolved dst are inside the sandbox BEFORE any disk write.
-        # The dst gate must fire here (before ensure_dir/os.replace) so a symlink
-        # dst can never write a file THROUGH the link outside the sandbox.
-        if not self._within(src_target, self.artifacts_dir):
-            return f"error: refusing to move outside artifacts dir: {src!r}"
-        if not self._within(dst_target, self.artifacts_dir):
-            return f"error: refusing to move outside artifacts dir: {dst!r}"
+        # src's containment gate resolves and refuses BEFORE dst's, preserving
+        # the order the two open-coded gates had: a move whose BOTH sides escape
+        # names src. The dst gate still fires here, before ensure_dir/os.replace,
+        # so a symlink dst can never write a file THROUGH the link outside the
+        # sandbox. Both rejects above already ran, on src then dst.
+        src_target = self._resolve_write_target(src, verb="move")
+        if isinstance(src_target, str):
+            return src_target
+        dst_target = self._resolve_write_target(dst, verb="move")
+        if isinstance(dst_target, str):
+            return dst_target
         if not src_target.exists():
             return f"error: no such artifact: {src!r}"
         if src_target.is_dir():
@@ -982,12 +976,9 @@ class ToolRegistry:
         # splice ``new`` between every character), so it is a caller error.
         if not old:
             return "error: replace_in_file 'old' must be non-empty"
-        target = self.artifacts_dir / path
-        # Belt-and-suspenders against symlink tricks: confirm the *resolved*
-        # target is inside the sandbox BEFORE any read/write (load-bearing for a
-        # mutation -- must fire before touching disk).
-        if not self._within(target, self.artifacts_dir):
-            return f"error: refusing to edit outside artifacts dir: {path!r}"
+        target = self._resolve_write_target(path, verb="edit")
+        if isinstance(target, str):
+            return target
         if not target.exists():
             return f"error: no such artifact: {path!r}"
         if target.is_dir():
@@ -1056,3 +1047,40 @@ class ToolRegistry:
             return True
         except ValueError:
             return False
+
+    def _resolve_write_target(self, path: str, *, verb: str) -> Path | str:
+        """Return the in-sandbox target for *path*, or a verb-blamed refusal.
+
+        The SECOND half of the write family's two-part path guard, and now its
+        ONE definition -- five handlers (six call sites) share it instead of the
+        six hand-copies that were six independent chances to get a containment
+        check wrong. The FIRST half is the textual ``_reject_unsafe``
+        (empty/``..``/absolute), which every caller MUST have already run: this
+        half is belt-and-suspenders against SYMLINK tricks, i.e. a path that is
+        textually innocent but whose *resolved* location leaves the sandbox. So
+        it joins *path* under the artifacts dir, confirms the resolved result is
+        still inside, and returns the ``Path`` if it is or an ``"error: ..."``
+        observation if it is not. Callers branch on ``isinstance(..., str)``.
+        Nothing here touches the disk, so a refusal is TOTAL: the external
+        location a symlink points at is never created, modified or deleted.
+
+        WHY the seam is drawn here, with ``_reject_unsafe`` deliberately left
+        OUTSIDE: absorbing the textual half would silently REORDER two shipped
+        refusal precedences. ``replace_in_file`` reports its empty-``old`` arg
+        error BETWEEN its textual reject and this gate, and ``move_file`` runs
+        the textual reject on BOTH src and dst before EITHER containment gate
+        (so an absolute dst still outranks an escaping src). One fused guard
+        cannot express either order, so the split is load-bearing rather than
+        stylistic: it is what lets all six sites share one definition with
+        byte-identical refusal WORDING *and* refusal ORDER.
+
+        ``verb`` is the blame word the message carries, keyword-only (mirroring
+        the shipped ``cli.py::_out_target_guard(out, *, flag=...)``) so every
+        caller keeps the message it shipped: ``write`` for ``write_file`` AND
+        ``append_file`` (append blames the write FAMILY, not the mode),
+        ``remove``, ``move`` for both of ``move_file``'s sides, and ``edit``.
+        """
+        target = self.artifacts_dir / path
+        if not self._within(target, self.artifacts_dir):
+            return f"error: refusing to {verb} outside artifacts dir: {path!r}"
+        return target
