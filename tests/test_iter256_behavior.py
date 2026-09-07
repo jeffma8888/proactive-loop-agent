@@ -152,6 +152,13 @@ def _move_has_landed_in_head() -> bool:
     return _head_has("SPEC_ARCHIVE.md")
 
 
+def _git(*args: str) -> str:
+    """One git read, as text. A thin wrapper so a case reads as its git command."""
+    return subprocess.run(
+        ["git", *args], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout
+
+
 def _tracked() -> frozenset[str]:
     out = subprocess.run(
         ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
@@ -415,7 +422,12 @@ def test_b6_the_done_ledger_gains_exactly_one_row_for_this_iteration() -> None:
     ):
         assert needle in row, f"ledger row #270 does not name {needle!r}: {row}"
     ids = [int(m) for m in re.findall(r"^- #(\d+) ", roadmap, flags=re.MULTILINE)]
-    assert max(ids) == 270, f"270 is not the highest ledger id in ROADMAP.md: max {max(ids)}"
+    # The "270 is the HIGHEST ledger id" pin that stood here is DELETED: it re-broke
+    # on the very next ledger row (foundry iter 289), which is what the identical pin
+    # iteration 251 removed from its sibling module had already done. The append-only
+    # invariant it was reaching for is OWNED by
+    # `tests/test_iter251_behavior.py::test_b8c`, spelled so it survives every
+    # successor row instead of dating this file to one iteration.
     assert ids.count(270) == 1, "this iteration folded into ONE row, never two"
     # The floor is NAMED in the roadmap and CLAIMED nowhere in it.
     assert guard.floor_token(floor) in roadmap
@@ -562,14 +574,36 @@ def test_b10_the_preserved_oracle_ships_whole() -> None:
 def test_b10b_the_iteration_touched_no_source_and_no_lockfile() -> None:
     """Acceptance criteria: ``src/`` untouched and ``uv.lock`` untouched, so CI's
     ``--locked`` step cannot drift and no runtime behavior moved.
+
+    Keyed on THIS iteration's shipping COMMIT, never on ``git diff HEAD`` -- the same
+    spelling `tests/test_iter251_behavior.py::test_b10b` already uses, and for the
+    reason `tests/test_iter257_behavior.py::test_t12` exists: a worktree-versus-``HEAD``
+    read answers "what is uncommitted RIGHT NOW", which is a claim about whoever is
+    running the suite rather than about this iteration. It went vacuously green the
+    moment this work landed (a clean worktree diffs to nothing) and then reddened the
+    NEXT iteration that touched ``src/`` at all -- an ownership inversion, since this
+    module's scope claim cannot be a veto over its successors. Reading the file list of
+    the commit tagged `(foundry iter 288)` measures exactly what shipped here, stays
+    true in a fresh clone forever, and is silent about every later commit.
     """
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD", "--", "src", "uv.lock", "pyproject.toml"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split()
+    subjects = _git("log", "--format=%H %s", "-n", "300").splitlines()
+    tag = "(foundry iter 288)"
+    sha = next((line.split(" ", 1)[0] for line in subjects if tag in line), None)
+    if sha is None:
+        # Not yet committed: the shipping SET is the working tree, so measure that.
+        names = [
+            line[3:].strip()
+            for line in _git("status", "--porcelain").splitlines()
+            if line.strip()
+        ]
+        assert names, "no shipping commit and a clean tree: nothing to measure"
+    else:
+        names = _git("show", "--name-only", "--format=", sha).split()
+    changed = [
+        name
+        for name in names
+        if name.startswith("src/") or name in {"uv.lock", "pyproject.toml"}
+    ]
     assert changed == [], f"a docs/bookkeeping increment changed {changed}"
 
 

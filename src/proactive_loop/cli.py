@@ -2480,6 +2480,62 @@ def _stream_slates(stream_dir: Path) -> list[Path]:
     return [row[2] for row in indexed]
 
 
+def _stream_dir_producer_hint(stream_dir: Path) -> str:
+    """The remediation line under a ``--dir`` refusal: the ONE command that FILLS it.
+
+    WHY a refusal earns a second line at all: the slate stream both ``diff --dir`` and
+    ``trend --dir`` consume has exactly ONE producer in this product -- ``watch
+    --out-dir`` -- yet each refusal named neither that command nor the filename shape it
+    had just looked for, so it reported only that nothing matched. The reader most likely
+    to hit it followed the README quickstart, whose state dir holds one-shot documents
+    under different names entirely, so "found 0" reads as "this tool is broken" rather
+    than "you have not started the producer yet". An inspector that refuses should say
+    what would satisfy it -- the same argument that already makes ``run`` print
+    paste-ready ``pla dispatch`` lines for the goals it did not dispatch
+    (:func:`_render_deferred_dispatches`), applied to the one producer/consumer pair that
+    lacked it. It is deliberately NOT an ``error:`` line: the refusal above is the fault
+    report, this is guidance, the same split ``gate:`` already draws.
+
+    WHY it composes :func:`_stream_slate_name` and :func:`_pasteable_slate_arg` instead of
+    spelling either convention itself. A hand-written filename would be a SECOND source of
+    truth for the stream shape and would keep advertising the old one after a prefix or pad
+    change -- exactly the silent writer/reader drift the three ``_STREAM_SLATE_*``
+    constants exist to prevent, and here it would be worse than silent, because the tool
+    would be printing a command whose output it then refuses to read. A relative directory
+    would break the other half of the promise: this text is an instruction to a HUMAN who
+    may paste it into any shell, and the caller's ``--dir`` spelling is routinely relative,
+    so the absolute form is what makes the pasted command land in the directory the user
+    was just asking about.
+
+    WHY the printed command carries ``--provider``/``--scripted-responses`` and an explicit
+    ``--interval 0`` rather than the shortest argv that mentions ``--out-dir``. This text
+    promises a command that FILLS the directory, and the two defaults conspire to break that
+    promise in ways a reader cannot see: ``--provider`` defaults to the scripted provider,
+    which raises per tick unless a script file is configured, and ``watch`` is resilient by
+    design (:func:`_on_scan_error`), so the run ends exit 0 having written NOTHING -- the
+    consumer then re-prints this very line and its count gets worse, not better. ``--interval``
+    defaults to an hour and the wait sits BETWEEN scans, so the two ticks a ``diff --dir``
+    needs would arrive an hour apart. Both tokens therefore belong to the promise, not to
+    taste; the shipped offline chain in ``README.md`` passes exactly the same set. Keep them
+    if this line is ever reworded -- a shorter command here is a command that does not work.
+
+    WHY ``WORKSPACE`` and ``SCRIPT`` stay upper-case placeholders while ``--out-dir`` is
+    rendered concretely: the directory is the one value this process actually knows (the
+    caller just named it), and the other two are choices only the reader can make. Upper-case
+    is this repo's settled spelling for "substitute this", so the line stays one paste plus
+    two obvious substitutions instead of guessing a workspace path that may not exist.
+
+    Returns ONE line (no trailing newline): the callers print it directly after their own
+    refusal, so a caller can never widen the refusal to two paragraphs by accident.
+    """
+    return (
+        f"hint: `pla watch --out-dir {_pasteable_slate_arg(stream_dir)} "
+        f"--workspace WORKSPACE --provider scripted --scripted-responses SCRIPT "
+        f"--max-scans 2 --interval 0` writes that stream, "
+        f"one file per tick, starting at {_stream_slate_name(1)}"
+    )
+
+
 def _render_table(
     slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
 ) -> str:
@@ -6264,6 +6320,10 @@ def _cmd_diff(args: argparse.Namespace) -> int:
                 f"found {len(slates)}: {stream_dir}",
                 file=sys.stderr,
             )
+            # ... and then how to GET one, on a second line. The first line is
+            # unchanged byte for byte: the diagnosis is the contract, the hint is
+            # additive. See `_stream_dir_producer_hint`.
+            print(_stream_dir_producer_hint(stream_dir), file=sys.stderr)
             return 2
         old_path, new_path = slates[-2], slates[-1]
         # Under --json, echo the RESOLVED paths: the caller delegated the choice, so
@@ -6353,6 +6413,10 @@ def _cmd_trend(args: argparse.Namespace) -> int:
             f"found {len(slates)}: {stream_dir}",
             file=sys.stderr,
         )
+        # The SAME remediation line `diff --dir` prints, from the same helper: both
+        # verbs are refusing for want of the same stream, so two hand-written hints
+        # could only ever drift apart. See `_stream_dir_producer_hint`.
+        print(_stream_dir_producer_hint(stream_dir), file=sys.stderr)
         return 2
     # `_stream_slates` returns ONLY entries whose names `_stream_slate_index` parses
     # (and only files), so this walrus can never bind None. Expressing the invariant

@@ -113,3 +113,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #268 The two position-keyed roadmap fixtures retire: `HISTORY_LINES` selects history lines by content anchor and the `max(ids)` newest-row pin is deleted, so an iteration's own ROADMAP edit can no longer red a HEAD-blind gate (foundry iter 283)
 - #269 `run --max-iterations` / `--max-llm-calls`: the L1 loop budget becomes settable per invocation, reusing the shipped `_positive_int` parse-time validator (foundry iter 284)
 - #270 `SPEC.md`'s settled §4.2 provider contract relocates to a new tracked `SPEC_ARCHIVE.md`, retiring row #179; test floor rises 5,800 -> 5,900 to seat the relocation's oracle (foundry iter 288)
+- #272 `diff --dir` / `trend --dir` refusals print a paste-ready `pla watch --out-dir` hint single-sourced from the stream-name constants; the ledger max-id pin retires (foundry iter 289)

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-289
+    lenses: hardening/DX (foundry iter 289), integration-and-adoption (foundry iter 289)
+    - Candidate A1 -- `make readme-headroom` reports 455 tests of room; the binding wall leaves 54
+    - Candidate A2 -- fresh-clone mtime parity is a rule in 51 docstrings and an oracle in none
+    - Candidate A3 -- the two per-iteration doc budgets are silent, and their published caps are 4.1x too generous
+    - Candidate B1 -- README publishes a runnable `watch` -> `diff` chain with exact expected counts, and no gate runs it
+    - Candidate B2 -- `trend` has exactly ONE possible producer, and the two exit-2 messages a user hits never name it
+    - Candidate B3 -- the stream producer never names the two consumers built for it, though the precedent for exactly that is shipped
+    winner: B2
+    ship: pending (not yet decided)
   iter-288
     lenses: new-capability (foundry iter 288), hardening/DX (foundry iter 288)
     - Candidate A1 -- `signals --summary` gains the ratchet's RESOLVED half: the product can say what is NEW, never what got FIXED
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the census that reverted iter 287 is red on the honest spelling and blind to the sanctioned one
     - Candidate B3 -- `test_catalog_has_sixteen_entries` asserts 17: the last shipped test name that misreports the collector roster
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 1709fc5
   iter-287
     lenses: narrative-and-docs, NEW-CAPABILITY
     - Candidate A1 (primary) -- re-land iteration 286's floor-bump + `SPEC_ARCHIVE.md` narrative, with the pin's site list corrected 3 -> 16 and two preconditions measured
@@ -1637,4 +1647,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-164 scouted iterations
+165 scouted iterations
