@@ -36,7 +36,7 @@ import shutil
 import sys
 import textwrap
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -2001,6 +2001,34 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
         max_iterations=getattr(args, "max_iterations", None),
         max_llm_calls=getattr(args, "max_llm_calls", None),
     )
+
+
+def _emit(*, as_json: bool, payload: Callable[[], object], human: Callable[[], str]) -> None:
+    """Print ONE rendering of a read-only verb -- the ``--json`` document, or the
+    human catalog -- for the verbs whose ``--json`` flag selects rendering ONLY.
+
+    The ENTIRE stdout must parse as one JSON object; no human trailer. That is a
+    PUBLISHED promise: a machine consumer of a ``--json`` catalog is told it can pipe
+    stdout straight into ``json.loads``, and before this seam the promise was a comment
+    restated by hand at every site, enforced by nothing. Routing all of them through one
+    function makes it structural instead -- ONE ``print`` of ONE string -- so no verb can
+    grow a trailer, a second document or a different ``indent`` without editing here,
+    where the contract is written down.
+
+    WHY zero-argument CALLABLES rather than two already-computed values: the branch not
+    taken must do NO work. Each caller's payload builder and human renderer are separate
+    computations over the same inputs, so evaluating both would double the cost of the
+    one that is printed, and would let a fault in the DISCARDED renderer fail a request
+    that never needed it. Deferring the choice to this function keeps the callers free of
+    an ``if`` while keeping evaluation lazy -- callers whose builders already take no
+    arguments pass them by name, the rest bind their arguments in a ``lambda``.
+
+    WHY it names the rendered text in a local before printing it: that local IS the
+    "entire stdout" the contract above is about, so a reader checks the promise by
+    reading two lines instead of unpicking a conditional inside a call.
+    """
+    rendered = json.dumps(payload(), indent=2) if as_json else human()
+    print(rendered)
 
 
 def _load_slate(path: Path) -> GoalSlate:
@@ -6484,17 +6512,17 @@ def _cmd_policy(args: argparse.Namespace) -> int:
         # so this adds no rendering and no wire schema that could drift from explain's.
         goal = _parse_goal_literal(args.check_goal)
         decision = gate(goal, settings)
-        if args.json:
-            # The ENTIRE stdout must parse as one JSON object; no human trailer.
-            print(json.dumps(_explain_json_payload(goal, decision, settings), indent=2))
-        else:
-            print(_render_explain(goal, decision, settings))
+        _emit(
+            as_json=args.json,
+            payload=lambda: _explain_json_payload(goal, decision, settings),
+            human=lambda: _render_explain(goal, decision, settings),
+        )
         return 0
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_policy_json_payload(settings), indent=2))
-    else:
-        print(_render_policy(settings))
+    _emit(
+        as_json=args.json,
+        payload=lambda: _policy_json_payload(settings),
+        human=lambda: _render_policy(settings),
+    )
     return 0
 
 
@@ -6516,11 +6544,11 @@ def _cmd_config(args: argparse.Namespace) -> int:
     ``Settings.from_env`` under this handler, not in a pre-flight arg guard.
     """
     settings = _settings(args)
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_config_json_payload(settings), indent=2))
-    else:
-        print(_render_config(settings))
+    _emit(
+        as_json=args.json,
+        payload=lambda: _config_json_payload(settings),
+        human=lambda: _render_config(settings),
+    )
     return 0
 
 
@@ -6541,11 +6569,7 @@ def _cmd_tools(args: argparse.Namespace) -> int:
     (autonomy rules) -> signals (L2 perception) -> tools (L1 action surface) ->
     explain (why THIS goal) -> trace (what a run did).
     """
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_tools_json_payload(), indent=2))
-    else:
-        print(_render_tools())
+    _emit(as_json=args.json, payload=_tools_json_payload, human=_render_tools)
     return 0
 
 
@@ -6570,11 +6594,11 @@ def _cmd_collectors(args: argparse.Namespace) -> int:
     workspace, filterable by that kind) -> scan (proposals) -> explain (why THIS
     goal) -> trace (what a run did).
     """
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_collectors_json_payload(args.kind), indent=2))
-    else:
-        print(_render_collectors(args.kind))
+    _emit(
+        as_json=args.json,
+        payload=lambda: _collectors_json_payload(args.kind),
+        human=lambda: _render_collectors(args.kind),
+    )
     return 0
 
 
@@ -6596,11 +6620,7 @@ def _cmd_providers(args: argparse.Namespace) -> int:
     (L2 autonomy rules) -> collectors (L2 perception) -> tools (L1 action surface)
     -> providers (L0 LLM backend).
     """
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        print(json.dumps(_providers_json_payload(), indent=2))
-    else:
-        print(_render_providers())
+    _emit(as_json=args.json, payload=_providers_json_payload, human=_render_providers)
     return 0
 
 

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-291
+    lenses: simplification-and-deletion (foundry iter 291), performance-and-throughput (foundry iter 291)
+    - Candidate A1 -- the READ half of the sandbox path guard is hand-copied 6 times in 6/6/6 correspondence, and iter 290 shipped its WRITE twin one commit ago
+    - Candidate A2 -- `_search_files` and `_find_files` hand-copy a 25-line sandbox-walk skeleton, including the symlink escape guard, verbatim
+    - Candidate A3 -- the `--json`-or-human dispatch tail is 6 byte-identical 5-line blocks, and `indent=2` is an independent decision in 21 places
+    - Candidate B1 -- `syntax_error` pays FULL BYTECODE COMPILATION to answer a question only the PARSER can answer: 386 ms of `builtins.compile` is 45.2% of every scan
+    - Candidate B2 -- ONE test is 26.11 s of a 75.30 s suite, and 26.11 s is a floor no parallelism can cross
+    - Candidate B3 -- every CLI invocation pays a 40.1 ms eager import of all 18 collector modules, including `hashlib`, `json`, `tomllib` and `subprocess`, for verbs that never scan
+    winner: A3
+    ship: pending (not yet decided)
   iter-290
     lenses: integration-and-adoption (foundry iter 290), simplification-and-deletion (foundry iter 290)
     - Candidate A1 -- the README's only Python fence has never been executed by anything
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- 28 groups of byte-identical test bodies re-freeze four global constants; the version freeze alone is 21 copies
     - Candidate B3 -- three roadmap rows are permanently dead, the brake cannot see them, and deleting them triples the roadmap's runway
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED c91e5ff
   iter-289
     lenses: hardening/DX (foundry iter 289), integration-and-adoption (foundry iter 289)
     - Candidate A1 -- `make readme-headroom` reports 455 tests of room; the binding wall leaves 54
@@ -1657,4 +1667,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-166 scouted iterations
+167 scouted iterations
