@@ -38,11 +38,18 @@ resilient plan→act→check execution loop.
 ```
 proactive-loop-agent/
 ├── pyproject.toml            # uv-managed, src layout, console script `pla`
-├── Makefile                  # setup / test / demo / clean targets
+├── uv.lock
+├── Makefile                  # help setup test cov typecheck readme-headroom demo clean check check-matrix
 ├── README.md
 ├── LICENSE                   # MIT
 ├── SPEC.md                   # this file
 ├── SPEC_ARCHIVE.md           # settled contract prose relocated out of SPEC.md
+├── ROADMAP.md
+├── ROADMAP_ARCHIVE.md
+├── DIRECTIONS.md
+├── .github/workflows/ci.yml  # 3.12 + 3.13: `uv sync --locked` -> pytest -> demo
+├── hooks/pre-commit
+├── .gitignore
 ├── src/proactive_loop/
 │   ├── __init__.py           # package metadata + __version__ (single source of truth)
 │   ├── py.typed              # PEP 561 marker: ships inline type hints to consumers
@@ -68,6 +75,8 @@ proactive-loop-agent/
 │   ├── scheduler.py          # periodic scan trigger
 │   └── cli.py                # argparse CLI: 17 verbs -- roster in 4.5
 ├── examples/
+│   ├── check_autonomy.py
+│   ├── check_run.py
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
 └── tests/                    # behavior oracles: one test_iterNN_behavior.py per increment + contract modules

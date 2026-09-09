@@ -1,6 +1,46 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-370
+    lenses: performance-and-throughput (iteration 370), narrative-and-docs (iteration 370)
+    - Candidate A1 -- `watch`'s steady-state tick is now 100% file re-reading: 332 re-reads and re-decodes per tick, for content the digest memos already know
+    - Candidate A2 -- (placeholder, being measured: xdist workers each re-collect the whole suite)
+    - Candidate A3 -- (placeholder, being measured)
+    - Candidate B1 -- SPEC.md's orientation map names 9 of 16 top-level entries, publishing a project with no CI, no commit hook and no decision log
+    - Candidate B2 -- the published test floor and its own gauge both report false numbers, and the fix is already written, graded, and still applies
+    - Candidate B3 -- SPEC.md teaches a test-naming rule that is false by 32 and has already destroyed a shipped oracle
+    winner: B1
+    ship: pending (not yet decided)
+  iter-294
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `diff --fail-on-added N`: the change feed is the only produced stream that cannot fail a build
+    - Candidate A2 -- 18th collector `PythonVersionDriftCollector`, whose own roadmap row is stale by one
+    - Candidate A3 -- `trend --min-ticks N`: the persistence verb cannot ask for the persistent goals
+    - Candidate B1 -- ship queued row #271: `make readme-headroom` reports 405 tests of room against a real 4, and retiring the row is ALSO the operator's own fix for this iteration's stale exemption
+    - Candidate B2 -- the floor bump is a 20-site hand-edit across 6 files that no command enumerates, and the engineer discovers the sites by redding the suite one assertion at a time
+    - Candidate B3 -- `make next-test-module`: the "derive the module name from the repo, prove the path is free" rule is executable nowhere, and violating it has already destroyed a shipped oracle
+    winner: B1
+    ship: REVERTED
+  iter-293
+    lenses: narrative-and-docs (foundry iter 293), new-capability (foundry iter 293)
+    - Candidate A1 -- re-land iteration 292's floor bump from its saved patch: the intro still publishes a stale floor with 4 units of margin, and the work is already written
+    - Candidate A2 -- the README's flag roster is machine-checked by nothing, and it is already one flag short: `--verbose` has 0 occurrences in 74,350 chars
+    - Candidate A3 -- `SPEC.md` teaches "one `test_iterNN_behavior.py` per increment"; NN is not the increment, and that belief has already destroyed a shipped oracle
+    - Candidate B1 -- `signals --caps`: the product reports 75 signals on its own repo when the truth is 883, and it cannot say so
+    - Candidate B2 -- `watch --json`: the namesake verb is the only one of 17 with no machine-readable output
+    - Candidate B3 -- `scan --baseline FILE`: the verb that WRITES the ratchet document is the only one that cannot READ it
+    winner: A1
+    ship: REVERTED
+  iter-292
+    lenses: performance-and-throughput (foundry iter 292), narrative-and-docs (foundry iter 292)
+    - Candidate A1 -- settle roadmap row #169 (`addopts` gains `--dist worksteal`) by doing the re-measurement the row itself demands
+    - Candidate A2 -- kill a queued perf idea outright: "full bytecode compilation is the waste in `syntax_error`" is measurably FALSE
+    - Candidate A3 -- the per-collector cost table is published nowhere, and `--timings` cannot produce it for the collectors that matter
+    - Candidate B1 -- the published test floor must go 5,900 -> 6,000 this iteration, and it is the PRECONDITION for every other candidate on both slates
+    - Candidate B2 -- the binding `ROADMAP.md` ceiling is published nowhere: the seam a diligent PM actually calls prints "headroom 4579" against 6 real chars
+    - Candidate B3 -- `dir_source.py` publishes a 13-traversal price that its own enforced ceiling puts at 5, and the correction has ridden a BLOCKED perf row for 55 iterations
+    winner: B1
+    ship: REVERTED
   iter-291
     lenses: simplification-and-deletion (foundry iter 291), performance-and-throughput (foundry iter 291)
     - Candidate A1 -- the READ half of the sandbox path guard is hand-copied 6 times in 6/6/6 correspondence, and iter 290 shipped its WRITE twin one commit ago
@@ -10,7 +50,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- ONE test is 26.11 s of a 75.30 s suite, and 26.11 s is a floor no parallelism can cross
     - Candidate B3 -- every CLI invocation pays a 40.1 ms eager import of all 18 collector modules, including `hashlib`, `json`, `tomllib` and `subprocess`, for verbs that never scan
     winner: A3
-    ship: pending (not yet decided)
+    ship: PUSHED 603b2a9
   iter-290
     lenses: integration-and-adoption (foundry iter 290), simplification-and-deletion (foundry iter 290)
     - Candidate A1 -- the README's only Python fence has never been executed by anything
@@ -1667,4 +1707,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-167 scouted iterations
+171 scouted iterations

@@ -384,10 +384,12 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # and 76 before iteration 282 retired row #190 (the settable L1 budget).
     # and 77 before iteration 288 retired row #179 (the `SPEC.md` growth curve: its settled
     # §4.2 provider contract relocated into a new tracked `SPEC_ARCHIVE.md`).
+    # and 78 before iteration 292 retired row #231 (`SPEC.md` section 2's layout
+    # fence: it named 9 of 16 tracked top-level entries and 4 of 10 `Makefile` recipes).
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 78, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 78). If you just "
+    assert sum(counts.values()) == 79, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 79). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

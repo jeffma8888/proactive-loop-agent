@@ -500,17 +500,36 @@ def test_b7b_the_roadmap_stays_inside_its_char_budget() -> None:
 
 
 def test_b8_the_archive_is_published_and_the_spec_shrank() -> None:
-    """Behavior 8: the new companion is tracked, the vision is strictly smaller than
-    its ``HEAD`` size, and the README's Project-documents section lists five.
+    """Behavior 8: the new companion is tracked, the vision respects the post-slice
+    ceiling (strictly smaller than its ``HEAD`` size until the shrink itself lands),
+    and the README's Project-documents section lists five.
     """
     tracked = _tracked()
     assert "SPEC_ARCHIVE.md" in tracked, "SPEC_ARCHIVE.md is not tracked"
     live_spec = len(_read("SPEC.md").encode("utf-8"))
     head_spec = len(_head_blob("SPEC.md").encode("utf-8"))
     if _move_has_landed_in_head():
-        assert live_spec == head_spec, (
-            f"SPEC.md is {live_spec} bytes against the {head_spec} its own commit "
-            "carries; the shrink is history now, so the invariant is agreement"
+        # This arm governs EVERY iteration after 288, because the probe is one-way by
+        # its own docstring ("a one-way, once-ever event that no later iteration
+        # undoes") and `SPEC_ARCHIVE.md` entered HEAD in commit 1709fc5. It therefore
+        # may NOT assert byte-equality with HEAD. Post-commit that is a tautology, but
+        # PRE-commit it reads "no stage may leave SPEC.md modified" -- an accidental
+        # FREEZE on the vision file, and the authoritative tester runs pre-commit. It
+        # was never a real guard: no commit between 288 and 292 touched SPEC.md, so the
+        # equality only ever compared a file with itself. Iteration 292 is the first
+        # edit since, and correcting section 2's stale rosters is established practice
+        # (factory iter 193 did it) commissioned by ROADMAP row #231.
+        # The durable invariant the relocation actually bought is the post-slice
+        # CEILING, so assert that instead -- same claim as
+        # tests/test_iter255_behavior.py::test_b3, and unlike HEAD's bytes it holds
+        # identically on both sides of the commit.
+        import tests.test_iter255_behavior as slice_guard
+
+        ceiling = int(slice_guard.SPEC_CEILING_AFTER_SLICE)
+        assert live_spec <= ceiling, (
+            f"SPEC.md is {live_spec} bytes, over the {ceiling}-byte post-slice ceiling "
+            f"(HEAD carries {head_spec}): the headroom the relocation bought is being "
+            "given back. Relocate settled prose; do not raise the ceiling"
         )
     else:
         assert live_spec < head_spec, (
@@ -538,7 +557,13 @@ def test_b9_the_relanded_prose_names_this_iteration_not_the_reverted_one() -> No
     assert "iteration 288 retired row #179" in iter214, (
         "test_iter214's retirement-census comment does not credit iteration 288"
     )
-    assert "== 78" in iter214, "the retirement-bullet total is not the expected literal 78"
+    # The retirement-bullet TOTAL is not a snapshot: tests/test_iter214_behavior.py:374-395
+    # designs that literal to move by exactly +1 on every sanctioned row retirement and its
+    # own failure message orders the retiring iteration to bump it. Iteration 292 retired
+    # row #231, so 78 -> 79. Re-key this token with that bump; do not freeze it (same
+    # lesson as tests/test_iter258_behavior.py::test_ac1, which forbids the return of the
+    # ledger-id pin that used to red this build on every new ledger row).
+    assert "== 79" in iter214, "the retirement-bullet total is not the expected literal 79"
     iter234 = _read("tests/test_iter234_behavior.py")
     assert "foundry iter 288" in iter234, (
         "test_iter234::test_b7's prose does not name foundry iter 288"

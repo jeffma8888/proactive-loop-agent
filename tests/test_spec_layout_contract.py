@@ -22,7 +22,7 @@ could therefore only ever rot, silently, with a green build -- and it had:
 * its ``tests/`` comment claimed "one test module per package" against ~190
   ``test_iterNN_behavior.py`` modules plus several cross-cutting contract modules.
 
-Three design decisions worth the reader's time:
+Four design decisions worth the reader's time:
 
 1. **This extractor is fence-INCLUSIVE, which is the whole point.** It reuses
    ``spec_section`` from the sibling guard for the SECTION slice -- so "where does a
@@ -43,15 +43,28 @@ Three design decisions worth the reader's time:
    also means this guard does not force a future author to choose the elision style --
    it only forbids the misleading middle.
 
-Offline and cheap by construction: reads ONE tracked file and imports the package. No
-network, no subprocess, no ``tmp_path`` tree, no dependency beyond pydantic v2 +
-pytest -- so it behaves identically in a fresh clone.
+4. **The exempt set is EMPTY, and that is stronger than a carve-out.** Roadmap row
+   #231 asked for a spelled-out ``.gitignore`` exemption in the top-level roster
+   contract. None is needed and none ships: every tracked top-level entry, dotfiles
+   included, is named in the fence, so ``TOP_LEVEL_EXEMPT`` is empty and is asserted
+   empty. An exemption is the one place a guard can never look, so an empty one that
+   a test defends is worth more than a correct one nothing re-reads.
+
+Offline and cheap by construction: it reads two tracked files (``SPEC.md`` and
+``Makefile``), imports the package, and -- since factory iter 370 -- shells out to ONE
+read-only ``git ls-files``, because the top-level roster contract has to be DERIVED
+from the index rather than restated as a literal. No network, no ``tmp_path`` tree, no
+dependency beyond pydantic v2 + pytest, and nothing is read off the filesystem outside
+that index, so it behaves identically in a fresh clone. (The earlier "no subprocess"
+sentence was corrected in the same commit that made it false.)
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import subprocess
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 import pytest
@@ -62,6 +75,7 @@ from tests.test_spec_contract import spec_section
 
 REPO = Path(__file__).resolve().parents[1]
 SPEC = REPO / "SPEC.md"
+MAKEFILE = REPO / "Makefile"
 
 LAYOUT_HEADING = "## 2. Layout"
 
@@ -80,6 +94,33 @@ _FENCE_MARKERS = ("```", "~~~")
 # The claim this commit retired. Kept as a literal so its return is a RED build rather
 # than a matter of reviewer memory.
 RETIRED_PARITY_CLAIM = "one test module per package"
+
+# Wall-clock ceiling on the one `git ls-files` this module runs. Read-only and local,
+# so a run that takes longer than this is a hung git, not a slow index -- and a hang
+# under `-n auto` costs the whole suite, not one case.
+GIT_TIMEOUT = 60
+
+# Design note 4: no carve-out exists, so this container ships EMPTY and a live case
+# asserts it is empty. Adding a member here is adding a blind spot, which is why the
+# assertion sits next to the roster contract rather than in a comment.
+TOP_LEVEL_EXEMPT: frozenset[str] = frozenset()
+
+# How the fence may elide the recipe roster instead of enumerating it: point the reader
+# at the self-documenting target. `help` is itself a recipe, so the pointer branch has
+# to be recognised explicitly or `make help` would read as a 1-of-10 partial roster.
+MAKE_ROSTER_POINTER = "make help"
+
+# The exact pre-fix `Makefile` fence line: 4 of 10 recipes, hiding `typecheck` and
+# `check-matrix` -- the two that ARE this repo's published quality bar. Frozen as a
+# literal so the shipped defect cannot come back green.
+PRE_FIX_MAKEFILE_LINE = (
+    "\u251c\u2500\u2500 Makefile                  # setup / test / demo / clean targets"
+)
+
+# The top-level entry the negative control deletes. Chosen, not arbitrary: `.github/`
+# is the omission with the highest cost to a reader, because the README publishes that
+# workflow's build badge while the orientation map denied the directory existed.
+CONTROL_MISSING_ENTRY = ".github/"
 
 
 def layout_fence(text: str, min_chars: int = 0) -> str:
@@ -194,6 +235,160 @@ def partial_roster(text: str, live: set[str], spelling: str) -> set[str] | None:
     if named in (set(), live):
         return None
     return live - named
+
+
+def _run_git_ls_files() -> subprocess.CompletedProcess[str]:
+    """Run the one read-only ``git ls-files`` this module needs, in the repo root.
+
+    ``check=False``: the verdict belongs to ``tracked_paths``, which turns a non-zero
+    exit into a NAMED failure. A missing or unusable ``git`` raises ``OSError``, which
+    is re-raised as an ``AssertionError`` so the message says what could not run --
+    an un-annotated ``FileNotFoundError`` traceback is a failure a reader has to
+    decode, and a ``skip`` would be the fail-open shape this module exists to prevent.
+    """
+    try:
+        return subprocess.run(
+            ["git", "ls-files"],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT,
+            check=False,
+        )
+    except OSError as exc:  # git absent, not executable, or REPO unreadable
+        raise AssertionError(
+            f"could not run `git ls-files` in {REPO}: {exc}. The top-level roster is "
+            "DERIVED from the git index, so a guard that cannot read the index must "
+            "fail rather than pass over an empty roster."
+        ) from exc
+
+
+def tracked_paths(proc: subprocess.CompletedProcess[str]) -> list[str]:
+    """Every tracked repo-relative path in a completed ``git ls-files`` run.
+
+    FAILS CLOSED on both broken-oracle shapes -- a non-zero exit and an empty listing
+    -- because an empty roster makes every "is this entry named?" question vacuously
+    true, i.e. a permanently green guard. Written over the ``CompletedProcess`` rather
+    than around the call so the negative controls can hand it a doctored result and
+    exercise the IDENTICAL code path that ships.
+    """
+    assert proc.returncode == 0, (
+        f"`git ls-files` exited {proc.returncode}, so the tracked top-level roster is "
+        f"unknown and no drift verdict can be drawn from it. stderr tail: "
+        f"{proc.stderr.strip()[-200:]!r}"
+    )
+    paths = [line for line in proc.stdout.splitlines() if line]
+    assert paths, (
+        "`git ls-files` listed no tracked path, so the top-level roster is empty and "
+        "every roster assertion below would pass vacuously. Fix the oracle, never the "
+        "expectation."
+    )
+    return paths
+
+
+def tracked_top_level(paths: Iterable[str]) -> dict[str, bool]:
+    """Map each tracked top-level entry to whether it is a DIRECTORY.
+
+    The roster is the deduped FIRST path segment of *paths*, so it is derived from the
+    git index and never from the filesystem: an untracked or gitignored path is
+    invisible here by construction. That is what keeps this contract free of ambient
+    local state and identical in a fresh clone, where such paths do not exist at all.
+    """
+    roster: dict[str, bool] = {}
+    for path in paths:
+        head, _, rest = path.partition("/")
+        roster[head] = roster.get(head, False) or bool(rest)
+    return roster
+
+
+def top_level_spelling(entry: str, is_dir: bool) -> str:
+    """How *entry* must appear in the fence: ``name/`` for a directory, else ``name``.
+
+    A directory is required to carry its slash so ``src`` cannot be satisfied by the
+    prose "src layout" on the ``pyproject.toml`` line -- the fence is a tree, and a
+    tree names directories with a slash.
+    """
+    return f"{entry}/" if is_dir else entry
+
+
+def top_level_drift(fence: str, roster: Mapping[str, bool]) -> str | None:
+    """Return a message naming every roster entry *fence* fails to name, else ``None``.
+
+    A total function returning a message, like ``count_drift``, so the live check and
+    its negative control run the same code path. Membership is a plain substring test
+    on the required spelling: the fence may name an entry on a line of its own or as
+    the head of a deeper path (``.github/workflows/ci.yml`` names ``.github/``), and
+    both are honest orientation.
+    """
+    missing = sorted(
+        top_level_spelling(entry, is_dir)
+        for entry, is_dir in roster.items()
+        if top_level_spelling(entry, is_dir) not in fence
+    )
+    if not missing:
+        return None
+    return (
+        f"SPEC.md '{LAYOUT_HEADING}' names {len(roster) - len(missing)} of "
+        f"{len(roster)} tracked top-level entries; missing {missing}. This fence is "
+        "the orientation map, so an omission publishes a project that does not have "
+        "the thing -- add the entry, and do not exempt it (see design note 4)."
+    )
+
+
+def top_level_only(fence: str) -> str:
+    """*fence* with every indented line dropped, i.e. the top level and nothing else.
+
+    Used to PROVE the depth scoping rather than assert it in prose: the roster contract
+    must still hold when every sub-tree is emptied, which is what licenses
+    ``src/proactive_loop/`` to keep eliding its modules behind the 4.1 pointer.
+    """
+    return "\n".join(
+        line
+        for line in fence.splitlines()
+        if not line.startswith((" ", "\u2502"))
+    )
+
+
+def live_make_recipes() -> set[str]:
+    """Every recipe name declared in ``Makefile``, parsed from its target lines.
+
+    Target lines, not the ``.PHONY`` roster: ``.PHONY`` is a DECLARATION that can drift
+    from the recipes it names, while a ``name:`` at column 0 IS the recipe. Variable
+    assignments (``.DEFAULT_GOAL :=``) and recipe bodies (tab-indented) cannot match.
+    """
+    text = MAKEFILE.read_text(encoding="utf-8")
+    names = set(re.findall(r"^([A-Za-z][\w-]*):", text, flags=re.MULTILINE))
+    assert names, (
+        f"parsed no recipe names out of {MAKEFILE}; the roster is derived from that "
+        "file, so an empty parse would make the fence's recipe list vacuously complete"
+    )
+    return names
+
+
+def named_recipes(line: str, recipes: set[str]) -> set[str]:
+    """The recipes *line* names, matched as WHOLE tokens rather than by search.
+
+    Token equality is load-bearing: ``check`` is a prefix of ``check-matrix`` and a
+    ``\\b`` search treats the hyphen as a word boundary, so a regex would report
+    ``check`` as named by a line that only mentions ``check-matrix``. That is exactly
+    the false "complete" reading this whole module exists to ban.
+    """
+    return recipes & set(re.findall(r"[A-Za-z][\w-]*", line))
+
+
+def recipe_roster_drift(line: str, recipes: set[str]) -> set[str] | None:
+    """Return the omitted recipes when *line* names a MISLEADING subset, else ``None``.
+
+    EMPTY-or-COMPLETE, design note 3, with the elision branch spelled out: naming every
+    recipe is honest, and so is naming none of them beyond a ``make help`` pointer.
+    Naming some is the shipped defect, because 4 of 10 reads as the whole roster.
+    """
+    named = named_recipes(line, recipes)
+    if named == recipes:
+        return None
+    if MAKE_ROSTER_POINTER in line and not named - {"help"}:
+        return None
+    return recipes - named
 
 
 def _spec_text() -> str:
@@ -396,6 +591,92 @@ def test_b7_the_tests_line_carries_no_count() -> None:
         f"the tests/ line must carry no digit -- the module count changes every "
         f"iteration, so a numeral there is stale on the next commit: {line!r}"
     )
+
+
+
+
+# --- Behaviors 9-10: the two rosters added in factory iter 370 -----------------------
+#
+# Both are EMPTY-or-COMPLETE (design note 3) applied to the rest of this fence, and
+# both are grouped as ONE case per ROSTER rather than one case per assertion. That
+# grouping is a measured constraint, not laziness: `published_floor() + 98` capped the
+# collected suite 4 items above HEAD when these landed, so each contract spends one
+# item on its live check, its own negative control and its own anti-vacuity proof.
+
+
+def _live_top_level() -> dict[str, bool]:
+    """The tracked top-level roster, derived from the index, fail-closed on both sides."""
+    return tracked_top_level(tracked_paths(_run_git_ls_files()))
+
+
+def test_b9_layout_fence_names_every_tracked_top_level_entry() -> None:
+    """No omissions, no exemptions, top-level depth only -- with both fail-closed proofs.
+
+    Row #231's defect: the fence named 9 of 16 tracked top-level entries, so it
+    published a project with no CI, no commit hook, no decision log and no lockfile.
+    The roster is DERIVED from ``git ls-files``, never listed here, and the exempt set
+    is EMPTY (design note 4) because all 16 are named -- there is no ``.gitignore``
+    carve-out to keep true.
+    """
+    roster = _live_top_level()
+    assert len(roster) > 1, "anti-vacuity: a 1-entry roster would satisfy any fence"
+    assert TOP_LEVEL_EXEMPT == frozenset(), (
+        "the top-level roster contract ships with NO carve-out; an exemption is the "
+        f"one place this guard can never look, so {sorted(TOP_LEVEL_EXEMPT)} must be "
+        "named in the fence instead of excused here"
+    )
+
+    fence = _live_fence()
+    assert top_level_drift(fence, roster) is None
+
+    # Depth scoping: with every sub-tree emptied the contract still holds, which is
+    # what licenses `src/proactive_loop/` to elide its modules behind the 4.1 pointer.
+    assert top_level_drift(top_level_only(fence), roster) is None
+
+    # Control: one surgical deletion from the live fence, and the message names it.
+    doctored = fence.replace(_sole_line(fence, CONTROL_MISSING_ENTRY), "")
+    message = top_level_drift(doctored, roster)
+    assert message is not None, f"deleting {CONTROL_MISSING_ENTRY!r} must red this guard"
+    assert CONTROL_MISSING_ENTRY in message
+
+    # Fail-closed, never vacuous: neither a broken git nor an empty index may pass.
+    broken = subprocess.CompletedProcess(
+        args=["git", "ls-files"], returncode=128, stdout="", stderr="fatal: not a repo"
+    )
+    with pytest.raises(AssertionError, match="exited 128"):
+        tracked_paths(broken)
+    empty = subprocess.CompletedProcess(
+        args=["git", "ls-files"], returncode=0, stdout="", stderr=""
+    )
+    with pytest.raises(AssertionError, match="no tracked path"):
+        tracked_paths(empty)
+
+
+def test_b10_makefile_fence_line_is_empty_or_complete() -> None:
+    """The one ``Makefile`` fence line names every live recipe, or none beyond a pointer.
+
+    The shipped defect named 4 of 10 and hid ``typecheck`` and ``check-matrix`` -- the
+    two recipes that ARE this repo's published quality bar -- one line above the
+    collector roster this module already guards. The roster is parsed from ``Makefile``
+    at test time, so adding a recipe without updating the fence reds the build.
+    """
+    recipes = live_make_recipes()
+    assert len(recipes) > 1, "anti-vacuity: a 1-recipe roster would satisfy any line"
+
+    line = _sole_line(_live_fence(), "Makefile")
+    assert recipe_roster_drift(line, recipes) is None
+
+    # Control (a): the exact shipped line, which reads as the complete roster.
+    omitted = recipe_roster_drift(PRE_FIX_MAKEFILE_LINE, recipes)
+    assert omitted is not None
+    assert {"typecheck", "check-matrix"} <= omitted, (
+        f"the pre-fix line must be caught hiding the quality-bar recipes; got {omitted}"
+    )
+
+    # Control (b): the elision branch is honest, and only via the pointer -- a bare
+    # `help` mention with no `make help` is still a 1-of-10 partial roster.
+    assert recipe_roster_drift(f"# see `{MAKE_ROSTER_POINTER}`", recipes) is None
+    assert recipe_roster_drift("# run help for the targets", recipes) is not None
 
 
 # --- Behavior 8: the heading contract of test_iter58 is untouched -------------------
