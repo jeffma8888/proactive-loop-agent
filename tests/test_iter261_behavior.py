@@ -16,15 +16,25 @@ load-bearing first. Each block is labelled with the spec behavior it grades and 
 its own message, so a failure names the behavior without a second case.
 
 Everything asserted here is DERIVED at run time -- from ``git ls-files``, from
-``Makefile``'s target lines, from ``git show HEAD:<file>`` and from the fence itself --
-never from a literal roster, and no suite-size token is spelled anywhere in this file
+``Makefile``'s target lines, from ``git show <commit>:<file>`` and from the fence itself
+-- never from a literal roster, and no suite-size token is spelled anywhere in this file
 (a module that wrote one would flag itself in the floor-carrier census).
 
-Pre-commit and post-commit are BOTH green by construction: every HEAD-relative
-assertion is guarded by a committed/uncommitted discriminator (does ``HEAD``'s
-``ROADMAP.md`` already carry this row's ledger line), because an oracle that compares
-the worktree against ``git show HEAD:`` inverts the moment the commit lands and is then
-red in every fresh clone -- the failure mode that reverted a green iteration once.
+Pre-commit and post-commit are BOTH green by construction, and the mechanism is
+FROZEN BLOBS rather than a committed/uncommitted discriminator. Row #231's retirement
+already happened, so each claim about it is graded across the commit that performed it
+and that commit's own parent -- both immutable, so the reading is identical in a
+pre-commit worktree, in the shipping commit and in a fresh clone. The earlier
+discriminator shape was subtly worse than the bug it fixed: once ``HEAD`` carried the
+row it took the ``committed`` branch forever, and that branch compared the WORKTREE
+against ``HEAD``. So it read the normal state of every later pre-commit stage (a tree
+ahead of ``HEAD`` by that stage's own roadmap row) as a defect, and it pinned
+``README.md`` byte-for-byte against ``HEAD`` in perpetuity. Meanwhile its tag arm derived
+the expected ``(foundry iter N)`` from ``HEAD``'s subject plus one, which is green in
+every in-loop stage and red in the preship clone -- the failure that reverted a fully
+reviewed increment. Nothing here may compare a worktree file against ``HEAD`` again
+unless the comparison is MONOTONE; the one that remains, ``ROADMAP_ARCHIVE.md`` losing
+no line it held at ``HEAD``, is monotone because that archive is append-only.
 
 ISOLATION CONTRACT (honored): written strictly from this iteration's spec (``pm.md``
 Expected Behaviors 1-12 and its Acceptance Criteria) plus the conventions of the
@@ -52,7 +62,9 @@ SPEC: Final[Path] = REPO / "SPEC.md"
 MAKEFILE: Final[Path] = REPO / "Makefile"
 ROADMAP: Final[Path] = REPO / "ROADMAP.md"
 ARCHIVE: Final[Path] = REPO / "ROADMAP_ARCHIVE.md"
-README: Final[Path] = REPO / "README.md"
+#: The sibling guard this oracle re-checks, as a repo-relative path: read from the
+#: worktree for its live text, and from frozen blobs via ``git show`` for its history.
+GUARD: Final[str] = "tests/test_spec_layout_contract.py"
 
 #: The roadmap row this increment retires.
 ROW: Final[str] = "231"
@@ -256,7 +268,7 @@ def test_b01_layout_rosters_are_complete_and_row_231_retires() -> None:
     )
 
     # Behavior 6 -- fail-closed, never skipped: no skip machinery anywhere in the guard.
-    guard_text = (REPO / "tests" / "test_spec_layout_contract.py").read_text(encoding="utf-8")
+    guard_text = (REPO / GUARD).read_text(encoding="utf-8")
     for banned in ("pytest.skip", "skipif", "importorskip"):
         assert banned not in guard_text, f"the roster guard must never {banned}: it must fail closed"
 
@@ -279,51 +291,75 @@ def test_b01_layout_rosters_are_complete_and_row_231_retires() -> None:
     ledger = re.findall(rf"(?m)^- #{ROW} .*$", roadmap)
     assert len(ledger) == 1, f"expected exactly one `- #{ROW} ` Done-ledger record, got {len(ledger)}"
 
-    head_roadmap = _head_text("ROADMAP.md")
-    head_tag = TAG_RE.search(_git("log", "-1", "--format=%s"))
-    assert head_tag is not None, "HEAD's commit subject must carry a `(foundry iter N)` tag"
-    committed = re.search(rf"(?m)^- #{ROW} ", head_roadmap) is not None
-    expected_tag = f"(foundry iter {int(head_tag.group(1)) + (0 if committed else 1)})"
-    assert expected_tag in ledger[0], (
-        f"the Done-ledger record must be tagged {expected_tag} -- the tag the shipping "
-        f"commit's subject carries, never a second private counter; got {ledger[0]!r}"
+    # Row #231's retirement is a HISTORICAL event, so every claim about it below is graded
+    # from the commit that PERFORMED it -- named ONCE here by pickaxe and reused by the tag,
+    # size, README and new-case arms. Why not `HEAD`: `HEAD` becomes this iteration's OWN
+    # commit the moment the increment lands, so a HEAD-relative reading of a past
+    # retirement passes in every in-loop stage and then reds in the preship clone (it
+    # reverted a fully reviewed increment once), and it also freezes documents the loop is
+    # REQUIRED to keep editing -- `ROADMAP.md`, which every later iteration appends its own
+    # Done row to before its own commit exists, and `README.md`, whose three intro numbers
+    # the operator's carve-out REQUIRES automated contributors to correct. A claim about a
+    # pair of frozen blobs cannot invert. The OLDEST `-S` hit is the commit that first
+    # wrote the Done row; `--` scopes the pickaxe to the ledger's own file.
+    history = _git("log", "--format=%H", "-S", f"- #{ROW} ", "--", "ROADMAP.md").split()
+    assert history, f"no commit ever introduced a `- #{ROW} ` Done-ledger row"
+    shipped_at = history[-1]
+    shipped_short = shipped_at[:8]
+
+    ship_subject = _git("log", "-1", "--format=%s", shipped_at).strip()
+    ship_tag = TAG_RE.search(ship_subject)
+    assert ship_tag is not None, (
+        f"{shipped_short} retired row #{ROW} but its subject {ship_subject!r} carries no "
+        f"`(foundry iter N)` tag, so the ledger's tag cannot be graded"
     )
+    expected_tag = f"(foundry iter {ship_tag.group(1)})"
+    assert expected_tag in ledger[0], (
+        f"the Done-ledger record must be tagged {expected_tag} -- the tag carried by "
+        f"{shipped_short}, the commit that actually shipped the row -- never the tag of "
+        f"whatever HEAD happens to be, and never a counter advanced by one; the `+ 1` "
+        f"shape is wrong for the reason `test_iter218_behavior.py` records (a revert "
+        f"breaks one-commit-per-iteration); got {ledger[0]!r}"
+    )
+    # `ROADMAP_ARCHIVE.md` is the ONE document still read at `HEAD`, and safely so: it is
+    # append-only, so "still holds every line HEAD held" is monotone and cannot invert.
     archived_at_head = _nonblank_lines(_head_text("ROADMAP_ARCHIVE.md"))
     assert archived_at_head, "the archive is never empty at HEAD; fix the oracle"
     lost = [line for line in archived_at_head if line not in archive]
     assert not lost, f"the archive lost {len(lost)} line(s) it held at HEAD: {lost[0][:100]!r}"
 
-    # Behavior 9 -- the increment BUYS ratchet room, measured in the ratchet's own unit
+    # Behavior 9 -- the retirement BUYS ratchet room, measured in the ratchet's own unit
     # (``len()`` over DECODED text: the file holds multibyte characters, so a shell byte
-    # count reads higher and would call a passing file red). The baseline is DERIVED from
-    # the parent commit rather than spelled as a literal, for two independent reasons:
-    # a literal would (i) freeze a number that every future retirement moves, and (ii) red
-    # `tests/test_iter172_behavior.py`'s size-bound census, which lets only its enumerated
-    # allowlist bound `len(ROADMAP.md)` and only at a sanctioned integer.
-    baseline_chars = len(head_roadmap)
-    if committed:
-        # The shipping commit has landed, so `HEAD` IS this tree: equality is the only
-        # truthful reading, and asserting the reduction again here would invert the case
-        # in every fresh clone. The permanent ceiling is owned elsewhere, not here.
-        assert len(roadmap) == baseline_chars, (
-            f"ROADMAP.md is {len(roadmap)} chars in the worktree but {baseline_chars} at "
-            f"HEAD, which already carries row #{ROW}'s ship record: the file moved after "
-            f"the commit that was graded"
-        )
-    else:
-        assert len(roadmap) < baseline_chars, (
-            f"ROADMAP.md is {len(roadmap)} chars; retiring row #{ROW} must leave it "
-            f"strictly under the {baseline_chars} it holds at the parent commit, i.e. the "
-            f"increment must BUY ratchet room rather than borrow against it"
-        )
+    # count reads higher and would call a passing file red) and measured WHERE IT HAPPENED,
+    # across `shipped_at` and its own parent. Comparing the WORKTREE against `HEAD` here is
+    # what made this guard forbid the next iteration's roadmap row, because a tree ahead of
+    # `HEAD` is the normal, required state of every pre-commit stage. Neither size is
+    # spelled as a literal: a literal would (i) freeze a number that every future
+    # retirement moves, and (ii) red `tests/test_iter172_behavior.py`'s size-bound census,
+    # which lets only its enumerated allowlist bound `len(ROADMAP.md)`, and only at a
+    # sanctioned integer. The permanent ceiling is owned elsewhere; this arm owns one delta.
+    before = len(_git("show", f"{shipped_at}^:ROADMAP.md"))
+    after = len(_git("show", f"{shipped_at}:ROADMAP.md"))
+    assert after < before, (
+        f"ROADMAP.md went {before} -> {after} chars at {shipped_short}, the commit "
+        f"that retired row #{ROW}: the retirement must BUY ratchet room, not spend it"
+    )
 
     # Behavior 10 -- the suite window and every published number hold: at most 3 new test
-    # functions in the guard, no parametrize, README byte-unchanged.
-    new_cases = _test_defs(guard_text) - _test_defs(_head_text("tests/test_spec_layout_contract.py"))
+    # functions in the guard, no parametrize, and the retiring commit moved no README
+    # number. Both counts come from `shipped_at`'s frozen blobs. Against `HEAD` the new-case
+    # count degenerated to `x - x == 0` once the commit landed -- a bound that can no longer
+    # fail is not a measurement -- and the README equality stopped meaning "this increment
+    # changed no README numbers" and started meaning "README.md may never change again",
+    # which contradicts the standing requirement to keep three intro numbers correct.
+    new_cases = _test_defs(_git("show", f"{shipped_at}:{GUARD}")) - _test_defs(
+        _git("show", f"{shipped_at}^:{GUARD}")
+    )
     assert new_cases <= 3, f"the guard added {new_cases} collected items; the window allows 3"
     assert "parametrize" not in guard_text, "no parametrize on the new cases (it multiplies items)"
-    assert README.read_text(encoding="utf-8") == _head_text("README.md"), (
-        "no README number changes in this increment"
+    assert _git("show", f"{shipped_at}:README.md") == _git("show", f"{shipped_at}^:README.md"), (
+        f"{shipped_short}, the commit that retired row #{ROW}, changed README.md; that "
+        f"increment claimed to move no published README number"
     )
 
     # Behavior 11 -- the guard's own docstring stays true now that it shells out to git.

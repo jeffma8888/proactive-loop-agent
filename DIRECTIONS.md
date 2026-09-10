@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-372
+    lenses: new-capability (iteration 372), hardening/DX (iteration 372)
+    - Candidate A1 -- `signals --max-items N`: the perception depth the product uses is unreachable by the user
+    - Candidate A2 -- `scan --retire FILE`: a goal the user consciously declined comes back forever, at the same rank
+    - Candidate A3 -- `run` / `dispatch --allow-tool NAME`: the autonomy contract gates WHETHER a goal runs, never WHAT it may touch
+    - Candidate B1 (primary) -- one shipped test case currently forbids shipping, forbids the ROADMAP append, and forbids touching README.md; it already reverted iteration 371 and is unchanged at HEAD
+    - Candidate B2 -- land the 5,900 -> 6,000 floor bump ALONE, and know that the saved patch the operator pin points at is DEAD
+    - Candidate B3 -- `make readme-headroom` tells the loop it has 402 tests of room; the true room is 1, and the gauge cannot express that 5,999 is illegal at all
+    winner: B1
+    ship: pending (not yet decided)
+  iter-371
+    lenses: narrative-and-docs (iteration 371), new-capability (iteration 371)
+    - Candidate A1 -- the tracked decision log is REGENERATED from state this repo cannot edit, and exactly one un-repairable line is armed to red six shipped guards again at THIS iteration's final gate
+    - Candidate A2 -- the repo's own headroom gauge publishes 402 tests of room against a real 1, the widest divergence it has ever printed (queued row #271)
+    - Candidate A3 -- README promises the public decision log records "what was rejected and why"; the rendered log has no rejection reasoning at all, and covers 171 of 279 iterations
+    - Candidate B1 -- the L1 budget flags shipped on `run` alone, so the APPROVAL path (`dispatch`) is the one execution verb a human cannot bound
+    - Candidate B2 -- the change feed's only producer is a long-lived process, and the refusal a cron user hits says so out loud
+    - Candidate B3 -- the unattended verb writes slates but no evidence, so nothing an unattended tick produced can ever be source-verified
+    winner: A1
+    ship: REVERTED
   iter-370
     lenses: performance-and-throughput (iteration 370), narrative-and-docs (iteration 370)
     - Candidate A1 -- `watch`'s steady-state tick is now 100% file re-reading: 332 re-reads and re-decodes per tick, for content the digest memos already know
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the published test floor and its own gauge both report false numbers, and the fix is already written, graded, and still applies
     - Candidate B3 -- SPEC.md teaches a test-naming rule that is false by 32 and has already destroyed a shipped oracle
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED f7537a9
   iter-294
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `diff --fail-on-added N`: the change feed is the only produced stream that cannot fail a build
@@ -23,7 +43,7 @@ foundry directions -- proactive-loop-agent
     ship: REVERTED
   iter-293
     lenses: narrative-and-docs (foundry iter 293), new-capability (foundry iter 293)
-    - Candidate A1 -- re-land iteration 292's floor bump from its saved patch: the intro still publishes a stale floor with 4 units of margin, and the work is already written
+    - Candidate A1 -- re-land iteration 292's floor bump from its saved patch: the intro still publishes 5,900 with 4 units of margin, and the work is already written
     - Candidate A2 -- the README's flag roster is machine-checked by nothing, and it is already one flag short: `--verbose` has 0 occurrences in 74,350 chars
     - Candidate A3 -- `SPEC.md` teaches "one `test_iterNN_behavior.py` per increment"; NN is not the increment, and that belief has already destroyed a shipped oracle
     - Candidate B1 -- `signals --caps`: the product reports 75 signals on its own repo when the truth is 883, and it cannot say so
@@ -1707,4 +1727,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-171 scouted iterations
+173 scouted iterations

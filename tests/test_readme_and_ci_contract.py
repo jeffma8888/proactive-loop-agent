@@ -914,6 +914,23 @@ PUBLISHED_FLOOR_CARRIERS: tuple[str, ...] = (
 # from the repo" scan cannot serve as this census.
 FLOOR_HISTORY_MARKERS: tuple[str, ...] = ("->", "factory iter")
 
+# Tracked logs this repo does not AUTHOR: the harness rewrites them WHOLESALE, so a
+# floor claim inside one is history by construction and no edit here can retire it.
+#
+# ``DIRECTIONS.md`` is the only member, and the exemption is a statement about its
+# WRITER. The foundry's ``refresh_directions_file`` regenerates the whole file at the
+# final stage's start out of ``##`` headings in state-dir notes that live OUTSIDE this
+# checkout, so a heading naming a then-live floor with no ``->`` and no ``factory
+# iter`` tag re-appears verbatim next iteration however carefully this tree is edited.
+# At ``factory iter 293`` one such re-emission turned six shipped censuses red at once,
+# and hand-repairing the offending line was ephemeral by construction. Widening
+# ``FLOOR_HISTORY_MARKERS`` instead would blind every census over every path, and
+# dropping the file from ``tracked_text_sources`` would blind every OTHER census over
+# it. Scoped to the UNDECLARED branch alone, so an auto-log listed in
+# ``PUBLISHED_FLOOR_CARRIERS`` is still checked both ways -- the exemption can never
+# become a way to publish a floor this repo cannot control.
+AUTO_REGENERATED_LOGS: tuple[str, ...] = ("DIRECTIONS.md",)
+
 
 def floor_token(floor: int) -> str:
     """The comma-grouped token a floor of ``floor`` is published as.
@@ -983,7 +1000,8 @@ def published_floor_disagreements(
 
     Reports, in a stable order: a declared carrier missing from the tree, a declared
     carrier that no longer claims ``floor`` (the bump missed it -- the failure this
-    census exists to catch), then any undeclared source that claims ``floor``.
+    census exists to catch), then any undeclared source that claims ``floor`` -- bar the
+    ``AUTO_REGENERATED_LOGS``, whose text this repo does not write.
 
     Pure and offline; the caller owns reading the tree, so every branch is reachable
     from a dict literal in a unit test.
@@ -997,6 +1015,8 @@ def published_floor_disagreements(
         elif not floor_claim_lines(sources[path], token):
             problems.append(f"{path}: declared floor carrier no longer claims the floor {token}")
     for path in sorted(set(sources) - set(declared)):
+        if path in AUTO_REGENERATED_LOGS:
+            continue  # machine-rewritten wholesale; see AUTO_REGENERATED_LOGS
         lines = floor_claim_lines(sources[path], token)
         if lines:
             at = ", ".join(str(number) for number in lines)
@@ -1134,6 +1154,42 @@ def test_published_floor_disagreements_names_an_undeclared_carrier() -> None:
         f"tests/test_iter999_behavior.py: undeclared file claims the floor {_SYNTHETIC_TOKEN} "
         "at line(s) 2"
     ], problems
+
+
+def test_the_auto_regenerated_log_is_exempt_only_on_the_undeclared_side() -> None:
+    """The one file this repo cannot durably edit is history; nothing else becomes so."""
+    assert AUTO_REGENERATED_LOGS == ("DIRECTIONS.md",)
+    exempt = AUTO_REGENERATED_LOGS[0]
+    claim = f"generated line naming {_SYNTHETIC_TOKEN}+ tests\n"
+    assert not any(marker in claim for marker in FLOOR_HISTORY_MARKERS), "not a history line"
+
+    # The LINE SCANNER is untouched: the exemption lives in the census, so no other
+    # caller of floor_claim_lines silently changes shape.
+    assert floor_claim_lines(claim, _SYNTHETIC_TOKEN) == (1,)
+
+    agreeing = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    assert published_floor_disagreements({**agreeing, exempt: claim}, _SYNTHETIC_FLOOR) == []
+
+    # BOUNDED: the same text under any other undeclared path is still a defect.
+    other = "docs/scratch.md"
+    assert published_floor_disagreements({**agreeing, other: claim}, _SYNTHETIC_FLOOR) == [
+        f"{other}: undeclared file claims the floor {_SYNTHETIC_TOKEN} at line(s) 1"
+    ]
+
+    # DECLARING the exempt path re-arms it in both directions, so the exemption can
+    # never be used to publish a floor from a file this repo does not control.
+    assert published_floor_disagreements(
+        {exempt: "no floor here\n"}, _SYNTHETIC_FLOOR, carriers=(exempt,)
+    ) == [f"{exempt}: declared floor carrier no longer claims the floor {_SYNTHETIC_TOKEN}"]
+
+    # The reasoning must survive the next reader: the WRITER is named beside the tuple.
+    lines = Path(__file__).read_text(encoding="utf-8").splitlines()
+    assignment = next(
+        number for number, line in enumerate(lines) if line.startswith("AUTO_REGENERATED_LOGS")
+    )
+    preamble = "\n".join(lines[max(assignment - 15, 0) : assignment])
+    assert "refresh_directions_file" in preamble, "the exemption lost its justification"
+    assert "DIRECTIONS.md" in preamble
 
 
 def test_every_floor_carrier_agrees_with_the_readme_on_the_live_tree() -> None:
