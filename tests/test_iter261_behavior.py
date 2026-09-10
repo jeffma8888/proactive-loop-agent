@@ -370,7 +370,7 @@ def test_b01_layout_rosters_are_complete_and_row_231_retires() -> None:
     assert "git ls-files" in guard_doc, "the docstring must name the read-only git call it makes"
 
     # Behavior 12 -- no runtime change (names only, asserted empty; never diff content).
-    changed_src = _git("diff", "--name-only", "HEAD", "--", "src").split()
+    changed_src = _git("diff", "--name-only", f"{shipped_at}^", shipped_at, "--", "src").split()
     assert not changed_src, f"this increment must not touch src/; changed {changed_src}"
 
     # Behavior 8, durable arm -- retiring an index row moves the retirement-census total in

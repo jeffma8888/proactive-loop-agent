@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-374
+    lenses: integration-and-adoption (iteration 374), simplification-and-deletion (iteration 374)
+    - Candidate A1 -- `make demo` bounds its own loop with the shipped `--max-iterations` / `--max-llm-calls`: the L1 budget's first consumer, and the demo's model spend becomes a two-sided ratchet
+    - Candidate A2 -- the APPROVAL half of the autonomy contract is executed by nothing: give `pla dispatch` its first consumer on the goal the demo holds
+    - Candidate A3 -- `pla scan`, the verb the README teaches FIRST, is executed by no gate: prove its slate is interchangeable with `run`'s for the graded consumers
+    - Candidate B1 -- the content-digest memo protocol is hand-copied FOUR times across four collectors, and the code says so out loud
+    - Candidate B2 -- three provider branches are one branch with the namespace swapped, and the docstring admits it
+    - Candidate B3 -- 67 test bodies are exact duplicates of another test, and 24 of them assert the single sentence "the version was not bumped"
+    winner: B2
+    ship: pending (not yet decided)
   iter-373
     lenses: hardening/DX -- iteration 373, integration-and-adoption -- iteration 373
     - Candidate B1 -- The suite cannot accept one more test: land 5,900 -> 6,000 as an exactly-+2 commit across the 8 enumerated carriers
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the gate that needs the run inventory shells out to `ls`; `pla runs --json` was built for exactly that answer and is called by nothing
     - Candidate B3 -- the published goal `id` is a fresh random value on every scan, so every id-addressed surface is a single-file handle -- and the product's own cross-slate consumer already routes around it
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED e14aa58
   iter-372
     lenses: new-capability (iteration 372), hardening/DX (iteration 372)
     - Candidate A1 -- `signals --max-items N`: the perception depth the product uses is unreachable by the user
@@ -1737,4 +1747,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-174 scouted iterations
+175 scouted iterations

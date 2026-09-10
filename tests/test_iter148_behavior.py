@@ -20,6 +20,17 @@ explicitly mandates ("Regrowth guard, by AST"); it consumes the module's source
 mechanically -- counting definitions and hashing bodies -- and asserts nothing
 about implementation logic.
 
+APPENDED at factory iter 295 (same isolation contract, no new test function --
+collection headroom is zero this iteration, so that iteration's Expected
+Behaviors 7-9 land as extra assertions inside the three structural tests below):
+the three hand-copied OpenAI-shaped CONSTRUCTION branches (``_create_openai`` /
+``_create_groq`` / ``_create_together``) fold into ONE module-level string table
+plus ONE shared factory. Those additions are mechanical censuses of the same
+kind behavior 8 already runs -- a `def _create_` count, a provider-keyed-mapping
+census over the imported module's public attribute dict, and a parent check on
+the single shared wire closure -- plus the functional preservation contract,
+which is exactly tests 1-7 above run unchanged.
+
 Every SDK is a self-contained in-memory stub injected via
 ``monkeypatch.setitem(sys.modules, "<pkg>", stub)`` (auto-restored per test).
 No real SDK is installed, no network is touched, no API key is required.
@@ -31,6 +42,7 @@ import ast
 import hashlib
 import sys
 import types
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -379,6 +391,43 @@ def test_behavior7_namespace_isolation(
         f"{vendor}: the isolated path must still issue exactly one wire call"
     )
 
+    # --- factory iter 295, behavior 1 (and the spec's "construction opens no
+    # connection" property, which the fold's acceptance criteria require to
+    # survive for Groq and Together as well as OpenAI): CONSTRUCTION must not
+    # touch `.chat` on the SDK client. Proven per vendor against a client class
+    # whose `.chat` raises on attribute access, in the same namespace-isolated
+    # world (every other SDK and httpx are still blocked above).
+    client_attr = _FOLDED[vendor][1]
+    tripwire = types.ModuleType(pkg)
+    touched: list[str] = []
+
+    class _ExplodingClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        @property
+        def chat(self) -> object:
+            touched.append("chat")
+            raise AssertionError(
+                f"{vendor}: construction must not touch `.chat` -- no request "
+                "may be issued before `.complete` is called"
+            )
+
+    tripwire.RateLimitError = stub.RateLimitError  # type: ignore[attr-defined]
+    tripwire.APITimeoutError = stub.APITimeoutError  # type: ignore[attr-defined]
+    setattr(tripwire, client_attr, _ExplodingClient)
+    monkeypatch.setitem(sys.modules, pkg, tripwire)
+
+    built = create_client(Settings(provider=vendor))  # type: ignore[arg-type]
+    assert callable(getattr(built, "complete", None)), (
+        f"{vendor}: create_client must return an object with a callable "
+        f".complete; got {built!r}"
+    )
+    assert touched == [], (
+        f"{vendor}: construction touched {touched} on the SDK client -- it must "
+        "resolve the class and the two error types only"
+    )
+
 
 # ===========================================================================
 # Behavior 8 -- regrowth guard, by AST (never a regex), two-sided and
@@ -435,6 +484,59 @@ def _closure_factories(source: str) -> list[str]:
     return found
 
 
+# ---------------------------------------------------------------------------
+# Helpers added at factory iter 295 for that iteration's structural behaviors.
+# None of these is a `test_` function, so the collected item count is unchanged.
+# ---------------------------------------------------------------------------
+
+
+def _top_level_create_defs(source: str) -> list[str]:
+    """Names of every module-level ``def _create_*`` in the module's source."""
+    tree = ast.parse(source)
+    return [
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("_create_")
+    ]
+
+
+def _nested_with_parents(source: str) -> list[tuple[str, str, int]]:
+    """``(top_level_parent, inner_name, lineno)`` for every nested function."""
+    tree = ast.parse(source)
+    out: list[tuple[str, str, int]] = []
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for inner in ast.walk(node):
+            if inner is node:
+                continue
+            if isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                out.append((node.name, inner.name, inner.lineno))
+    return out
+
+
+def _provider_keyed_mappings() -> list[tuple[str, Mapping[object, object]]]:
+    """Every module-level mapping of the imported module keyed by provider names.
+
+    Black-box on purpose: this reads the imported module's attribute dict (the
+    same surface behavior 7 uses to prove the three folded factories are gone),
+    never the file's private logic. Dunders are skipped because a module's own
+    globals carry ``__builtins__``, which is a mapping of strings too.
+    """
+    roster = set(providers_mod.VALID_PROVIDERS)
+    found: list[tuple[str, Mapping[object, object]]] = []
+    for name, value in vars(providers_mod).items():
+        if name.startswith("__"):
+            continue
+        if not isinstance(value, Mapping) or not value:
+            continue
+        keys = list(value.keys())
+        if all(isinstance(k, str) and k in roster for k in keys):
+            found.append((name, value))
+    return found
+
+
 def test_behavior8_exactly_three_nested_complete_closures_remain() -> None:
     source = _PROVIDERS_PATH.read_text(encoding="utf-8")
     # Non-vacuity: the scan must have found a real, substantial module.
@@ -452,6 +554,23 @@ def test_behavior8_exactly_three_nested_complete_closures_remain() -> None:
         f"{len(completes)} at {[(n, ln) for n, ln, _ in completes]}"
     )
 
+    # --- factory iter 295, behavior 9: the regrowth guard still reads 3, and
+    # the shared OpenAI wire is still the SINGLE `_wire_complete` nested inside
+    # `_openai_wire_complete_fn` (the construction fold must not touch it).
+    wires = [
+        (parent, lineno)
+        for parent, inner, lineno in _nested_with_parents(source)
+        if inner == "_wire_complete"
+    ]
+    assert len(wires) == 1, (
+        "exactly ONE nested `_wire_complete` may exist -- the shared OpenAI "
+        f"wire, written once; found {len(wires)}: {wires}"
+    )
+    assert wires[0][0] == "_openai_wire_complete_fn", (
+        "the shared OpenAI wire must stay inside `_openai_wire_complete_fn`; "
+        f"found it inside {wires[0][0]!r} at line {wires[0][1]}"
+    )
+
 
 def test_behavior8_one_module_level_factory_returns_the_shared_closure() -> None:
     source = _PROVIDERS_PATH.read_text(encoding="utf-8")
@@ -461,6 +580,45 @@ def test_behavior8_one_module_level_factory_returns_the_shared_closure() -> None
     assert len(factories) == 1, (
         "the folded OpenAI wire must live in exactly ONE module-level closure "
         f"factory; found {len(factories)}: {factories}"
+    )
+
+    # --- factory iter 295, behavior 7: the CONSTRUCTION fold, counted. Three
+    # hand-copied per-vendor factories collapse into one shared factory, so the
+    # module-level `def _create_` census reads 5 (7 at HEAD e14aa58) and the
+    # three folded names are gone from the imported module entirely.
+    creates = _top_level_create_defs(source)
+    assert len(creates) == 5, (
+        "exactly 5 module-level `def _create_` definitions must remain after "
+        f"the fold (7 before); found {len(creates)}: {creates}"
+    )
+    survivors = {
+        "_create_scripted",
+        "_create_anthropic",
+        "_create_bedrock",
+        "_create_ollama",
+    }
+    assert survivors <= set(creates), (
+        "the four genuinely different construction shapes must survive "
+        f"untouched; missing {sorted(survivors - set(creates))}"
+    )
+    for folded in ("_create_openai", "_create_groq", "_create_together"):
+        assert folded not in creates, (
+            f"{folded} must be GONE after the fold; still defined in {creates}"
+        )
+        assert not hasattr(providers_mod, folded), (
+            f"{folded} must not be an attribute of the imported module either"
+        )
+    shared = [name for name in creates if name not in survivors]
+    assert len(shared) == 1, (
+        "the fifth `_create_` must be the ONE shared OpenAI-shaped factory; "
+        f"found {shared}"
+    )
+    assert callable(getattr(providers_mod, shared[0], None)), (
+        f"the shared factory {shared[0]!r} must be a callable module attribute"
+    )
+    assert shared[0] == "_create_openai_shaped", (
+        "the spec prescribes the shared factory's name so the oracle and the "
+        f"code cannot disagree; got {shared[0]!r}"
     )
 
 
@@ -482,6 +640,51 @@ def test_behavior8_no_two_nested_closures_share_a_body() -> None:
     assert not dupes, (
         "no two nested closures in providers.py may share a body digest "
         f"(byte-identical duplication); found {dupes}"
+    )
+
+    # --- factory iter 295, behavior 8: the table, sized and keyed. Exactly ONE
+    # module-level provider-keyed mapping, exactly the 3 OpenAI-shaped rows, and
+    # every value a STRING -- no module object, no class object, no callable, so
+    # the lazy in-branch SDK import is not hoisted into a registry.
+    tables = _provider_keyed_mappings()
+    assert len(tables) == 1, (
+        "the module must define exactly ONE provider-keyed module-level "
+        f"mapping; found {[name for name, _ in tables]}"
+    )
+    table_name, table = tables[0]
+    assert set(table) == set(_FOLDED), (
+        f"{table_name} must hold exactly the 3 OpenAI-shaped vendors; "
+        f"got {sorted(table)}"
+    )
+    assert len(table) == 3, f"{table_name} must have 3 rows; got {len(table)}"
+    for vendor, row in table.items():
+        assert isinstance(row, tuple), (
+            f"{table_name}[{vendor!r}] must be a tuple of strings; "
+            f"got {type(row).__name__}"
+        )
+        assert len(row) == 2, (
+            f"{table_name}[{vendor!r}] must supply exactly the SDK class "
+            f"attribute name and the default model; got {row!r}"
+        )
+        assert all(isinstance(cell, str) for cell in row), (
+            f"{table_name}[{vendor!r}] must hold only strings -- no module, no "
+            f"class, no callable; got {[type(c).__name__ for c in row]}"
+        )
+        assert not any(callable(cell) or isinstance(cell, types.ModuleType) for cell in row), (
+            f"{table_name}[{vendor!r}] must not hold a callable or a module"
+        )
+        _, class_attr, default_model = _FOLDED[vendor]
+        assert set(row) == {class_attr, default_model}, (
+            f"{table_name}[{vendor!r}] must carry the documented SDK class "
+            f"{class_attr!r} and default model {default_model!r}; got {row!r}"
+        )
+        assert row == (class_attr, default_model), (
+            f"{table_name}[{vendor!r}] rows are (sdk_class_attr, default_model) "
+            f"in that order; got {row!r}"
+        )
+    assert table_name == "_OPENAI_SHAPED", (
+        "the spec prescribes the table's name so the oracle and the code cannot "
+        f"disagree; got {table_name!r}"
     )
 
 

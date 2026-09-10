@@ -18,6 +18,7 @@ tests assert explicitly).
 from __future__ import annotations
 
 import importlib
+from collections.abc import Mapping
 from types import ModuleType
 from typing import Any, Protocol
 
@@ -54,8 +55,9 @@ def create_client(settings: Settings) -> LLMClient:
     out of their branches would hoist the imports with them -- costing the
     offline scripted default its SDK-free `sys.modules` for a structure that
     still carries one entry per provider. Adding a provider is therefore two
-    edits that must stay in step: a name in `VALID_PROVIDERS`, and a branch
-    here.
+    edits that must stay in step -- a name in `VALID_PROVIDERS` and a branch
+    here -- or THREE for an OpenAI-SDK-shaped vendor, whose branch delegates to
+    `_create_openai_shaped` and so also needs its row in `_OPENAI_SHAPED`.
 
     Unknown providers fail fast with a message that lists the valid options --
     misconfiguration should be obvious, not a cryptic AttributeError deep in a
@@ -67,15 +69,15 @@ def create_client(settings: Settings) -> LLMClient:
     if provider == "anthropic":
         return _create_anthropic(settings)
     if provider == "openai":
-        return _create_openai(settings)
+        return _create_openai_shaped(settings, "openai")
     if provider == "bedrock":
         return _create_bedrock(settings)
     if provider == "ollama":
         return _create_ollama(settings)
     if provider == "groq":
-        return _create_groq(settings)
+        return _create_openai_shaped(settings, "groq")
     if provider == "together":
-        return _create_together(settings)
+        return _create_openai_shaped(settings, "together")
     raise ValueError(
         f"unknown provider {provider!r}; valid options are: "
         f"{', '.join(VALID_PROVIDERS)}"
@@ -292,17 +294,41 @@ def _openai_wire_complete_fn(*, sdk: Any, model: str) -> _CompleteFn:
     return _wire_complete
 
 
-def _create_openai(settings: Settings) -> LLMClient:
-    """Build an OpenAI-backed client (SDK imported lazily, by design)."""
-    openai = _require("openai", "openai")  # actionable LLMError if absent
+# The three OpenAI-SDK-shaped vendors: SDK client-class attribute NAME and
+# default model -- STRINGS only, so no row resolves a vendor SDK at import time.
+_OPENAI_SHAPED: Mapping[str, tuple[str, str]] = {
+    "openai": ("OpenAI", "gpt-4o-mini"),
+    "groq": ("Groq", "llama-3.3-70b-versatile"),
+    "together": ("Together", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+}
 
-    sdk = openai.OpenAI()
-    model = settings.model or "gpt-4o-mini"
 
+def _create_openai_shaped(settings: Settings, provider: str) -> LLMClient:
+    """Build a client for one OpenAI-SDK-shaped vendor (SDK imported lazily).
+
+    WHY three DATA rows and one factory, not three near-verbatim functions:
+    `groq` and `together` ship OpenAI-SDK-shaped clones (`together`'s is
+    Stainless-generated) -- same zero-arg construction, same
+    `chat.completions.create` surface, same reply/usage shape (folded into
+    `_openai_wire_complete_fn`), same exception NAMES. Only an SDK class name
+    and a default model ever differed, so the next one is a row, not a clone.
+
+    CRITICAL, and the invariant the isolation tests pin: every name resolved
+    here -- the client class and BOTH exception tuples -- comes from THIS
+    vendor's namespace ONLY, never `httpx` and never another vendor, so one
+    stub module exercises any of the three fully offline. And construction
+    opens NO connection: they need an API key and egress at CALL time, not now.
+    """
+    sdk_class, default_model = _OPENAI_SHAPED[provider]
+    # For all three the user-facing label is also the pip package name, and
+    # `getattr` reads the same untyped attribute `openai.OpenAI()` already did.
+    module = _require(provider, provider)  # actionable LLMError if absent
+    sdk = getattr(module, sdk_class)()
+    model = settings.model or default_model
     return _SdkAdapter(
         complete_fn=_openai_wire_complete_fn(sdk=sdk, model=model),
-        throttle_excs=(openai.RateLimitError,),
-        timeout_excs=(openai.APITimeoutError,),
+        throttle_excs=(module.RateLimitError,),
+        timeout_excs=(module.APITimeoutError,),
     )
 
 
@@ -459,73 +485,6 @@ def _create_ollama(settings: Settings) -> LLMClient:
         complete_fn=_complete,
         throttle_excs=(ollama.ResponseError,),
         timeout_excs=(ollama.RequestError,),
-    )
-
-
-def _create_groq(settings: Settings) -> LLMClient:
-    """Build a client backed by a Groq-hosted model (SDK imported lazily, by design).
-
-    WHY this is a near-verbatim clone of `_create_openai`: the `groq` SDK is an
-    OpenAI-SDK-shaped clone -- same construction (`groq.Groq()`), same call
-    surface (`sdk.chat.completions.create(model=..., messages=[...])`), same
-    reply/usage shape (`completion.choices[0].message.content`,
-    `completion.usage.prompt_tokens`/`.completion_tokens`), and the same
-    throttle/timeout exception NAMES (`groq.RateLimitError` /
-    `groq.APITimeoutError`). So this branch is `_create_openai` with the
-    namespace and model default swapped, which is why it now reuses `_require`,
-    `_openai_wire_complete_fn` and `_SdkAdapter` with zero change. Groq is a
-    cloud backend that serves open models (Llama, Mixtral, ...) on its LPU
-    inference stack, so it needs an API key and network egress at CALL time --
-    but, exactly like every other live branch, construction opens no connection.
-    """
-    groq = _require("groq", "groq")  # actionable LLMError if absent
-
-    sdk = groq.Groq()
-    model = settings.model or "llama-3.3-70b-versatile"
-
-    # CRITICAL (same invariant as the ollama branch): source BOTH exception
-    # tuples from the `groq` namespace ONLY, never `httpx` or any other module,
-    # so `_create_groq` construction depends solely on `groq` and a single
-    # self-contained stub module can exercise the present-SDK path fully offline.
-    return _SdkAdapter(
-        complete_fn=_openai_wire_complete_fn(sdk=sdk, model=model),
-        throttle_excs=(groq.RateLimitError,),
-        timeout_excs=(groq.APITimeoutError,),
-    )
-
-
-def _create_together(settings: Settings) -> LLMClient:
-    """Build a client backed by a Together AI-hosted open model (SDK lazy, by design).
-
-    WHY this is a near-verbatim clone of `_create_groq` (and thus `_create_openai`):
-    the `together` SDK is a Stainless-generated, OpenAI-SDK-shaped client -- same
-    zero-arg construction (`together.Together()`, which reads `TOGETHER_API_KEY`
-    from the environment and opens NO connection at construction), same call
-    surface (`sdk.chat.completions.create(model=..., messages=[...])`), same
-    reply/usage shape (`completion.choices[0].message.content`,
-    `completion.usage.prompt_tokens`/`.completion_tokens`), and the same top-level
-    throttle/timeout exception NAMES (`together.RateLimitError` /
-    `together.APITimeoutError`, verified against the published `together` package's
-    documented error taxonomy). So this branch is `_create_groq` with the namespace
-    and model default swapped, which is why it now reuses `_require`,
-    `_openai_wire_complete_fn` and `_SdkAdapter` with zero change. Together AI is
-    a CLOUD backend serving open models (Llama, Mixtral, ...) on its inference
-    stack, so it needs an API key and network egress at CALL time -- but, exactly
-    like every other live branch, construction opens no connection.
-    """
-    together = _require("together", "together")  # actionable LLMError if absent
-
-    sdk = together.Together()
-    model = settings.model or "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-
-    # CRITICAL (same invariant as the ollama/groq branches): source BOTH exception
-    # tuples from the `together` namespace ONLY, never `httpx` or any other module,
-    # so `_create_together` construction depends solely on `together` and a single
-    # self-contained stub module can exercise the present-SDK path fully offline.
-    return _SdkAdapter(
-        complete_fn=_openai_wire_complete_fn(sdk=sdk, model=model),
-        throttle_excs=(together.RateLimitError,),
-        timeout_excs=(together.APITimeoutError,),
     )
 
 
