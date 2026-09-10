@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-373
+    lenses: hardening/DX -- iteration 373, integration-and-adoption -- iteration 373
+    - Candidate B1 -- The suite cannot accept one more test: land 5,900 -> 6,000 as an exactly-+2 commit across the 8 enumerated carriers
+    - Candidate B2 -- `make clone-check`: two of the last four reverts were visible only in a fresh clone, and nothing in this repo can reach one
+    - Candidate B3 -- the frozen-row-vs-mutable-HEAD time bomb: one arm was repaired, and nothing stops the next one being planted
+    - Candidate B1 -- `diff` gets the exit-code arm `verify` already has, and `make check` gets the two-scan identity round trip that is its first consumer -- premise MEASURED, not assumed
+    - Candidate B2 -- the gate that needs the run inventory shells out to `ls`; `pla runs --json` was built for exactly that answer and is called by nothing
+    - Candidate B3 -- the published goal `id` is a fresh random value on every scan, so every id-addressed surface is a single-file handle -- and the product's own cross-slate consumer already routes around it
+    winner: B2
+    ship: pending (not yet decided)
   iter-372
     lenses: new-capability (iteration 372), hardening/DX (iteration 372)
     - Candidate A1 -- `signals --max-items N`: the perception depth the product uses is unreachable by the user
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- land the 5,900 -> 6,000 floor bump ALONE, and know that the saved patch the operator pin points at is DEAD
     - Candidate B3 -- `make readme-headroom` tells the loop it has 402 tests of room; the true room is 1, and the gauge cannot express that 5,999 is illegal at all
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b3888b7
   iter-371
     lenses: narrative-and-docs (iteration 371), new-capability (iteration 371)
     - Candidate A1 -- the tracked decision log is REGENERATED from state this repo cannot edit, and exactly one un-repairable line is armed to red six shipped guards again at THIS iteration's final gate
@@ -1727,4 +1737,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-173 scouted iterations
+174 scouted iterations

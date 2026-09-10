@@ -39,7 +39,7 @@ resilient plan→act→check execution loop.
 proactive-loop-agent/
 ├── pyproject.toml            # uv-managed, src layout, console script `pla`
 ├── uv.lock
-├── Makefile                  # help setup test cov typecheck readme-headroom demo clean check check-matrix
+├── Makefile                  # help setup test cov typecheck readme-headroom demo clean check check-matrix clone-check
 ├── README.md
 ├── LICENSE                   # MIT
 ├── SPEC.md                   # this file

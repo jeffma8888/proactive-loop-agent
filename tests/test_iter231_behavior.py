@@ -64,7 +64,9 @@ GUARD_MODULE = REPO / "tests" / "test_makefile_readme_contract.py"
 # added ``help`` (bare ``make`` now prints a listing instead of running a network
 # install) and moved this pin -- and the count below -- to ten in the same commit as
 # the Makefile. An oracle may pin the exact set where the permanent guard
-# (``test_makefile_readme_contract``) deliberately keeps a loose floor.
+# (``test_makefile_readme_contract``) deliberately keeps a loose floor. Factory iter
+# 294 added ``clone-check`` (run the whole suite inside a throwaway fresh clone) and
+# moved this pin -- and the count below -- again, to eleven.
 EXPECTED_PHONY_TARGETS = frozenset(
     {
         "help",
@@ -77,6 +79,7 @@ EXPECTED_PHONY_TARGETS = frozenset(
         "clean",
         "check",
         "check-matrix",
+        "clone-check",
     }
 )
 
@@ -257,7 +260,7 @@ def test_b4_the_phony_set_is_exactly_the_measured_targets() -> None:
         f"missing {sorted(EXPECTED_PHONY_TARGETS - parsed)}. A new target must be "
         "documented below the README marker in invocation form in the same commit."
     )
-    assert len(parsed) == 10
+    assert len(parsed) == 11
 
 
 def test_b4_every_phony_target_is_documented_in_invocation_form_below_the_marker() -> None:

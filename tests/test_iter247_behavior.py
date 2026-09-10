@@ -86,7 +86,9 @@ README = REPO / "README.md"
 CI_WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 
 # Behavior 1: the exact `.PHONY` set AFTER this iteration -- the nine pre-existing
-# entry points, all retained, plus `help`.
+# entry points, all retained, plus `help`. Kept CURRENT, not frozen: factory iter 294
+# added `clone-check` (run the whole suite inside a throwaway fresh clone) and moved
+# this pin, plus the two it cross-checks in behavior 7, to eleven in the same commit.
 EXPECTED_PHONY_TARGETS = frozenset(
     {
         "help",
@@ -99,6 +101,7 @@ EXPECTED_PHONY_TARGETS = frozenset(
         "clean",
         "check",
         "check-matrix",
+        "clone-check",
     }
 )
 PREEXISTING_TARGETS = frozenset(EXPECTED_PHONY_TARGETS - {"help"})

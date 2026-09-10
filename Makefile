@@ -1,5 +1,5 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: help setup test cov typecheck readme-headroom demo clean check check-matrix
+.PHONY: help setup test cov typecheck readme-headroom demo clean check check-matrix clone-check
 
 # Bare `make` prints this listing.
 #
@@ -35,6 +35,7 @@ help:
 	@echo "  make clean            delete generated run state, coverage artifacts and caches"
 	@echo "  make check            reproduce the CI graded gate locally, in CI's own order"
 	@echo "  make check-matrix     run the suite under both interpreters CI's matrix grades"
+	@echo "  make clone-check      run the whole suite inside a throwaway fresh clone of this repo"
 	@echo ""
 	@echo "README.md documents what each one grades. Nothing here touches a network."
 
@@ -364,3 +365,76 @@ check:
 check-matrix:
 	UV_PROJECT_ENVIRONMENT=.venv-py312 uv run --offline --locked --python 3.12 pytest
 	UV_PROJECT_ENVIRONMENT=.venv-py313 uv run --offline --locked --python 3.13 pytest
+
+# Run the WHOLE suite inside a throwaway FRESH CLONE of this repo, with the current
+# working tree committed into it. Opt-in, and deliberately NOT wired into `check` or
+# into ci.yml -- see the second-to-last WHY below.
+#
+# WHY this target exists: two classes of failure are structurally invisible to every
+# other gate a contributor or a reviewer can run. `make test` and `make check` read
+# THIS worktree, and CI grades the ALREADY-PUSHED commit -- after the fact.
+#   (a) mtime vacuity. A test whose precondition is a gitignored artifact's AGE passes
+#       VACUOUSLY here, because the artifact already predates the window it measures; a
+#       clone resets every mtime to NOW, so the assertion runs for the FIRST time there.
+#   (b) frozen-row-vs-mutable-HEAD. A guard that derives a claim about a FROZEN
+#       historical row from mutable `HEAD` is green in every PRE-COMMIT worktree and red
+#       forever once HEAD moves past the commit it was really measuring.
+# `git status` can show neither one, and each has already cost this repo a whole
+# increment of otherwise-green work.
+#
+# WHY it COMMITS the working tree into the clone instead of only copying it in: (b) is
+# observable only once HEAD has moved PAST the retiring commit, which is a state no
+# in-tree gate ever reaches. `--allow-empty` keeps that HEAD move happening on a CLEAN
+# checkout too -- the move is the thing under test, so dying on "nothing to commit"
+# would silently downgrade the probe to an ordinary second suite run.
+#
+# WHY the probe commit's subject carries NO `(foundry iter NN)` tag: two shipped guards
+# read commit subjects -- one grades HEAD's subject against the Done-ledger tag ONLY
+# when it carries one, and one requires every tag CITED by a ledger row to resolve to a
+# real commit. An untagged subject satisfies both by construction, while inventing a tag
+# here would forge history the ledger cannot back.
+#
+# WHY `.venv/bin/python -m pytest` and not `uv run pytest`: the clone needs NO
+# environment of its own -- measured, nothing in this suite actually shells out to `uv`
+# (the `["uv", "run", ...]` occurrences are token assertions on strings) -- so the
+# project venv's interpreter is pointed at the CLONE's tree with PYTHONPATH, which is
+# what makes every path-reading guard under `tests/` read the clone rather than this
+# worktree. `uv run` would resolve and sync, i.e. reach a network, in a target whose
+# whole subject is a repo that advertises being offline-first. Run `make setup` first if
+# `.venv` does not exist yet; a missing interpreter FAILS here rather than being skipped,
+# for the same reason the other gates are fail-closed.
+#
+# WHY it asserts nothing about the SKIP count: a fresh clone legitimately skips the
+# cases whose precondition is an untracked or gitignored artifact, so a zero-skip demand
+# would be red on arrival. `-rs` prints every skip REASON instead, so a skip that is not
+# one of those is readable rather than hidden behind a number.
+#
+# WHY opt-in and never wired into `check` or ci.yml: it re-runs the whole suite on top of
+# the run `check` already does, roughly DOUBLING the graded gate, and CI already builds a
+# pristine checkout on every push. This is the gate you run BEFORE pushing, once.
+#
+# WHY `@`: the recipe is one long `\`-continued shell command, so echoing it would bury
+# the pytest output that IS this target's product -- the same reason `readme-headroom`
+# above is silent. Each step still announces itself.
+#
+# KNOWN LIMITATION: `git ls-files -m -o --exclude-standard` cannot express a worktree
+# DELETION, so a file you deleted locally without staging it is still present in the
+# clone. Stage the deletion if it matters to the run you are probing.
+clone-check:
+	@set -e; \
+	repo="$$(pwd)"; \
+	probe="$$(mktemp -d)"; \
+	trap 'rm -rf "$$probe"' EXIT INT TERM; \
+	clone="$$probe/repo"; \
+	echo "clone-check: cloning this repo into $$clone"; \
+	git clone --quiet "$$repo" "$$clone"; \
+	git ls-files -m -o --exclude-standard | while IFS= read -r path; do \
+		mkdir -p "$$clone/$$(dirname "$$path")"; \
+		cp "$$path" "$$clone/$$path"; \
+	done; \
+	git -C "$$clone" add -A; \
+	git -C "$$clone" -c user.email=clone-check@invalid -c user.name=clone-check \
+		commit -q --allow-empty -m "chore: clone-check probe of the working tree"; \
+	echo "clone-check: running the full suite at $$(git -C "$$clone" rev-parse --short HEAD)"; \
+	cd "$$clone"; \
+	PYTHONPATH="$$clone:$$clone/src" "$$repo/.venv/bin/python" -m pytest -p no:cacheprovider -rs

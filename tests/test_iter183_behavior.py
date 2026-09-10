@@ -50,6 +50,8 @@ GUARD_MODULE = REPO / "tests" / "test_makefile_readme_contract.py"
 # were undocumented before that change; factory iter 277 added ``help`` (bare ``make``
 # now prints a listing instead of running a network install), so this pin moved with
 # the Makefile in the same commit -- which is exactly what an exact-set pin is for.
+# Factory iter 294 added ``clone-check`` (run the whole suite inside a throwaway fresh
+# clone) and moved it again, to eleven.
 EXPECTED_PHONY_TARGETS = frozenset(
     {
         "help",
@@ -62,6 +64,7 @@ EXPECTED_PHONY_TARGETS = frozenset(
         "clean",
         "check",
         "check-matrix",
+        "clone-check",
     }
 )
 

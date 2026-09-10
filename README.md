@@ -238,7 +238,7 @@ stayed green. These four are the whole set that is both state-independent *and*
 unsaturated: `todo`, `recent_file` and `git_commit` sit on their caps, so a budget
 over them could never fire, and a gate that cannot fire is worse than no gate.
 
-Two more developer entry points exist, both opt-in rather than part of `make check`:
+Three more developer entry points exist, all opt-in rather than part of `make check`:
 
 - `make check-matrix` -- run the suite under both interpreters CI's matrix grades (3.12 and 3.13).
   `make check` runs it under one, whichever `uv` last left in `.venv`, so a failure that reproduces
@@ -248,6 +248,14 @@ Two more developer entry points exist, both opt-in rather than part of `make che
   intro above: how many tests you may still add before that floor goes stale and reds this repo's
   public build. The guard enforcing that floor is silent while green, so this gauge is the only
   advance warning you get.
+- `make clone-check` -- run the whole suite inside a throwaway fresh clone of this repo, with your
+  working tree committed into it, then delete the clone. Two failure classes are invisible to every
+  other gate: a test whose precondition is a gitignored artifact's *age* (a clone resets every mtime,
+  so the assertion runs there for the first time), and a guard that derives a claim about frozen
+  history from mutable `HEAD` (green in every pre-commit worktree, red forever once HEAD moves).
+  `make check` reads this worktree and CI grades the commit only after it is pushed, so this is the
+  one gate that sees either one beforehand. Skips are expected -- a fresh clone has none of the
+  untracked artifacts some cases need -- so it prints each skip reason instead of policing a count.
 
 Two housekeeping targets complete the set:
 
