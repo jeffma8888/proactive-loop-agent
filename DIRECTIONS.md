@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-375
+    lenses: simplification-and-deletion (iteration 375), performance-and-throughput (iteration 375)
+    - Candidate A1 -- `head_file` and `tail_file` are one body: 18 of 20 effective code lines are identical, and the only two that differ are the slice and the trailer
+    - Candidate A2 -- 157 groups of byte-identical test helpers, 2,673 removable lines; the worst single one is `_console_script`, hand-copied into 24 modules in 3 spellings of the same 13 lines
+    - Candidate A3 -- `--json` is declared 15 times in `cli.py` across 78 source lines, and 11 of the 15 help strings are one sentence template
+    - Candidate B1 -- one test owns 60.97 s of a 107.31 s suite and only 0.47 s of it is work: the suite is subprocess-bound, and `-n auto` is the untested lever
+    - Candidate B2 -- settle roadmap row #169 (`--dist worksteal`): its baseline is 3.6x stale, and the tail it targets has grown 2.3x
+    - Candidate B3 -- every `pla` invocation pays 307 ms before argparse runs, and 191 ms of that is our own imports
+    winner: A1
+    ship: pending (not yet decided)
   iter-374
     lenses: integration-and-adoption (iteration 374), simplification-and-deletion (iteration 374)
     - Candidate A1 -- `make demo` bounds its own loop with the shipped `--max-iterations` / `--max-llm-calls`: the L1 budget's first consumer, and the demo's model spend becomes a two-sided ratchet
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- three provider branches are one branch with the namespace swapped, and the docstring admits it
     - Candidate B3 -- 67 test bodies are exact duplicates of another test, and 24 of them assert the single sentence "the version was not bumped"
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED f0acf41
   iter-373
     lenses: hardening/DX -- iteration 373, integration-and-adoption -- iteration 373
     - Candidate B1 -- The suite cannot accept one more test: land 5,900 -> 6,000 as an exactly-+2 commit across the 8 enumerated carriers
@@ -1747,4 +1757,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-175 scouted iterations
+176 scouted iterations

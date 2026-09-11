@@ -350,41 +350,23 @@ class ToolRegistry:
         if not path:
             return "error: head_file requires a non-empty 'path'"
         # Path-safety (traversal/absolute) is validated BEFORE max_lines so an
-        # unsafe path is still reported even alongside a bad max_lines.
+        # unsafe path is still reported even alongside a bad max_lines. BOTH
+        # guards stay HERE rather than moving into the shared peek helper -- see
+        # its docstring for why the shared seam starts only after them.
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
-        # max_lines must be a positive integer (int or integer-valued string);
-        # a bool, float, None, non-numeric string, or other type is rejected and
-        # NOTHING is read on rejection.
-        max_lines = self._coerce_positive_int(args.get("max_lines", 40))
-        if max_lines is None:
-            return "error: head_file 'max_lines' must be a positive integer"
-        # Precedence: artifacts_dir FIRST, then workspace_root (see docstring) --
-        # identical to read_file, so head_file and read_file read the SAME copy.
-        # A symlink escaping both roots fails _within and is never read (falls
-        # through to "not found").
-        for root in (self.artifacts_dir, self.workspace_root):
-            candidate = root / path
-            if self._within(candidate, root) and candidate.is_file():
-                # read_text() (NOT read_bytes) so a short file is byte-identical
-                # to read_file, sharing the same universal-newline handling; an
-                # undecodable file raises here and execute()'s wrapper turns it
-                # into an "error:" observation.
-                text = candidate.read_text()
-                # splitlines(keepends=True) preserves each line's terminator and
-                # round-trips exactly ("".join(lines) == text), so the
-                # not-truncated path returns the file verbatim.
-                lines = text.splitlines(keepends=True)
-                total = len(lines)
-                if total <= max_lines:
-                    return text
-                head = "".join(lines[:max_lines])
-                # total > max_lines means the last kept line is NOT the file's
-                # final line, so it always carries a terminator -> the trailer
-                # begins on a fresh line.
-                return f"{head}... (showing first {max_lines} of {total} lines)"
-        return f"error: file not found under artifacts or workspace: {path!r}"
+        return self._peek_file(
+            path,
+            args,
+            tool="head_file",
+            # The one head-specific line: the truncation SHAPE. total > max_lines
+            # means the last kept line is NOT the file's final line, so it always
+            # carries a terminator -> the trailer begins on a fresh line.
+            render=lambda kept, limit, total: (
+                f"{''.join(kept[:limit])}... (showing first {limit} of {total} lines)"
+            ),
+        )
 
     def _tail_file(self, args: dict[str, Any]) -> str:
         """Return the last *max_lines* lines of *path* -- a bounded
@@ -400,13 +382,15 @@ class ToolRegistry:
         gap and completes the bounded-observation family find / list / grep /
         describe / PEEK-top(head) / PEEK-bottom(tail) / read.
 
-        It is a NEAR-VERBATIM mirror of ``head_file``: SAME guards and SAME
-        precedence (tool-specific empty-path error, then ``_reject_unsafe`` for
+        It is the exact BEHAVIORAL mirror of ``head_file`` and, since iter-296,
+        no longer a hand-copy of it: SAME guards and SAME precedence
+        (tool-specific empty-path error, then ``_reject_unsafe`` for
         traversal/absolute BEFORE ``max_lines`` validation, then the
         ``artifacts_dir``-FIRST / ``workspace_root``-second ``_within``
         resolution -- so ``tail_file(x)`` reads the SAME copy as
-        ``read_file``/``head_file``/``stat_file``). For a file with
-        ``<= max_lines`` lines the return is BYTE-IDENTICAL to ``read_file``
+        ``read_file``/``head_file``/``stat_file``), because both handlers now
+        delegate that whole half to ONE shared private peek helper. For a file
+        with ``<= max_lines`` lines the return is BYTE-IDENTICAL to ``read_file``
         (no trailer). The ONLY deliberate difference from ``head_file`` is the
         truncation shape: the trailer is a LEADING line so the actual tail
         lines sit LAST, closest to the model next reasoning step -- the exact
@@ -426,44 +410,25 @@ class ToolRegistry:
         if not path:
             return "error: tail_file requires a non-empty 'path'"
         # Path-safety (traversal/absolute) is validated BEFORE max_lines so an
-        # unsafe path is still reported even alongside a bad max_lines.
+        # unsafe path is still reported even alongside a bad max_lines. BOTH
+        # guards stay HERE rather than moving into the shared peek helper -- see
+        # its docstring for why the shared seam starts only after them.
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
-        # max_lines must be a positive integer (int or integer-valued string);
-        # a bool, float, None, non-numeric string, or other type is rejected
-        # and NOTHING is read on rejection.
-        max_lines = self._coerce_positive_int(args.get("max_lines", 40))
-        if max_lines is None:
-            return "error: tail_file 'max_lines' must be a positive integer"
-        # Precedence: artifacts_dir FIRST, then workspace_root -- identical to
-        # read_file/head_file, so all three read the SAME copy. A symlink
-        # escaping both roots fails _within and is never read (falls through
-        # to "not found").
-        for root in (self.artifacts_dir, self.workspace_root):
-            candidate = root / path
-            if self._within(candidate, root) and candidate.is_file():
-                # read_text() (NOT read_bytes) so a short file is
-                # byte-identical to read_file, sharing the same
-                # universal-newline handling; an undecodable file raises here
-                # and the wrapper in execute() turns it into an "error:"
-                # observation.
-                text = candidate.read_text()
-                # splitlines(keepends=True) preserves each line terminator and
-                # round-trips exactly ("".join(lines) == text), so the
-                # not-truncated path returns the file verbatim.
-                lines = text.splitlines(keepends=True)
-                total = len(lines)
-                if total <= max_lines:
-                    return text
-                tail = "".join(lines[-max_lines:])
-                # LEADING trailer (opposite of the head_file trailing note) so
-                # the actual tail lines sit last -- closest to the model next
-                # step. The trailer line always ends in "\n"; the final line
-                # keeps its own terminator (or stays unterminated when the file
-                # had no trailing newline).
-                return f"... (showing last {max_lines} of {total} lines)\n{tail}"
-        return f"error: file not found under artifacts or workspace: {path!r}"
+        return self._peek_file(
+            path,
+            args,
+            tool="tail_file",
+            # The one tail-specific line: the truncation SHAPE. A LEADING trailer
+            # (the opposite of head_file's trailing note) so the actual tail lines
+            # sit last -- closest to the model's next step. The trailer line always
+            # ends in "\n"; the final line keeps its own terminator (or stays
+            # unterminated when the file had no trailing newline).
+            render=lambda kept, limit, total: (
+                f"... (showing last {limit} of {total} lines)\n{''.join(kept[-limit:])}"
+            ),
+        )
 
     def _read_lines(self, args: dict[str, Any]) -> str:
         """Return the 1-based INCLUSIVE line range ``[start, end]`` of *path* --
@@ -1084,3 +1049,72 @@ class ToolRegistry:
         if not self._within(target, self.artifacts_dir):
             return f"error: refusing to {verb} outside artifacts dir: {path!r}"
         return target
+
+    def _peek_file(
+        self,
+        path: str,
+        args: dict[str, Any],
+        *,
+        tool: str,
+        render: Callable[[list[str], int, int], str],
+    ) -> str:
+        """Resolve, read and split *path* for a bounded PEEK, or return an
+        ``"error: ..."`` observation -- the ONE definition of the half
+        ``head_file`` and ``tail_file`` share.
+
+        WHY it exists: those two handlers were hand-copied, 18 of their 20
+        effective lines identical, which made the sandbox's bounded reader TWO
+        independent chances to get a containment check wrong -- and a future
+        security fix two places to remember. This is the READ-side counterpart of
+        what ``_resolve_write_target`` did for the write family. It owns
+        everything up to and including "how many lines are there?": ``max_lines``
+        coercion and its tool-blamed rejection (nothing is read on rejection),
+        the ``artifacts_dir``-FIRST / ``workspace_root``-second ``_within``
+        resolution -- so every reader sees the SAME copy -- the ``read_text()``
+        decode, the keepends split, the verbatim (untruncated) return, and the
+        not-found message.
+
+        WHY the seam is drawn AFTER the guards, with ``_reject_unsafe`` and the
+        tool-blamed empty-path error deliberately left in the CALLERS: each
+        handler emits its OWN empty-path message BEFORE the textual reject, so a
+        helper that swallowed the prologue would have to reproduce that WORDING
+        and that ORDER from parameters -- exactly the reasoning that keeps
+        ``_reject_unsafe`` outside ``_resolve_write_target`` (see its docstring).
+        Callers MUST have run both guards first; this half assumes *path* is
+        non-empty and textually safe.
+
+        ``tool`` is the blame word the ``max_lines`` rejection carries
+        (keyword-only, mirroring ``_resolve_write_target(..., verb=...)``) so each
+        handler keeps the message it shipped. ``render(lines, max_lines, total)``
+        is called ONLY when the file is actually truncated and returns the
+        truncated observation: it is the single deliberate difference between the
+        two tools (trailing note vs LEADING note), which is why it stays at the
+        call site, beside the docstring that advertises that shape.
+        """
+        # max_lines must be a positive integer (int or integer-valued string); a
+        # bool, float, None, non-numeric string, or other type is rejected and
+        # NOTHING is read on rejection.
+        max_lines = self._coerce_positive_int(args.get("max_lines", 40))
+        if max_lines is None:
+            return f"error: {tool} 'max_lines' must be a positive integer"
+        # Precedence: artifacts_dir FIRST, then workspace_root -- identical to
+        # read_file, so head_file/tail_file/read_file read the SAME copy. A
+        # symlink escaping both roots fails _within and is never read (falls
+        # through to "not found").
+        for root in (self.artifacts_dir, self.workspace_root):
+            candidate = root / path
+            if self._within(candidate, root) and candidate.is_file():
+                # read_text() (NOT read_bytes) so a short file is byte-identical
+                # to read_file, sharing the same universal-newline handling; an
+                # undecodable file raises here and execute()'s wrapper turns it
+                # into an "error:" observation.
+                text = candidate.read_text()
+                # splitlines(keepends=True) preserves each line's terminator and
+                # round-trips exactly ("".join(lines) == text), so the
+                # not-truncated path returns the file verbatim.
+                lines = text.splitlines(keepends=True)
+                total = len(lines)
+                if total <= max_lines:
+                    return text
+                return render(lines, max_lines, total)
+        return f"error: file not found under artifacts or workspace: {path!r}"
