@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-385
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate B1 -- swap `verify`'s two arguments and one side fails closed while the other reports success: the CI gate cannot fail on a degenerate slate
+    - Candidate B2 -- (being measured)
+    - Candidate B3 -- (being measured)
+    - Candidate B1 -- the L1 budget shipped one commit ago is written to disk and read by NOTHING but `resume`: three machine-readable surfaces all report usage without the bound
+    - Candidate B2 -- `pla trace`, the verb that backs the auditability claim, is executed by no gate; the demo produces the transcript and nothing ever reads it
+    - Candidate B3 -- the determinism claim has no gate, and the shipped verb that could prove it (`pla diff`) needs no new flag to do it
+    stubs: 2 of 6 candidate line(s) are write-early placeholders, not measured candidates
+    winner: B1
+    ship: pending (not yet decided)
   iter-384
     lenses: new-capability, hardening/DX
     - Candidate A1 (primary) -- re-land iteration 383's budget-persistence feature, with the eviction re-sized from 486 chars to 80
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- a graded gate passes vacuously on the wrong file: any JSON object loads as a slate of zero goals, so `verify --fail-on-unresolved` reports success
     - Candidate B3 -- roadmap row #218 re-priced today: one exported `PLA_*` knob now reds **31 tests across 12 modules**, up 2.4x from the 13/9 the row records
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 71c4d77
   iter-383
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- the contract archive still documents three provider functions the loop DELETED two commits ago, and the phantom census is exactly 2 wide
@@ -1782,4 +1793,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-178 scouted iterations
+179 scouted iterations

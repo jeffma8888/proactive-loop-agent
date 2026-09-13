@@ -5895,6 +5895,44 @@ def _verify_json_payload(
     }
 
 
+def _reject_goals_less_slate(path: Path) -> None:
+    """Refuse a ``--slate`` document that is a JSON object carrying no ``goals`` key.
+
+    WHY this exists at all, and why only ``verify`` calls it: ``GoalSlate`` defaults
+    every field, so once ``_load_slate`` has run, "no ``goals`` key" and "a slate of
+    zero goals" are the SAME object -- and ``verify --fail-on-unresolved`` is a graded
+    step of ``make check`` and of ``.github/workflows/ci.yml``. So a mistyped path, or
+    ``--slate``/``--snapshot`` swapped (a ``signals --json`` snapshot is a goals-less
+    object), printed ``verified: 0 goals, 0 sources, 0 unresolved`` and exited ``0``:
+    the gate certified a green result it never checked. A gate that cannot fail is
+    worse than no gate, because it is quoted as evidence. The snapshot half of the same
+    invocation already fails closed on exactly this mistake (``snapshot file has no
+    'signals' array``), so this makes the two arguments of one verb equally honest.
+
+    STRUCTURAL, not a count: only the PRESENCE of the key is checked, so a legitimate
+    ``{"goals": []}`` slate still reports ``(no goals in slate)`` at exit ``0`` -- an
+    empty slate is a real, degradable result, and row #177 pins it.
+
+    Every OTHER slate fault is left to ``_load_slate`` untouched, which is why the
+    parse failures below simply return: a non-object document, an unparseable one, or a
+    present-but-wrong-typed ``goals`` is ALREADY refused there in the shipped shape
+    (pydantic -> one sanitized line at exit 1), and re-reporting it here would give one
+    input class two messages. Reading the file a second time is the price of checking a
+    key that validation erases; it is a few KB on a read-only verb.
+    """
+    try:
+        document = json.loads(path.read_text())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return
+    if isinstance(document, dict) and "goals" not in document:
+        raise ValueError(
+            f"invalid slate file '{path}': no top-level 'goals' array: expected a "
+            "document written by `pla scan --out FILE` (a `pla signals --json` "
+            "snapshot carries 'signals', not 'goals' -- check for swapped "
+            "--slate/--snapshot paths)"
+        )
+
+
 def _cmd_verify(args: argparse.Namespace) -> int:
     """verify: resolve each goal's cited sources against a saved scan snapshot.
 
@@ -5917,8 +5955,10 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     Exit codes reuse the shipped ladder rather than inventing a second one: a missing
     ``--slate`` file or ANY malformed ``--snapshot`` document returns ``2`` explicitly
     on one ``error: `` line, before a single byte of stdout; a corrupt or
-    schema-invalid slate raises a ``ValueError`` that the ``main()`` boundary maps to
-    ``1``. ``--json`` is applied after both guards, so it selects a rendering only.
+    schema-invalid slate -- INCLUDING a JSON object with no top-level ``goals`` key,
+    which ``_reject_goals_less_slate`` refuses because validation cannot see it -- raises
+    a ``ValueError`` that the ``main()`` boundary maps to ``1``. ``--json`` is applied
+    after every guard, so it selects a rendering only.
     """
     slate_path = Path(args.slate)
     if not slate_path.is_file():
@@ -5934,6 +5974,9 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    # AFTER the snapshot ladder on purpose: a caller who got BOTH paths wrong is told
+    # about the snapshot first (exit 2), so no shipped snapshot-guard case changes shape.
+    _reject_goals_less_slate(slate_path)
     slate = _load_slate(slate_path)
     rows = _verify_slate(slate, identities)
     if args.json:

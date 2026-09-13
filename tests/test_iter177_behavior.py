@@ -639,6 +639,168 @@ def test_b09_a_missing_slate_exits_two_and_a_corrupt_slate_exits_one(
     )
     assert bad.stdout == ""
 
+    # ======================================================================
+    # factory iter 298 arms -- a GOALS-LESS OBJECT is found-and-malformed.
+    # ``GoalSlate`` defaults every field, so before this ship a JSON object
+    # with no top-level ``goals`` key was indistinguishable from a slate of
+    # zero goals and ``verify --fail-on-unresolved`` reported SUCCESS for a
+    # document that is not a slate -- a graded ``make check`` / ``ci.yml``
+    # step that could not fail. Arms extend THIS already-collected function
+    # on purpose: four shipped modules assert
+    # ``(live + 1) // 100 * 100 == floor``, so the first NET NEW collected
+    # item reds the public build (iter-385 spec, acceptance criterion 4).
+    # ======================================================================
+    good = str(pair["snapshot"])
+
+    def _doc(name: str, text: str) -> Path:
+        dest = tmp_path / name
+        dest.write_text(text, encoding="utf-8")
+        return dest
+
+    # Spec 3: the three named goals-less shapes. The third is the
+    # swapped-``--slate``/``--snapshot`` case -- a REAL snapshot document
+    # (``signals``/``workspace_root``, no ``goals``) handed to ``--slate``.
+    shapes: dict[str, Path] = {
+        "an_empty_object": _doc("gl_empty.json", "{}"),
+        "workspace_root_only": _doc("gl_ws.json", json.dumps({"workspace_root": "/x"})),
+        "a_real_snapshot_document": pair["snapshot"],
+    }
+    assert "goals" not in json.loads(pair["snapshot"].read_text(encoding="utf-8")), (
+        "the swapped-argument arm is only meaningful while a snapshot document has no "
+        "top-level `goals` key -- if that changes this arm must be re-derived"
+    )
+    # Spec 2: all four combinations of --fail-on-unresolved x --json. The
+    # guard fires before any rendering, so NEITHER flag can recolour it.
+    combos: list[list[str]] = [
+        [],
+        ["--fail-on-unresolved"],
+        ["--json"],
+        ["--fail-on-unresolved", "--json"],
+    ]
+    for label, path in shapes.items():
+        for flags in combos:
+            proc = _run(
+                "verify", "--slate", str(path), "--snapshot", good, *flags, cwd=tmp_path
+            )
+            where = f"slate={label} flags={flags or ['(bare)']}"
+            # Spec 1: exit 1 (found-and-malformed), NOT 0 and NOT the
+            # not-found 2.
+            assert proc.returncode == 1, (
+                f"a goals-less slate must fail CLOSED at exit 1 ({where}); got "
+                f"{proc.returncode}; stdout={proc.stdout!r} stderr={proc.stderr!r}"
+            )
+            assert proc.stdout == "", (
+                f"the guard must fire BEFORE any rendering ({where}); got {proc.stdout!r}"
+            )
+            errs = _lines(proc.stderr)
+            assert len(errs) == 1, f"exactly ONE error line ({where}); got {errs}"
+            assert errs[0].startswith("error: "), f"must be `error: ` ({where}); got {errs[0]!r}"
+            assert str(path) in errs[0], (
+                f"the message must name the offending path AS GIVEN ({where}); got {errs[0]!r}"
+            )
+            assert "goals" in errs[0], (
+                f"the message must name the missing key ({where}); got {errs[0]!r}"
+            )
+
+    # Spec 4: the guard is STRUCTURAL, not a count -- an EMPTY ``goals``
+    # array is a legitimate slate and stays exit 0 in both renderings.
+    empty_goals = _doc(
+        "gl_zero_goals.json",
+        json.dumps(
+            {"created_at": "2026-01-01T00:00:00+00:00", "workspace_root": "/x", "goals": []}
+        ),
+    )
+    for flags in ([], ["--fail-on-unresolved"]):
+        human = _run(
+            "verify", "--slate", str(empty_goals), "--snapshot", good, *flags, cwd=tmp_path
+        )
+        assert human.returncode == 0, (
+            f"a slate of ZERO goals is legitimate and must stay exit 0 (flags={flags}); "
+            f"got {human.returncode}; stderr={human.stderr!r}"
+        )
+        assert "(no goals in slate)" in human.stdout, (
+            f"the empty-slate notice must survive (flags={flags}); got {human.stdout!r}"
+        )
+        doc_proc = _run(
+            "verify",
+            "--slate",
+            str(empty_goals),
+            "--snapshot",
+            good,
+            "--json",
+            *flags,
+            cwd=tmp_path,
+        )
+        assert doc_proc.returncode == 0, f"--json, zero goals -> 0; got {doc_proc.returncode}"
+        doc = json.loads(doc_proc.stdout)
+        assert doc["goals"] == [], f"goals must render as []; got {doc['goals']!r}"
+        assert doc["source_count"] == 0, f"source_count must be 0; got {doc['source_count']!r}"
+        assert doc["unresolved_count"] == 0, (
+            f"unresolved_count must be 0; got {doc['unresolved_count']!r}"
+        )
+
+    # Spec 5: every already-shipped rung of the slate ladder is unchanged.
+    # (missing -> 2 and ``{not json`` -> 1 are asserted at the top of this
+    # function; these are the pydantic-rejected rungs.)
+    for label, text in (
+        ("top_level_array", "[1,2]"),
+        ("top_level_string", '"hi"'),
+        ("goals_is_an_object", '{"goals": {}}'),
+        ("goals_is_null", '{"goals": null}'),
+        ("goals_is_an_int", '{"goals": 4}'),
+    ):
+        rung = _run(
+            "verify", "--slate", str(_doc(f"gl_{label}.json", text)), "--snapshot", good,
+            cwd=tmp_path,
+        )
+        assert rung.returncode == 1, (
+            f"{label} already failed closed at 1 and must not move; got {rung.returncode}"
+        )
+        assert rung.stdout == "", f"{label} must print nothing to stdout; got {rung.stdout!r}"
+    known_good = _run(
+        "verify",
+        "--slate",
+        str(pair["slate"]),
+        "--snapshot",
+        good,
+        "--fail-on-unresolved",
+        cwd=tmp_path,
+    )
+    assert known_good.returncode == 0, (
+        "the known-GOOD demo pair must still verify at exit 0 -- the false-accusation "
+        f"trap; got {known_good.returncode}; stderr={known_good.stderr!r}"
+    )
+    trailer = _TRAILER_RE.match(_lines(known_good.stdout)[-1])
+    assert trailer is not None, f"the trailer must survive; got {_lines(known_good.stdout)[-1]!r}"
+    assert trailer.group("unresolved") == "0", (
+        f"the bundled pair has zero unresolved sources; got {trailer.group('unresolved')!r}"
+    )
+
+    # Spec 6: PRECEDENCE is unchanged and observable -- with BOTH documents
+    # malformed the snapshot ladder still runs first, so the single error
+    # line names the SNAPSHOT and the code is the snapshot side's 2.
+    bad_snap = _malformed("no_signals_array", tmp_path / "prec_snapshot.json")
+    prec = _run(
+        "verify",
+        "--slate",
+        str(shapes["an_empty_object"]),
+        "--snapshot",
+        str(bad_snap),
+        cwd=tmp_path,
+    )
+    assert prec.returncode == 2, (
+        f"the snapshot ladder runs first, so its exit 2 wins; got {prec.returncode}"
+    )
+    assert prec.stdout == ""
+    prec_errs = _lines(prec.stderr)
+    assert len(prec_errs) == 1, f"exactly ONE error line; got {prec_errs}"
+    assert str(bad_snap) in prec_errs[0], (
+        f"the error must name the SNAPSHOT path, not the slate; got {prec_errs[0]!r}"
+    )
+    assert str(shapes["an_empty_object"]) not in prec_errs[0], (
+        f"the new slate guard must not pre-empt the snapshot guard; got {prec_errs[0]!r}"
+    )
+
 
 # ==========================================================================
 # Behavior 10 -- the hardcoded verb-count literals moved in the SAME commit
