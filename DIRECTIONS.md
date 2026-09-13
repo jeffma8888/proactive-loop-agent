@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-384
+    lenses: new-capability, hardening/DX
+    - Candidate A1 (primary) -- re-land iteration 383's budget-persistence feature, with the eviction re-sized from 486 chars to 80
+    - Candidate A2 -- `run --max-goals N`: the loop dispatches only the single head goal, so a whole slate cannot be worked
+    - Candidate A3 -- per-category autonomy thresholds: one global score gate decides autonomy for every category
+    - Candidate B1 -- the binding `ROADMAP.md` wall is 34 chars wide, no command can print it, and the guard that advertises itself as authoritative overstates the room 18x
+    - Candidate B2 -- a graded gate passes vacuously on the wrong file: any JSON object loads as a slate of zero goals, so `verify --fail-on-unresolved` reports success
+    - Candidate B3 -- roadmap row #218 re-priced today: one exported `PLA_*` knob now reds **31 tests across 12 modules**, up 2.4x from the 13/9 the row records
+    winner: A1
+    ship: pending (not yet decided)
+  iter-383
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- the contract archive still documents three provider functions the loop DELETED two commits ago, and the phantom census is exactly 2 wide
+    - Candidate A2 -- README promises the public decision log records "what was rejected and why"; it records neither, and its newest row currently denies the commit that is HEAD
+    - Candidate A3 -- the rule that has cost this loop six iterations of floor-bump attempts is written down in exactly one place: an assertion message inside a test
+    - Candidate B1 (primary) -- the L1 iteration budget is not persisted, so `pla resume` silently restores the default: I bounded a run at 1 iteration and resumed it to 4
+    - Candidate B2 -- the namesake verb accepts 0 of the 3 perception filters every other perception verb has, so the change feed it produces cannot be quieted at all
+    - Candidate B3 -- `trend --dir` must read EVERY slate in an unbounded stream, so the verb that answers "what has been true all along" cannot answer "what has been true this week"
+    winner: B1
+    ship: REVERTED
   iter-375
     lenses: simplification-and-deletion (iteration 375), performance-and-throughput (iteration 375)
     - Candidate A1 -- `head_file` and `tail_file` are one body: 18 of 20 effective code lines are identical, and the only two that differ are the slice and the trailer
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- settle roadmap row #169 (`--dist worksteal`): its baseline is 3.6x stale, and the tail it targets has grown 2.3x
     - Candidate B3 -- every `pla` invocation pays 307 ms before argparse runs, and 191 ms of that is our own imports
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 5f61ee0
   iter-374
     lenses: integration-and-adoption (iteration 374), simplification-and-deletion (iteration 374)
     - Candidate A1 -- `make demo` bounds its own loop with the shipped `--max-iterations` / `--max-llm-calls`: the L1 budget's first consumer, and the demo's model spend becomes a two-sided ratchet
@@ -59,6 +79,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 -- SPEC.md's orientation map names 9 of 16 top-level entries, publishing a project with no CI, no commit hook and no decision log
     - Candidate B2 -- the published test floor and its own gauge both report false numbers, and the fix is already written, graded, and still applies
     - Candidate B3 -- SPEC.md teaches a test-naming rule that is false by 32 and has already destroyed a shipped oracle
+    stubs: 1 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: B1
     ship: PUSHED f7537a9
   iter-294
@@ -458,6 +479,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 (primary) -- the word iter 232 BANNED still occurs twice in the file it banned it from
     - Candidate B2 -- `SPEC.md` section 2's layout tree names 8 of the 15 tracked top-level entries
     - Candidate B3 -- eight test NAMES report a collector roster the registry outgrew, and the ban's tuple is missing one word
+    stubs: 2 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: B1
     ship: PUSHED eefeee3
   iter-249
@@ -728,6 +750,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 -- Lazy-import the collector registry so the zero-input verbs stop paying for perception
     - Candidate B2 -- Measured-down report on roadmap row #210 (shared walk provider, batch 3)
     - Candidate B3 -- (pending measurement)
+    stubs: 1 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: A1
     ship: PUSHED a1f04e9
   iter-194
@@ -1259,6 +1282,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B1 (primary) -- Two collector docstrings assert a walk parity the code disproves; fix the prose and pin the parity with an AST guard
     - Candidate B2 -- The README's own architecture description names 12 of the 17 collectors; the 5 newest are missing
     - Candidate B3 -- Three of the 21 shipped-row ledger lines cannot be resolved to a commit, and the shas are mechanically derivable
+    stubs: 2 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: A1
     ship: PUSHED 533db40
   iter-141
@@ -1589,7 +1613,7 @@ foundry directions -- proactive-loop-agent
     - I1 -- The one README command aimed at the reader's OWN repo exits 1; make the zero-config first run the LLM-free path and grade every published `pla` line against it
     - I2 -- One machine-readable-stdout purity contract across every JSON emitter, so `pla X --json | jq` is a guaranteed seam
     - I3 -- `pla scan --json` is exit 2 while ten sibling verbs accept `--json`: close the flag-vocabulary inconsistency
-    winner: unknown
+    winner: I1
     ship: PUSHED b83621f
   iter-108
     lenses: NEW CAPABILITY, HARDENING / DX
@@ -1639,6 +1663,7 @@ foundry directions -- proactive-loop-agent
     - Candidate A3 -- Packaging-contract oracle: prove the installable artifact carries the `pla` entry point and the `py.typed` marker
     - Candidate B1 -- Delete the 2 divergent copies of `_SKIP_DIRS`/`_is_hidden`; one canonical definition + an AST single-definition guard
     - Candidates B2/B3 -- IN PROGRESS
+    stubs: 1 of 5 candidate line(s) are write-early placeholders, not measured candidates
     winner: A2
     ship: PUSHED b79c1aa
   iter-103
@@ -1649,7 +1674,7 @@ foundry directions -- proactive-loop-agent
     - I1 -- Document + drift-guard the CLI EXIT-CODE contract (exit 3 and exit 4 exist, are load-bearing, and are documented NOWHERE)
     - I2 -- Give the package a documented top-level import surface -- today `import proactive_loop` yields only `__version__`
     - I3 -- Fix the FIRST command in the Quickstart: bare `uv sync` under a comment claiming "the locked dependency set", with a stale dep list
-    winner: unknown
+    winner: H1
     ship: PUSHED 9cae927
   iter-102
     lenses: NEW CAPABILITY -- iteration 102, HARDENING / DX -- iteration 102
@@ -1757,4 +1782,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-176 scouted iterations
+178 scouted iterations

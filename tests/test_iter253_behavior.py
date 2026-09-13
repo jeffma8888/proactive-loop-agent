@@ -391,6 +391,8 @@ def test_b5_a_non_positive_or_non_integer_value_is_refused_at_parse_time(
 
 def test_b6_the_flag_bounds_the_real_run_and_the_bound_is_the_flags_doing(
     runs: dict[str, dict],
+    workspace: Path,
+    tmp_path: Path,
 ) -> None:
     """Behavior 6: `--max-iterations N` makes the run record exactly N iterations
     for N in (1, 2), and `--max-llm-calls` bounds the call budget independently --
@@ -422,6 +424,46 @@ def test_b6_the_flag_bounds_the_real_run_and_the_bound_is_the_flags_doing(
         f"budget; it spent {calls1['iterations_used']} iteration(s) against the "
         f"control's {control['iterations_used']}"
     )
+
+    # ------------------------------------------------------------------ #
+    # EXTENSION, factory iter 297: the same bound, one verb later.
+    #
+    # A bound that only holds for the invocation that named it is not a
+    # bound, so this iteration's Expected Behaviors 1-5 (the run RECORDS
+    # its effective budget and `resume` continues under it) are graded
+    # here, inside the function that already owns "the bound is real".
+    #
+    # WHY they are helper calls and not five new `test_` functions: live
+    # collection sits at 5,998 against a published `N,N00+` floor whose
+    # rounding window (`live // 100 * 100 == floor` AND `(live + 1) // 100
+    # * 100 == floor`, pinned in five shipped modules) makes 5,999 a RED
+    # public build. Extending an already-collected function buys the
+    # oracles for zero new collected items; each helper still names its
+    # own behavior in every assertion message.
+    # ------------------------------------------------------------------ #
+    _b297_1_the_effective_budget_is_recorded(tmp_path, workspace)
+    _b297_2_resume_obeys_the_recorded_bound(tmp_path, workspace)
+    _b297_2b_the_recorded_bound_is_read_not_merely_the_status(tmp_path, workspace)
+    _b297_3_the_environment_still_overrides_the_record(tmp_path, workspace)
+    _b297_4_an_absent_or_null_record_still_resumes(tmp_path, workspace)
+    _b297_5_a_corrupt_record_is_loud_not_silent(tmp_path, workspace)
+
+    # ------------------------------------------------------------------ #
+    # EXTENSION, factory iter 297 (second opinion, written independently).
+    #
+    # `tests/test_iter262_behavior.py` grades the two Expected Behaviors the
+    # arms above leave ungraded -- `meta.json` carries EXACTLY the four keys,
+    # and `dispatch` records them too -- then re-grades behaviors 3-5 across
+    # the dispatch -> resume boundary. It is imported HERE, inside the
+    # function body, rather than at module scope: that module imports this
+    # one's harness helpers at ITS module scope, so a top-level import back
+    # would be a cycle.
+    #
+    # Same zero-new-collected-items reason as the block above.
+    # ------------------------------------------------------------------ #
+    from tests.test_iter262_behavior import iter384_arms
+
+    iter384_arms(tmp_path)
 
 
 # --------------------------------------------------------------------------- b7
@@ -508,3 +550,422 @@ def test_b7_the_docs_and_the_roadmap_record_ship_in_the_same_commit() -> None:
     # violation (measured: it failed both of that module's membership brakes).
     # The clause is graded where it is sanctioned -- `test_roadmap_size_budget.py`
     # and the allowlisted iteration modules.
+
+
+# --------------------------------------------------------------------------- #
+# EXTENSION -- factory iter 297: the recorded bound survives into `resume`
+#
+# `pla run` records its EFFECTIVE L1 budget in the run dir's `meta.json`, and
+# `pla resume` continues that run under the recorded bound instead of silently
+# reverting to the built-in 8/24 default.
+#
+# The defect this closes, measured at HEAD 5f61ee0 offline with the bundled
+# fixture: a run bounded to `--max-iterations 1` stopped at 1 iteration / 2 LLM
+# calls, and ONE `pla resume` on its run dir drove it to 4 iterations / 8 calls
+# and `status: done` -- three iterations and six calls past the bound the user
+# set, with ACT tools mutating the workspace the whole way and no warning.
+# `iterations_used` is cumulative and persisted, so `max_iterations` is
+# definitionally a per-RUN total; it was sourced per-INVOCATION.
+#
+# Black-box only: every claim below is read out of `meta.json`,
+# `checkpoint.json`, the artifacts listing, the exit code, or the child
+# process's own stdout/stderr.
+# --------------------------------------------------------------------------- #
+
+#: The two keys a producing run records beside the roots a resume already needed.
+RECORDED_BUDGET_KEYS: tuple[str, str] = ("max_iterations", "max_llm_calls")
+
+#: The built-in L1 defaults, i.e. what an invocation with no budget flag and no
+#: `PLA_MAX_*` in its environment must record. Recording them is what makes an
+#: OLD run dir distinguishable from a new one that genuinely chose the defaults.
+BUILTIN_BUDGET: dict[str, int] = {"max_iterations": 8, "max_llm_calls": 24}
+
+#: Recorded values that are present, non-null and NOT an integer >= 1, each
+#: paired with the key it corrupts. `True` is in the set deliberately: JSON
+#: `true` deserializes to an `int` SUBCLASS, so a bare `>= 1` guard would accept
+#: it as a budget of 1 and a safety bound would be set by a typo.
+CORRUPT_RECORDS: tuple[tuple[str, object], ...] = (
+    ("max_iterations", 0),
+    ("max_iterations", -1),
+    ("max_iterations", "abc"),
+    ("max_llm_calls", 1.5),
+    ("max_llm_calls", True),
+)
+
+#: The message family the metadata reader already publishes. Asserted so this
+#: iteration adds a REASON TAIL to a shipped sentence rather than inventing a
+#: second dialect of the same failure.
+META_ERROR_PREFIX: str = "invalid run metadata file"
+
+
+def _sole_run_dir(state_dir: Path) -> Path:
+    """The one ``run-*`` directory a single dispatching invocation created."""
+    found = sorted(p for p in state_dir.glob("run-*") if p.is_dir())
+    assert len(found) == 1, (
+        f"exactly one run dir must exist under {state_dir}; found "
+        f"{[p.name for p in found]}"
+    )
+    return found[0]
+
+
+def _document(path: Path) -> dict[str, object]:
+    """One JSON document as a mapping, naming the file when it is not one."""
+    raw = path.read_text(encoding="utf-8")
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(f"{path} must be valid JSON; {exc}\n{raw[:400]}") from exc
+    assert isinstance(loaded, dict), (
+        f"{path} must parse as a JSON object; parsed as {type(loaded).__name__}"
+    )
+    return loaded
+
+
+def _spent(run_dir: Path) -> tuple[object, object, object]:
+    """``(status, iterations_used, llm_calls_used)`` as the checkpoint records it."""
+    doc = _document(run_dir / "checkpoint.json")
+    missing = [k for k in ("status", "iterations_used", "llm_calls_used") if k not in doc]
+    assert not missing, (
+        f"{run_dir.name}/checkpoint.json must record {missing}; keys: {sorted(doc)}"
+    )
+    return (doc["status"], doc["iterations_used"], doc["llm_calls_used"])
+
+
+def _artifact_names(run_dir: Path) -> list[str]:
+    """Every file in the run's recorded artifacts directory, sorted.
+
+    Read from the RECORDED path rather than assumed, so a resume that wrote
+    somewhere else would show up as a missing file instead of being invisible.
+    """
+    meta_path = run_dir / "meta.json"
+    recorded = _document(meta_path).get("artifacts_dir") if meta_path.is_file() else None
+    directory = Path(recorded) if isinstance(recorded, str) else run_dir / "artifacts"
+    if not directory.is_dir():
+        return []
+    return sorted(p.name for p in directory.rglob("*") if p.is_file())
+
+
+def _produced(
+    root: Path,
+    workspace: Path,
+    *extra: str,
+    label: str,
+    env: dict[str, str] | None = None,
+) -> Path:
+    """One offline ``run`` under a private state dir; returns its run dir.
+
+    A FRESH run per case, never a copy of one: both `meta.json` and
+    `checkpoint.json` record absolute paths into the run dir that produced them,
+    so a copied dir would resume against the original's artifacts and the
+    "wrote no new artifact" claim below would grade the wrong directory.
+    """
+    state_dir = root / f"state-{label}"
+    proc = _cli(
+        "run",
+        "--workspace",
+        str(workspace),
+        *_offline(state_dir),
+        *extra,
+        cwd=root,
+        env=env,
+    )
+    assert proc.returncode == 0, (
+        f"{label}: an offline run must exit 0; got {proc.returncode}\n"
+        f"stderr:\n{proc.stderr}"
+    )
+    return _sole_run_dir(state_dir)
+
+
+def _resumed(
+    run_dir: Path, *, cwd: Path, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """One offline ``resume`` of ``run_dir``, with no budget flag anywhere.
+
+    `resume` declares no budget flag (that ownership is pinned to `run` by
+    ``test_b1``/``test_b2`` above), so what bounds this invocation can only come
+    from the environment, the recorded metadata, or the built-in default.
+    """
+    return _cli(
+        "resume",
+        "--run-dir",
+        str(run_dir),
+        "--provider",
+        "scripted",
+        "--scripted-responses",
+        str(SCRIPT),
+        cwd=cwd,
+        env=env,
+    )
+
+
+def _rewrite_meta(run_dir: Path, **changes: object) -> None:
+    """Edit the recorded metadata in place, as an old or mangled run dir differs."""
+    path = run_dir / "meta.json"
+    doc = _document(path)
+    for key, value in changes.items():
+        if value is _DROP:
+            doc.pop(key, None)
+        else:
+            doc[key] = value
+    path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+
+#: Sentinel for `_rewrite_meta`: remove the key instead of setting it, which is
+#: what a run dir written before this feature looks like.
+_DROP: object = object()
+
+
+def _b297_1_the_effective_budget_is_recorded(root: Path, workspace: Path) -> None:
+    """Behavior 1: the run dir records the budget the run actually ran under.
+
+    Both arms matter. The flagged run proves the RECORD follows the flag, and
+    the unflagged run proves an absent flag records the resolved default rather
+    than nothing -- otherwise "absent" would have two meanings.
+    """
+    cases = (
+        ("flagged", ("--max-iterations", "1"), {"max_iterations": 1, "max_llm_calls": 24}),
+        ("default", (), BUILTIN_BUDGET),
+    )
+    for label, extra, expected in cases:
+        run_dir = _produced(root, workspace, *extra, label=f"b297-1-{label}")
+        meta = _document(run_dir / "meta.json")
+        for key in ("workspace_root", "artifacts_dir"):
+            assert isinstance(meta.get(key), str), (
+                f"behavior 1 ({label}): recording the budget must not disturb the "
+                f"roots a resume already needed; `{key}` is {meta.get(key)!r}\n"
+                f"document: {meta}"
+            )
+        for key in RECORDED_BUDGET_KEYS:
+            value = meta.get(key)
+            assert isinstance(value, int) and not isinstance(value, bool) and value >= 1, (
+                f"behavior 1 ({label}): {run_dir.name}/meta.json must record `{key}` "
+                f"as a JSON integer >= 1; got {value!r}\ndocument: {meta}"
+            )
+            assert value == expected[key], (
+                f"behavior 1 ({label}): the recorded `{key}` must be the run's "
+                f"EFFECTIVE setting {expected[key]}; recorded {value!r}"
+            )
+
+
+def _b297_2_resume_obeys_the_recorded_bound(root: Path, workspace: Path) -> None:
+    """Behavior 2: resuming an already-exhausted run does nothing at all.
+
+    Graded on BOTH halves of the budget, because either one alone leaves the
+    other verb able to spend past the user's bound.
+    """
+    cases = (
+        ("iters", ("--max-iterations", "1"), 1, 1),
+        ("calls", ("--max-llm-calls", "2"), 2, 2),
+    )
+    for label, extra, index, bound in cases:
+        run_dir = _produced(root, workspace, *extra, label=f"b297-2-{label}")
+        before = _spent(run_dir)
+        artifacts_before = _artifact_names(run_dir)
+        assert before[0] == "budget_exhausted", (
+            f"behavior 2 ({label}): the producing run must stop AT its bound for a "
+            f"resume to have something to obey; checkpoint says {before}"
+        )
+        assert before[index] == bound, (
+            f"behavior 2 ({label}): the producing run must have spent exactly "
+            f"{bound}; checkpoint says {before}"
+        )
+        proc = _resumed(run_dir, cwd=root)
+        assert proc.returncode == 0, (
+            f"behavior 2 ({label}): resuming an exhausted run is a NORMAL outcome, "
+            f"not an error; exit {proc.returncode}\nstderr:\n{proc.stderr}"
+        )
+        after = _spent(run_dir)
+        assert after == before, (
+            f"behavior 2 ({label}): `resume` must not spend past the bound recorded "
+            f"by the producing run. Before {before}, after {after} -- the bound the "
+            f"user set was escaped by the second verb."
+        )
+        assert _artifact_names(run_dir) == artifacts_before, (
+            f"behavior 2 ({label}): an exhausted resume performs no PLAN/ACT/CHECK "
+            f"iteration, so it writes no new artifact; before {artifacts_before}, "
+            f"after {_artifact_names(run_dir)}"
+        )
+
+
+def _b297_2b_the_recorded_bound_is_read_not_merely_the_status(
+    root: Path, workspace: Path
+) -> None:
+    """Behavior 2, sharpened: the recorded NUMBER is the bound, not the status.
+
+    `_b297_2` above cannot separate "the resume honored the recorded budget" from
+    "the resume refuses to act once the persisted status says exhausted" -- both
+    readings leave the checkpoint untouched, so the cheaper wrong one would pass
+    it. This arm therefore records a bound the checkpoint has NOT yet reached (3
+    against a spent 1) and demands the resume run to exactly that number, which
+    makes three outcomes distinguishable:
+
+    * `("budget_exhausted", 3)` -- the recorded value is the live bound. Correct.
+    * `("done", 4)` -- the record was ignored and the built-in default applied.
+    * `("budget_exhausted", 1)` -- only the persisted status was consulted.
+    """
+    run_dir = _produced(root, workspace, "--max-iterations", "1", label="b297-2b")
+    before = _spent(run_dir)
+    assert before[:2] == ("budget_exhausted", 1), (
+        "behavior 2b needs a run stopped at exactly 1 iteration to raise the bound "
+        f"on; checkpoint says {before}"
+    )
+    raised = 3
+    _rewrite_meta(run_dir, max_iterations=raised)
+    proc = _resumed(run_dir, cwd=root)
+    assert proc.returncode == 0, (
+        f"behavior 2b: resuming under a raised recorded bound must exit 0; got "
+        f"{proc.returncode}\nstderr:\n{proc.stderr}"
+    )
+    status, iterations, _ = _spent(run_dir)
+    assert (status, iterations) == ("budget_exhausted", raised), (
+        f"behavior 2b: with `max_iterations: {raised}` recorded, the resume must spend "
+        f"up to exactly {raised} iteration(s) and stop there. Checkpoint says "
+        f"{(status, iterations)} -- ('done', 4) means the recorded value was ignored "
+        "and the 8/24 default applied, ('budget_exhausted', 1) means only the "
+        "persisted status was consulted, never the number."
+    )
+
+
+def _b297_3_the_environment_still_overrides_the_record(root: Path, workspace: Path) -> None:
+    """Behavior 3: precedence is `PLA_MAX_*` env > recorded > built-in default."""
+    run_dir = _produced(root, workspace, "--max-iterations", "1", label="b297-3")
+    recorded = _document(run_dir / "meta.json").get("max_iterations")
+    assert recorded == 1, (
+        f"behavior 3 needs a run dir recording a bound of 1 to override; got {recorded!r}"
+    )
+    proc = _resumed(run_dir, cwd=root, env=_clean_env(PLA_MAX_ITERATIONS="16"))
+    assert proc.returncode == 0, (
+        f"behavior 3: an env-raised resume must exit 0; got {proc.returncode}\n"
+        f"stderr:\n{proc.stderr}"
+    )
+    status, iterations, _ = _spent(run_dir)
+    assert (status, iterations) == ("done", 4), (
+        "behavior 3: PLA_MAX_ITERATIONS=16 must beat the recorded bound of 1 and let "
+        f"the loop finish exactly as it does at HEAD; checkpoint says {(status, iterations)}"
+    )
+
+    # The SAME precedence on the other half of the budget. Graded separately
+    # because a layering built for one key and hardcoded for the other reads
+    # identically in a report and leaves half the bound unreachable.
+    calls_dir = _produced(root, workspace, "--max-llm-calls", "2", label="b297-3-calls")
+    recorded_calls = _document(calls_dir / "meta.json").get("max_llm_calls")
+    assert recorded_calls == 2, (
+        "behavior 3 (calls) needs a run dir recording a call bound of 2 to override; "
+        f"got {recorded_calls!r}"
+    )
+    proc = _resumed(calls_dir, cwd=root, env=_clean_env(PLA_MAX_LLM_CALLS="24"))
+    assert proc.returncode == 0, (
+        f"behavior 3 (calls): an env-raised resume must exit 0; got {proc.returncode}\n"
+        f"stderr:\n{proc.stderr}"
+    )
+    status, iterations, calls = _spent(calls_dir)
+    assert (status, iterations) == ("done", 4), (
+        "behavior 3 (calls): PLA_MAX_LLM_CALLS=24 must beat the recorded bound of 2 and "
+        f"let the loop finish; checkpoint says {(status, iterations, calls)}"
+    )
+    assert isinstance(calls, int) and calls > recorded_calls, (
+        "behavior 3 (calls): the env-raised resume must actually spend PAST the "
+        f"recorded {recorded_calls} call(s); it recorded {calls!r}"
+    )
+
+
+def _b297_4_an_absent_or_null_record_still_resumes(root: Path, workspace: Path) -> None:
+    """Behavior 4: a run dir from BEFORE this feature resumes unchanged.
+
+    Absent stays tolerated -- the metadata reader's documented posture for a
+    missing file -- so an upgrade never strands a run dir already on disk.
+    """
+    cases: tuple[tuple[str, dict[str, object] | None], ...] = (
+        ("dropped", {"max_iterations": _DROP, "max_llm_calls": _DROP}),
+        ("null", {"max_iterations": None, "max_llm_calls": None}),
+        ("no-meta", None),
+    )
+    for label, changes in cases:
+        run_dir = _produced(root, workspace, "--max-iterations", "1", label=f"b297-4-{label}")
+        if changes is None:
+            (run_dir / "meta.json").unlink()
+        else:
+            _rewrite_meta(run_dir, **changes)
+        proc = _resumed(run_dir, cwd=root)
+        assert proc.returncode == 0, (
+            f"behavior 4 ({label}): an unrecorded budget is not an error; exit "
+            f"{proc.returncode}\nstderr:\n{proc.stderr}"
+        )
+        assert "error:" not in proc.stderr, (
+            f"behavior 4 ({label}): nothing may be reported on stderr for a run dir "
+            f"that simply predates the feature; stderr:\n{proc.stderr}"
+        )
+        status, iterations, _ = _spent(run_dir)
+        assert (status, iterations) == ("done", 4), (
+            f"behavior 4 ({label}): with no recorded budget the resume falls back to "
+            f"the built-in default and finishes as it does at HEAD; checkpoint says "
+            f"{(status, iterations)}"
+        )
+
+
+def _b297_5_a_corrupt_record_is_loud_not_silent(root: Path, workspace: Path) -> None:
+    """Behavior 5: a present-but-invalid recorded budget refuses, quietly framed.
+
+    One run dir serves every case precisely BECAUSE the refusal must not advance
+    the checkpoint: if any case did, the next one would start from a mutated
+    run and the loop itself would report it.
+    """
+    run_dir = _produced(root, workspace, "--max-iterations", "1", label="b297-5")
+    pristine = (run_dir / "meta.json").read_text(encoding="utf-8")
+    before = _spent(run_dir)
+    for key, value in CORRUPT_RECORDS:
+        _rewrite_meta(run_dir, **{key: value})
+        proc = _resumed(run_dir, cwd=root)
+        case = f"behavior 5 ({key}={value!r})"
+        assert proc.returncode == 1, (
+            f"{case}: a corrupt recorded budget must exit 1, never run on a value it "
+            f"could not read; exit {proc.returncode}\nstdout:\n{proc.stdout}\n"
+            f"stderr:\n{proc.stderr}"
+        )
+        assert proc.stdout == "", (
+            f"{case}: a refused resume prints nothing on stdout, so a `--json` "
+            f"consumer never sees half a document; stdout:\n{proc.stdout}"
+        )
+        lines = [line for line in proc.stderr.splitlines() if line.strip()]
+        assert len(lines) == 1, (
+            f"{case}: exactly one line goes to stderr; got {len(lines)}:\n{proc.stderr}"
+        )
+        assert lines[0].startswith("error: "), (
+            f"{case}: the line must use the product's `error: ` prefix; got:\n{lines[0]}"
+        )
+        assert META_ERROR_PREFIX in lines[0], (
+            f"{case}: reuse the shipped metadata message family "
+            f"({META_ERROR_PREFIX!r}) rather than a second dialect; got:\n{lines[0]}"
+        )
+        assert key in lines[0], (
+            f"{case}: the line must NAME the offending key so the user can fix the "
+            f"file; got:\n{lines[0]}"
+        )
+        for token in (*VENDOR_DUMP_TOKENS, "Traceback"):
+            assert token not in proc.stderr, (
+                f"{case}: {token!r} must never reach a user's terminal; stderr:\n"
+                f"{proc.stderr}"
+            )
+        assert _spent(run_dir) == before, (
+            f"{case}: a refusal must not advance the checkpoint; before {before}, "
+            f"after {_spent(run_dir)}"
+        )
+        (run_dir / "meta.json").write_text(pristine, encoding="utf-8")
+
+    # The refusal is scoped to RESUME. `pla runs` reads the same file and its
+    # documented contract is that one bad run never aborts a listing, so a
+    # validator pushed down into the shared reader would break a shipped verb
+    # while every assertion above still passed.
+    _rewrite_meta(run_dir, max_iterations=0)
+    listing = _cli("runs", "--state-dir", str(run_dir.parent), "--json", cwd=root)
+    assert listing.returncode == 0, (
+        "behavior 5 (listing): a corrupt recorded budget refuses a RESUME, but "
+        f"`pla runs` must still exit 0; got {listing.returncode}\n"
+        f"stderr:\n{listing.stderr}"
+    )
+    assert run_dir.name in listing.stdout, (
+        f"behavior 5 (listing): `pla runs` must still name {run_dir.name} despite the "
+        f"corrupt recorded budget -- one bad run may never abort a listing; stdout:\n"
+        f"{listing.stdout}"
+    )
+    (run_dir / "meta.json").write_text(pristine, encoding="utf-8")

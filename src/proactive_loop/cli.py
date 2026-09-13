@@ -43,7 +43,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 from . import __version__
-from .config import Settings
+from .config import ENV_PREFIX, Settings
 from .collectors import SIGNAL_KINDS, all_collectors
 from .collectors import dir_source, text_source
 from .collectors.base import record_degradations
@@ -1988,8 +1988,12 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
     ``Settings.from_env`` drops ``None`` overrides, so an unspecified flag never
     clobbers an environment value or the built-in default. That contract is what
     lets this ONE fold serve every verb: the two L1 budget flags are declared on
-    ``run`` alone, and ``getattr(..., None)`` reads them as absent on every other
-    verb's namespace, so no caller needs a branch and no other verb changes.
+    ``run`` alone, and ``getattr(..., None)`` reads them as absent on any namespace
+    that does not carry them, so no caller needs a branch. One verb DOES carry them
+    without declaring them: :func:`_cmd_resume` injects the budget recorded in its
+    run's ``meta.json`` onto its own namespace (see
+    :func:`_apply_recorded_budget`), precisely so it can reach this fold as a flag
+    would rather than growing a second settings path.
     """
     scripted = getattr(args, "scripted_responses", None)
     state_dir = getattr(args, "state_dir", None)
@@ -2972,8 +2976,14 @@ def _run_json_payload(
     return payload
 
 
-def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> None:
-    """Record the roots a `resume` needs (RunState alone lacks workspace_root).
+def _write_meta(
+    run_dir: Path,
+    workspace_root: Path,
+    artifacts_dir: Path,
+    *,
+    settings: Settings | None = None,
+) -> None:
+    """Record what a `resume` needs: the two roots, and the L1 budget it must obey.
 
     Written with the same temp-sibling + ``os.replace`` + ``finally``-cleanup
     idiom as :func:`_write_slate` and :class:`Checkpoint`, and for a sharper
@@ -2989,17 +2999,30 @@ def _write_meta(run_dir: Path, workspace_root: Path, artifacts_dir: Path) -> Non
     demand for parity with the sibling writers (the sole caller already creates
     the run dir, so that tolerance is idiom parity, not a live-bug fix) -- the idiom
     now BEING :func:`~proactive_loop.models.atomic_write_text`, shared with them.
+
+    The THIRD thing a resume needs is the run's EFFECTIVE L1 budget
+    (``max_iterations``/``max_llm_calls``), recorded when *settings* is given.
+    ``iterations_used`` is a CUMULATIVE, checkpointed total that
+    :class:`~proactive_loop.loop.GoalLoop` compares against
+    ``settings.max_iterations``, so that bound is definitionally a per-RUN total --
+    yet without this record it is sourced per-INVOCATION, and ``resume`` (which
+    declares no budget flags) silently restored the built-in 8/24 default and drove
+    the loop past a bound the user set. A safety bound a second verb resets is not a
+    bound.
+
+    *settings* is KEYWORD-ONLY and OPTIONAL because the budget is a fact only a
+    caller mid-execution has: the sole production call site (:func:`_execute_goal`)
+    always passes it, while a caller that only wants the roots persisted stays a
+    three-argument call and writes the two-key file it wrote before.
     """
-    atomic_write_text(
-        run_dir / _META_NAME,
-        json.dumps(
-            {
-                "workspace_root": str(workspace_root),
-                "artifacts_dir": str(artifacts_dir),
-            },
-            indent=2,
-        ),
-    )
+    payload: dict[str, object] = {
+        "workspace_root": str(workspace_root),
+        "artifacts_dir": str(artifacts_dir),
+    }
+    if settings is not None:
+        payload["max_iterations"] = settings.max_iterations
+        payload["max_llm_calls"] = settings.max_llm_calls
+    atomic_write_text(run_dir / _META_NAME, json.dumps(payload, indent=2))
 
 
 def _read_meta(run_dir: Path) -> dict[str, Any]:
@@ -3040,6 +3063,60 @@ def _read_meta(run_dir: Path) -> dict[str, Any]:
         return json.loads(path.read_text()) if path.is_file() else {}
     except ValueError as exc:
         raise ValueError(f"invalid run metadata file '{path}': {exc}") from None
+
+
+_META_BUDGET_KEYS = ("max_iterations", "max_llm_calls")
+
+
+def _apply_recorded_budget(
+    args: argparse.Namespace, run_dir: Path, meta: dict[str, Any]
+) -> None:
+    """Fold *run_dir*'s RECORDED L1 budget onto *args*, BELOW the environment.
+
+    ``resume`` continues a run whose ``iterations_used`` is cumulative, so the
+    bound the producing invocation ran under is the bound this one must respect;
+    without this fold ``_settings`` reads both budget attributes as absent on
+    resume's namespace and the built-in 8/24 default silently replaces, say, a
+    ``--max-iterations 1``.
+
+    WHY it writes onto the handler's OWN namespace rather than taking a branch in
+    :func:`_settings`: the two budget flags are declared on ``run`` alone and that
+    parser fact is contracted, so injecting the recorded values here lets the ONE
+    shared fold apply them exactly as it applies a flag -- no second settings path,
+    no new flag on ``resume``, and every other verb untouched.
+
+    WHY it consults ``os.environ`` directly instead of reading ``Settings``: the
+    precedence must be ``PLA_MAX_*`` env > recorded > built-in default, and
+    ``Settings.from_env`` cannot report WHERE a value came from -- an env var equal
+    to the default is indistinguishable from no env var at all. So this asks the
+    environment the same question ``config.py``'s own reader asks (present AND
+    non-empty), through config's ``ENV_PREFIX`` so the two cannot drift on the
+    prefix, and skips the injection when the answer is yes. An env var that is
+    present but malformed is still not this function's business: it fails, named,
+    inside ``Settings.from_env`` exactly as it does today.
+
+    A recorded value that is absent or ``null`` is skipped -- run dirs written
+    before this record existed must keep resuming -- but a value that is PRESENT
+    and not an integer >= 1 raises, because a bound nobody can enforce must not be
+    quietly downgraded to 8/24 on the one verb whose job is to keep running an
+    autonomous loop. The message joins :func:`_read_meta`'s family
+    (``invalid run metadata file '<path>': <reason>``) so both ``meta.json``
+    failures read as one, and it is raised HERE rather than inside ``_read_meta``,
+    whose tolerance ``pla runs`` depends on: one bad run must never abort a listing.
+    ``bool`` is excluded explicitly because JSON ``true`` deserializes to an
+    ``int``-subclass instance that would otherwise pass as ``1``.
+    """
+    for key in _META_BUDGET_KEYS:
+        recorded = meta.get(key)
+        if recorded is None:
+            continue
+        if isinstance(recorded, bool) or not isinstance(recorded, int) or recorded < 1:
+            raise ValueError(
+                f"invalid run metadata file '{run_dir / _META_NAME}': "
+                f"{key} must be an integer >= 1, got {recorded!r}"
+            )
+        if os.environ.get(f"{ENV_PREFIX}{key.upper()}", "") == "":
+            setattr(args, key, recorded)
 
 
 def _iter_run_dirs(state_dir: Path) -> list[Path]:
@@ -4885,7 +4962,7 @@ def _execute_goal(
     run_dir = settings.state_dir / f"run-{goal.id}"
     artifacts_dir = run_dir / _ARTIFACTS_NAME
     ensure_dir(run_dir)
-    _write_meta(run_dir, workspace_root, artifacts_dir)
+    _write_meta(run_dir, workspace_root, artifacts_dir, settings=settings)
 
     tools = ToolRegistry(workspace_root=workspace_root, artifacts_dir=artifacts_dir)
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
@@ -5464,6 +5541,12 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     ``--json`` publishes the finished run as the SAME nine-key document
     ``dispatch --json`` publishes, so the one verb a supervising script re-invokes
     after a failure reports its result machine-readably instead of in English.
+
+    The L1 budget it runs under is the PRODUCING run's, read from ``meta.json``:
+    precedence is ``PLA_MAX_*`` env > the recorded value > the built-in 8/24
+    default. This verb declares no budget flags, so before that record existed one
+    ``resume`` could carry a run several iterations past the bound its ``run``
+    invocation set.
     """
     run_dir = Path(args.run_dir)
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
@@ -5472,8 +5555,12 @@ def _cmd_resume(args: argparse.Namespace) -> int:
         print(f"error: no checkpoint found in {run_dir}", file=sys.stderr)
         return 2
 
-    settings = _settings(args)
+    # Metadata is read BEFORE the settings fold because it now CARRIES a setting:
+    # the producing run's L1 budget. A corrupt file therefore fails the verb at the
+    # same exit 1 it already failed at, one step earlier.
     meta = _read_meta(run_dir)
+    _apply_recorded_budget(args, run_dir, meta)
+    settings = _settings(args)
     workspace_root = Path(meta.get("workspace_root", "."))
     artifacts_dir = (
         Path(state.artifacts_dir) if state.artifacts_dir else run_dir / _ARTIFACTS_NAME

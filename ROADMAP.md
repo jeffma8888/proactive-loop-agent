@@ -1,11 +1,10 @@
 # Enhancement Roadmap
 
 A maturity/enhancement backlog layered on the shipped **v0.1.1**, grounded in
-[`SPEC.md`](SPEC.md). The product is already complete and tested (134 tests
-green through iter-02); everything here is a small, self-contained increment
+[`SPEC.md`](SPEC.md). Everything here is a small, self-contained increment
 that raises the bar of an existing layer — L2 scout perception, L1 loop
 execution, L0 resilience/observability, or CLI/DX — without breaking the public
-contracts. Each iteration of the dev loop selects exactly one row.
+contracts. Each iteration selects exactly one row.
 
 Ordering is by leverage on the product's thesis ("a proactivity layer that is
 resilient by design"), balanced against blast radius, with one standing
@@ -14,7 +13,7 @@ repo) outranks a net-new capability. Per-row reasoning lives in that
 iteration's `pm.md`; the full verbatim history is in
 [`ROADMAP_ARCHIVE.md`](ROADMAP_ARCHIVE.md).
 
-> **This file is an INDEX, deliberately kept small.** It grew to 200KB of settled history, which pushed the PM stage past the agent CLI's hard 600-second timeout and stalled the loop entirely (iteration 90 lost all four attempts, producing nothing).
+> **This file is an INDEX, deliberately kept small.** It grew to 200KB of settled history, which pushed the PM stage past the agent CLI's hard 600-second timeout and stalled the loop entirely (iteration 90 lost all four attempts).
 >
 > Read [`ROADMAP_ARCHIVE.md`](ROADMAP_ARCHIVE.md) ONLY when you need one specific row's detail; never read it wholesale.
 >
@@ -120,3 +119,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #276 `make clone-check` runs the whole suite inside a throwaway fresh clone with the working tree committed into it, so the mtime-vacuity and frozen-row-vs-mutable-`HEAD` failures that reverted iters 278 and 371 are visible before the ship gate; opt-in (~74s), never wired into `check` or CI (foundry iter 294)
 - #277 One `_OPENAI_SHAPED` table of 3 string rows plus one shared factory replaces the hand-copied `_create_openai` / `_create_groq` / `_create_together` bodies, taking `def _create_` from 7 to 5 while all 7 `create_client` branches keep their lazy in-branch SDK imports (foundry iter 295)
 - #278 One `_peek_file(path, args, *, tool, render)` owns the resolve-read-split half `loop/tools.py` hand-copied in `_head_file` / `_tail_file`; the seam sits AFTER `_reject_unsafe`, so each handler keeps its own refusal wording and order; row #273's READ resolver stays open (foundry iter 296)
+- #279 `run`/`dispatch` record the L1 budget in `meta.json`; `resume` runs under it, env first (foundry iter 297)
