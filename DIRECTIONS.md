@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-387
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- the four workspace verbs hand-copy their front-door guard prelude, and the `--snapshot` pre-check in two of them is the same 5 lines one dedent apart
+    - Candidate A2 -- `_search_files` and `_find_files` hand-copy the sandbox root-resolution block verbatim, including its 8-line security WHY comment
+    - Candidate A3 -- `_console_script` is hand-copied into 24 test modules in 8 byte-forms; one shared home deletes 247 lines and zero collected items
+    - Candidate B1 (primary) -- cap the xdist pool: settle queued roadmap row #257 with today's numbers, and pay its now-visible fourth-token cost
+    - Candidate B2 -- the 42s critical-path test is 3.79s of work: make the child cheap instead of making the machine bigger
+    - Candidate B3 -- the product's own hot path: 82.5% of a scan is two collectors, and the memo that could skip it cannot survive the verb users actually run
+    winner: A1
+    ship: pending (not yet decided)
   iter-386
     lenses: integration-and-adoption (iteration 386), simplification-and-deletion (iteration 386)
     - Candidate A1 -- `pla policy --json` gets its first executable consumer: the graded autonomy grader reaches past the published contract into `Settings`
@@ -11,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- (being measured)
     stubs: 1 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: A3
-    ship: pending (not yet decided)
+    ship: PUSHED 6cda16b
   iter-385
     lenses: hardening/DX, integration-and-adoption
     - Candidate B1 -- swap `verify`'s two arguments and one side fails closed while the other reports success: the CI gate cannot fail on a degenerate slate
@@ -1804,4 +1814,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-180 scouted iterations
+181 scouted iterations

@@ -21,10 +21,34 @@ Every test runs fully offline: zero network, zero API keys. Behaviors that
 prove a *bad* path exercise the ``scripted`` provider only for realism, and the
 fast-fail behavior (B4) deliberately uses the ``anthropic`` provider with NO key
 and NO scripted file to prove the guard short-circuits before any provider work.
+
+ITERATION-387 ARMS (factory iter 300, appended -- nothing above was changed).
+The guard population has since grown from ``scan``/``run`` to
+``scan``/``run``/``signals``/``watch``, each carrying its own hand-copied copy of
+these three lines; iteration 387 collapses the four copies into ONE shared
+front-door helper with the message, the exit code and the guard ORDER unchanged.
+The arms live inside the two existing tests whose subject they extend --- the
+cross-verb population loop (``test_b6_*``) and the valid-directory regression
+(``test_b7_scan_valid_dir_unaffected``) --- because the suite's published test
+floor sits AT its rounding ceiling (measured 5998 live, and
+``tests/test_iter256_behavior.py::test_b3_*`` reds the build on collected item
+5999), so this iteration's oracle must add ZERO collected items. This module
+deliberately does NOT spell the floor number: doing so registered it as an
+undeclared floor CLAIMANT and reddened six carrier censuses on the first run. They pin what
+four copies could satisfy only by accident: CROSS-VERB byte-identity of the
+rejection line, an empty stdout, ``is_dir()`` (not ``exists()``) semantics, that
+nothing is written, that the workspace guard still outranks the output-target
+guards, and --- by an AST census of the shipped ``src/proactive_loop/cli.py``,
+resolved BY NAME and never by line number --- that the rule has exactly one
+definition which all four verb handlers reach. The census reads the WORKTREE
+file, which is the tree that ships and the tree a fresh clone checks out; the
+author still read no implementation source, no engineer/reviewer note and no
+``git diff``.
 """
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from proactive_loop.cli import main
@@ -69,6 +93,90 @@ def _run_bad(ws: Path, tmp_path: Path) -> list[str]:
         "--scripted-responses", str(SCRIPT),
         "--state-dir", str(tmp_path / "state"),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Iteration-387 helpers -- the FOUR verbs that share the one front-door guard
+# ---------------------------------------------------------------------------
+
+_ITER387_VERBS = ("scan", "run", "signals", "watch")
+_ITER387_HANDLERS = ("_cmd_scan", "_cmd_run", "_cmd_signals", "_cmd_watch")
+
+# The output-target rejections the workspace guard must keep outranking:
+# `error: --out parent is not a directory: <p>` and its --snapshot / --out-dir
+# siblings all share this fragment, so one substring covers the family.
+_OUTPUT_TARGET_MSG = "parent is not a directory"
+
+_PRINT_LITERAL = 'print(f"error: workspace not found:'
+_ISDIR_LITERAL = "workspace.is_dir()"
+
+CLI_SOURCE = REPO / "src" / "proactive_loop" / "cli.py"
+
+
+def _bad_argv(verb: str, ws: Path, sandbox: Path) -> list[str]:
+    """Argv driving `verb` at a bad ``--workspace``, with EVERY output target the
+    verb accepts pointed inside `sandbox`.
+
+    That is what lets one ``sandbox.iterdir() == []`` assertion stand in for "no
+    slate, no snapshot, no state dir, no ``run-*``, no tick dir". ``watch`` is
+    deliberately BOUNDED (``--max-scans 1 --interval 0``): if a regression ever
+    let a bad workspace through, the verb must still terminate instead of
+    blocking the suite forever on its default 3600s sleep.
+    """
+    scripted = ["--provider", "scripted", "--scripted-responses", str(SCRIPT)]
+    state = ["--state-dir", str(sandbox / "state")]
+    if verb == "scan":
+        return [
+            "scan", "--workspace", str(ws), *scripted, *state,
+            "--out", str(sandbox / "slate.json"),
+            "--snapshot", str(sandbox / "snap.json"),
+        ]
+    if verb == "run":
+        return ["run", "--workspace", str(ws), *scripted, *state]
+    if verb == "signals":
+        return ["signals", "--workspace", str(ws), *state]
+    if verb == "watch":
+        return [
+            "watch", "--workspace", str(ws), *scripted, *state,
+            "--out-dir", str(sandbox / "ticks"),
+            "--max-scans", "1", "--interval", "0",
+        ]
+    raise AssertionError(f"unknown workspace verb {verb!r}")
+
+
+def _top_level_functions(source: str) -> list[ast.FunctionDef]:
+    """Every module-level ``def`` in `source`, as AST nodes."""
+    return [n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef)]
+
+
+def _shared_guard_owner(source: str) -> str:
+    """DERIVE the name of the one function that owns the workspace rejection.
+
+    Resolved from the shipped tree by AST rather than hardcoded, so a rename
+    stays green while a SECOND definition goes red.
+    """
+    owners = [
+        fn.name
+        for fn in _top_level_functions(source)
+        if _ISDIR_LITERAL in (ast.get_source_segment(source, fn) or "")
+    ]
+    assert len(owners) == 1, (
+        f"the workspace rule must have exactly one owner, found {owners!r}"
+    )
+    return owners[0]
+
+
+def _top_level_callers(source: str, name: str) -> set[str]:
+    """Names of the module-level functions (other than `name`) that reference it."""
+    callers: set[str] = set()
+    for fn in _top_level_functions(source):
+        if fn.name == name:
+            continue
+        for node in ast.walk(fn):
+            if isinstance(node, ast.Name) and node.id == name:
+                callers.add(fn.name)
+                break
+    return callers
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +330,114 @@ def test_b6_exit_code_is_exactly_two_never_one(tmp_path, capsys):
         assert rc == 2, f"argv {argv!r} did not exit 2"
         assert rc != 1, f"argv {argv!r} used the reserved exit-1 class"
 
+    # -----------------------------------------------------------------------
+    # Iteration-387 arms (factory iter 300): ONE home, FOUR verbs.
+    # Expected Behaviors 1, 2, 3, 4, 5 and 7 of that iteration's spec.
+    # Behavior 6 is armed in test_b7_scan_valid_dir_unaffected below, and
+    # Behavior 8 is `make typecheck`, not a pytest case.
+    # -----------------------------------------------------------------------
+
+    # Behaviors 1 + 2 -- all four verbs reject a MISSING workspace with the
+    # byte-identical single stderr line, exit 2, and a strictly EMPTY stdout.
+    shared = tmp_path / "iter387_missing"
+    shared.mkdir()
+    absent = _missing(shared)
+    expected_line = f"{_MSG}: {absent}\n"
+    seen: dict[str, tuple[int, str, str]] = {}
+    for verb in _ITER387_VERBS:
+        capsys.readouterr()  # drain
+        rc = main(_bad_argv(verb, absent, shared))
+        cap = capsys.readouterr()
+        seen[verb] = (rc, cap.out, cap.err)
+    for verb, (rc, out, err) in seen.items():
+        assert rc == 2, f"{verb} did not exit 2 on a missing --workspace (rc={rc})"
+        assert err == expected_line, (
+            f"{verb} stderr is not the shared guard line: {err!r} != {expected_line!r}"
+        )
+        assert out == "", f"{verb} wrote to stdout while rejecting: {out!r}"
+    assert len({err for _, _, err in seen.values()}) == 1, (
+        "the four verbs no longer print ONE line for one missing path: "
+        f"{ {v: e for v, (_, _, e) in seen.items()} !r}"
+    )
+
+    # Behavior 3 -- a path that EXISTS but is a FILE is rejected identically, so
+    # the rule stays is_dir() and never weakens to exists().
+    filed = tmp_path / "iter387_file"
+    filed.mkdir()
+    a_regular_file = filed / "workspace.txt"
+    a_regular_file.write_text("i exist, but i am not a directory\n", encoding="utf-8")
+    for verb in _ITER387_VERBS:
+        capsys.readouterr()  # drain
+        rc = main(_bad_argv(verb, a_regular_file, filed))
+        cap = capsys.readouterr()
+        assert rc == 2, f"{verb} accepted a regular file as a workspace (rc={rc})"
+        assert cap.err == f"{_MSG}: {a_regular_file}\n", (
+            f"{verb} did not reject a file with the shared line: {cap.err!r}"
+        )
+        assert cap.out == "", f"{verb} wrote to stdout for a file workspace: {cap.out!r}"
+
+    # Behavior 4 -- NOTHING is written on rejection. Every output target each
+    # verb accepts lives inside a fresh, empty sandbox, so one assertion covers
+    # slate, snapshot, state dir, run-* dirs and the tick dir at once.
+    for verb in _ITER387_VERBS:
+        box = tmp_path / f"iter387_box_{verb}"
+        box.mkdir()
+        capsys.readouterr()  # drain
+        rc = main(_bad_argv(verb, _missing(box), box))
+        capsys.readouterr()  # drain
+        residue = sorted(q.name for q in box.iterdir())
+        assert rc == 2, f"{verb} did not exit 2 (rc={rc})"
+        assert residue == [], f"{verb} created {residue!r} while rejecting"
+
+    # Behavior 5 -- precedence is unchanged: with BOTH a missing workspace and
+    # an unusable --out in one invocation, the WORKSPACE guard is the one that
+    # speaks, and the output-target wording never appears.
+    prec = tmp_path / "iter387_precedence"
+    prec.mkdir()
+    parent_is_a_file = prec / "not_a_dir"
+    parent_is_a_file.write_text("blocks every child path\n", encoding="utf-8")
+    capsys.readouterr()  # drain
+    rc = main([
+        "scan",
+        "--workspace", str(_missing(prec)),
+        "--provider", "scripted",
+        "--scripted-responses", str(SCRIPT),
+        "--state-dir", str(prec / "state"),
+        "--out", str(parent_is_a_file / "slate.json"),
+    ])
+    cap = capsys.readouterr()
+    assert rc == 2
+    assert cap.err == f"{_MSG}: {_missing(prec)}\n", cap.err
+    assert _OUTPUT_TARGET_MSG not in cap.err, (
+        f"the output-target guard now outranks the workspace guard: {cap.err!r}"
+    )
+    assert cap.out == "", cap.out
+
+    # Behavior 7 -- ONE home, proved from the SHIPPING source. The owner's name
+    # is derived from the tree, so the census cannot go stale on a rename; what
+    # it pins is that the count is 1 and that all four handlers still reach it.
+    source = CLI_SOURCE.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    prints = [n for n, line in enumerate(lines, 1) if _PRINT_LITERAL in line]
+    guards = [n for n, line in enumerate(lines, 1) if _ISDIR_LITERAL in line]
+    assert len(prints) == 1, (
+        f"the rejection message must have exactly one home, found {len(prints)} "
+        f"at lines {prints}"
+    )
+    assert len(guards) == 1, (
+        f"the is_dir() rule must have exactly one home, found {len(guards)} "
+        f"at lines {guards}"
+    )
+    owner = _shared_guard_owner(source)
+    assert owner not in _ITER387_HANDLERS, (
+        f"the rule still lives inside the verb handler {owner!r} rather than a "
+        "shared helper the other verbs can reach"
+    )
+    callers = _top_level_callers(source, owner)
+    assert set(_ITER387_HANDLERS) <= callers, (
+        f"{sorted(set(_ITER387_HANDLERS) - callers)} no longer reach {owner!r}"
+    )
+
 
 # ---------------------------------------------------------------------------
 # Behavior 7 -- a VALID workspace is unaffected (backward compatibility)
@@ -245,6 +461,16 @@ def test_b7_scan_valid_dir_unaffected(tmp_path, capsys):
     assert "DECISION" in captured.out           # ranked table printed
     assert out_path.is_file()                    # slate JSON written
     assert _MSG not in captured.err              # no false rejection
+
+    # Iteration-387 arm, Expected Behavior 6 -- the shared helper did not invert
+    # the condition for the verbs that adopted it later: a REAL directory is
+    # still accepted. `signals` is the cheapest of the four to prove (no
+    # provider, no write); the scan above already covers the write path.
+    rc_signals = main(["signals", "--workspace", str(FIXTURE)])
+    signals_cap = capsys.readouterr()
+    assert rc_signals == 0, f"signals rejected a real directory (rc={rc_signals})"
+    assert _MSG not in signals_cap.err, signals_cap.err
+    assert signals_cap.out.strip() != "", "signals printed nothing for a real workspace"
 
 
 def test_b7_scan_valid_fresh_empty_dir_unaffected(tmp_path, capsys):

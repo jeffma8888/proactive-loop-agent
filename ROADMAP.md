@@ -120,3 +120,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #278 One `_peek_file(path, args, *, tool, render)` owns the resolve-read-split half `loop/tools.py` hand-copied in `_head_file` / `_tail_file`; the seam sits AFTER `_reject_unsafe`, so each handler keeps its own refusal wording and order; row #273's READ resolver stays open (foundry iter 296)
 - #279 `run`/`dispatch` record the L1 budget in `meta.json`; `resume` runs under it, env first (foundry iter 297)
 - #280 The scripted-provider-without-a-script refusal prints a paste-ready `hint:` naming the bundled `examples/scripted_responses.json`; unconditional, no filesystem probe (foundry iter 299)
+- #281 One shared front-door guard owns the missing-`--workspace` rejection that scan/run/signals/watch hand-copied four times; message, exit 2 and guard order unchanged (foundry iter 300)

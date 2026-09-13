@@ -2394,6 +2394,25 @@ def _write_snapshot_document(snapshot: WorkspaceSnapshot, out: Path) -> None:
     atomic_write_text(out, json.dumps(_signals_json_payload(snapshot), indent=2))
 
 
+def _checked_workspace(raw: str) -> Path | None:
+    """The ``--workspace`` INPUT guard: that root as a ``Path``, or ``None`` once rejected.
+
+    ONE home for a rule every ``--workspace`` verb needs and each used to hand-copy, so the
+    next such verb inherits both the check and its exact wording. Every collector tolerates a
+    missing directory (SPEC 4.1), so without this front door a mistyped root degrades to an
+    empty slate at exit 0 and hides the real fault -- the path. It PRINTS (rather than handing
+    back a message like the ``*_guard`` helpers below) to keep every call site two lines and
+    this rejection FIRST: ahead of ``_settings``, the output-target guards, ``create_client``
+    and every collector. ``is_dir()`` never ``exists()``: a file where the root belongs is as
+    unusable as an absent one.
+    """
+    workspace = Path(raw)
+    if not workspace.is_dir():
+        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+        return None
+    return workspace
+
+
 def _state_dir_guard(state_dir: Path) -> str | None:
     """Reject a ``--state-dir`` that exists but is not a directory (message-or-``None``).
 
@@ -5004,16 +5023,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     pre-existing code path verbatim, so a bare ``scan`` and ``scan --format table``
     are byte-for-byte identical (behaviors 1-2).
     """
-    workspace = Path(args.workspace)
-    # Front-door guard: a mistyped/nonexistent workspace would otherwise degrade
-    # to an empty slate + exit 0 (every collector tolerates a missing dir, SPEC
-    # 4.1), silently hiding the real problem -- the path -- on the very first
-    # thing a new user tries. Fail fast BEFORE building a client/collecting, so
-    # the exit-2 missing-input contract matches dispatch/resume/runs/trace. This
-    # runs before any format handling, so it holds for every --format value
-    # (behavior 12); an invalid --format was already rejected by argparse upstream.
-    if not workspace.is_dir():
-        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+    # Shared front-door guard (:func:`_checked_workspace`), ahead of ALL format handling, so
+    # it holds for every --format value (behavior 12).
+    if (workspace := _checked_workspace(args.workspace)) is None:
         return 2
     settings = _settings(args, workspace_root=workspace)
     # Symmetric OUTPUT-path guard (the mirror image of the --workspace INPUT
@@ -5272,12 +5284,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     with contextlib.ExitStack() as stack:
         if args.json:
             stack.enter_context(contextlib.redirect_stdout(sys.stderr))
-        workspace = Path(args.workspace)
-        # Same front-door guard as scan (run == scan + auto-dispatch): reject a
-        # missing/non-directory workspace with exit 2 before any client/collect,
-        # so a bad path never produces an empty slate + a no-op auto-dispatch.
-        if not workspace.is_dir():
-            print(f"error: workspace not found: {workspace}", file=sys.stderr)
+        if (workspace := _checked_workspace(args.workspace)) is None:  # front door, in-stack
             return 2
         settings = _settings(args, workspace_root=workspace)
         # Same fail-fast OUTPUT guard as scan: run writes the slate AND the run
@@ -6060,11 +6067,10 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     developer can see exactly what the scout perceives for a workspace with zero
     provider wiring and without paying for an LLM call, completing the
     transparency arc signals (what it sees) -> scan (what it proposes) -> explain
-    (why it gated) -> trace (what it did). It reuses the verbatim iter-10
-    ``--workspace`` ``is_dir()`` guard so a missing/non-dir path fails fast with
-    ``error: workspace not found: <path>`` on stderr + exit 2 BEFORE any
-    collection (never degrading to an empty inspector), matching
-    scan/run/resume/runs/trace's missing-input contract. ``--json`` swaps the
+    (why it gated) -> trace (what it did). It reuses the shared
+    :func:`_checked_workspace` front door, so a missing/non-dir path fails fast with
+    ``error: workspace not found: <path>`` + exit 2 BEFORE any collection, never
+    degrading to an empty inspector. ``--json`` swaps the
     grouped human view for one machine-parseable object; ``--kind`` narrows to one
     collector-defined kind, validated at PARSE time against the live
     ``SIGNAL_KINDS`` registry (an unknown kind is an argparse usage error, exit 2,
@@ -6145,9 +6151,7 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     refused, unlike the kind pair above: an unreachable KIND gate is statically
     provable, an unreachable COUNT budget is not.
     """
-    workspace = Path(args.workspace)
-    if not workspace.is_dir():
-        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+    if (workspace := _checked_workspace(args.workspace)) is None:  # shared front door
         return 2
     only = set(args.collector) if args.collector else None
     kind = getattr(args, "kind", None)
@@ -6365,14 +6369,8 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     logged to stderr as ``scan <n> failed: <exc>``, and the watch continues to the
     next tick -- a transient outage on one scan never kills the long-lived watcher.
     """
-    workspace = Path(args.workspace)
-    # Same front-door guard as scan/run/signals (verbatim iter-10): reject a
-    # missing/non-directory workspace with exit 2 BEFORE building a client or
-    # collecting, so a mistyped path is reported as the problem instead of
-    # degrading to an empty slate looping over nothing. Runs first, so it never
-    # consumes a scripted response and does not depend on --interval/--max-scans.
-    if not workspace.is_dir():
-        print(f"error: workspace not found: {workspace}", file=sys.stderr)
+    # Shared front-door guard, FIRST: no scripted response spent, no --interval dependency.
+    if (workspace := _checked_workspace(args.workspace)) is None:
         return 2
     # Structural check on the OPT-IN slate directory, also before the client is
     # built: a bad --out-dir must be reported as the problem instead of surfacing
