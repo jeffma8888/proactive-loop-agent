@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-386
+    lenses: integration-and-adoption (iteration 386), simplification-and-deletion (iteration 386)
+    - Candidate A1 -- `pla policy --json` gets its first executable consumer: the graded autonomy grader reaches past the published contract into `Settings`
+    - Candidate A2 -- `python -m proactive_loop` does not exist, so the PATH-free on-ramp every integrator uses is missing, and the repo's own tests hand-roll the workaround 7 times
+    - Candidate A3 -- the FIRST command a new user runs fails, and the refusal does not name the script this repo ships -- while a `hint:` convention for exactly that already ships
+    - Candidate B1 -- (being measured) shared test-helper module: 282 test modules, no conftest.py, helpers hand-copied
+    - Candidate B2 -- (being measured) build_parser() flag declarations
+    - Candidate B3 -- (being measured)
+    stubs: 1 of 6 candidate line(s) are write-early placeholders, not measured candidates
+    winner: A3
+    ship: pending (not yet decided)
   iter-385
     lenses: hardening/DX, integration-and-adoption
     - Candidate B1 -- swap `verify`'s two arguments and one side fails closed while the other reports success: the CI gate cannot fail on a degenerate slate
@@ -11,7 +22,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- the determinism claim has no gate, and the shipped verb that could prove it (`pla diff`) needs no new flag to do it
     stubs: 2 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 6e5fab9
   iter-384
     lenses: new-capability, hardening/DX
     - Candidate A1 (primary) -- re-land iteration 383's budget-persistence feature, with the eviction re-sized from 486 chars to 80
@@ -1793,4 +1804,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-179 scouted iterations
+180 scouted iterations

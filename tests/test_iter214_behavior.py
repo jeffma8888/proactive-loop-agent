@@ -386,10 +386,13 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # §4.2 provider contract relocated into a new tracked `SPEC_ARCHIVE.md`).
     # and 78 before iteration 292 retired row #231 (`SPEC.md` section 2's layout
     # fence: it named 9 of 16 tracked top-level entries and 4 of 10 `Makefile` recipes).
+    # and 79 before iteration 386 retired row #142 (the `pla signals` cross-process
+    # cache, BLOCKED on an operator `SPEC.md` decision), which bought the chars that
+    # iteration's Done row #280 overspent against `test_iter241::test_b09c`.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 79, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 79). If you just "
+    assert sum(counts.values()) == 80, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 80). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

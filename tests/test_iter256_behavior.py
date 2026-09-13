@@ -560,10 +560,13 @@ def test_b9_the_relanded_prose_names_this_iteration_not_the_reverted_one() -> No
     # The retirement-bullet TOTAL is not a snapshot: tests/test_iter214_behavior.py:374-395
     # designs that literal to move by exactly +1 on every sanctioned row retirement and its
     # own failure message orders the retiring iteration to bump it. Iteration 292 retired
-    # row #231, so 78 -> 79. Re-key this token with that bump; do not freeze it (same
+    # row #231, so 78 -> 79, and iteration 386 retired row #142 (the `pla signals`
+    # cross-process cache, BLOCKED on an operator `SPEC.md` decision) to buy back the
+    # ratchet room its own Done row #280 overspent, so 79 -> 80. Re-key this token with
+    # each such bump; do not freeze it (same
     # lesson as tests/test_iter258_behavior.py::test_ac1, which forbids the return of the
     # ledger-id pin that used to red this build on every new ledger row).
-    assert "== 79" in iter214, "the retirement-bullet total is not the expected literal 79"
+    assert "== 80" in iter214, "the retirement-bullet total is not the expected literal 80"
     iter234 = _read("tests/test_iter234_behavior.py")
     assert "foundry iter 288" in iter234, (
         "test_iter234::test_b7's prose does not name foundry iter 288"

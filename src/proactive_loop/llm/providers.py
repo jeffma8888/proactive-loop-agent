@@ -114,12 +114,30 @@ class _UnconfiguredScripted:
     """
 
     def complete(self, *, system: str, prompt: str, tag: str = "") -> LLMResponse:
-        """Fail with a message that names the missing configuration."""
+        """Fail with a message that names the missing configuration AND the bundled fix.
+
+        WHY a second ``hint:`` line rather than a longer first line: the leading
+        ``error: ...`` sentence is quoted verbatim in ``README.md`` and in three test
+        docstrings, so its wording is effectively published. The embedded newline makes
+        the caller's ``print(f"error: {exc}")`` render the hint as a line of its own,
+        un-prefixed -- the same shape the ``diff --dir``/``trend --dir`` refusals already
+        use -- so the published sentence stays byte-identical while the refusal gains the
+        one fact it was missing: this checkout ALREADY contains a usable script.
+
+        WHY the hint is unconditional and never ``stat()``s that path: a diagnostic that
+        probes the filesystem would say different things in a fresh clone, from a
+        different cwd, or on a workspace with no ``examples/`` dir -- ambient state, the
+        class of dependence this repo's determinism promise rules out. Naming a
+        repo-relative path the reader can check themselves is honest at zero cost.
+        """
         raise LLMError(
             "provider is 'scripted' but no scripted_responses_path was configured. "
             "Set PLA_SCRIPTED_RESPONSES (or pass --scripted-responses) to a JSON "
             "script file, or choose a live provider "
             f"({', '.join(p for p in VALID_PROVIDERS if p != 'scripted')})."
+            "\nhint: this repo ships one -- add "
+            "`--scripted-responses examples/scripted_responses.json` "
+            "(a repo-root-relative path, exactly as `make demo` does)."
         )
 
 

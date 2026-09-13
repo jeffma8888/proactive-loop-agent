@@ -300,7 +300,10 @@ Goal *synthesis* is the step that calls a model, so `scan`, `run`,
 the offline `scripted` default together with a script for it to read
 (`--scripted-responses PATH`, as `make demo` does above). Asked to synthesize
 with neither, the CLI stops immediately with `error: provider is 'scripted' but
-no scripted_responses_path was configured` instead of pretending to think.
+no scripted_responses_path was configured` instead of pretending to think, and a
+second `hint:` line on stderr names the bundled
+`--scripted-responses examples/scripted_responses.json` that satisfies it -- so
+the refusal points at a script this checkout already contains.
 Start with `signals` to see what the agent would be reasoning about; add a
 provider when you want it to propose.
 

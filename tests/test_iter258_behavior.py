@@ -507,6 +507,110 @@ def test_b9a_the_refusal_path_builds_no_client_and_writes_no_file(
             f"{verb} --dir created a state directory on the refusal path"
         )
 
+    # ------------------------------------------------------------------ #
+    # state-dir iteration 386 (ships as ``factory iter 299``) -- the
+    # scripted-provider refusal gains a paste-ready ``hint:`` line naming
+    # the bundled ``examples/scripted_responses.json``. Landed as ARMS
+    # inside this existing function BY CONSTRUCTION, not by preference:
+    # four shipped modules pin ``(live + 1) // 100 * 100 ==
+    # published_floor()`` against floor 5900 at live=5998, so ONE new
+    # collected item -- a module, a function or a parametrize case --
+    # moves the floor and reds a PUBLIC build. This function's subject,
+    # a refusal that stays inert, is the same subject one refusal further
+    # up the on-ramp.
+    # ------------------------------------------------------------------ #
+    shipped_error_line = (
+        "error: provider is 'scripted' but no scripted_responses_path was configured. "
+        "Set PLA_SCRIPTED_RESPONSES (or pass --scripted-responses) to a JSON script "
+        "file, or choose a live provider (anthropic, openai, bedrock, ollama, groq, "
+        "together)."
+    )
+    unconfigured_ws = tmp_path / "b9a-unconfigured-ws"
+    unconfigured_ws.mkdir()
+    (unconfigured_ws / "TODO.md").write_text(
+        "- TODO: give the collectors something to perceive\n", encoding="utf-8"
+    )
+
+    def _unconfigured(head: list[str], cwd: Path, tag: str) -> tuple[int, str, str, Path]:
+        """Drive a synthesizing verb with provider ``scripted`` and NO script."""
+        state = tmp_path / f"b9a-state-{tag}"
+        with monkeypatch.context() as patch:
+            for var in ("PLA_SCRIPTED_RESPONSES", "PLA_PROVIDER", "PLA_STATE_DIR"):
+                patch.delenv(var, raising=False)
+            patch.chdir(cwd)
+            rc_, out_, err_ = _run(
+                [*head, "--workspace", str(unconfigured_ws), "--state-dir", str(state)],
+                capsys,
+            )
+        return rc_, out_, err_, state
+
+    # Behaviors 1-4, 6 (scan) and 7, from a cwd holding no ``examples/`` dir.
+    rc, out, err, _state = _unconfigured(["scan"], tmp_path, "scan-tmpcwd")
+    lines = _stderr_lines(err)
+    error_lines = [line for line in lines if line.startswith("error: ")]
+    hints = [line for line in lines if line.strip().startswith("hint: ")]
+    assert len(hints) == 1, f"expected exactly one `hint: ` line, got {hints!r}\n{err}"
+    assert "examples/scripted_responses.json" in hints[0], (
+        f"the hint does not name the bundled script: {hints[0]!r}"
+    )
+    assert "--scripted-responses" in hints[0], (
+        f"the hint does not name the flag that consumes it: {hints[0]!r}"
+    )
+    assert len(error_lines) == 1, (
+        f"expected exactly one `error: ` line, got {error_lines!r}"
+    )
+    assert error_lines[0] == shipped_error_line, (
+        "the shipped refusal line moved; README and three test docstrings quote it\n"
+        f"  expected: {shipped_error_line!r}\n  actual:   {error_lines[0]!r}"
+    )
+    assert lines == [shipped_error_line, hints[0]], (
+        f"the hint must be its own un-prefixed line AFTER the error line: {lines!r}"
+    )
+    assert not hints[0].startswith("error: "), (
+        f"the hint carries an `error: ` prefix: {hints[0]!r}"
+    )
+    assert rc == 1, f"scan must still exit 1 on this refusal, got {rc}"
+    assert out == "", f"stdout must stay empty on this refusal, got {out!r}"
+
+    # Behavior 5 -- byte-identical from the repo root, where the named file DOES
+    # exist. The hint is unconditional, so nothing probes the filesystem.
+    rc_repo, out_repo, err_repo, _ = _unconfigured(["scan"], REPO, "scan-repocwd")
+    assert (rc_repo, out_repo, err_repo) == (rc, out, err), (
+        "the refusal is cwd-sensitive, so something probes the filesystem:\n"
+        f"  tmp cwd:  {(rc, out, err)!r}\n  repo cwd: {(rc_repo, out_repo, err_repo)!r}"
+    )
+
+    # Behavior 7 -- ``--json`` moves neither stdout nor the two stderr lines.
+    rc_json, out_json, err_json, _ = _unconfigured(
+        ["scan", "--json"], tmp_path, "scan-json"
+    )
+    assert (rc_json, out_json) == (1, ""), (
+        f"--json refusal drifted: rc={rc_json} stdout={out_json!r}"
+    )
+    assert _stderr_lines(err_json) == lines, (
+        f"--json changed the refusal lines:\n{err_json}"
+    )
+
+    # Behavior 6 -- ``watch`` still exits 0, still prints its per-tick line, and
+    # still creates no state dir and no slate (the test_iter196 contract).
+    rc_watch, out_watch, err_watch, watch_state = _unconfigured(
+        ["watch", "--interval", "0", "--max-scans", "1"], tmp_path, "watch"
+    )
+    assert rc_watch == 0, f"watch must stay resilient per tick, got {rc_watch}"
+    assert "scan 1 failed: " in err_watch, (
+        f"watch dropped its per-tick failure line:\n{err_watch}"
+    )
+    watch_hints = [
+        line for line in _stderr_lines(err_watch) if line.strip().startswith("hint: ")
+    ]
+    assert watch_hints == [hints[0]], (
+        f"the failed tick must carry the same single hint: {watch_hints!r}"
+    )
+    assert not watch_state.exists(), "the failed tick created a state directory"
+    assert "slate written:" not in out_watch, (
+        f"the failed tick wrote a slate:\n{out_watch}"
+    )
+
 
 def test_b9b_no_runtime_dependency_or_lock_change_lands_with_this_feature() -> None:
     changed = {
