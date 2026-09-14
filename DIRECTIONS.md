@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-389
+    lenses: narrative-and-docs, new-capability (iter 389)
+    - Candidate A1 -- the newest shipped user-facing refusal is invisible in every published document
+    - Candidate A2 -- `SPEC.md` §4.5 describes a 4-recipe project with a 1-command demo; the tree ships 11 recipes and a 4-command graded demo
+    - Candidate A3 -- two shipped oracles misreport, in their own function names, the roster they guard
+    - Candidate B1 -- `resume --max-iterations N`: a budget-exhausted run cannot be finished per-invocation, and today's resume is a silent no-op that reports success
+    - Candidate B2 -- `dispatch --max-iterations N` / `--max-llm-calls N`: the approval verb writes a budget it cannot be told
+    - Candidate B3 -- `runs --format {table,json,markdown,csv,html}`: five shipped renderings serve exactly one of 17 verbs
+    winner: A1
+    ship: pending (not yet decided)
   iter-388
     lenses: performance-and-throughput, narrative-and-docs (iteration 388)
     - Candidate A1 -- (being priced: suite critical path)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the repo's own countdown publishes 401 tests of room against a true 0, and three prose sites tell the reader it cannot be wrong
     - Candidate B3 -- two test names misreport the roster they guard: `..._sixteen_entries` asserts 17, `..._all_eleven_verbs` guards twelve
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 7eda67b
   iter-387
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- the four workspace verbs hand-copy their front-door guard prelude, and the `--snapshot` pre-check in two of them is the same 5 lines one dedent apart
@@ -1824,4 +1834,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-182 scouted iterations
+183 scouted iterations

@@ -842,7 +842,52 @@ def test_b10_no_test_function_name_embeds_a_verb_count_literal() -> None:
     )
 
 
-def test_b10_cli_reference_below_the_human_owned_marker_documents_verify() -> None:
+# The refusal phrase ``_reject_goals_less_slate`` raises; cross-checked against the live
+# stderr line below rather than trusted as a transcription.
+_GOALS_LESS_PHRASE = "no top-level 'goals' array"
+# Deliberately generic: it must catch ANY exit code cited beside the refusal, so a
+# document that publishes the WRONG one cannot pass by also mentioning the right one.
+# ``exit``/``exits``/``exited``/``exit code``/``exit status`` are all spellings this repo
+# uses for the same claim.
+_PUBLISHED_EXIT_CODE = re.compile(r"exit(?:s|ed)?(?:\s+(?:code|status))?\s+(\d+)\b", re.I)
+
+
+def _flat_sentences_citing(markdown: str, phrase: str) -> list[str]:
+    """Sentences of ``markdown`` carrying ``phrase``, Markdown decoration removed.
+
+    WHY strip ``*`` and backticks FIRST: the same claim is bolded in the README
+    (``**exit 1**``) and code-spanned in ``SPEC.md`` (``exit `1```), so one shared
+    exit-code regex is only possible once the emphasis is gone. WHY sentences rather than
+    a character window: the neighbouring published claims on this verb cite OTHER codes
+    (``exit 0`` by default, ``gate code 5`` under ``--fail-on-unresolved``), so the unit
+    of "this refusal's exit code" has to be the clause the phrase actually lives in.
+    """
+    flat = " ".join(re.sub(r"[*`]", "", markdown).split())
+    return [s for s in re.split(r"(?<=[.!?])\s+", flat) if phrase in s]
+
+
+def _spec_verify_bullet() -> str:
+    """``SPEC.md`` section 4.5's ``- `pla verify`` bullet block (iter-235 convention)."""
+    lines = (REPO / "SPEC.md").read_text(encoding="utf-8").splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith("### 4.5")), None)
+    assert start is not None, "SPEC.md has no '### 4.5' heading"
+    end = next(
+        (i for i in range(start + 1, len(lines)) if re.match(r"^#{1,3} ", lines[i])), len(lines)
+    )
+    section = lines[start:end]
+    starts = [i for i, line in enumerate(section) if line.lstrip().startswith("- `pla ")]
+    for position, index in enumerate(starts):
+        match = re.match(r"- `pla ([a-z][a-z-]*)", section[index].lstrip())
+        assert match is not None, f"unparsable verb bullet: {section[index]!r}"
+        if match.group(1) == "verify":
+            stop = starts[position + 1] if position + 1 < len(starts) else len(section)
+            return "\n".join(section[index:stop])
+    raise AssertionError("SPEC.md section 4.5 has no `pla verify` bullet block")
+
+
+def test_b10_cli_reference_below_the_human_owned_marker_documents_verify(
+    tmp_path: Path,
+) -> None:
     text = (REPO / "README.md").read_text(encoding="utf-8")
     # The live marker spells the dash as an EM DASH; matched by regex so this
     # assertion cannot red on a punctuation change it does not care about.
@@ -852,3 +897,62 @@ def test_b10_cli_reference_below_the_human_owned_marker_documents_verify() -> No
     assert re.search(r"\|\s*`verify`", below), (
         "the CLI-reference TABLE below the human-owned marker must carry a `verify` row"
     )
+
+    # ======================================================================
+    # factory iter 302 arms -- the goals-less-``--slate`` refusal shipped in
+    # factory iter 298 is PUBLISHED, and the exit code the two documents
+    # publish is DERIVED from a live invocation rather than transcribed. The
+    # iter-298 commit touched only ``DIRECTIONS.md``, ``cli.py`` and this
+    # module, so a fail-closed behavior on the product's OWN audit gate
+    # (``verify --fail-on-unresolved`` is a graded ``make check`` / ``ci.yml``
+    # step) existed only in a commit message: a reader auditing the CLI
+    # contract could not learn that the gate now refuses the input class it
+    # used to certify green. Extending THIS already-collected function is
+    # deliberate -- four shipped modules assert
+    # ``(live + 1) // 100 * 100 == floor``, so the first NET NEW collected
+    # item reds the public build.
+    # ======================================================================
+    goals_less = tmp_path / "not_a_slate.json"
+    goals_less.write_text("{}", encoding="utf-8")
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text(json.dumps({"signals": []}), encoding="utf-8")
+    proc = _run(
+        "verify", "--slate", str(goals_less), "--snapshot", str(snapshot), cwd=tmp_path
+    )
+    live_exit = proc.returncode
+    assert live_exit != 0, (
+        "a goals-less --slate document must not be certified green; "
+        f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
+    )
+    assert proc.stdout == "", f"the guard must fire BEFORE any stdout; got {proc.stdout!r}"
+    errs = _lines(proc.stderr)
+    assert len(errs) == 1, f"exactly ONE error line; got {errs}"
+    assert errs[0].startswith("error: "), f"must be an `error: ` line; got {errs[0]!r}"
+    assert _GOALS_LESS_PHRASE in errs[0], (
+        f"the live refusal must still say {_GOALS_LESS_PHRASE!r} -- the phrase the two "
+        f"published documents are asserted to carry below; got {errs[0]!r}"
+    )
+
+    verify_row = next(
+        (line for line in below.splitlines() if re.match(r"\|\s*`verify`", line)), None
+    )
+    assert verify_row is not None, "the `verify` row must be one line of the CLI table"
+    published = {
+        "the README CLI-reference `verify` row": verify_row,
+        "SPEC.md section 4.5's `pla verify` bullet": _spec_verify_bullet(),
+    }
+    for where, document in published.items():
+        citing = _flat_sentences_citing(document, _GOALS_LESS_PHRASE)
+        assert citing, (
+            f"{where} never publishes the refusal: no sentence carries "
+            f"{_GOALS_LESS_PHRASE!r}. A fail-closed behavior on this product's own audit "
+            "gate must be readable in the contract, not only in a commit message."
+        )
+        cited = {
+            int(code) for sentence in citing for code in _PUBLISHED_EXIT_CODE.findall(sentence)
+        }
+        assert cited == {live_exit}, (
+            f"{where} must cite exit {live_exit} -- the code the CLI ACTUALLY returns for "
+            f"this refusal -- and no other; it cites {sorted(cited) or 'none'}. Correct the "
+            "document, never this expectation: the number is read off the live process."
+        )

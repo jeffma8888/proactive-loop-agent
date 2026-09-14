@@ -821,6 +821,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     paths REQUIRED). A source resolves when it equals a recorded signal `path` or `summary`,
     exactly or once a trailing `:LINE` anchor is stripped from either side. Report-only by
     default (exit 0 even when unresolved); `--fail-on-unresolved` opts into gate code `5`.
+    A `--slate` with no top-level 'goals' array is refused; exit `1`.
   - `pla trace --run-dir DIR [--json]` — read-only, LLM-free renderer of ONE
     dispatched run's persisted PLAN→ACT→CHECK transcript, loaded from its
     `checkpoint.json` (`RunState.steps`). Human form prints a header (run dir,

@@ -122,3 +122,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #280 The scripted-provider-without-a-script refusal prints a paste-ready `hint:` naming the bundled `examples/scripted_responses.json`; unconditional, no filesystem probe (foundry iter 299)
 - #281 One shared front-door guard owns the missing-`--workspace` rejection that scan/run/signals/watch hand-copied four times; message, exit 2 and guard order unchanged (foundry iter 300)
 - #271 `headroom_report` publishes the BINDING suite-size wall: `binding_at` + `binding_headroom` beside the slack figures, and three prose sites that claimed the gauge cannot disagree with the build corrected (foundry iter 301)
+- #283 `verify`'s goals-less `--slate` refusal published in README/SPEC §4.5, exit code derived live (foundry iter 302)
