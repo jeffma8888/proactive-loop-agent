@@ -389,10 +389,13 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # and 79 before iteration 386 retired row #142 (the `pla signals` cross-process
     # cache, BLOCKED on an operator `SPEC.md` decision), which bought the chars that
     # iteration's Done row #280 overspent against `test_iter241::test_b09c`.
+    # and 80 before iteration 301 retired row #271 (`make readme-headroom` published the
+    # SLACK wall as if it were the only one, so it reported 401 tests of room against a
+    # true 0; the gauge now also reports the binding ROUNDING wall).
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 80, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 80). If you just "
+    assert sum(counts.values()) == 81, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 81). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-388
+    lenses: performance-and-throughput, narrative-and-docs (iteration 388)
+    - Candidate A1 -- (being priced: suite critical path)
+    - Candidate A2 -- (being priced: cold-scan syntax_error dominance)
+    - Candidate A3 -- (being priced: CLI import cost paid per subprocess)
+    - Candidate B1 -- ROADMAP row #210 tells the next PM that four collectors still re-walk the tree; three are converted and the fourth is a documented holdout
+    - Candidate B2 -- the repo's own countdown publishes 401 tests of room against a true 0, and three prose sites tell the reader it cannot be wrong
+    - Candidate B3 -- two test names misreport the roster they guard: `..._sixteen_entries` asserts 17, `..._all_eleven_verbs` guards twelve
+    winner: B2
+    ship: pending (not yet decided)
   iter-387
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- the four workspace verbs hand-copy their front-door guard prelude, and the `--snapshot` pre-check in two of them is the same 5 lines one dedent apart
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the 42s critical-path test is 3.79s of work: make the child cheap instead of making the machine bigger
     - Candidate B3 -- the product's own hot path: 82.5% of a scan is two collectors, and the memo that could skip it cannot survive the verb users actually run
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED e435c37
   iter-386
     lenses: integration-and-adoption (iteration 386), simplification-and-deletion (iteration 386)
     - Candidate A1 -- `pla policy --json` gets its first executable consumer: the graded autonomy grader reaches past the published contract into `Settings`
@@ -1814,4 +1824,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-181 scouted iterations
+182 scouted iterations

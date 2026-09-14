@@ -244,10 +244,13 @@ Three more developer entry points exist, all opt-in rather than part of `make ch
   `make check` runs it under one, whichever `uv` last left in `.venv`, so a failure that reproduces
   only on the newer interpreter stays invisible locally until CI. Each leg installs into its own
   throwaway virtualenv, so your `.venv` is left untouched.
-- `make readme-headroom` -- print the headroom left under the published test-count floor in the
-  intro above: how many tests you may still add before that floor goes stale and reds this repo's
-  public build. The guard enforcing that floor is silent while green, so this gauge is the only
-  advance warning you get.
+- `make readme-headroom` -- print how many tests you may still add before the published test-count
+  floor in the intro above goes stale and reds this repo's public build. The guards enforcing that
+  floor are silent while green, so this is the line to read BEFORE you size a new test module. Read
+  the `binding_headroom` field: it counts down to whichever of the two walls on that floor is
+  nearer, so `0` means the next test you add reds the build and a negative value means it is red
+  already. The wider `headroom` field covers only the slack budget, not the rounding window that
+  binds first.
 - `make clone-check` -- run the whole suite inside a throwaway fresh clone of this repo, with your
   working tree committed into it, then delete the clone. Two failure classes are invisible to every
   other gate: a test whose precondition is a gitignored artifact's *age* (a clone resets every mtime,

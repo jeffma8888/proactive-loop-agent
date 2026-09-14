@@ -90,6 +90,23 @@ PYPROJECT = REPO / "pyproject.toml"
 # every ~2 ships, and a guard that cries wolf gets deleted.
 SUITE_SIZE_SLACK = 500
 
+# The width of the OTHER wall on the published floor -- and the one that actually
+# binds. How far the live collection may sit ABOVE the floor before the ROUNDING rule
+# in ``tests/test_iter250_behavior.py::test_b2`` reds the build: that oracle asserts
+# BOTH ``live // 100 * 100 == floor`` AND ``(live + 1) // 100 * 100 == floor``, so it
+# is green only while ``published <= live <= published + SUITE_ROUNDING_WINDOW``.
+#
+# 98 is DERIVED, not chosen: the second clause caps the live count one test below the
+# next hundred, so a floor of ``N00`` tolerates ``N00`` through ``N98``. It is named
+# HERE, beside the slack knob, because the two walls compose -- ``headroom_report``
+# reports the smaller of them -- and at every slack this repo would accept, 98 is the
+# tighter one. Keeping the number un-named is what let the gauge publish 401 tests of
+# room while the true room was 0, which mis-sized factory iteration 285's oracle into
+# a revert. Read as a module global at call time for the same reason
+# ``SUITE_SIZE_SLACK`` is: a test monkeypatches it to prove the reported wall really
+# derives from the named constant instead of a number inlined in the renderer.
+SUITE_ROUNDING_WINDOW: int = 98
+
 # The intro's bolded suite-size claim: ``**3,800+ tests**`` and
 # ``**3,800+ passing tests**``. Group 1 is the digits, group 2 the trailing ``+``.
 # Deliberately the SAME pattern the removed fail-open assertion used, so the new
@@ -386,10 +403,29 @@ def headroom_report(intro_text: str, live_count: int) -> str:
     Why this exists: ``suite_size_problems`` is a RATCHET WITH NO GAUGE -- on a green
     run it prints nothing, so the only signal that the published floor has rotted is
     a RED BUILD on a public repo. This renders the same derivation as a number, so a
-    reader (human or loop) gets a countdown instead of a surprise. It cannot drift
-    away from the verdict it reports on, because every field composes the guard's own
-    seams -- ``SUITE_CLAIM``, ``_published_floor_for``, ``SUITE_SIZE_SLACK`` -- rather
-    than re-deriving any of them; there is deliberately no second regex here.
+    reader (human or loop) gets a countdown instead of a surprise. Every field composes
+    a seam -- ``SUITE_CLAIM``, ``_published_floor_for``, ``SUITE_SIZE_SLACK``,
+    ``SUITE_ROUNDING_WINDOW`` -- rather than re-deriving it; there is deliberately no
+    second regex here.
+
+    TWO WALLS stand on the published floor, and this gauge reports both because the
+    tighter one is the one a reader must act on. ``red_at``/``headroom`` describe the
+    SLACK wall, which is the only wall ``suite_size_problems`` itself enforces. A
+    SECOND oracle owns the other: ``tests/test_iter250_behavior.py::test_b2``
+    additionally requires that BOTH ``live`` and ``live + 1`` round DOWN to the
+    published floor, a ``SUITE_ROUNDING_WINDOW``-wide window. At today's slack (500
+    versus 98) the rounding window is ALWAYS the binding wall, so a reader who watched
+    only ``headroom`` was reading a number up to 401 tests too generous -- measured,
+    and it mis-sized factory iteration 285's oracle into a revert.
+
+    So ``binding_at`` is the smallest live count at which EITHER wall reds the build,
+    and ``binding_headroom`` is the honest countdown -- the field to read before
+    sizing a new test module. Neither is clamped: ``binding_headroom=0`` means the
+    next collected item reds a PUBLIC build, and a negative value means it is already
+    red. Correcting the verdict itself (folding the rounding rule into
+    ``suite_size_problems``) is deliberately NOT done here: every module that pins
+    that verdict would move with it, so this reports the wall rather than relocating
+    it.
 
     PURE by construction: no subprocess, no file read, no network. That keeps it
     provable from synthetic strings, and it keeps the suite's ONE ``--collect-only``
@@ -425,11 +461,17 @@ def headroom_report(intro_text: str, live_count: int) -> str:
     published = min(floors)
     floor = _published_floor_for(live_count)
     red_at = published + SUITE_SIZE_SLACK
+    # The smaller of the two walls. ``+ 1`` on the rounding side because that window is
+    # INCLUSIVE -- ``published + SUITE_ROUNDING_WINDOW`` is still green and the next
+    # count is the first red one -- whereas the slack rule already fires AT ``red_at``.
+    binding_at = min(red_at, published + SUITE_ROUNDING_WINDOW + 1)
     return (
         "readme-suite-size: "
         f"live={live_count} published={published} floor={floor} "
         f"slack={SUITE_SIZE_SLACK} red_at={red_at} "
         f"headroom={red_at - 1 - live_count} "
+        f"binding_at={binding_at} "
+        f"binding_headroom={binding_at - 1 - live_count} "
         f'replacement="{floor:,}+"'
     )
 

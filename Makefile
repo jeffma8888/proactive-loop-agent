@@ -84,10 +84,21 @@ typecheck:
 # target the only signal was the red build itself.
 #
 # It composes the guard's OWN seams -- `headroom_report` renders the figures and
-# `collect_live_test_count` supplies the live number from a real collection -- so the
-# gauge and the verdict can never disagree. Reading them from anywhere else, or
-# hardcoding the count, is the drift this repo keeps proving is real; a test pins
-# this recipe to both helper names for exactly that reason.
+# `collect_live_test_count` supplies the live number from a real collection. Reading
+# them from anywhere else, or hardcoding the count, is the drift this repo keeps
+# proving is real; a test pins this recipe to both helper names for exactly that
+# reason.
+#
+# READ `binding_headroom`, NOT `headroom`. TWO walls stand on the published floor and
+# `suite_size_problems` -- the guard behind `headroom` and `red_at` -- enforces only
+# ONE of them, the 500-wide slack budget. The other is a 98-wide ROUNDING window
+# enforced in `tests/test_iter250_behavior.py`, which additionally requires that the
+# live count AND the live count plus one both round DOWN to the published floor. That
+# window is far tighter, so it is the wall a public build hits first, and
+# `binding_headroom` reports whichever wall is nearer: 0 means the very next collected
+# test reds CI, a negative value means it is red already. Before these fields existed
+# this line published 401 tests of room against a true 0, and factory iteration 285
+# sized an oracle off that number and was reverted with four modules red.
 #
 # `@` because the output IS the product here (one machine-readable line), unlike the
 # multi-step gates above where the echoed command is the useful trace.

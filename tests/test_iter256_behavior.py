@@ -88,8 +88,10 @@ UNDERSCORE_CARRIERS = (
 #: STALE/SUPERSEDED family moves one step behind it, so exactly these sites keep
 #: naming the old number -- as a RECORD, never as a live claim.
 SUPERSEDED_ALLOWANCES: dict[str, tuple[str, ...]] = {
-    # The queued row that records the headroom-gauge defect measured at the old floor.
-    "ROADMAP.md": ("make readme-headroom",),
+    # The row that records the headroom-gauge defect measured at the old floor. Factory
+    # iter 301 SHIPPED that row (#271) and retired it, so the mention moved with it out
+    # of ROADMAP.md and into its ROADMAP_ARCHIVE.md retirement bullet.
+    "ROADMAP_ARCHIVE.md": ("make readme-headroom",),
     "tests/test_iter143_behavior.py": ("STALE_FLOOR_TOKEN", "is gone from"),
     "tests/test_iter171_behavior.py": ("STALE_FLOOR_TOKEN", "not in intro"),
     "tests/test_iter238_behavior.py": ("SUPERSEDED_FLOOR",),
@@ -454,14 +456,24 @@ def test_b6b_index_row_179_retired_into_the_archive_rekeyed_to_this_iteration() 
     assert "SPEC_ARCHIVE.md" in bullets[0]
 
 
-def test_b7_the_roadmap_queues_the_measured_headroom_gauge_defect() -> None:
-    """Behavior 7: ONE new QUEUED index row, id ``#271``, recording the gauge defect
-    that sized iteration 285 wrongly -- including the trap that makes it non-trivial.
+def test_b7_the_roadmap_records_the_measured_headroom_gauge_defect() -> None:
+    """Behavior 7, re-keyed by factory iter 301: this iteration OPENED index row ``#271``
+    for the gauge defect that sized iteration 285 wrongly. Factory iter 301 shipped that
+    fix, so the row left the index for exactly one ``ROADMAP_ARCHIVE.md`` retirement
+    bullet -- which must still preserve every field the queued row recorded, including
+    the trap that made it non-trivial. The finding is what this oracle owns; whether it
+    is still QUEUED is not.
     """
     roadmap = _read("ROADMAP.md")
-    rows = [line for line in roadmap.splitlines() if line.startswith("| 271 |")]
-    assert len(rows) == 1, f"expected exactly one queued row 271, got {len(rows)}"
-    row = rows[0]
+    assert not [
+        line for line in roadmap.splitlines() if line.startswith("| 271 |")
+    ], "index row #271 is live again in ROADMAP.md; factory iter 301 retired it"
+    archive = _read("ROADMAP_ARCHIVE.md")
+    bullets = [line for line in archive.splitlines() if line.startswith("- **#271 --")]
+    assert len(bullets) == 1, (
+        f"expected exactly one archived #271 retirement bullet, got {len(bullets)}"
+    )
+    row = bullets[0]
     for needle in (
         "readme-headroom",
         "SUITE_SIZE_SLACK",
@@ -473,8 +485,8 @@ def test_b7_the_roadmap_queues_the_measured_headroom_gauge_defect() -> None:
         "test_iter176_behavior.py",
         "QUEUED",
     ):
-        assert needle in row, f"queued row #271 does not name {needle!r}"
-    assert "TRAP" in row, "row #271 must name the frozen-sample trap it carries"
+        assert needle in row, f"archived row #271 does not preserve {needle!r}"
+    assert "TRAP" in row, "row #271's bullet must preserve the frozen-sample trap it carried"
 
 
 def test_b7b_the_roadmap_stays_inside_its_char_budget() -> None:
@@ -562,11 +574,13 @@ def test_b9_the_relanded_prose_names_this_iteration_not_the_reverted_one() -> No
     # own failure message orders the retiring iteration to bump it. Iteration 292 retired
     # row #231, so 78 -> 79, and iteration 386 retired row #142 (the `pla signals`
     # cross-process cache, BLOCKED on an operator `SPEC.md` decision) to buy back the
-    # ratchet room its own Done row #280 overspent, so 79 -> 80. Re-key this token with
+    # ratchet room its own Done row #280 overspent, so 79 -> 80. Factory iter 301 retired
+    # row #271 (`make readme-headroom` published the 499-wide SLACK wall as if it were the
+    # only one) once it shipped the gauge fix, so 80 -> 81. Re-key this token with
     # each such bump; do not freeze it (same
     # lesson as tests/test_iter258_behavior.py::test_ac1, which forbids the return of the
     # ledger-id pin that used to red this build on every new ledger row).
-    assert "== 80" in iter214, "the retirement-bullet total is not the expected literal 80"
+    assert "== 81" in iter214, "the retirement-bullet total is not the expected literal 81"
     iter234 = _read("tests/test_iter234_behavior.py")
     assert "foundry iter 288" in iter234, (
         "test_iter234::test_b7's prose does not name foundry iter 288"

@@ -288,14 +288,25 @@ def test_t08_the_readme_lists_five_companion_documents_below_the_marker() -> Non
 # --------------------------------------------------------------------------- b6
 
 
-def test_t09_the_roadmap_retires_179_opens_271_and_stays_small() -> None:
-    """Behavior 6: index churn is exactly the retire+open pair, under the cap."""
+def test_t09_the_roadmap_retires_179_and_271_and_stays_small() -> None:
+    """Behavior 6: index churn is exactly the retire+open pair, under the cap. Re-keyed
+    by factory iter 301, which SHIPPED the row #271 this iteration opened and retired it
+    to the archive -- so #271 must now be absent from the index and present as a
+    retirement bullet.
+    """
     roadmap = _read("ROADMAP.md")
     index_ids = {
         m.group(1) for m in re.finditer(r"^\| (\d+) \| ", roadmap, re.M)
     }
     assert "179" not in index_ids, "index row #179 was not retired"
-    assert "271" in index_ids, "index row #271 (the readme-headroom wrong wall) is missing"
+    assert "271" not in index_ids, (
+        "index row #271 (the readme-headroom wrong wall) is live again in the index; "
+        "factory iter 301 shipped it and retired it to ROADMAP_ARCHIVE.md"
+    )
+    archive = _read("ROADMAP_ARCHIVE.md")
+    assert [
+        line for line in archive.splitlines() if line.startswith("- **#271 --")
+    ], "row #271 left the index without leaving a ROADMAP_ARCHIVE.md retirement bullet"
     for fixed in ("- #168 ", "- #215 ", "- #260 "):
         assert fixed in roadmap, f"the fixed ledger row {fixed.strip()} was disturbed"
 
