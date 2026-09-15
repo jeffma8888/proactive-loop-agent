@@ -33,11 +33,7 @@ from pathlib import Path
 
 import pytest
 
-from proactive_loop import __version__
 from proactive_loop.cli import _finite_float, build_parser, main
-from proactive_loop.collectors import all_collectors
-from proactive_loop.llm.providers import VALID_PROVIDERS
-from proactive_loop.loop.tools import ToolRegistry
 
 _EMPTY_MARKER = "(no signals collected)"
 
@@ -249,13 +245,6 @@ def test_b08_and_composition_with_kind_unchanged(tmp_path, capsys):
         capsys,
     )
     assert {s["kind"] for s in both} <= {"todo"}
-
-
-def test_b08_registry_counts_and_version_unchanged():
-    assert len(all_collectors()) == 17
-    assert len(ToolRegistry.tool_names()) == 14
-    assert len(VALID_PROVIDERS) == 7
-    assert __version__ == "0.1.1"
 
 
 def test_b08_subparser_choice_count_unchanged():

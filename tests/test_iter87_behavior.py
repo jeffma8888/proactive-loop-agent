@@ -29,8 +29,6 @@ import argparse
 from proactive_loop import __version__
 from proactive_loop.cli import build_parser
 from proactive_loop.collectors import all_collectors
-from proactive_loop.llm.providers import VALID_PROVIDERS
-from proactive_loop.loop.tools import ToolRegistry
 from proactive_loop.models import ContextSignal, WorkspaceSnapshot
 from proactive_loop.scout.synthesizer import (
     _MAX_SIGNALS_PER_KIND,
@@ -277,18 +275,6 @@ def test_b6_within_kind_reorder_does_not_leak_across_kinds() -> None:
 def test_b7_collector_count_unchanged() -> None:
     assert len(all_collectors()) == 17, (
         f"a weight-aware cap fix must add NO collector; got {len(all_collectors())}"
-    )
-
-
-def test_b7_tool_count_unchanged() -> None:
-    assert len(ToolRegistry.tool_names()) == 14, (
-        f"tool registry count must stay 14; got {len(ToolRegistry.tool_names())}"
-    )
-
-
-def test_b7_provider_count_unchanged() -> None:
-    assert len(VALID_PROVIDERS) == 7, (
-        f"provider count must stay 7; got {len(VALID_PROVIDERS)}"
     )
 
 

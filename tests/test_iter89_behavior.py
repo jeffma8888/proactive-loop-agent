@@ -27,7 +27,6 @@ Criteria); ``test_iter89_behavior.py`` was confirmed unused before creation.
 
 from __future__ import annotations
 
-import argparse
 import os
 import time
 from datetime import datetime, timezone
@@ -36,11 +35,7 @@ from pathlib import Path
 import pytest
 
 import proactive_loop.collectors.filesystem as _fs
-from proactive_loop import __version__
-from proactive_loop.cli import build_parser
 from proactive_loop.collectors import RecentFilesCollector, all_collectors
-from proactive_loop.llm.providers import VALID_PROVIDERS
-from proactive_loop.loop.tools import ToolRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -281,31 +276,4 @@ def test_b7_collector_registry_count_unchanged() -> None:
     assert len(all_collectors()) == 17, (
         "a sort tie-break on RecentFilesCollector must add NO collector; "
         f"expected 17, got {len(all_collectors())}"
-    )
-
-
-def test_b7_tool_registry_count_unchanged() -> None:
-    assert len(ToolRegistry.tool_names()) == 14, (
-        f"tool registry count must stay 14; got {len(ToolRegistry.tool_names())}"
-    )
-
-
-def test_b7_provider_count_unchanged() -> None:
-    assert len(VALID_PROVIDERS) == 7, (
-        f"provider count must stay 7; got {len(VALID_PROVIDERS)}"
-    )
-
-
-def test_b7_cli_subcommand_count_unchanged() -> None:
-    parser = build_parser()
-    subactions = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
-    assert len(subactions) == 1, "expected exactly one subparsers action"
-    assert len(subactions[0].choices) == 17, (
-        f"CLI subcommand count must stay 17; got {len(subactions[0].choices)}"
-    )
-
-
-def test_b7_version_frozen() -> None:
-    assert __version__ == "0.1.1", (
-        f"a behavior-only collector fix must NOT bump the version; got {__version__!r}"
     )

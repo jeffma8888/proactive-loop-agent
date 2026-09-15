@@ -1,6 +1,36 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-411
+    lenses: simplification-and-deletion, performance-and-throughput (iteration 411)
+    - Candidate A1 -- five `scan` renderers each re-implement the same ranked-pairs projection and the same `--top` truncation, and all five docstrings assert the invariant in PROSE instead of in code
+    - Candidate B1 -- 282 test modules, zero `tests/conftest.py`, and `_console_script` is byte-identical in 19 of them
+    - Candidate C1 -- 29 redundant collected tests are byte-identical copies of another test, including SIX copies of the same 3-line `tool_registry_count_unchanged`; deleting them is the only move on this slate that BUYS binding headroom
+    - Candidate D1 -- the suite pays 240.73 ms to answer questions that cost 3.49 ms: give `tests/` one in-process CLI invoker and convert the single slowest module to it
+    - Candidate D2 -- `todos` is 42.5% of a warm scan and the only hot collector with no memo, so `pla watch` re-reads bytes it has already read
+    - Candidate D3 -- 88% of the scan CI actually runs is two git child processes waiting in series; overlap them without changing the child-process budget
+    winner: C1
+    ship: pending (not yet decided)
+  iter-391
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- the "roadmap records this bump" oracle cannot tell a PLAN from a SHIP RECORD, and is ALREADY pre-satisfied for the 6,000 bump
+    - Candidate A3 -- the roadmap row-number namespace has no uniqueness oracle, and #257 names TWO different work items on a public repo today
+    - Candidate A2 -- the countdown that reverts iterations is executed by no gate, one commit after it shipped
+    - Candidate B1 -- `pla resume` is not re-invocation-safe: it re-runs a FINISHED run, doubles its accounting, and after two calls records the successful run as `budget_exhausted`
+    - Candidate B2 -- the run inventory does not compose with the verb it exists to feed: `runs` publishes a RUN ID that `resume --run-dir` rejects, while `resume` accepts the `--state-dir` that would resolve it
+    - Candidate B3 -- both graded gates answer the product's own question with a status-blind shell glob: `runs` has zero executable consumers, and `ls .pla_runs/run-*/artifacts/*.md` is green on a run recorded as `budget_exhausted`
+    winner: B1
+    ship: unknown
+  iter-390
+    lenses: unknown
+    - Candidate A1 -- `scan --baseline FILE`: the verb that WRITES the baseline document cannot READ one
+    - Candidate A2 -- `explain --fail-on-decision DECISION`: the audit verb for the safety claim cannot fail a gate
+    - Candidate A3 -- `PythonVersionDriftCollector`: the 18th collector and only the 2nd RELATIONAL one
+    - Candidate B1 -- `make roadmap-headroom`: the binding `ROADMAP.md` wall is 1,069 chars wide, split across two modules, and no command can print it
+    - Candidate B2 -- two shipped machine-readable surfaces disagree about the same run at the same instant: `runs --json` says `artifacts: 1`, `resume --json` says `artifacts: []`, and the file is on disk
+    - Candidate B3 -- five shipped test names misreport the collector roster, not the one row #232 records
+    winner: B1
+    ship: REVERTED
   iter-389
     lenses: narrative-and-docs, new-capability (iter 389)
     - Candidate A1 -- the newest shipped user-facing refusal is invisible in every published document
@@ -10,7 +40,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `dispatch --max-iterations N` / `--max-llm-calls N`: the approval verb writes a budget it cannot be told
     - Candidate B3 -- `runs --format {table,json,markdown,csv,html}`: five shipped renderings serve exactly one of 17 verbs
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED f962a76
   iter-388
     lenses: performance-and-throughput, narrative-and-docs (iteration 388)
     - Candidate A1 -- (being priced: suite critical path)
@@ -1834,4 +1864,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-183 scouted iterations
+186 scouted iterations

@@ -25,14 +25,12 @@ collector under the stubbed seams, never from the implementation.
 
 from __future__ import annotations
 
-import argparse
 import re
 import types
 from pathlib import Path
 
 import proactive_loop.collectors.working_tree as working_tree
-from proactive_loop import __version__
-from proactive_loop.collectors import WorkingTreeCollector, all_collectors
+from proactive_loop.collectors import WorkingTreeCollector
 from proactive_loop.models import ContextSignal
 
 # The one-per-repo unpushed-summary signal; the embedded <name> is the child
@@ -316,31 +314,3 @@ def test_eb6_oserror_during_enumeration_preserves_root_signal(monkeypatch, tmp_p
     signals = _collect(root)  # must not raise
     names = _unpushed_names(signals)
     assert names == [root.name], names
-
-
-# ===========================================================================
-# Behavior 7 --- Registry / count / version invariants unchanged (zero-drift).
-# ===========================================================================
-
-
-def test_eb7_registry_counts_and_version_frozen() -> None:
-    """Behavior-only, order-only change -> the live registry and version are
-    unchanged: 15 collectors, 14 tools, 7 providers, 15 CLI subcommands,
-    __version__ 0.1.1. A future collector/tool/verb/provider add self-flags here."""
-    from proactive_loop.cli import build_parser
-    from proactive_loop.llm.providers import VALID_PROVIDERS
-    from proactive_loop.loop.tools import ToolRegistry
-
-    assert len(all_collectors()) == 17
-    assert len(ToolRegistry.tool_names()) == 14
-    assert len(VALID_PROVIDERS) == 7
-
-    parser = build_parser()
-    sub_actions = [
-        a
-        for a in parser._subparsers._group_actions
-        if isinstance(a, argparse._SubParsersAction)
-    ]
-    assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 17
-    assert __version__ == "0.1.1"

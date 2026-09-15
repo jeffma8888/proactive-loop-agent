@@ -26,14 +26,11 @@ behavior.py`` was confirmed unused before creation.
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
 from proactive_loop import __version__
-from proactive_loop.cli import build_parser
 from proactive_loop.collectors import TodoCollector, all_collectors
 from proactive_loop.llm.providers import VALID_PROVIDERS
-from proactive_loop.loop.tools import ToolRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -198,23 +195,8 @@ def test_b8_collector_registry_count_unchanged() -> None:
     )
 
 
-def test_b8_tool_registry_count_unchanged() -> None:
-    assert len(ToolRegistry.tool_names()) == 14, (
-        f"tool registry count must stay 14; got {len(ToolRegistry.tool_names())}"
-    )
-
-
 def test_b8_provider_count_unchanged() -> None:
     assert len(VALID_PROVIDERS) == 7, f"provider count must stay 7; got {len(VALID_PROVIDERS)}"
-
-
-def test_b8_cli_subcommand_count_unchanged() -> None:
-    parser = build_parser()
-    subactions = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
-    assert len(subactions) == 1, "expected exactly one subparsers action"
-    assert len(subactions[0].choices) == 17, (
-        f"CLI subcommand count must stay 17; got {len(subactions[0].choices)}"
-    )
 
 
 def test_b8_version_frozen() -> None:
