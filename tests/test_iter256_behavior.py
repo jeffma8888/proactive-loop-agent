@@ -576,11 +576,14 @@ def test_b9_the_relanded_prose_names_this_iteration_not_the_reverted_one() -> No
     # cross-process cache, BLOCKED on an operator `SPEC.md` decision) to buy back the
     # ratchet room its own Done row #280 overspent, so 79 -> 80. Factory iter 301 retired
     # row #271 (`make readme-headroom` published the 499-wide SLACK wall as if it were the
-    # only one) once it shipped the gauge fix, so 80 -> 81. Re-key this token with
+    # only one) once it shipped the gauge fix, so 80 -> 81. Factory iter 304 then retired TWO
+    # rows in ONE commit -- the permanently BLOCKED provider-list row and the self-declared
+    # RE-SCOPE-OR-RETIRE xdist-sampler row -- so 81 -> 83, which is why this token may move by
+    # more than one at a time. Re-key this token with
     # each such bump; do not freeze it (same
     # lesson as tests/test_iter258_behavior.py::test_ac1, which forbids the return of the
     # ledger-id pin that used to red this build on every new ledger row).
-    assert "== 81" in iter214, "the retirement-bullet total is not the expected literal 81"
+    assert "== 83" in iter214, "the retirement-bullet total is not the expected literal 83"
     iter234 = _read("tests/test_iter234_behavior.py")
     assert "foundry iter 288" in iter234, (
         "test_iter234::test_b7's prose does not name foundry iter 288"

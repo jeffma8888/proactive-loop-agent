@@ -580,21 +580,96 @@ def test_b7b_the_queued_floor_row_is_intact_and_its_stale_price_is_voided() -> N
 
 
 # ===========================================================================
-# Acceptance criterion -- a tests-only iteration touches no product code.
+# Behaviors 2-4 -- the ONE worktree-keyed ``src/`` veto retires, and the shape it
+# regressed to is ratcheted shut so no successor can re-add it silently.
 # ===========================================================================
-def test_ac_no_source_or_dependency_moved_in_this_commit() -> None:
-    """Acceptance criteria: no change under ``src/``, and no dependency change, so CI's
-    ``uv sync --locked`` cannot drift. Only the FILE LIST is inspected -- no diff
-    content is read, which keeps the isolation contract intact.
+def test_ac_every_src_status_guard_is_provenance_gated() -> None:
+    """Behaviors 2-4. This iteration deletes
+    ``test_ac_no_source_or_dependency_moved_in_this_commit`` -- the one copy of the
+    "a tests-only iteration touches no product code" criterion that sampled
+    ``git status --porcelain`` over the LIVE worktree with NO provenance gate, which
+    makes it a standing veto over every successor that edits product code rather than
+    a claim about its own commit. The criterion is NOT weakened by the deletion: four
+    provenance-gated siblings still assert it, and they are named here as literal
+    strings so a blanket deletion of the family reds this module --
+    ``test_iter245_behavior.py::test_b13_this_iteration_touches_nothing_under_src``,
+    ``test_iter251_behavior.py::test_b10b_this_iteration_touches_no_source_or_dependency_file``,
+    ``test_iter255_behavior.py::test_b9_the_relocation_ships_no_source_or_dependency_change``,
+    ``test_iter256_behavior.py::test_b10b_the_iteration_touched_no_source_and_no_lockfile``.
+
+    THE CENSUS IS BODY-LEVEL, NOT CALL-LEVEL, and that is a measured requirement
+    rather than a convenience. Three of the four siblings pass NO pathspec at all --
+    they filter in Python and reach ``src`` through a separate
+    ``git show --name-only`` call -- and the fourth splats a module constant, so a
+    predicate scoped to one call's argument list matches ONLY the function this
+    commit deletes (measured: 1 match at HEAD, 0 after) and the non-vacuity floor
+    below could never be satisfied.
+
+    THE GATE TOKENS ARE SPELLED INSIDE THIS BODY ON PURPOSE. ``_corpus()`` globs the
+    filesystem rather than ``git ls-files``, so this oracle is inside its own domain
+    (``test_b5`` asserts exactly that self-visibility). Hoisting the tuple to module
+    scope would leave this body carrying the trigger tokens and no gate, and the
+    census would then report ITSELF as the sole violation.
     """
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "--", "src", "uv.lock", "pyproject.toml"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=True,
+    gates = ("ITERATION_TAG", "_move_has_landed_in_head", "(foundry iter ")
+    siblings = (
+        (
+            "test_iter245_behavior.py",
+            "test_b13_this_iteration_touches_nothing_under_src",
+        ),
+        (
+            "test_iter251_behavior.py",
+            "test_b10b_this_iteration_touches_no_source_or_dependency_file",
+        ),
+        (
+            "test_iter255_behavior.py",
+            "test_b9_the_relocation_ships_no_source_or_dependency_change",
+        ),
+        (
+            "test_iter256_behavior.py",
+            "test_b10b_the_iteration_touched_no_source_and_no_lockfile",
+        ),
     )
-    assert proc.stdout.strip() == "", (
-        "this iteration deletes duplicate TESTS; these product paths moved: "
-        f"{proc.stdout.strip()!r}"
+    sources = _corpus()
+    assert len(sources) >= 200, (
+        f"fail-open floor: the census reached only {len(sources)} modules, so a clean "
+        "verdict would prove nothing"
     )
+
+    matched: list[str] = []
+    ungated: list[str] = []
+    for module in sorted(sources):
+        lines = code_lines(sources[module])
+        for node in ast.parse(sources[module]).body:
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            if not node.name.startswith("test_"):
+                continue
+            body = body_fingerprint(lines, node)
+            if not ("status" in body and "--porcelain" in body and "src" in body):
+                continue
+            matched.append(f"{module}::{node.name}")
+            if not any(gate in body for gate in gates):
+                ungated.append(f"{module}::{node.name}")
+
+    assert ungated == [], (
+        "Behavior 2: a collected test that samples `git status --porcelain` over "
+        "`src` MUST key the sample to its own commit -- naming one of "
+        f"{gates} -- or it becomes a permanent veto over every successor that edits "
+        f"product code, which is the defect this iteration retires: {ungated}"
+    )
+    assert len(matched) >= 4, (
+        "Behavior 3: the census must not be able to pass by matching nothing -- the "
+        "four provenance-gated siblings are expected to match, plus this oracle "
+        f"itself, but the predicate found {matched}"
+    )
+    for module, function in siblings:
+        assert module in sources, (
+            f"Behavior 4: {module} carries one of the four gated copies of this "
+            "acceptance criterion and left the corpus"
+        )
+        assert f"def {function}(" in sources[module], (
+            f"Behavior 4: {module}::{function} is one of the four provenance-gated "
+            "guards that carry the acceptance criterion after this deletion, so it "
+            "must survive; the criterion is asserted four times, not zero"
+        )

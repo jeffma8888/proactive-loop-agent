@@ -392,10 +392,18 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # and 80 before iteration 301 retired row #271 (`make readme-headroom` published the
     # SLACK wall as if it were the only one, so it reported 401 tests of room against a
     # true 0; the gauge now also reports the binding ROUNDING wall).
+    # and 81 before iteration 417 retired TWO rows in one commit, which is why this
+    # literal moves by +2 here and not by +1: row #173 (README's intro names 4 of the 6
+    # live providers -- BLOCKED forever, the sentence sits above the human-owned
+    # `PORTFOLIO INTRO` marker where only three NUMBERS may change) and row #205 (7 more
+    # `git status --porcelain` xdist-window samplers -- its own STATUS said RE-SCOPE OR
+    # RETIRE and the iter-234 re-measurement had already voided 4 of its 5 named
+    # modules). Both bought the chars this iteration's own Done row needed under
+    # `test_iter241::test_b09c`'s `< 35_428` ratchet, which had only 28 to spare.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 81, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 81). If you just "
+    assert sum(counts.values()) == 83, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 83). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

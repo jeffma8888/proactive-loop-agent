@@ -102,7 +102,6 @@ SOURCE_EXTENSIONS: Final[tuple[str, ...]] = (
 #: tracked, or stops being cited, reds the build instead of quietly widening.
 DECLARED_ABSENT: Final[dict[str, str]] = {
     "pm.md": "a foundry per-iteration state artifact, outside this repo by design",
-    "pm_scout_b.md": "a foundry per-iteration state artifact, outside this repo by design",
     "tests/conftest.py": "cited as a NEGATIVE existence claim -- the repo has none",
 }
 

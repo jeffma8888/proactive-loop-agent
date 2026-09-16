@@ -43,8 +43,8 @@ a guard can never look, so the shape does the work instead.
 WHY THE PATH CENSUS NEEDS A DECLARED-ABSENT MAP, AND WHY IT IS SELF-CLEANING
 The second half of the contract is that a cited FILE actually exists: a token bearing
 a recognised source extension must resolve to a path ``git ls-files`` reports as
-tracked. Four cited tokens legitimately do not -- two are foundry state artifacts
-that live outside the repo, two name documents a QUEUED row PROPOSES. Those sit in
+tracked. Two cited tokens legitimately do not -- one is a foundry state artifact
+that lives outside the repo, one names a document a QUEUED row PROPOSES. Those sit in
 :data:`CITED_BUT_UNTRACKED` with a reason each, and the map is self-cleaning in the
 opposite direction: every key must STILL be untracked, so the day one of those files
 ships, the stale exemption reds the build instead of quietly widening.
@@ -155,7 +155,6 @@ ACCEPTED_SAMPLES: Final[tuple[str, ...]] = (
 #: dumping ground.
 CITED_BUT_UNTRACKED: Final[dict[str, str]] = {
     "pm.md": "a foundry per-iteration state artifact, outside this repo by design",
-    "pm_scout_b.md": "a foundry per-iteration state artifact, outside this repo by design",
     "tests/conftest.py": "PROPOSED by queued row #218; the repo deliberately has no conftest yet",
 }
 

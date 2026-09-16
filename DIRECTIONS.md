@@ -1,6 +1,64 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-417
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- delete the one worktree-keyed `src/` ban; the correct general rule already ships in FOUR copies
+    - Candidate A2 -- retire the three queued roadmap rows whose own status text says they are void or unfixable
+    - Candidate A3 -- `_console_script` is hand-copied into 24 test modules, 296 lines, and the blocker that killed this twice does not apply
+    - Candidate B1 -- one test is 65.6% of the suite wall clock and 0.59s of it is work
+    - Candidate B2 -- the suite collects itself ~10 times per run, for the same immutable number
+    - Candidate B3 -- (being priced: per-call CLI child startup, on the CI leg where CPU is the wall)
+    winner: A1
+    ship: pending (not yet decided)
+  iter-416
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- the front door answers a typo with a 407-byte roster wall and no `hint:` line
+    - Candidate A2 -- `python -m proactive_loop` does not exist, and 25 test modules hand-roll around it
+    - Candidate A3 -- `--json` is a one-way contract: on every refusal stdout is 0 bytes, so the machine channel carries no reason
+    - Candidate B1 -- "what a `--slate` argument means" has no owner: the same 5-line resolve-and-refuse prelude is hand-copied at 5 call sites in 4 handlers
+    winner: A1
+    ship: REVERTED
+  iter-415
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- two shipped oracles will demand that a SETTLED history row be rewritten with a number that iteration never published
+    - Candidate A2 -- the exported-`PLA_*` hermeticity defect has MORE THAN DOUBLED, and 18 of the 31 failures are two half-fixes in two modules
+    - Candidate A3 -- `SPEC.md` is 95,493 chars with no size guard, while its sibling required-reading doc is capped at 40,000 and enforced
+    - Candidate B1 -- `pla watch` exits 0 after EVERY scan failed, and both consumers of its stream then exit 2
+    - Candidate B2 -- no verb accepts `-` for stdin, so a slate that exists only in a pipe must be spilled to a temp file first
+    - Candidate B3 -- the stream directory has two spellings: the producer writes `--out-dir`, both consumers reject it
+    winner: B1
+    ship: REVERTED
+  iter-414
+    lenses: new-capability (iteration 414), hardening/DX (iteration 414)
+    - Candidate A1 -- `run --max-seconds N`: the L1 budget has no TIME dimension, and SPEC.md itself names the failure that causes
+    - Candidate B1 -- the 18th collector: the product is blind to its OWN abandoned runs, so the L1 -> L2 feedback loop is open
+    - Candidate C1 -- `trend --fail-on-recurrence N`: the strongest attention signal the product has on disk cannot fail a gate
+    - Candidate B1 -- pay ROADMAP row #282: the collected-item window is 7 wide and THIS iteration's own tester will breach it
+    - Candidate B2 -- SPEC.md is 95,493 chars with no size guard, while the sibling required-reading doc is capped at 40,000 and enforced
+    - Candidate B3 -- (being measured) `test_posture` tells this repo its own `src/` is untested
+    winner: B1
+    ship: REVERTED
+  iter-413
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- re-land iteration 412's README global-flags fix, priced against the REAL 19-char roadmap wall (not the 592 the reverted spec used)
+    - Candidate A2 -- the number that has reverted four iterations is written in exactly one place: an assertion message inside a test named after a one-time event
+    - Candidate A3 -- the public "reasoning trail behind the commit history" denies the commit that is HEAD, skips 134 iterations, and records no rejection reason anywhere
+    - Candidate B1 -- `copy_file`: the 15th L1 ACT tool, and the only one-way bridge from the read-only workspace into the writable sandbox
+    - Candidate B2 -- `scan --category CAT` / `--exclude-category CAT`: the slate cannot be filtered on the one axis the safety gate itself keys on
+    - Candidate B3 -- `scan --exclude-completed`: close the L1 -> L2 feedback loop, because a goal a run already finished is re-proposed forever at the same rank
+    winner: A1
+    ship: REVERTED
+  iter-412
+    lenses: performance-and-throughput, narrative-and-docs (iteration 412)
+    - Candidate A1 -- retire ROADMAP row #257 (cap the xdist pool): its -26.1% does not reproduce, and the pool-size lever is exhausted
+    - Candidate A2 -- every `pla` invocation pays a 175 ms fixed import floor, and 88 ms of it is `pydantic` pulled in through the package `__init__`
+    - Candidate A3 -- the product's own hot path regressed 44.6% and nothing in the repo can notice
+    - Candidate B1 -- the queued row that blocks every test-adding iteration reports `binding_headroom=0`; the gauge says 7, and nothing checks a roadmap figure against the gauge
+    - Candidate B2 -- README promises the decision log records "what was rejected and why"; the log records neither, and its newest row denies the commit that is HEAD
+    - Candidate B3 -- the one flag all 17 verbs accept is mentioned zero times in the README: it documents 116 of 133 flags, and the 17 misses are the same flag
+    winner: B3
+    ship: REVERTED
   iter-411
     lenses: simplification-and-deletion, performance-and-throughput (iteration 411)
     - Candidate A1 -- five `scan` renderers each re-implement the same ranked-pairs projection and the same `--top` truncation, and all five docstrings assert the invariant in PROSE instead of in code
@@ -10,7 +68,7 @@ foundry directions -- proactive-loop-agent
     - Candidate D2 -- `todos` is 42.5% of a warm scan and the only hot collector with no memo, so `pla watch` re-reads bytes it has already read
     - Candidate D3 -- 88% of the scan CI actually runs is two git child processes waiting in series; overlap them without changing the child-process budget
     winner: C1
-    ship: pending (not yet decided)
+    ship: PUSHED e92bc56
   iter-391
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- the "roadmap records this bump" oracle cannot tell a PLAN from a SHIP RECORD, and is ALREADY pre-satisfied for the 6,000 bump
@@ -1864,4 +1922,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-186 scouted iterations
+192 scouted iterations
