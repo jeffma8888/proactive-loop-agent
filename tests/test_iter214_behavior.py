@@ -400,10 +400,15 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # RETIRE and the iter-234 re-measurement had already voided 4 of its 5 named
     # modules). Both bought the chars this iteration's own Done row needed under
     # `test_iter241::test_b09c`'s `< 35_428` ratchet, which had only 28 to spare.
+    # and 83 before iteration 418 retired row #169 (`addopts` gains `--dist worksteal`),
+    # which SHIPPED: the row's own -13.2% price was measured against a 30.01s warm
+    # baseline that no longer exists, so the retirement bullet deletes that figure
+    # rather than minting a replacement, and retiring the 617-char row moved `ROADMAP.md`
+    # DOWN, well clear of the `< 35_428` ratchet instead of borrowing against it.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 83, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 83). If you just "
+    assert sum(counts.values()) == 84, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 84). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

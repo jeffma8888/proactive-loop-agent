@@ -49,7 +49,18 @@ testpaths = ["tests"]
 # the same parallelism, so no invocation is silently left serial. Coverage is
 # still strictly opt-in and MUST NOT appear here; the three subprocess oracles
 # in tests/test_iter52_behavior.py pass an explicit `-n0` to opt back OUT.
-addopts = "-q -n auto"
+#
+# `--dist worksteal` replaces xdist's default `load` scheduling, which hands every
+# worker a fixed slice up front: a worker that draws the one long module finishes
+# minutes after the rest, so the box idles while the wall keeps running. Worksteal
+# re-hands a NOT-YET-STARTED test off that busy worker instead, which is the measured
+# shape of this suite (one module dominated the wall at well under half the cores
+# busy). It changes only WHICH worker runs a test, never an outcome, and it adds no
+# dependency -- the already-locked pytest-xdist accepts it. Declaring it HERE also
+# reaches the nested `cwd=REPO` pytest children this suite spawns, which a CLI flag
+# would not; the `-n0` ones drop it automatically, because xdist forces `dist = "no"`
+# at zero workers.
+addopts = "-q -n auto --dist worksteal"
 
 # Every warning the suite raises is an ERROR. A printed-and-forgotten
 # DeprecationWarning is the one failure class that stays silent until the day it

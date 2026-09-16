@@ -44,12 +44,15 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
    owned by ``test_eb9_*`` functions, both original function names still present,
    the ``env=_clean_env`` redirection still on >= 2 call sites in that file, and
    iteration 149's name-pinning guard class still present.
-7. Nothing outside the merge moved: ``addopts`` is still exactly ``-q -n auto``,
+7. Nothing outside the merge moved: ``addopts`` is still exactly the value iteration
+   52 owns as ``EXPECTED_ADDOPTS`` (re-keyed by foundry iter 305, which appended
+   ``--dist worksteal``; this file imports the constant rather than re-spelling it),
    the runtime dependency list is still exactly ``["pydantic>=2.7"]``, the dev
    group still declares every tool, no ``conftest.py`` was added, and no pytest
    fixture in the edited file holds a nested pytest run (a module/class/session
    fixture is PER-WORKER under xdist ``load``, so hoisting the child into one
-   would let it run twice -- the spec exists partly to forbid that shape).
+   would let it run twice under any xdist distribution mode -- the spec exists partly
+   to forbid that shape).
 8. The merged test carries an in-source comment naming why the two runs were
    merged and what was given up (the plain, non-``-v`` invocation is no longer
    exercised separately), and it does NOT republish the retracted wall-time

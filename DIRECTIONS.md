@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-418
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- settle ROADMAP row #257 (`--maxprocesses=N`): the pool cap relieves the 65% test 4.3x, buys -12.1% CPU, and buys almost no wall clock
+    - Candidate A2 -- ROADMAP row #210 batch 4: the product's own scan still makes 8 physical tree traversals, and CI pays it 3x per leg
+    - Candidate A3 -- ROADMAP row #169 (`--dist worksteal`): one string in `pyproject.toml` takes the suite 78.42s -> 55.43s, -29.3%
+    - Candidate B1 -- README promises `DIRECTIONS.md` records "what was rejected and why"; the generator cannot emit either
+    - Candidate B2 -- (being measured)
+    - Candidate B3 -- (being measured)
+    stubs: 2 of 6 candidate line(s) are write-early placeholders, not measured candidates
+    winner: A3
+    ship: pending (not yet decided)
   iter-417
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- delete the one worktree-keyed `src/` ban; the correct general rule already ships in FOUR copies
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the suite collects itself ~10 times per run, for the same immutable number
     - Candidate B3 -- (being priced: per-call CLI child startup, on the CI leg where CPU is the wall)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 17336d3
   iter-416
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- the front door answers a typo with a 407-byte roster wall and no `hint:` line
@@ -1922,4 +1933,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-192 scouted iterations
+193 scouted iterations

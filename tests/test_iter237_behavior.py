@@ -79,7 +79,10 @@ UV_LOCK = REPO / "uv.lock"
 #: they stood before this iteration. Hardcoded ON PURPOSE rather than diffed
 #: against the HEAD blob: once this iteration's commit lands, HEAD *is* the
 #: post-change file, so a HEAD comparison would quietly become tautological.
-SHIPPED_ADDOPTS = "-q -n auto"
+#: Re-keyed by foundry iter 305, which appended ``--dist worksteal`` to the ini
+#: value: this copy is intentionally NOT imported from iteration 52's owner
+#: constant, so it must be moved by hand whenever the shipped string moves.
+SHIPPED_ADDOPTS = "-q -n auto --dist worksteal"
 SHIPPED_TESTPATHS = ["tests"]
 
 #: Files that could each independently declare a pytest ``filterwarnings``. The

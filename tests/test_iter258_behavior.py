@@ -613,11 +613,32 @@ def test_b9a_the_refusal_path_builds_no_client_and_writes_no_file(
 
 
 def test_b9b_no_runtime_dependency_or_lock_change_lands_with_this_feature() -> None:
-    changed = {
-        line.strip()
-        for line in _git("diff", "--name-only", "HEAD").splitlines()
-        if line.strip()
-    }
+    """MY commit added no dependency -- a claim about iteration 258, not a veto.
+
+    Provenance-gated for the reason ``test_iter256_behavior.py::test_b10b`` spells out:
+    a ``git diff --name-only HEAD`` read answers "what is uncommitted RIGHT NOW", which
+    is a claim about whoever runs the suite rather than about this iteration. It went
+    vacuously green the moment this work landed (a clean worktree diffs to nothing) and
+    then became a standing veto over every SUCCESSOR that legitimately edits
+    ``pyproject.toml`` or regenerates ``uv.lock`` -- an ownership inversion, since this
+    module's scope claim cannot bind later commits. Factory iter 305 was the first to
+    trip it, by adding ``--dist worksteal`` to ``[tool.pytest.ini_options].addopts``.
+    Reading the file list of the commit tagged `(foundry iter 289)` measures exactly what
+    shipped HERE, stays true in a fresh clone forever, and is silent about every later
+    commit.
+    """
+    subjects = _git("log", "--format=%H %s", "-n", "300").splitlines()
+    tag = "(foundry iter 289)"
+    sha = next((line.split(" ", 1)[0] for line in subjects if tag in line), None)
+    if sha is None:
+        # Not yet committed: the shipping SET is the working tree, so measure that.
+        changed = {
+            line.strip()
+            for line in _git("diff", "--name-only", "HEAD").splitlines()
+            if line.strip()
+        }
+    else:
+        changed = set(_git("show", "--name-only", "--format=", sha).split())
     assert "uv.lock" not in changed, "uv.lock drifted; CI runs `uv sync --locked`"
     assert "pyproject.toml" not in changed, (
         "pyproject.toml changed: this feature adds no dependency"

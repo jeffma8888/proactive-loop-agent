@@ -56,7 +56,7 @@ COV_REPORT_FLAG = "--cov-report=term-missing"     # the terminal-report flag
 # The SINGLE definition of the expected addopts string in the whole test corpus:
 # tests/test_iter142_behavior.py and tests/test_iter159_behavior.py IMPORT this name
 # rather than re-spelling it (factory iter 266), so do not localize it back.
-EXPECTED_ADDOPTS = "-q -n auto"                   # addopts MUST stay exactly this
+EXPECTED_ADDOPTS = "-q -n auto --dist worksteal"    # addopts MUST stay exactly this
 SERIAL = "-n0"                                    # opt a subprocess run back OUT of xdist
 COV_MODULE = "tests/test_scheduler.py"            # the BOUNDED single-module subset
 # A coverage summary row: a line beginning with TOTAL that carries a `<n>%` token.
@@ -254,11 +254,13 @@ def test_eb2_coverage_report_config_present():
 # --------------------------------------------------------------------------
 # EB3 --- pytest addopts pinned exactly, and coverage still never global.
 #
-# The pinned VALUE moved once, in iteration 142, from "-q" to "-q -n auto" when
-# pytest-xdist was adopted; the INVARIANT this test exists to defend did not move
-# at all --- coverage stays strictly opt-in and may never enter addopts under any
-# spelling. Pinning the whole string (not just the --cov absence) is what makes a
-# silent revert of the measured 3.45x parallel speedup impossible.
+# The pinned VALUE has moved twice --- iteration 142 went "-q" -> "-q -n auto" when
+# pytest-xdist was adopted, and foundry iter 305 appended "--dist worksteal" so an
+# unevenly-shaped suite stops stranding idle workers behind one long chunk. The
+# INVARIANT this test exists to defend has never moved: coverage stays strictly
+# opt-in and may never enter addopts under any spelling. Pinning the whole string
+# (not just the --cov absence) is what makes a silent revert of the measured
+# parallel speedup impossible.
 # --------------------------------------------------------------------------
 def test_eb3_pytest_addopts_is_pinned_and_coverage_free():
     data = _load_pyproject()

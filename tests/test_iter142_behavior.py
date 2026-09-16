@@ -3,9 +3,12 @@
 Iteration 142 is a pure build-throughput change with **no ``src/`` edit at all**:
 ``pytest-xdist`` becomes a declared dev dependency, ``uv.lock`` is regenerated in
 the same commit (CI runs ``uv sync --locked``, so drift is a red public build),
-and ``[tool.pytest.ini_options].addopts`` becomes exactly ``-q -n auto`` so EVERY
-call site -- ``make test``, ``make cov``, ``make check``, all six CI run-steps and
-a bare ``uv run pytest`` -- inherits the parallelism without any recipe changing.
+and ``[tool.pytest.ini_options].addopts`` gains ``-n auto`` so EVERY call site --
+``make test``, ``make cov``, ``make check``, all six CI run-steps and a bare ``uv
+run pytest`` -- inherits the parallelism without any recipe changing. The exact
+string is owned by ``EXPECTED_ADDOPTS`` and has moved since (foundry iter 305
+appended ``--dist worksteal``), so behavior 5 below pins the CONSTANT, not a
+literal this docstring would have to re-spell.
 
 Why it matters (this is the oracle for a real cliff, not a preference): the
 foundry's post-release check flips a ship to BROKEN when the fresh-clone suite
@@ -23,7 +26,7 @@ Coverage (numbered to match the iteration spec's Expected Behaviors):
    leaks into it.
 4. ``uv.lock`` was regenerated in the same commit: it carries a package stanza
    for ``pytest-xdist`` AND one for ``execnet`` (xdist's own dependency).
-5. ``addopts`` is exactly ``-q -n auto`` (both as a string and tokenized).
+5. ``addopts`` is exactly ``EXPECTED_ADDOPTS`` (both as a string and tokenized).
 6. Coverage is still never global: that ``addopts`` string carries no ``--cov``
    under any spelling. This is the load-bearing half of the iteration-52 guard.
 7. The plugin is INSTALLED, not merely declared -- importable from the very
@@ -221,19 +224,22 @@ class TestLockfileRegenerated:
 # Behaviors 5-6: the single lever, and the coverage invariant it must not break.
 # ==========================================================================
 class TestAddoptsContract:
-    def test_eb5_addopts_is_exactly_dash_q_dash_n_auto(self) -> None:
+    def test_eb5_addopts_is_exactly_the_pinned_string(self) -> None:
         assert _addopts() == EXPECTED_ADDOPTS, (
             "addopts is the ONLY thing making every call site parallel; a silent "
             f"revert hands back the measured 3.45x. Found {_addopts()!r}"
         )
 
-    def test_eb5_addopts_tokenizes_to_exactly_three_flags(self) -> None:
+    def test_eb5_addopts_tokenizes_to_exactly_five_tokens(self) -> None:
         # Derived, never re-spelled: a second literal token list is exactly the
         # duplicate this iteration removes. The length assertion keeps this
-        # function's name ("three flags") load-bearing rather than decorative.
+        # function's name ("five tokens") load-bearing rather than decorative --
+        # it was three (`-q -n auto`) until foundry iter 305 appended `--dist
+        # worksteal`, so move BOTH the name and the number together or the name
+        # starts lying about what it checks.
         expected = EXPECTED_ADDOPTS.split()
-        assert len(expected) == 3, (
-            f"the pinned addopts stopped being three flags: {EXPECTED_ADDOPTS!r}"
+        assert len(expected) == 5, (
+            f"the pinned addopts stopped being five tokens: {EXPECTED_ADDOPTS!r}"
         )
         assert _addopts().split() == expected
 

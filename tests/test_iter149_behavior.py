@@ -1,14 +1,16 @@
 """Black-box behavior tests for iteration 149 (foundry iteration 142).
 
 Feature under test: the nested ``pytest`` child processes this suite spawns must
-PIN an explicit xdist worker count instead of inheriting
-``[tool.pytest.ini_options].addopts = "-q -n auto"`` from the repo's
-``pyproject.toml``. A ``cwd=REPO`` child that inherits ``-n auto`` brings up a
-second full-width worker pool *inside* the already-parallel parent suite, so the
-box is oversubscribed ~3x -- strictly worse on the public CI matrix, whose
-runners have 2-4 cores. The iteration pins the two offending call sites in
-``tests/test_iter142_behavior.py`` and adds the guard below so a future author
-cannot silently re-nest a full pool.
+PIN an explicit xdist worker count instead of inheriting the repo's
+``[tool.pytest.ini_options].addopts`` from ``pyproject.toml``. Its ``-n auto`` is
+the load-bearing part here; the exact string is owned by ``EXPECTED_ADDOPTS`` and
+has since gained ``--dist worksteal`` (foundry iter 305), which is why this
+docstring names the key rather than re-spelling its value. A ``cwd=REPO`` child
+that inherits ``-n auto`` brings up a second full-width worker pool *inside* the
+already-parallel parent suite, so the box is oversubscribed ~3x -- strictly worse
+on the public CI matrix, whose runners have 2-4 cores. The iteration pins the two
+offending call sites in ``tests/test_iter142_behavior.py`` and adds the guard below
+so a future author cannot silently re-nest a full pool.
 
 ISOLATION CONTRACT (honored): these tests were written strictly against this
 iteration's PM spec ("Expected Behaviors" 1-9) plus files the tester card allows
