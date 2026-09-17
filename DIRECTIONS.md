@@ -1,6 +1,18 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-423
+    lenses: simplification-and-deletion (iteration 423), performance-and-throughput (iteration 423)
+    - Candidate A1 -- three roster constants are hand-copied into 12 test modules, and the fix pattern ALREADY SHIPPED (no `conftest.py` needed)
+    - Candidate A2 -- `build_parser` declares one flag's contract up to four times, and the `--collector` choices expression is evaluated three times
+    - Candidate A3 -- pay roadmap row #163: the gated `_dirs_to_scan` still has two implementations, and retiring the row BUYS roadmap headroom
+    - Candidates I dropped after checking DIRECTIONS.md
+    - Candidate B1 -- the last two nested pytest children run BYTE-IDENTICAL argv, and the loop has already shipped exactly this merge once
+    - Candidate B2 -- the `-n 2` pin on the surviving children is a worker-count pin where `-n 0` is what two other sites already use
+    - Candidate B3 -- (being measured) the per-scan work budgets vs what one scan actually spends
+    - Candidates I dropped after checking DIRECTIONS.md
+    winner: A1
+    ship: pending (not yet decided)
   iter-422
     lenses: integration-and-adoption, simplification-and-deletion (iteration 422)
     - Candidate A1 -- the change-feed trio (`watch --out-dir` -> `diff --dir` / `trend --dir`) has zero consumers, and it is the one unconsumed surface that is a complete produce/consume pair
@@ -11,7 +23,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the duplicate-test census is blind to a copy that differs only in its assertion MESSAGE, and that hides 59 more redundant collected tests
     - Candidate B3 -- ROADMAP row #121 is SHIPPED, sits in the live index only because a test demands it, and describes a mypy key that was DELETED
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 0acff05
   iter-421
     lenses: hardening/DX -- iteration 421, integration-and-adoption -- iteration 421
     - Candidate A1 -- pay ROADMAP row #282: re-land iteration 420's salvage patch and advance the four stale pins it left behind
@@ -1974,4 +1986,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-197 scouted iterations
+198 scouted iterations

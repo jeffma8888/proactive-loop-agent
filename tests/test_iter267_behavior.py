@@ -78,25 +78,17 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS
+
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
 SCRIPT = REPO / "examples" / "scripted_responses.json"
 README = REPO / "README.md"
 
-# The published dispatched-run document (spec behavior 6): exactly these nine keys.
-_DOCUMENT_KEYS = frozenset(
-    {
-        "artifacts",
-        "goal_id",
-        "iterations_used",
-        "llm_calls_used",
-        "parse_errors",
-        "retries",
-        "run_dir",
-        "run_id",
-        "status",
-    }
-)
+# The published dispatched-run document (spec behavior 6): exactly the nine keys IMPORTED
+# above as ``DISPATCHED_RUN_KEYS``, not re-spelled -- tests/test_iter158_behavior.py owns
+# the single definition. Still a HAND-WRITTEN expectation, still compared against a key
+# set obtained by RUNNING the verb on a resumed run.
 
 # The two stderr prefixes this iteration contracts (spec behaviors 1, 2, 4, 5, 7).
 _NOTE = "note: "
@@ -648,10 +640,10 @@ def test_b6_json_mode_keeps_the_nine_key_document(
         f"got {llm_json.returncode}\nstderr:\n{llm_json.stderr}"
     )
     payload = _one_json_object(llm_json.stdout, "resume --json on a spent run")
-    assert frozenset(payload) == _DOCUMENT_KEYS, (
+    assert frozenset(payload) == DISPATCHED_RUN_KEYS, (
         "the dispatched document's key set must be unchanged by this iteration; "
-        f"extra={sorted(set(payload) - _DOCUMENT_KEYS)} "
-        f"missing={sorted(_DOCUMENT_KEYS - set(payload))}"
+        f"extra={sorted(set(payload) - DISPATCHED_RUN_KEYS)} "
+        f"missing={sorted(DISPATCHED_RUN_KEYS - set(payload))}"
     )
     assert payload["status"] == spent_llm.checkpoint["status"], (
         "a resume that cannot advance must report the status it loaded; "

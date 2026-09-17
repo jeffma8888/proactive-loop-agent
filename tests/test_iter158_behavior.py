@@ -60,7 +60,13 @@ _TOP_KEYS = frozenset(
         "deferred",
     }
 )
-_DISPATCH_KEYS = frozenset(
+# The published dispatched-run document: the nine keys `dispatch --json` always carries,
+# and the same object `run --json` nests under `dispatched`. THE SINGLE DEFINITION of that
+# roster in the whole test corpus -- tests/test_iter163_behavior.py,
+# tests/test_iter173_behavior.py, tests/test_iter203_behavior.py and
+# tests/test_iter267_behavior.py IMPORT this name rather than hand-spelling it, so do not
+# localize it back into any of them: one shared object cannot drift, equal copies can.
+DISPATCHED_RUN_KEYS = frozenset(
     {
         "goal_id",
         "run_id",
@@ -309,10 +315,10 @@ def test_b03_dispatched_object_publishes_its_nine_keys(json_run) -> None:
     assert isinstance(dispatched, dict), (
         f"a successful auto-dispatch must publish a `dispatched` object; got {dispatched!r}"
     )
-    assert set(dispatched) == set(_DISPATCH_KEYS), (
+    assert set(dispatched) == set(DISPATCHED_RUN_KEYS), (
         "dispatched must carry exactly the nine published keys; "
-        f"missing={sorted(_DISPATCH_KEYS - set(dispatched))} "
-        f"extra={sorted(set(dispatched) - _DISPATCH_KEYS)}"
+        f"missing={sorted(DISPATCHED_RUN_KEYS - set(dispatched))} "
+        f"extra={sorted(set(dispatched) - DISPATCHED_RUN_KEYS)}"
     )
     assert dispatched["goal_id"] == top["id"], (
         f"dispatched.goal_id must be the top goal's id; {dispatched['goal_id']!r} != {top['id']!r}"

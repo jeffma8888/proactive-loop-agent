@@ -51,24 +51,16 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS
+
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
 SCRIPT = REPO / "examples" / "scripted_responses.json"
 
-# The published dispatched-run document (spec behavior 3).
-_DISPATCH_KEYS = frozenset(
-    {
-        "goal_id",
-        "run_id",
-        "status",
-        "run_dir",
-        "artifacts",
-        "iterations_used",
-        "llm_calls_used",
-        "retries",
-        "parse_errors",
-    }
-)
+# The published dispatched-run document (spec behavior 3) is IMPORTED above as
+# ``DISPATCHED_RUN_KEYS``, not re-spelled: tests/test_iter158_behavior.py owns the single
+# definition. The oracle is unchanged -- the roster is still a HAND-WRITTEN expectation
+# and behavior 3 compares it against a key set obtained by RUNNING the verb.
 
 # Human markers the dispatch path prints today (spec behaviors 5 and 6).
 _SUMMARY_MARKER = "dispatched :"
@@ -371,10 +363,10 @@ def test_b02_approved_dispatch_exits_zero_and_stdout_is_one_json_object(
 def test_b03_document_carries_exactly_the_nine_dispatched_keys(json_dispatch) -> None:
     proc, _sd = json_dispatch
     payload = _one_json_object(proc.stdout, "dispatch --json")
-    assert set(payload) == set(_DISPATCH_KEYS), (
+    assert set(payload) == set(DISPATCHED_RUN_KEYS), (
         "the dispatched document's key set must be exactly the 9 published keys; "
-        f"missing {sorted(_DISPATCH_KEYS - set(payload))}, "
-        f"unexpected {sorted(set(payload) - _DISPATCH_KEYS)}"
+        f"missing {sorted(DISPATCHED_RUN_KEYS - set(payload))}, "
+        f"unexpected {sorted(set(payload) - DISPATCHED_RUN_KEYS)}"
     )
 
 

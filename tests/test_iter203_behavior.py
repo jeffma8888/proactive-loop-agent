@@ -59,6 +59,8 @@ import pytest
 from proactive_loop.cli import build_parser
 from proactive_loop.models import CandidateGoal, GoalSlate
 
+from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS
+
 REPO = Path(__file__).resolve().parents[1]
 README = REPO / "README.md"
 SCRIPT = REPO / "examples" / "scripted_responses.json"
@@ -68,20 +70,9 @@ _PREVIEW_MARKER = "[dry-run]"
 _PASTE_PREFIX = "pla dispatch"
 
 # The nine always-present keys of the published `dispatch --json` document
-# (behavior 9's "unchanged" clause).
-_DISPATCH_KEYS = frozenset(
-    {
-        "goal_id",
-        "run_id",
-        "status",
-        "run_dir",
-        "artifacts",
-        "iterations_used",
-        "llm_calls_used",
-        "retries",
-        "parse_errors",
-    }
-)
+# (behavior 9's "unchanged" clause) are IMPORTED above as ``DISPATCHED_RUN_KEYS``, not
+# re-spelled: tests/test_iter158_behavior.py owns the single definition. Still a
+# HAND-WRITTEN expectation, still compared against a key set obtained by RUNNING the verb.
 
 
 # ---------------------------------------------------------------------------
@@ -578,10 +569,10 @@ def test_b09b_dispatch_json_without_dry_run_still_publishes_its_nine_keys(
     )
     payload = json.loads(proc.stdout)
     assert isinstance(payload, dict), f"stdout must be ONE JSON object; got {type(payload)}"
-    assert set(payload) == set(_DISPATCH_KEYS), (
+    assert set(payload) == set(DISPATCHED_RUN_KEYS), (
         "`dispatch --json` must still publish exactly its nine guaranteed keys; "
-        f"missing={sorted(_DISPATCH_KEYS - set(payload))} "
-        f"extra={sorted(set(payload) - _DISPATCH_KEYS)}"
+        f"missing={sorted(DISPATCHED_RUN_KEYS - set(payload))} "
+        f"extra={sorted(set(payload) - DISPATCHED_RUN_KEYS)}"
     )
     assert payload["goal_id"] == env.auto, (
         f"the document must describe the dispatched goal; got {payload['goal_id']!r}"

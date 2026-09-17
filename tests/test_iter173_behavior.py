@@ -54,26 +54,17 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS
+
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
 SCRIPT = REPO / "examples" / "scripted_responses.json"
 
-# The published dispatched-run document (spec behavior 2). Spelled out because
-# behavior 2 is an EXACT key-set claim; behavior 3 then re-derives the same set
-# by running `dispatch --json`, so a drift in either direction is caught.
-_DOCUMENT_KEYS = frozenset(
-    {
-        "goal_id",
-        "run_id",
-        "status",
-        "run_dir",
-        "artifacts",
-        "iterations_used",
-        "llm_calls_used",
-        "retries",
-        "parse_errors",
-    }
-)
+# The published dispatched-run document (spec behavior 2) is IMPORTED above as
+# ``DISPATCHED_RUN_KEYS``, not re-spelled: tests/test_iter158_behavior.py owns the single
+# definition. The oracle is unchanged -- behavior 2 is still an EXACT key-set claim
+# against a HAND-WRITTEN roster, and behavior 3 then re-derives the same set by running
+# `dispatch --json`, so a drift in either direction is still caught.
 
 # The human summary marker the dispatch/resume path prints (spec behaviors 4-5).
 _SUMMARY_MARKER = "dispatched :"
@@ -320,9 +311,9 @@ def test_b02_document_key_set_is_exactly_the_nine_published_keys(
 ) -> None:
     payload = _one_json_object(json_resume[0].stdout, "`resume --json`")
     keys = frozenset(payload)
-    assert keys == _DOCUMENT_KEYS, (
+    assert keys == DISPATCHED_RUN_KEYS, (
         "`resume --json` must publish exactly the nine dispatched-run keys.\n"
-        f"missing: {sorted(_DOCUMENT_KEYS - keys)}\nunexpected: {sorted(keys - _DOCUMENT_KEYS)}"
+        f"missing: {sorted(DISPATCHED_RUN_KEYS - keys)}\nunexpected: {sorted(keys - DISPATCHED_RUN_KEYS)}"
     )
 
 
