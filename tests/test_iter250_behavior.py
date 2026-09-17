@@ -352,3 +352,44 @@ def test_b10_the_roadmap_records_the_raise_once_and_stays_inside_its_budget() ->
         f"ROADMAP.md is {len(roadmap)} chars, leaving {headroom} of headroom under the "
         f"{budget.CHAR_LIMIT}-char limit; the floor is {budget.MIN_HEADROOM}"
     )
+
+
+# ---------------------------------------------------------------------------
+# The raise is graded PER CARRIER as well as in aggregate, so a raise that
+# reached seven of the eight declared files names the one it missed instead of
+# printing a list. Both sides still DERIVE the number from ``guard``.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("carrier", guard.PUBLISHED_FLOOR_CARRIERS)
+def test_b11_every_declared_carrier_claims_the_live_floor(carrier: str) -> None:
+    """One collected item per declared carrier: the red item IS the unpaid file.
+
+    ``test_b7`` above proves the same property in aggregate and is kept: it also
+    owns the UNDECLARED half. What this adds is attribution -- a raise across
+    eight files is finishable when the failure names the file, and a carrier that
+    silently stops claiming the floor (its pin deleted rather than re-keyed) is a
+    vacuous census the aggregate list cannot distinguish from success.
+    """
+    floor = guard.published_floor()
+    text = guard.tracked_text_sources()[carrier]
+    assert guard.floor_claim_lines(text, guard.floor_token(floor)), (
+        f"{carrier} is a DECLARED floor carrier but claims the live floor on no "
+        "line, in either spelling: the raise did not reach it, or its pin was "
+        "deleted instead of re-keyed"
+    )
+
+
+@pytest.mark.parametrize("carrier", guard.PUBLISHED_FLOOR_CARRIERS)
+def test_b12_no_declared_carrier_runs_ahead_of_the_readme(carrier: str) -> None:
+    """The other side of the same obligation, per carrier: nothing may claim the
+    NEXT floor while ``README.md`` still publishes this one, which is how a
+    half-applied raise used to read as green from the module that led it.
+    """
+    floor = guard.published_floor()
+    text = guard.tracked_text_sources()[carrier]
+    ahead = guard.floor_claim_lines(text, guard.floor_token(floor + 100))
+    assert ahead == (), (
+        f"{carrier} claims the NEXT floor at line(s) {ahead} while README.md "
+        "still publishes the current one"
+    )

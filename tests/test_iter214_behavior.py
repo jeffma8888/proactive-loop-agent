@@ -405,10 +405,15 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # baseline that no longer exists, so the retirement bullet deletes that figure
     # rather than minting a replacement, and retiring the 617-char row moved `ROADMAP.md`
     # DOWN, well clear of the `< 35_428` ratchet instead of borrowing against it.
+    # and 84 before iteration 421 retired row #282 (the EXHAUSTED collected-item
+    # window), which SHIPPED: the published floor rises 5,900 -> 6,000 at all eight
+    # declared carriers in the same commit that adds the collected items making the
+    # new floor true, so the row's own blocker is gone and its text is preserved in
+    # the archive rather than re-priced a third time.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 84, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 84). If you just "
+    assert sum(counts.values()) == 85, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 85). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

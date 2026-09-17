@@ -1023,12 +1023,27 @@ def floor_claim_lines(text: str, token: str) -> tuple[int, ...]:
     ``token`` stays the comma-grouped spelling every caller already passes; the
     other spellings are DERIVED from it, so a Python module that pins the floor as
     an underscore literal is seen as the carrier it is without any caller changing.
+
+    The match is DIGIT-BOUNDED, not a bare substring test. A grouped token is a
+    substring of every larger grouped number ending in the same digits -- the
+    char-budget literals this repo pins for ``ROADMAP.md`` end that way -- so a bare
+    ``in`` test read those unrelated lines as floor claims: false obligations a raise
+    cannot pay, because the sentence is about a different number and editing it to
+    satisfy a census would falsify it. The same blindness ran the other way and is
+    the worse half: a DECLARED carrier whose only hit was such a substring passed
+    VACUOUSLY, understating the re-key obligation in the one direction that ships a
+    red build. The boundary refuses a digit, comma or underscore BEFORE the token and
+    a digit AFTER it. A trailing comma or underscore is deliberately allowed: a real
+    pin inside a tuple, or at the end of a clause, is followed by one.
     """
-    spellings = floor_tokens(int(token.replace(",", "")))
+    patterns = tuple(
+        re.compile(rf"(?<![\d,_]){re.escape(spelling)}(?![\d])")
+        for spelling in floor_tokens(int(token.replace(",", "")))
+    )
     return tuple(
         number
         for number, line in enumerate(text.splitlines(), start=1)
-        if any(spelling in line for spelling in spellings)
+        if any(pattern.search(line) for pattern in patterns)
         and not any(marker in line for marker in FLOOR_HISTORY_MARKERS)
     )
 
@@ -1129,6 +1144,24 @@ def test_floor_claim_lines_sees_a_pep_515_underscore_pin() -> None:
     assert floor_claim_lines(text, _SYNTHETIC_TOKEN) == (2, 4)
     assert floor_claim_lines("neither spelling appears here\n", _SYNTHETIC_TOKEN) == ()
 
+    # DIGIT-BOUNDED, not a bare substring. A grouped token is a substring of every
+    # larger grouped number ending in the same digits, and this repo pins such numbers
+    # as document char budgets; prefixed at RUNTIME so this module never spells one.
+    larger = f"the document budget is {'3' + _SYNTHETIC_TOKEN} chars\n"
+    assert _SYNTHETIC_TOKEN in larger, "bare-substring hit, else this proves nothing"
+    assert floor_claim_lines(larger, _SYNTHETIC_TOKEN) == ()
+    larger_underscore = f"CHAR_CAP = {'3' + _SYNTHETIC_UNDERSCORE}\n"
+    assert _SYNTHETIC_UNDERSCORE in larger_underscore, "same shape, other spelling"
+    assert floor_claim_lines(larger_underscore, _SYNTHETIC_TOKEN) == ()
+
+    # The TAIL is deliberately looser than the head: a real pin sits inside a tuple or
+    # ends a clause, so a comma or underscore AFTER the token still reads as a claim.
+    # A symmetric boundary would silently drop declared carriers instead.
+    tuple_pin = f"FLOORS = ({_SYNTHETIC_UNDERSCORE}, 8_800)\n"
+    assert floor_claim_lines(tuple_pin, _SYNTHETIC_TOKEN) == (1,)
+    clause_end = f"the floor is {_SYNTHETIC_TOKEN}, and it is fresh\n"
+    assert floor_claim_lines(clause_end, _SYNTHETIC_TOKEN) == (1,)
+
 
 def test_floor_claim_lines_excludes_history_in_the_underscore_spelling_too() -> None:
     """A widened matcher that dropped the exclusion reports every past bump."""
@@ -1186,6 +1219,18 @@ def test_published_floor_disagreements_names_a_declared_carrier_that_vanished() 
     assert len(problems) == 1, problems
     assert "not in the tracked tree" in problems[0]
 
+    # The EXPENSIVE side of the same blindness: a declared carrier whose only hit was
+    # the token inside a larger number passed VACUOUSLY, understating the re-key
+    # obligation -- the one direction that ships a red build on a public repo.
+    hollow_path = PUBLISHED_FLOOR_CARRIERS[2]
+    hollow = {path: f"claims {_SYNTHETIC_TOKEN}+\n" for path in PUBLISHED_FLOOR_CARRIERS}
+    hollow[hollow_path] = f"a {'3' + _SYNTHETIC_TOKEN}-char budget, not a floor\n"
+    assert _SYNTHETIC_TOKEN in hollow[hollow_path], "bare substring, else vacuous"
+    assert published_floor_disagreements(hollow, _SYNTHETIC_FLOOR) == [
+        f"{hollow_path}: declared floor carrier no longer claims "
+        f"the floor {_SYNTHETIC_TOKEN}"
+    ]
+
 
 def test_published_floor_disagreements_names_an_undeclared_carrier() -> None:
     """The other side: a NEW pin must be declared, not discovered by the next bump."""
@@ -1239,3 +1284,16 @@ def test_every_floor_carrier_agrees_with_the_readme_on_the_live_tree() -> None:
     sources = tracked_text_sources()
     assert "README.md" in sources, "git ls-files returned no README -- the domain is broken"
     assert published_floor_disagreements(sources, published_floor()) == []
+
+    # The NEXT raise must be obstructed ONLY by files that DECLARE the floor. An
+    # undeclared file whose sole hit is a larger number ending in the next token is a
+    # false obligation no raise can pay -- that sentence is about a different number,
+    # and editing it to satisfy a census would falsify it. The live tree must have none.
+    next_floor = published_floor() + 100
+    at_next = published_floor_disagreements(sources, next_floor)
+    undeclared = [problem for problem in at_next if "undeclared file claims" in problem]
+    assert undeclared == [], undeclared
+    # Non-vacuity: the next floor IS a real obligation for every declared carrier, so
+    # the same census must be non-empty there. An empty verdict would mean the filter
+    # above was applied to nothing.
+    assert len(at_next) == len(PUBLISHED_FLOOR_CARRIERS), at_next

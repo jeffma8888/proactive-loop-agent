@@ -56,6 +56,15 @@ REPO = Path(__file__).resolve().parent.parent
 ITERATION_TAG = "288"
 REVERTED_TAGS = ("285", "286", "287")
 
+#: The tag of the commit that ships the CURRENT floor raise. ``ITERATION_TAG``
+#: above keys the SETTLED relocation history (row #179, row #270) and can never
+#: move: iteration 288 published one raise and no later raise can be narrated by
+#: its row without rewriting history to a number it never published. So the live
+#: floor is graded against the raise that is shipping now, and the two keys are
+#: deliberately separate -- collapsing them is the time bomb that armed itself at
+#: every raise after 288.
+RAISE_TAG = "307"
+
 #: The human-owned block's marker, matched on its stable prefix only.
 MARKER = "PORTFOLIO INTRO"
 
@@ -144,14 +153,14 @@ def test_t01_the_ledger_narrates_the_raise_the_readme_actually_publishes() -> No
     ledger_row = [
         line
         for line in _read("ROADMAP.md").splitlines()
-        if line.startswith("- #") and f"(foundry iter {ITERATION_TAG})" in line
+        if line.startswith("- #") and f"(foundry iter {RAISE_TAG})" in line
     ]
     assert len(ledger_row) == 1, (
-        f"expected exactly one Done-ledger row tagged (foundry iter {ITERATION_TAG}); "
+        f"expected exactly one Done-ledger row tagged (foundry iter {RAISE_TAG}); "
         f"found {len(ledger_row)}"
     )
     assert f"{previous} -> {token}" in ledger_row[0], (
-        f"the iteration-{ITERATION_TAG} ledger row does not narrate the raise "
+        f"the iteration-{RAISE_TAG} ledger row does not narrate the raise "
         f"{previous} -> {token} the README publishes: {ledger_row[0]!r}"
     )
 

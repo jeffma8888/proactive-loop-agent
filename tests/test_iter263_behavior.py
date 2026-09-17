@@ -541,42 +541,38 @@ def test_b7_exactly_one_ledger_line_records_the_ship_and_the_archive_gains_nothi
     )
 
 
-def test_b7b_the_queued_floor_row_is_intact_and_its_stale_price_is_voided() -> None:
-    """Behavior 7, second half. Row #282 must STAY QUEUED, and the roadmap must stop
-    telling a future iteration to trust a hardcoded collected-item count that this
-    commit's own deletions falsified.
+def test_b7b_the_floor_row_is_retired_and_recorded_in_both_documents() -> None:
+    """Behavior 7, second half, RE-KEYED by the commit that PAYS row #282.
 
-    AMBIGUITY, recorded rather than smoothed over: the spec asks for the row's slice
-    SENTENCE to be re-priced in place, but ``tests/test_iter251_behavior.py`` requires
-    every surviving queued index row to be byte-equal to ``HEAD``. Those two cannot
-    both hold, so what is graded here is the shippable reading -- the row is untouched
-    and the correction rides ADJACENT to the table, pointing the reader at the gauge
-    rather than at a second integer that would go stale just as fast.
+    What this graded before: the row stays QUEUED, and one line adjacent to the table
+    voids the stale collected-item count the row was priced with. Both obligations
+    died the moment the row shipped -- the correction cannot outlive the row it
+    corrects, and a guard that still demands an open ``| 282 |`` row would veto the
+    very commit the row existed to request (it did, for three attempts). What
+    survives, and is what the guard was ever for, is the ACCOUNTING: a row that
+    leaves the index is recorded in the shipped shape in BOTH documents, never
+    silently dropped.
     """
     roadmap = ROADMAP.read_text(encoding="utf-8")
-    rows = [line for line in roadmap.splitlines() if line.startswith("| 282 |")]
-    assert len(rows) == 1, f"row #282 must still be a single open index row: {rows}"
-    assert "QUEUED" in rows[0], "row #282 must stay QUEUED -- this iteration defers it"
-    head = subprocess.run(
-        ["git", "show", "HEAD:ROADMAP.md"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert rows[0] in head.splitlines(), (
-        "row #282 was edited in place, which the queued-row invariant forbids"
+    lines = roadmap.splitlines()
+    assert [line for line in lines if line.startswith("| 282 |")] == [], (
+        "row #282 shipped in factory iter 307; it must not be an open index row again"
     )
-    correction = [
+    stale_note = [
         line
-        for line in roadmap.splitlines()
+        for line in lines
         if "#282" in line and "readme-headroom" in line and not line.startswith("| ")
     ]
-    assert len(correction) == 1, (
-        "exactly one line outside the table must void row #282's stale collected-item "
-        f"price and send the reader to the gauge instead: {correction}"
+    assert stale_note == [], (
+        "the note that voided row #282's stale collected-item price outlived the row "
+        f"it corrected: {stale_note}"
     )
-    assert "MEASURE" in correction[0], correction[0]
+    ledger = [line for line in lines if line.startswith("- #282 ")]
+    assert len(ledger) == 1, f"exactly one Done-ledger row must record #282: {ledger}"
+    archive = ARCHIVE.read_text(encoding="utf-8")
+    assert "- **#282 --" in archive, (
+        "row #282 left the index leaving no retirement bullet in ROADMAP_ARCHIVE.md"
+    )
 
 
 # ===========================================================================

@@ -2,7 +2,7 @@
 
 WHY A LINE NUMBER IS A DEFECT AND NOT A CONVENIENCE
 ``ROADMAP.md`` is a per-iteration required read and this loop's only evidence trail,
-on a PUBLIC portfolio repo. ``src/proactive_loop/cli.py`` is over 6,000 lines and
+on a PUBLIC portfolio repo. ``src/proactive_loop/cli.py`` is over 6,700 lines and
 nearly every iteration edits it, so a ``path:LINE`` anchor written today lands on
 unrelated code within a few ships -- structural drift, not sloppiness. Measured at
 the state of iteration 244, before the conversion this module guards: 25 distinct
@@ -207,7 +207,7 @@ def check_no_line_locators(text: str, *, name: str = GUARDED_FILENAME) -> Locato
             message=(
                 f"{name} carries {len(offences)} line-number locator(s): "
                 f"{list(offences)}. A line number in this file is stale on arrival -- "
-                f"{name} is rewritten every iteration and cli.py is over 6,000 lines. "
+                f"{name} is rewritten every iteration and cli.py is over 6,700 lines. "
                 "Cite the path plus a backticked SYMBOL instead; the symbol survives "
                 "every edit that does not rename it."
             ),

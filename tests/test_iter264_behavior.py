@@ -140,8 +140,8 @@ MIN_INDEX_ROWS = 20
 #: rows in one commit (#173, #205), so 81 -> 83 archive bullets and 72 -> 73 ledger rows;
 #: factory iter 305 then retired ROADMAP row #169 (``addopts`` gains ``--dist worksteal``)
 #: as SHIPPED and added ledger row #286, so 83 -> 84 and 73 -> 74.
-EXPECTED_ARCHIVE_BULLETS = 84
-EXPECTED_LEDGER_ROWS = 75
+EXPECTED_ARCHIVE_BULLETS = 85
+EXPECTED_LEDGER_ROWS = 76
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

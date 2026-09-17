@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-421
+    lenses: hardening/DX -- iteration 421, integration-and-adoption -- iteration 421
+    - Candidate A1 -- pay ROADMAP row #282: re-land iteration 420's salvage patch and advance the four stale pins it left behind
+    - Candidate A2 -- the floor census is blind to a floor written as a bare integer, so a half-landed raise passes the census that exists to catch it
+    - Candidate A3 -- every local gate reports a verdict without saying which interpreter produced it, and the repo's own Makefile calls that a live hole
+    - Candidate B1 -- a goals-less JSON document is a legitimate TICK to `trend` and the NEWEST slate to `diff --dir`, so both publish a confident wrong number at exit 0 -- while the sibling consumer of the same loader refuses that exact document
+    - Candidate B2 -- a second `watch --out-dir` into the same stream directory silently overwrites tick 001, so index order stops being time order and the index-keyed `diff --dir` reports the change feed BACKWARDS
+    - Candidate B3 -- `runs` publishes a RUN ID that neither of its two consumers accepts: both `resume` and `trace` take a PATH, so the inventory verb's only output cannot be piped into either, and the bare id fails with a message that blames the checkpoint
+    winner: A1
+    ship: pending (not yet decided)
+  iter-420
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `pla runs --prune --keep-last N`: the only destructive verb can delete all or nothing, and cannot express a retention policy
+    - Candidate A2 -- `pla watch --snapshot-dir DIR`: every slate in a watch stream is unverifiable, because the stream ships no evidence
+    - Candidate A3 -- `dispatch` / `explain --goal-title TEXT`: the only handle on a goal is a per-scan random id, while the product's own `diff` and `trend` key on TITLE
+    - Candidate B1 -- (being measured) the collected-item window is 6 and the tester's mandated new module is unpayable, so pay ROADMAP row #282 and reopen it
+    - Candidate B2 -- (being measured) the suite is not environment-hermetic: one exported `PLA_*` knob reds a clean checkout (row #218)
+    - Candidate B3 -- (being measured) targeted-subset cost: `-n auto` in addopts is paid by every engineer/reviewer subset run
+    winner: B1
+    ship: REVERTED
   iter-419
     lenses: narrative-and-docs, new-capability
     - Candidate A -- ten shipped oracles publish a roster count in their own NAME that their own body contradicts, and the class is 5x bigger than the "two oracles" both earlier slates priced
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the 18th collector: `stale_branch`, the one git state nothing perceives
     - Candidate B3 -- `run` / `dispatch --max-seconds N`: the L1 budget has no TIME dimension
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED bf1bb92
   iter-418
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- settle ROADMAP row #257 (`--maxprocesses=N`): the pool cap relieves the 65% test 4.3x, buys -12.1% CPU, and buys almost no wall clock
@@ -1943,4 +1963,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-194 scouted iterations
+196 scouted iterations

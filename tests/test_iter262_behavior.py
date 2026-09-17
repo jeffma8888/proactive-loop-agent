@@ -11,8 +11,8 @@ FAILED before a byte was written (the worktree path was absent too, so nothing w
 overwritten).
 
 WHY THIS MODULE COLLECTS ZERO ITEMS, and why that is a measured constraint rather
-than a style choice. Live collection is 5,998 (``make readme-headroom`` ->
-``live=5998 published=5900 floor=5900``). Four shipped modules
+than a style choice. Live collection is 5,998 (``make readme-headroom``
+-> ``live=5998 published=5900 floor=5900``). Four shipped modules
 (``tests/test_iter238_behavior.py``, ``tests/test_iter245_behavior.py``,
 ``tests/test_iter250_behavior.py``, ``tests/test_iter256_behavior.py``) each assert
 BOTH ``live // 100 * 100 == floor`` AND ``(live + 1) // 100 * 100 == floor``; the

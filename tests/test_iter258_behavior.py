@@ -513,8 +513,8 @@ def test_b9a_the_refusal_path_builds_no_client_and_writes_no_file(
     # the bundled ``examples/scripted_responses.json``. Landed as ARMS
     # inside this existing function BY CONSTRUCTION, not by preference:
     # four shipped modules pin ``(live + 1) // 100 * 100 ==
-    # published_floor()`` against floor 5900 at live=5998, so ONE new
-    # collected item -- a module, a function or a parametrize case --
+    # published_floor()`` against floor 5900 at live=5998 (factory iter 299),
+    # so ONE new collected item -- a module, a function or a parametrize case --
     # moves the floor and reds a PUBLIC build. This function's subject,
     # a refusal that stays inert, is the same subject one refusal further
     # up the on-ramp.

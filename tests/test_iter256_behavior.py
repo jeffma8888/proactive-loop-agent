@@ -99,8 +99,12 @@ SUPERSEDED_ALLOWANCES: dict[str, tuple[str, ...]] = {
 }
 
 #: Lockfiles are excluded from every floor census: they hold upstream hashes and
-#: sizes, so a bare four-digit run is a coincidence, not a claim.
-CENSUS_EXEMPT = ("uv.lock",)
+#: sizes, so a bare four-digit run is a coincidence, not a claim. ``DIRECTIONS.md`` is
+#: excluded for the opposite reason -- it is not authored at all: the foundry rewrites
+#: the whole file idempotently from committed run state immediately BEFORE the final
+#: gate, so it quotes whatever floor a past candidate description named and no commit
+#: can keep it re-keyed. Censusing it charges this repo for another repo's history.
+CENSUS_EXEMPT = ("uv.lock", "DIRECTIONS.md")
 
 
 def _floor() -> int:
@@ -152,6 +156,28 @@ def _move_has_landed_in_head() -> bool:
     appearing in ``HEAD`` is a one-way, once-ever event that no later iteration undoes.
     """
     return _head_has("SPEC_ARCHIVE.md")
+
+
+def _floor_raise_has_landed_in_head() -> bool:
+    """True once ``HEAD``'s intro already publishes the LIVE floor.
+
+    Why this exists beside ``_move_has_landed_in_head``: that probe is
+    ``SPEC_ARCHIVE.md`` in ``HEAD``, a once-ever event that landed at foundry iter 288
+    and is therefore permanently True. It dates the RELOCATION correctly, but the two
+    cases below are deltas of the FLOOR, and every later raise is a fresh delta. Gated
+    on the relocation they demanded post-commit byte-identity of an intro whose digits
+    had just moved -- red in the worktree, green only after the commit, i.e. a suite
+    that cannot be green before the gate that commits it.
+
+    Vacuity was the author's stated reason to avoid a floor-driven switch, and it is
+    answered rather than inherited: this predicate only SELECTS which lawful state to
+    grade, while "the raise happened at all" is owned elsewhere and redundantly --
+    ``test_iter250::test_b2`` (the binding window), ``test_iter143`` (both intro
+    sentences), ``test_iter245`` (``EXPECTED_FLOOR``) and
+    ``test_iter265::test_b5`` (the shipping-tag ledger row narrates the step).
+    """
+    head_claims = {digits for digits, _ in guard.SUITE_CLAIM.findall(_intro(_head_blob("README.md")))}
+    return {guard.floor_token(_floor())} == head_claims
 
 
 def _git(*args: str) -> str:
@@ -230,7 +256,7 @@ def test_b1c_nothing_but_the_floor_digits_changed_above_the_marker() -> None:
     # bytes by construction, so the steady-state invariant is byte-identity instead.
     live_intro = _intro(_read("README.md"))
     head_intro = _intro(_head_blob("README.md"))
-    if _move_has_landed_in_head():
+    if _floor_raise_has_landed_in_head():
         assert live_intro == head_intro, (
             "the portfolio intro drifted from the blob its own commit carries; above "
             "the marker the shipping tree and HEAD must agree byte for byte"
@@ -419,7 +445,12 @@ def test_b6_the_done_ledger_gains_exactly_one_row_for_this_iteration() -> None:
         "provider contract",
         "`SPEC_ARCHIVE.md`",
         "retiring row #179",
-        f"{guard.floor_token(floor - 100)} -> {guard.floor_token(floor)}",
+        # LITERAL, not derived from the live floor: row #270 shipped at foundry iter 288
+        # and narrates the raise IT published. Deriving this needle made a settled
+        # history row owe every later iteration's number, which is the rewrite
+        # `tests/test_iter265_behavior.py::test_b5` forbids. The `->` also makes this a
+        # floor-history line, so the superseded-floor census reads it as history.
+        "5,800 -> 5,900",
         "(foundry iter 288)",
     ):
         assert needle in row, f"ledger row #270 does not name {needle!r}: {row}"
@@ -580,11 +611,12 @@ def test_b9_the_relanded_prose_names_this_iteration_not_the_reverted_one() -> No
     # rows in ONE commit -- the permanently BLOCKED provider-list row and the self-declared
     # RE-SCOPE-OR-RETIRE xdist-sampler row -- so 81 -> 83, which is why this token may move by
     # more than one at a time. Factory iter 305 then retired row #169 (`addopts` gains
-    # `--dist worksteal`) as SHIPPED, so 83 -> 84. Re-key this token with
-    # each such bump; do not freeze it (same
+    # `--dist worksteal`) as SHIPPED, so 83 -> 84. Factory iter 307 then retired row
+    # #282 (the EXHAUSTED collected-item window) as SHIPPED, so 84 -> 85.
+    # Re-key this token with each such bump; do not freeze it (same
     # lesson as tests/test_iter258_behavior.py::test_ac1, which forbids the return of the
     # ledger-id pin that used to red this build on every new ledger row).
-    assert "== 84" in iter214, "the retirement-bullet total is not the expected literal 84"
+    assert "== 85" in iter214, "the retirement-bullet total is not the expected literal 85"
     iter234 = _read("tests/test_iter234_behavior.py")
     assert "foundry iter 288" in iter234, (
         "test_iter234::test_b7's prose does not name foundry iter 288"
@@ -729,7 +761,12 @@ def test_b3b_the_raise_is_exactly_one_step_above_the_published_predecessor() -> 
     )
     (head_token,) = tuple(head_claims)
     head_floor = int(head_token.replace(",", ""))
-    if _move_has_landed_in_head():
+    # Both readings are lawful, and the probe -- not the value under test -- says which
+    # one to grade: equal means the raise is already IN ``HEAD`` (fresh clone, preship,
+    # CI), one step ahead means it is in flight in this worktree. A membership assertion
+    # over the two would be satisfied by a floor that NEVER MOVED, which is the one
+    # obligation this case owns, so each state gets its own arm.
+    if _floor_raise_has_landed_in_head():
         assert _floor() == head_floor, (
             f"the live floor {_floor()} disagrees with the {head_token} its own commit "
             "publishes; once the raise is in HEAD the two readings are one number"
