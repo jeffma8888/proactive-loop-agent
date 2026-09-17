@@ -141,7 +141,7 @@ MIN_INDEX_ROWS = 20
 #: factory iter 305 then retired ROADMAP row #169 (``addopts`` gains ``--dist worksteal``)
 #: as SHIPPED and added ledger row #286, so 83 -> 84 and 73 -> 74.
 EXPECTED_ARCHIVE_BULLETS = 84
-EXPECTED_LEDGER_ROWS = 74
+EXPECTED_LEDGER_ROWS = 75
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120
@@ -504,8 +504,8 @@ def test_the_worktree_keyed_src_veto_retires_and_the_ratchet_holds() -> None:
     # Behavior 7 -- the iteration records itself exactly once.
     ledger = _ledger_rows(roadmap)
     assert len(ledger) == EXPECTED_LEDGER_ROWS, (
-        f"Behavior 7: the Done ledger must hold {EXPECTED_LEDGER_ROWS} rows (72 -> 73 in "
-        "factory iter 304, +1 for row #286 in factory iter 305); it holds "
+        f"Behavior 7: the Done ledger must hold {EXPECTED_LEDGER_ROWS} rows (73 -> 74 in "
+        "factory iter 305, +1 for row #287 in factory iter 306); it holds "
         f"{len(ledger)}. One new row per iteration: re-key this literal, never freeze it"
     )
     mine = [line for line in ledger if line.startswith(f"- #{LEDGER_NUMBER} ")]

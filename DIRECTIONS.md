@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-419
+    lenses: narrative-and-docs, new-capability
+    - Candidate A -- ten shipped oracles publish a roster count in their own NAME that their own body contradicts, and the class is 5x bigger than the "two oracles" both earlier slates priced
+    - Candidate B -- the roadmap row that blocks every test-adding iteration publishes three figures, and all three are false today; the honest fix is to DELETE the numbers, not re-measure them
+    - Candidate C -- the README calls `DIRECTIONS.md` "one block per iteration recording what was considered, what was rejected and why"; it has no block for 134 iterations and no rejection reason anywhere
+    - Candidate B1 -- `scan --focus TEXT`: the scout has no INTENT channel, only a workspace path
+    - Candidate B2 -- the 18th collector: `stale_branch`, the one git state nothing perceives
+    - Candidate B3 -- `run` / `dispatch --max-seconds N`: the L1 budget has no TIME dimension
+    winner: B2
+    ship: pending (not yet decided)
   iter-418
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- settle ROADMAP row #257 (`--maxprocesses=N`): the pool cap relieves the 65% test 4.3x, buys -12.1% CPU, and buys almost no wall clock
@@ -11,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- (being measured)
     stubs: 2 of 6 candidate line(s) are write-early placeholders, not measured candidates
     winner: A3
-    ship: pending (not yet decided)
+    ship: PUSHED 21b51f3
   iter-417
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- delete the one worktree-keyed `src/` ban; the correct general rule already ships in FOUR copies
@@ -1933,4 +1943,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-193 scouted iterations
+194 scouted iterations

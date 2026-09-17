@@ -48,9 +48,11 @@ so a truncated-but-successful listing cannot make the link assertion pass by
 finding nothing to check.
 
 Isolation: black-box. This module reads the artifacts under test (``README.md``,
-``ROADMAP_ARCHIVE.md``), its own synthetic strings, and two helpers from a
-sibling test module. No file under ``src/`` was read, and no engineer, reviewer
-or fix note was opened.
+``ROADMAP_ARCHIVE.md``, ``DIRECTIONS.md``), its own synthetic strings, and three
+helpers from two sibling test modules (``root_markdown_names`` and
+``tracked_root_markdown`` from ``test_iter133_behavior``, ``_directions_blocks``
+from ``test_iter240_behavior``). No file under ``src/`` was read, and no
+engineer, reviewer or fix note was opened.
 
 Offline and deterministic: pure string work plus the ONE read-only
 ``git ls-files`` call the reused helper already makes. No network, no clock, no
@@ -73,10 +75,28 @@ Coverage (numbered to match this iteration's spec "Expected Behaviors"):
    wholesale.
 9. The published-surface landmarks the intro carve-out depends on are intact,
    and no companion link leaked ABOVE the marker.
+
+Factory iter 306 (roadmap row #287) EXTENDED item 8 above rather than adding any
+test function or a new module, because the collected-item window was CLOSED:
+``make readme-headroom`` reported ``binding_headroom=6`` on the tree this landed
+on, which is exactly ``tests/test_iter263_behavior.py::MIN_BINDING_HEADROOM``,
+so ONE new collected item anywhere would have redded that shipped assertion
+(reopening the window means raising the published floor, which is ROADMAP row
+#282 and a separate ship). Item 8 therefore also grades the ``DIRECTIONS.md``
+bullet, in five arms keyed to that spec's Expected Behaviors and labelled with
+those numbers in the test body: B1 the live bullet carries none of the
+over-claiming phrases the log cannot deliver; B2 the SAME census, run FIRST on
+the sentence this iteration deleted, returns both of them, so a clean live
+result is evidence rather than a check that matches nothing; B3 every
+```field:``` label the bullet quotes exists in ``DIRECTIONS.md``; B4 the log's
+``iter-NNN`` blocks are measurably NON-contiguous, which is why the bullet says
+"most of the commit history" rather than "every iteration"; B5 the rewrite
+stayed BELOW the human-owned marker and kept its Markdown link.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -84,9 +104,15 @@ import pytest
 
 from tests.test_iter133_behavior import root_markdown_names, tracked_root_markdown
 
+# The shipped ``iter-NNN`` block parser, imported rather than re-spelled: a second copy
+# of the regex could drift from the one four shipped assertions in that module already
+# grade the log with, and then the two would disagree about what a block IS.
+from tests.test_iter240_behavior import _directions_blocks as directions_blocks
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
 ARCHIVE = REPO_ROOT / "ROADMAP_ARCHIVE.md"
+DIRECTIONS = REPO_ROOT / "DIRECTIONS.md"
 
 #: The marker comment is spelled with an EM DASH ("PORTFOLIO INTRO — human-owned"),
 #: so match only the ASCII-safe prefix: an ASCII ``--`` spelling finds nothing and
@@ -105,6 +131,26 @@ MIN_DOMAIN = 4
 #: as the thing asserted, because a pinned list passes green the day a fifth
 #: companion lands unlinked.
 KNOWN_COMPANIONS = ("DIRECTIONS.md", "ROADMAP.md", "ROADMAP_ARCHIVE.md", "SPEC.md")
+
+#: Claims the ``DIRECTIONS.md`` bullet may never make again, matched case-insensitively.
+#: Each one was TRUE-BY-ASSERTION only: the harness regenerates the whole log from ``##``
+#: headings in state-dir notes outside this checkout, so per-iteration coverage and a
+#: rejection field are shapes this repo cannot deliver however carefully it is edited.
+#: Measured on the committed log at factory iter 306: 193 blocks spanning iter-92..iter-418
+#: (134 of that span absent), and "reject" appears only inside candidate TITLES.
+DIRECTIONS_OVERCLAIMS = (
+    "one block per iteration",
+    "every iteration",
+    "what was rejected",
+    "rejected and why",
+    "why it was rejected",
+)
+
+#: Floors that keep the two live DIRECTIONS.md checks from passing by finding nothing:
+#: a bullet naming one field label proves no binding, and a log parsed down to a handful
+#: of blocks would satisfy the non-contiguity check arithmetically rather than factually.
+MIN_DIRECTIONS_LABELS = 2
+MIN_DIRECTIONS_BLOCKS = 50
 
 
 # --------------------------------------------------------------------------
@@ -158,6 +204,57 @@ def companion_domain(names: Iterable[str]) -> list[str]:
 
 def _readme_text() -> str:
     return README.read_text(encoding="utf-8")
+
+
+def directions_bullet(readme_text: str) -> str:
+    """The ``DIRECTIONS.md`` bullet of ``readme_text``, header line through last wrap.
+
+    SCOPING IS THE CONTRACT, not an optimisation. A census for over-claiming phrases run
+    over the whole README reds the build on an innocent neighbour: the
+    ``SPEC_ARCHIVE.md`` bullet legitimately says "every iteration" about a file that
+    really is rewritten every iteration. So the slice ends at the next line opening a
+    sibling bullet (``- **[``) or at the next heading, and nothing outside one bullet is
+    ever graded.
+
+    Raises ``ValueError`` when the bullet is absent, because a checker that returned ""
+    would report a clean census for a README that had dropped the entry entirely.
+    """
+    lines = readme_text.splitlines()
+    starts = [i for i, line in enumerate(lines) if line.startswith("- **[DIRECTIONS.md](")]
+    if len(starts) != 1:
+        raise ValueError(
+            f"expected exactly one `- **[DIRECTIONS.md](` bullet, found {len(starts)}"
+        )
+    start = starts[0]
+    end = start + 1
+    while end < len(lines) and not (
+        lines[end].startswith("- **[") or lines[end].startswith("#")
+    ):
+        end += 1
+    return "\n".join(lines[start:end])
+
+
+def directions_overclaims(bullet_text: str) -> list[str]:
+    """Every phrase from ``DIRECTIONS_OVERCLAIMS`` that ``bullet_text`` carries.
+
+    Case-insensitive, and returns the PHRASES rather than a bool so a failure names the
+    words to delete. Pure over text, so the same function grades the live bullet and a
+    synthetic one carrying the pre-change sentence -- which is what stops the live check
+    from passing vacuously.
+    """
+    lowered = bullet_text.lower()
+    return [phrase for phrase in DIRECTIONS_OVERCLAIMS if phrase in lowered]
+
+
+def backticked_labels(bullet_text: str) -> list[str]:
+    """Field labels the bullet names in the ```word:``` shape, in document order.
+
+    The bullet earns the right to describe the log's contents by quoting the log's own
+    field labels; this is what binds the description to the artifact. Only the
+    backtick-plus-colon shape counts, so ordinary prose (or a link target such as
+    ``iter-92``) can never be mistaken for a claim about a field.
+    """
+    return re.findall(r"`(\w+):`", bullet_text)
 
 
 def _synthetic(linked: Iterable[str], *, above: Iterable[str] = (), marker: bool = True) -> str:
@@ -284,7 +381,31 @@ def test_b7_a_readme_without_the_marker_is_a_hard_failure() -> None:
 # ==========================================================================
 
 
-def test_b8_the_archive_entry_says_not_to_read_it_wholesale() -> None:
+def test_b8_every_companion_bullet_that_describes_its_file_describes_it_truly() -> None:
+    """The section's DESCRIPTIONS are graded, not just its links.
+
+    Behavior 2 above proves each companion is LINKED; nothing proved the prose about it
+    was TRUE, and a recruiter who follows a link is reading the prose. Two bullets make a
+    checkable claim today: ``ROADMAP_ARCHIVE.md`` ("do not read it wholesale", shipped at
+    factory iter 189) and, from factory iter 306, ``DIRECTIONS.md``.
+
+    WHY THE DIRECTIONS.md HALF LIVES HERE INSTEAD OF IN A NEW MODULE. It is the same
+    domain -- one bullet of this section, above/below the same marker -- and the
+    collected-item window is CLOSED: ``make readme-headroom`` reports
+    ``binding_headroom=6`` on the tree this lands on, which is exactly
+    ``tests/test_iter263_behavior.py::MIN_BINDING_HEADROOM``, so ONE new collected item
+    anywhere (a new module, or a ``test_b8b`` beside this one) reds that shipped
+    assertion. Raising the published floor to reopen the window is ROADMAP row #282 and a
+    separate ship. Extending an existing module for exactly this reason is this repo's own
+    precedent, recorded in this file's header: ``test_iter188_behavior.py`` does not exist
+    because iter-184 extended a module rather than adding one.
+
+    The trailing ``T1``-``T4`` block is the ISOLATED tester's independent pass over the
+    same five Expected Behaviors, added under the same closed window: it pins the phrase
+    tuple against being emptied, proves the ban is case-insensitive, proves the
+    bullet-scoping is load-bearing on the live file, and requires each quoted label to be
+    a per-block field rather than a one-off word.
+    """
     lines = [line for line in _readme_text().splitlines() if "](ROADMAP_ARCHIVE.md)" in line]
     assert len(lines) == 1, f"expected one ROADMAP_ARCHIVE.md link line, found {len(lines)}"
     assert "wholesale" in lines[0], (
@@ -292,6 +413,132 @@ def test_b8_the_archive_entry_says_not_to_read_it_wholesale() -> None:
         f"rather than read the whole file; it reads: {lines[0]!r}"
     )
     assert ARCHIVE.exists(), "the linked archive must exist on disk"
+
+    # -- The census can fail. Graded FIRST, on the sentence this iteration deleted, so a
+    # clean live result below is evidence rather than the absence of a working check.
+    was = (
+        "- **[DIRECTIONS.md](DIRECTIONS.md)** -- one block per iteration recording what "
+        "was considered,\n  what was rejected and why."
+    )
+    caught = directions_overclaims(directions_bullet(was))
+    assert "one block per iteration" in caught and "rejected and why" in caught, (
+        "the phrase census must flag the pre-change sentence and name the offending "
+        f"phrases; on that exact text it returned {caught}"
+    )
+
+    # -- The slice really is one bullet. Named neighbours, because a census widened to the
+    # section would red on ``SPEC_ARCHIVE.md``'s legitimate "every iteration".
+    bullet = directions_bullet(_readme_text())
+    for neighbour in ("SPEC.md", "SPEC_ARCHIVE.md", "ROADMAP.md", "ROADMAP_ARCHIVE.md"):
+        assert f"]({neighbour})" not in bullet, (
+            f"the DIRECTIONS.md slice leaked into the {neighbour} bullet, so this census "
+            "would grade a neighbour's wording: " + repr(bullet)
+        )
+
+    # -- Behavior 1: the live bullet claims none of the shapes the log cannot carry.
+    live = directions_overclaims(bullet)
+    assert live == [], (
+        f"the DIRECTIONS.md bullet claims {live}, which the log does not deliver: it is "
+        "regenerated wholesale by the harness from notes outside this checkout, so "
+        "per-iteration coverage and a rejection field cannot be produced in-repo. Fix the "
+        f"README claim: {bullet!r}"
+    )
+
+    # -- Behavior 3: every field label the bullet quotes exists in the log it describes.
+    log = DIRECTIONS.read_text(encoding="utf-8")
+    labels = backticked_labels(bullet)
+    assert len(labels) >= MIN_DIRECTIONS_LABELS, (
+        f"the bullet must quote at least {MIN_DIRECTIONS_LABELS} of the log's own "
+        f"`field:` labels so the description is bound to the artifact; it quotes {labels}"
+    )
+    absent = [label for label in labels if f"{label}:" not in log]
+    assert absent == [], (
+        f"the bullet promises {absent} that DIRECTIONS.md does not contain. The in-repo "
+        "fix is to correct the README claim -- never to edit DIRECTIONS.md, which the "
+        "harness rewrites wholesale from state outside this checkout, so an edit there is "
+        "gone next iteration."
+    )
+
+    # -- Behavior 4: per-iteration coverage is measurably false, which is WHY the bullet
+    # says "most of the commit history" and not "every iteration".
+    blocks = sorted(int(label) for label in directions_blocks(log))
+    assert len(blocks) >= MIN_DIRECTIONS_BLOCKS, (
+        f"only {len(blocks)} iter-NNN blocks parsed out of DIRECTIONS.md, below the "
+        f"{MIN_DIRECTIONS_BLOCKS} floor: the non-contiguity check below would then hold "
+        "arithmetically without proving anything about the log"
+    )
+    span = blocks[-1] - blocks[0] + 1
+    assert len(blocks) < span, (
+        f"DIRECTIONS.md now holds {len(blocks)} blocks across a span of {span} "
+        f"(iter-{blocks[0]}..iter-{blocks[-1]}), i.e. it has become contiguous. That is "
+        "not a failure of the log: it means the README claim MAY now be widened to "
+        "per-iteration coverage, and this assertion re-keyed with it"
+    )
+
+    # -- Behavior 5: the rewrite stayed below the human-owned marker and kept its link.
+    readme = _readme_text()
+    assert readme.find("- **[DIRECTIONS.md](") > readme.find(MARKER), (
+        "the DIRECTIONS.md bullet must stay BELOW the human-owned portfolio marker"
+    )
+    assert "](DIRECTIONS.md)" in bullet, (
+        "the rewrite must keep the Markdown link, or behavior 2's unlinked_companions "
+        "audit goes red on a bullet that only mentions the file"
+    )
+
+    # ======================================================================
+    # INDEPENDENT TESTER PASS -- factory iter 306. Four checks the authoring round
+    # does not make (T1-T4). They live INSIDE this item, not in a module of their
+    # own, because the collected-item window is CLOSED: ``make readme-headroom``
+    # reports ``live=5992 binding_at=5999 binding_headroom=6`` against
+    # ``tests/test_iter263_behavior.py``'s ``MIN_BINDING_HEADROOM = 6``, so one new
+    # ``test_`` def ANYWHERE reds a shipped assertion on a public build.
+    # ======================================================================
+
+    # -- T1: the phrase tuple cannot be emptied. Behavior 1 asserts ``census == []``,
+    # which an EMPTY ``DIRECTIONS_OVERCLAIMS`` satisfies for any wording at all, so the
+    # five phrases the spec names are pinned here rather than assumed.
+    for phrase in (
+        "one block per iteration",
+        "every iteration",
+        "what was rejected",
+        "rejected and why",
+        "why it was rejected",
+    ):
+        assert phrase in DIRECTIONS_OVERCLAIMS, (
+            f"{phrase!r} left DIRECTIONS_OVERCLAIMS, so the live census would go green on "
+            f"a bullet making that claim again; the tuple holds {DIRECTIONS_OVERCLAIMS}"
+        )
+
+    # -- T2: the ban is case-INSENSITIVE, as the spec requires. An editor who re-introduces
+    # the deleted claim in title case must still be caught.
+    shouted = was.replace("one block per iteration", "One Block Per Iteration")
+    shouted_hits = directions_overclaims(directions_bullet(shouted))
+    assert "one block per iteration" in shouted_hits, (
+        "the census missed a title-cased over-claim, so the ban is spelling-sensitive "
+        f"and trivially evaded; on that text it returned {shouted_hits}"
+    )
+
+    # -- T3: the bullet SCOPING is load-bearing, not an optimisation. The same census run
+    # over the whole section really does fire today, because the ``SPEC_ARCHIVE.md``
+    # neighbour says "every iteration" about a file that IS rewritten every iteration.
+    section_hits = directions_overclaims(_project_documents_section(_readme_text()))
+    assert section_hits != [], (
+        "no bullet in the Project documents section carries a banned phrase any more, so "
+        "the live file no longer proves that scoping this census to ONE bullet is "
+        "necessary. That is not a README failure: widen the census to the section, or "
+        "re-key this assertion, the day the neighbouring wording changes"
+    )
+
+    # -- T4: every label the bullet quotes is a per-block FIELD of the log, not a word that
+    # happens to occur once. Measured at factory iter 306: ``lenses:`` 193, ``winner:``
+    # 193, ``ship:`` 195, against 193 parsed blocks.
+    frequency = {label: log.count(f"{label}:") for label in labels}
+    assert min(frequency.values()) >= MIN_DIRECTIONS_BLOCKS, (
+        f"a label the bullet quotes occurs fewer than {MIN_DIRECTIONS_BLOCKS} times in "
+        f"DIRECTIONS.md ({frequency}), so the description is bound to a one-off word "
+        "rather than to a field every block carries. The in-repo fix is the README "
+        "claim, never the harness-authored log."
+    )
 
 
 # ==========================================================================

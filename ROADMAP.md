@@ -125,3 +125,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #284 Sixteen byte-identical copies of the six-spelling registry/version freeze guard retire from seven shipped modules, one canonical copy of each family kept, and a body-hash duplicate census ratchets the count down (foundry iter 303)
 - #285 The lone worktree-keyed `src/` ban retires; a corpus ratchet keeps it out (foundry iter 304)
 - #286 `addopts` gains `--dist worksteal`; the three exact-value pins and the exactness prose move with it, no dep and no `src/` byte (foundry iter 305)
+- #287 The README's `DIRECTIONS.md` description stops promising per-iteration blocks and rejection reasons the log never carried (193 blocks over a 327-iteration span, no rejection field); a bullet-scoped phrase census plus a backticked-label binding keep it out (foundry iter 306)
