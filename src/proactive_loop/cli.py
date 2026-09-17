@@ -3138,6 +3138,68 @@ def _apply_recorded_budget(
             setattr(args, key, recorded)
 
 
+# The two L1 dimensions a resume can be blocked on, in REPORT order: the coarser
+# bound first, because an exhausted iteration budget is the one that stops the loop
+# even when LLM calls remain. Each row is (checkpoint counter, budget field, the
+# English noun the note uses); the env-var name is DERIVED from the field through
+# `ENV_PREFIX`, never spelled, for the same reason `_apply_recorded_budget` derives
+# it -- a literal here could drift from the name `Settings.from_env` actually reads.
+_RESUME_BUDGET_DIMENSIONS = (
+    ("iterations_used", "max_iterations", "iterations"),
+    ("llm_calls_used", "max_llm_calls", "LLM calls"),
+)
+
+
+def _render_spent_budget_notes(state: RunState, settings: Settings) -> list[str]:
+    """Lines warning that *state* has already spent the bound *settings* imposes.
+
+    WHY this exists: ``resume`` is documented as the verb a supervising script
+    re-invokes after a budget exhaustion, but the budget it re-runs under is the
+    PRODUCING run's (``meta.json`` > built-in default, deliberate since the
+    recorded-budget fold shipped). Re-invoking it on a run that died AT its bound
+    therefore replays the termination check, terminates immediately, and exits
+    ``0`` having made zero progress -- the same exit code a successful resume
+    returns, with nothing said. That is a silent dead end on the one recovery
+    path, so this names it.
+
+    WHY a report and not a refusal: the exit code and the nine-key dispatched
+    document are published contracts ("adds no exit code and no key"), and a
+    caller that loops over run dirs must not start failing on a run that is
+    merely finished with its budget. So the loop still runs, still terminates,
+    still exits ``0`` -- only stderr gains the diagnosis.
+
+    WHY the bound comes from *settings* rather than from ``meta.json``: settings
+    is the value in force AFTER the ``PLA_MAX_*`` env > recorded > default fold,
+    so raising the knob makes these lines disappear, which is exactly the
+    feedback the operator needs to confirm the raise took effect.
+
+    Returns ``[]`` when both dimensions have headroom -- the common case, and the
+    reason a healthy resume stays byte-identical on both streams. Otherwise one
+    ``note: `` line per exhausted dimension, followed by exactly ONE ``hint: ``
+    line: the notes name the knob that raises the bound, and the hint names the
+    OTHER half an operator cannot discover, namely that the run dir records no
+    provider configuration, so raising the bound alone still fails at the model
+    boundary. Deliberately NOT a paste-ready command: this process cannot know
+    which provider the producing run used, so any command it printed would be a
+    command that fails when pasted.
+    """
+    notes = [
+        f"note: this run has used {getattr(state, used_key)} of "
+        f"{getattr(settings, bound_key)} {noun}, so resume cannot advance it; "
+        f"raise the bound with {ENV_PREFIX}{bound_key.upper()} and re-run"
+        for used_key, bound_key, noun in _RESUME_BUDGET_DIMENSIONS
+        if getattr(state, used_key) >= getattr(settings, bound_key)
+    ]
+    if not notes:
+        return []
+    notes.append(
+        "hint: the run dir's meta.json does not record provider configuration, "
+        "so a resume that raises the bound must also re-supply --provider and, "
+        "for the offline provider, --scripted-responses"
+    )
+    return notes
+
+
 def _iter_run_dirs(state_dir: Path) -> list[Path]:
     """Return *state_dir*'s ``run-*`` subdirs, sorted ascending by ``.name``.
 
@@ -5553,7 +5615,10 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     precedence is ``PLA_MAX_*`` env > the recorded value > the built-in 8/24
     default. This verb declares no budget flags, so before that record existed one
     ``resume`` could carry a run several iterations past the bound its ``run``
-    invocation set.
+    invocation set. When that bound is ALREADY spent the loop re-runs its
+    termination check and stops at once, so the verb reports the dead end on
+    stderr (see :func:`_render_spent_budget_notes`) instead of exiting ``0`` in
+    silence with nothing advanced.
     """
     run_dir = Path(args.run_dir)
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
@@ -5572,6 +5637,15 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     artifacts_dir = (
         Path(state.artifacts_dir) if state.artifacts_dir else run_dir / _ARTIFACTS_NAME
     )
+
+    # Diagnose a spent budget AFTER the fold that decides it and BEFORE the client
+    # exists, so the operator learns why nothing will happen even when reaching the
+    # model would itself fail (an unraisable bound and a missing provider are the two
+    # halves of the same dead end, and a `create_client` error would hide the first).
+    # It stays BELOW the missing-checkpoint return: that refusal owns exit 2 with an
+    # empty stdout, and a note about a run that does not exist would be noise.
+    for line in _render_spent_budget_notes(state, settings):
+        print(line, file=sys.stderr)
 
     client = create_client(settings)
     tools = ToolRegistry(workspace_root=workspace_root, artifacts_dir=artifacts_dir)

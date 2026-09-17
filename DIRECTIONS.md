@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-422
+    lenses: integration-and-adoption, simplification-and-deletion (iteration 422)
+    - Candidate A1 -- the change-feed trio (`watch --out-dir` -> `diff --dir` / `trend --dir`) has zero consumers, and it is the one unconsumed surface that is a complete produce/consume pair
+    - Candidate A2 -- the documented recovery chain dead-ends: `resume` after budget exhaustion exits 0 having made zero progress, and the one invocation that could progress exits 1
+    - Candidate A3 -- `run_id` names two unrelated identities across the four published machine documents, so correlating the inventory with a dispatch document never matches
+    - Candidates I dropped after checking DIRECTIONS.md
+    - Candidate B1 -- 368 hand-copied test HELPERS (~2,630 lines) have no census at all, and unlike a collected test they can be deleted without touching the published floor
+    - Candidate B2 -- the duplicate-test census is blind to a copy that differs only in its assertion MESSAGE, and that hides 59 more redundant collected tests
+    - Candidate B3 -- ROADMAP row #121 is SHIPPED, sits in the live index only because a test demands it, and describes a mypy key that was DELETED
+    winner: A2
+    ship: pending (not yet decided)
   iter-421
     lenses: hardening/DX -- iteration 421, integration-and-adoption -- iteration 421
     - Candidate A1 -- pay ROADMAP row #282: re-land iteration 420's salvage patch and advance the four stale pins it left behind
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- a second `watch --out-dir` into the same stream directory silently overwrites tick 001, so index order stops being time order and the index-keyed `diff --dir` reports the change feed BACKWARDS
     - Candidate B3 -- `runs` publishes a RUN ID that neither of its two consumers accepts: both `resume` and `trace` take a PATH, so the inventory verb's only output cannot be piped into either, and the bare id fails with a message that blames the checkpoint
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED c439272
   iter-420
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla runs --prune --keep-last N`: the only destructive verb can delete all or nothing, and cannot express a retention policy
@@ -1963,4 +1974,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-196 scouted iterations
+197 scouted iterations

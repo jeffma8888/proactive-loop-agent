@@ -546,7 +546,19 @@ copied literal, so the key set is equal to `dispatch --json`'s by construction -
 the human run summary on **stderr**. It adds no exit code and no key: a run dir with
 no loadable checkpoint still exits 2 with `error: no checkpoint found in <dir>` on
 stderr and leaves stdout **empty**, never a half-formed document, and a bare
-`pla resume --run-dir DIR` is byte-identical to before.
+`pla resume --run-dir DIR` is byte-identical to before on stdout. What `resume` cannot do is
+advance a run whose recorded bound is already **spent**, and that dead end is now
+audible rather than silent: the budget in force is the producing run's (the two
+`meta.json` budget keys below), so re-invoking the verb on a run that stopped AT its
+bound replays the termination check, stops immediately, and still exits **0** having
+changed nothing. It now says so on **stderr** --- one `note:` line per exhausted
+dimension, naming the used-of-bound count and the environment knob that raises it
+(`PLA_MAX_ITERATIONS` for iterations, `PLA_MAX_LLM_CALLS` for LLM calls) --- plus one
+`hint:` line for the half nothing else tells you: `meta.json` records no provider
+configuration, so a resume that raises the bound must ALSO re-supply `--provider` and
+`--scripted-responses` or it fails at the model boundary instead. Those lines go to
+stderr in both modes, so the `--json` document on stdout is unchanged, and a resume
+with headroom in both dimensions prints neither.
 
 `examples/check_run.py` is the committed *consumer* of that shared document, and it
 exists because a published contract nobody executes is a guess: the paragraphs above

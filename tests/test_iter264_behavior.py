@@ -139,9 +139,12 @@ MIN_INDEX_ROWS = 20
 #: ``tests/test_iter258_behavior.py::test_ac1`` records). Factory iter 304 retired TWO
 #: rows in one commit (#173, #205), so 81 -> 83 archive bullets and 72 -> 73 ledger rows;
 #: factory iter 305 then retired ROADMAP row #169 (``addopts`` gains ``--dist worksteal``)
-#: as SHIPPED and added ledger row #286, so 83 -> 84 and 73 -> 74.
+#: as SHIPPED and added ledger row #286, so 83 -> 84 and 73 -> 74. Factory iters 306, 307
+#: and 308 then added ledger rows #287, #282 and #288 with NO index retirement between
+#: them (307 retired row #282 from the index, which is why the bullet count moved once),
+#: so the ledger ran 74 -> 75 -> 76 -> 77 while the bullets stopped at 85.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 76
+EXPECTED_LEDGER_ROWS = 77
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120
@@ -505,7 +508,8 @@ def test_the_worktree_keyed_src_veto_retires_and_the_ratchet_holds() -> None:
     ledger = _ledger_rows(roadmap)
     assert len(ledger) == EXPECTED_LEDGER_ROWS, (
         f"Behavior 7: the Done ledger must hold {EXPECTED_LEDGER_ROWS} rows (73 -> 74 in "
-        "factory iter 305, +1 for row #287 in factory iter 306); it holds "
+        "factory iter 305, then +1 each for row #287 in factory iter 306, row #282 in 307 "
+        "and row #288 in 308); it holds "
         f"{len(ledger)}. One new row per iteration: re-key this literal, never freeze it"
     )
     mine = [line for line in ledger if line.startswith(f"- #{LEDGER_NUMBER} ")]

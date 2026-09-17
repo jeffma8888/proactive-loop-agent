@@ -124,3 +124,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #286 `addopts` gains `--dist worksteal`; the three exact-value pins and the exactness prose move with it, no dep and no `src/` byte (foundry iter 305)
 - #287 The README's `DIRECTIONS.md` description stops promising per-iteration blocks and rejection reasons the log never carried (193 blocks over a 327-iteration span, no rejection field); a bullet-scoped phrase census plus a backticked-label binding keep it out (foundry iter 306)
 - #282 Test floor rises 5,900 -> 6,000 at all eight carriers; the collected-item window reopens (foundry iter 307)
+- #288 `resume` stops no-op'ing silently on a spent L1 bound: one `note:` per exhausted dimension naming used-of-bound and the `PLA_MAX_*` knob that raises it, plus one `hint:` that the run dir records no provider configuration; stderr in both modes, exit codes and the nine-key document untouched (foundry iter 308)
