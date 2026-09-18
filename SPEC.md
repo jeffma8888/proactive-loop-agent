@@ -173,6 +173,9 @@ class Collector(Protocol):
 
 - Every collector is **pure stdlib + deterministic**, never raises on a missing
   dir/tool — degrade to `[]`.
+- Two per-scan PROVIDERS hold this layer's shared file I/O: `dir_source.py` serves ONE
+  pruned `os.walk` per root per scan (applying `filesystem._SKIP_DIRS`/`_is_hidden`), and
+  `text_source.py` ONE read+decode per path per scan. "Walks via `dir_source`" = inherited.
 - `filesystem.py: RecentFilesCollector(name="recent_files", max_files=20, within_days=14)`
   — walk `root`, skip hidden dirs / `node_modules` / `.venv` / `__pycache__`,
   emit one signal per recently-modified file, `kind="recent_file"`, weight by recency
@@ -267,8 +270,7 @@ class Collector(Protocol):
   exactly like iters 09/11/16/28/37/42 — a new `kind` flows into synthesis via
   `by_kind()` with zero synthesizer change, so no version bump.)
 - `test_posture.py: TestPostureCollector(name="test_posture", max_items=20)` —
-  walk `root` (same skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/
-  `_is_hidden`) and emit one `kind="test_posture"` signal per top-level project
+  walk `root` via `dir_source` and emit one `kind="test_posture"` signal per top-level project
   dir (direct child of `root`, or `"."` for files in `root`) that contains at
   least one *source* file. A candidate file (`.py`/`.ts`/`.js`/`.go`/`.rs`) is a
   *test* file when its name starts with `test_`, its stem ends with `_test`, it
@@ -281,9 +283,9 @@ class Collector(Protocol):
 - `merge_conflict.py: MergeConflictCollector(name="merge_conflict", max_items=30, max_read_bytes=5_000_000)` —
   committed-conflict-marker companion to `git_state` (which reads `.git/MERGE_HEAD`
   for an *in-progress* merge — that marker vanishes at `git commit` while the
-  `<<<<<<<`/`>>>>>>>` TEXT survives inside the committed file). Walk `root` (same
-  skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/`_is_hidden`),
-  content-scan each scanned-extension file whose `st_size` does not EXCEED
+  `<<<<<<<`/`>>>>>>>` TEXT survives inside the committed file). Walk `root` via `dir_source`
+  (`_is_hidden` FILES only; content via `text_source`), content-scan each
+  scanned-extension file whose `st_size` does not EXCEED
   `max_read_bytes` (oversized files are skipped unread; composition note under
   `large_file`) for conflict-marker label lines and emit one
   `kind="merge_conflict"` signal per affected file. A marker line is a
@@ -303,10 +305,9 @@ class Collector(Protocol):
 - `large_file.py: LargeFileCollector(name="large_file", max_items=20, min_bytes=5_000_000)` — repo-hygiene companion to the other filesystem
   collectors: an oversized file in a workspace (a stray build artifact, an
   accidentally-saved dataset, a checked-in binary) is a classic pre-commit
-  hazard that bloats git history the moment it is committed. Walk `root` (same
-  skip rules as `RecentFilesCollector`, reusing `_SKIP_DIRS`/`_is_hidden`, and
-  skipping hidden files too) and emit one `kind="large_file"` signal per file
-  whose size is **at or above** `min_bytes` (inclusive `size >= min_bytes`: a
+  hazard that bloats git history the moment it is committed. Walk `root` via
+  `dir_source` (`_is_hidden` FILES only, so hidden files are skipped too) and emit
+  one `kind="large_file"` signal per file whose size is **at or above** `min_bytes` (inclusive `size >= min_bytes`: a
   file of exactly the threshold IS flagged). Summary
   `"<relpath>: <human> (large)"` where `<relpath>` is forward-slashed relative
   to `root` and `<human>` renders the raw byte size with SI (decimal) units at
@@ -333,8 +334,7 @@ class Collector(Protocol):
   with zero synthesizer change, so no version bump.)
 - `secret_file.py: SecretFileCollector(name="secret_file", max_items=20)` — security-hygiene companion to `large_file`/`merge_conflict`: a secret-shaped
   file committed to a (public) repo is the highest-stakes leak hazard. Walk
-  `root` (same dir-prune rules as `RecentFilesCollector`, reusing
-  `_SKIP_DIRS`/`_is_hidden` for the DIR prune only) and emit one
+  `root` via `dir_source` and emit one
   `kind="secret_file"` signal per file whose **case-folded basename** MATCHES
   (exact name ∈ `{.env, .envrc, credentials, .netrc, .npmrc, .pypirc,
   .git-credentials, id_rsa, id_dsa, id_ecdsa, id_ed25519}`, OR starts with the
@@ -372,8 +372,8 @@ class Collector(Protocol):
   `.circleci/config.yml` → `CircleCI`; `azure-pipelines.yml` → `Azure Pipelines`;
   `Jenkinsfile` → `Jenkins`; `.travis.yml` → `Travis CI`; `bitbucket-pipelines.yml`
   → `Bitbucket Pipelines`) emit `summary="CI configured (<system>)"`, `weight=0.5`;
-  else if the tree has any source file (`.py`/`.ts`/`.js`/`.go`/`.rs`, same
-  `_SKIP_DIRS`/`_is_hidden` prune as the sibling collectors) emit
+  else if the tree has any source file (`.py`/`.ts`/`.js`/`.go`/`.rs`, via the
+  shared `filesystem._has_source` walk) emit
   `summary="no CI configured"`, `weight=0.8` (the actionable gap outweighs an
   already-configured repo); otherwise `[]`. Every signal: `detail=""`,
   `path=str(root)` (the workspace root, not a file), `timestamp=None`. Per-project
@@ -394,8 +394,7 @@ class Collector(Protocol):
   `manifest.st_mtime > lock.st_mtime` (equal counts as fresh, so a freshly-regenerated
   lock is never nagged) → `summary="<rel>: manifest newer than <lockrel>"`. Every
   signal: `weight=0.6`, `detail=""`, `path=str(manifest)`, `timestamp=None`; `<rel>`/
-  `<lockrel>` are forward-slashed paths relative to `root`. Same `_SKIP_DIRS`/
-  `_is_hidden` dir-prune as the sibling filesystem collectors; output sorted by `<rel>`
+  `<lockrel>` are forward-slashed paths relative to `root`. Walks via `dir_source`; output sorted by `<rel>`
   ascending and capped at `max_items`. **Presence + mtime only — NEVER opens manifest
   or lockfile CONTENT** (no hash/version comparison), so it cannot raise on binary
   bytes and no file contents can leak into a signal. Pure stdlib (`os`/`pathlib`),
@@ -405,8 +404,8 @@ class Collector(Protocol):
   no version bump.)
 - `syntax_error.py: SyntaxErrorCollector(name="syntax_error", max_items=30, max_read_bytes=5_000_000)` — the first
   code-PARSING collector: it runs the stdlib parser `compile(text, str(full), "exec")` on
-  every `*.py` file under `root` (same skip rules as `RecentFilesCollector`, reusing
-  `_SKIP_DIRS`/`_is_hidden`; scans `.py` ONLY, case-insensitive; `.pyi` stubs excluded;
+  every `*.py` file under `root` (via `dir_source`, `_is_hidden` FILES only, read via
+  `text_source`; scans `.py` ONLY, case-insensitive; `.pyi` stubs excluded;
   files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread, which is what
   keeps "every `*.py` file" literally true; composition note under `large_file`) and
   emits one `kind="syntax_error"` signal per file that raises a `SyntaxError`. **Parse-only

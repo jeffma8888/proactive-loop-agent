@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-425
+    lenses: narrative-and-docs (iteration 425), new-capability
+    - Candidate A1 -- `SPEC.md` section 4.1 tells seven collectors to reuse a prune constant none of them imports, and the seam that actually owns it is named zero times in 95,479 chars
+    - Candidate A2 -- ROADMAP row #257 advertises a -26.1% wall-clock win that this loop itself measured at -4.9%, and the falsification lives only in a state dir no reader will open
+    - Candidate A3 -- `SPEC.md`'s `syntax_error` bullet still says the collector parses every `*.py` file, hiding the process-wide parse memo that is the single largest perf mechanism in the collector layer
+    - Candidate B1 -- `trend --fail-on-persistence N`: the change feed cannot fail a build, while the perception layer has three gates
+    - Candidate B2 -- `pla runs --summary`: the resilience counters exist per run and nowhere in aggregate
+    - Candidate B3 -- the 18th collector `stale_branch`: the winner iteration 419 recorded and never landed
+    - Candidates I dropped after checking DIRECTIONS.md
+    winner: A1
+    ship: pending (not yet decided)
   iter-424
     lenses: performance-and-throughput (iteration 424), narrative-and-docs (iteration 424)
     - Candidate A1 -- `todos` scans line-by-line with two regexes; one whole-text pass with one alternation cuts the product's second-hottest collector
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the headroom figure this repo publishes to its own PM understates the binding suite-size wall, and that number burned a tester stage last iteration
     - Candidate B3 -- `SPEC.md` contradicts itself about the `Makefile`: the guarded fence names all recipes, the prose site still names four, and the ones it hides are the type oracle and both local gates
     winner: B3
-    ship: pending (not yet decided)
+    ship: PUSHED 27353d3
   iter-423
     lenses: simplification-and-deletion (iteration 423), performance-and-throughput (iteration 423)
     - Candidate A1 -- three roster constants are hand-copied into 12 test modules, and the fix pattern ALREADY SHIPPED (no `conftest.py` needed)
@@ -1996,4 +2007,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-199 scouted iterations
+200 scouted iterations
