@@ -1143,10 +1143,9 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   a 2-tick `pla watch --out-dir DIR` feeds `pla diff --dir DIR` a real change feed with no
   API key. Plus plan/check pairs for a 3-iteration loop that writes `learning_plan.md` +
   `project_scaffold.md` artifacts, then done.
-- `Makefile`: `setup` (uv sync), `test` (uv run pytest), `demo`
-  (uv run pla run --workspace examples/fixture_workspace --provider scripted
-  --scripted-responses examples/scripted_responses.json --state-dir .pla_runs),
-  `clean`.
+- `Makefile`: `help`, `setup`, `test`, `cov`, `typecheck` (the PEP 561 oracle),
+  `readme-headroom`, `demo`, `clean`, `check`, `check-matrix` (both CI legs) and
+  `clone-check` (fresh clone); `make help` glosses each.
 - Tests: `tests/test_cli_integration.py` — end-to-end `main([...])` offline demo run
   asserts exit 0, slate file written, artifacts exist, sensitive goal NOT auto-run;
   `tests/test_scheduler.py` — injectable-sleep periodicity.

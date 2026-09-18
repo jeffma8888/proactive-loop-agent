@@ -145,8 +145,10 @@ MIN_INDEX_ROWS = 20
 #: so the ledger ran 74 -> 75 -> 76 -> 77 while the bullets stopped at 85. Factory iter
 #: 309 then added ledger row #289 (the nine-key roster single-sourced in the test corpus)
 #: with no index retirement either, so 77 -> 78 and the bullets still stop at 85.
+#: Factory iter 310 added ledger row #290 (`SPEC.md`'s `Makefile` bullet names every
+#: declared recipe), again with no index retirement, so 78 -> 79 and the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 78
+EXPECTED_LEDGER_ROWS = 79
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120
@@ -511,7 +513,7 @@ def test_the_worktree_keyed_src_veto_retires_and_the_ratchet_holds() -> None:
     assert len(ledger) == EXPECTED_LEDGER_ROWS, (
         f"Behavior 7: the Done ledger must hold {EXPECTED_LEDGER_ROWS} rows (73 -> 74 in "
         "factory iter 305, then +1 each for row #287 in factory iter 306, row #282 in 307, "
-        "row #288 in 308 and row #289 in 309); it holds "
+        "row #288 in 308, row #289 in 309 and row #290 in 310); it holds "
         f"{len(ledger)}. One new row per iteration: re-key this literal, never freeze it"
     )
     mine = [line for line in ledger if line.startswith(f"- #{LEDGER_NUMBER} ")]

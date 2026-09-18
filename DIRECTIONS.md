@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-424
+    lenses: performance-and-throughput (iteration 424), narrative-and-docs (iteration 424)
+    - Candidate A1 -- `todos` scans line-by-line with two regexes; one whole-text pass with one alternation cuts the product's second-hottest collector
+    - Candidate A2 -- the suite pays test-module IMPORT once per xdist worker, so import-time work in a test module is multiplied by 12
+    - Candidate A3 -- the per-invocation import floor, priced against the denominator iteration 412 never counted
+    - Candidate B1 -- the `syntax_error` collector's published one-liner names two mutually exclusive mechanisms, and the falsification of the one it names lives only in a 480 KB archive
+    - Candidate B2 -- the headroom figure this repo publishes to its own PM understates the binding suite-size wall, and that number burned a tester stage last iteration
+    - Candidate B3 -- `SPEC.md` contradicts itself about the `Makefile`: the guarded fence names all recipes, the prose site still names four, and the ones it hides are the type oracle and both local gates
+    winner: B3
+    ship: pending (not yet decided)
   iter-423
     lenses: simplification-and-deletion (iteration 423), performance-and-throughput (iteration 423)
     - Candidate A1 -- three roster constants are hand-copied into 12 test modules, and the fix pattern ALREADY SHIPPED (no `conftest.py` needed)
@@ -12,7 +22,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- (being measured) the per-scan work budgets vs what one scan actually spends
     - Candidates I dropped after checking DIRECTIONS.md
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 6bf5bb1
   iter-422
     lenses: integration-and-adoption, simplification-and-deletion (iteration 422)
     - Candidate A1 -- the change-feed trio (`watch --out-dir` -> `diff --dir` / `trend --dir`) has zero consumers, and it is the one unconsumed surface that is a complete produce/consume pair
@@ -1986,4 +1996,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-198 scouted iterations
+199 scouted iterations
