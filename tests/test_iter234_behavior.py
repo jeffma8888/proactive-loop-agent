@@ -90,7 +90,7 @@ EXPECTED_OWNERS: dict[str, frozenset[str]] = {
     "--exclude-path": frozenset({"scan", "run", "signals"}),
     "--fail-on-kind": frozenset({"signals"}),
     "--fail-over": frozenset({"signals"}),
-    "--summary": frozenset({"signals"}),
+    "--summary": frozenset({"runs", "signals"}),
     "--timings": frozenset({"signals"}),
     "--prune": frozenset({"runs"}),
     "--status": frozenset({"runs"}),

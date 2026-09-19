@@ -106,8 +106,11 @@ SIX_SITES: Final[tuple[tuple[str, list[str]], ...]] = (
 KINDS: Final[tuple[str, str]] = ("broken_link", "license")
 
 #: The new seam's name and the exact number of places that may call it.
+#: Moved 6 -> 7 when ``runs --summary`` landed (foundry iter 314): its one-object
+#: ``--json`` rendering routes through the seam rather than a 16th open-coded
+#: ``print(json.dumps(``, so ``EXPECTED_PRINT_JSON_DUMPS`` stays at 15.
 EMITTER: Final[str] = "_emit"
-EXPECTED_EMIT_CALL_SITES: Final[int] = 6
+EXPECTED_EMIT_CALL_SITES: Final[int] = 7
 
 #: Behavior 5.  The five renderers whose open-coded dispatch tail must be GONE.
 #: (``_render_explain`` is deliberately absent: HEAD had TWO explain tails -- the
@@ -477,7 +480,8 @@ def test_b05b_emitter_has_exactly_six_call_sites() -> None:
     calls = _emitter_calls(_cli_tree())
     assert len(calls) == EXPECTED_EMIT_CALL_SITES, (
         f"`{EMITTER}` must be called at exactly {EXPECTED_EMIT_CALL_SITES} sites "
-        f"(policy --check-goal, policy, config, tools, collectors, providers); found "
+        f"(policy --check-goal, policy, config, tools, collectors, providers, "
+        f"runs --summary); found "
         f"{len(calls)} at lines {sorted(c.lineno for c in calls)}"
     )
 

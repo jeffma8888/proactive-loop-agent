@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-431
+    lenses: narrative-and-docs -- iteration 431, new-capability -- iteration 431
+    - Candidate A1 -- doc/code drift check (placeholder, being measured)
+    - Candidate A2 -- stale figure in a shipped artifact (placeholder, being measured)
+    - Candidate B1 -- (being measured) a new-capability slice grounded in an open ROADMAP row
+    - Candidate B2 -- (being measured) a new user-facing CLI capability the product lacks
+    - Candidate B3 -- (being measured) a new-capability slice with zero README-floor ripple
+    - Candidates I dropped after checking DIRECTIONS.md
+    winner: B2
+    ship: pending (not yet decided)
   iter-430
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- the suite spawns the `pla` console script 542 times per run, 235 s of child wall (53% of all child-process time); the repeated identical argv groups are the slice
@@ -13,7 +23,7 @@ foundry directions -- proactive-loop-agent
     - Candidates I dropped after measuring
     stubs: 2 of 8 candidate line(s) are write-early placeholders, not measured candidates
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 3e6fd88
   iter-429
     lenses: simplification-and-deletion (iteration 429), performance-and-throughput
     - Candidate A1 -- retire the 41 duplicate version-freeze tests, and make the census message-blind in the same commit
@@ -2064,4 +2074,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-205 scouted iterations
+206 scouted iterations

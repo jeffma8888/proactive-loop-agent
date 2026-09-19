@@ -129,3 +129,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #290 `SPEC.md` §4.6's `Makefile` bullet named 4 of 11 recipes, hiding `typecheck` (the PEP 561 oracle) and all three local gates; it now names every declared target, bound two-sided to the `Makefile`'s own `target:` lines with no exempt set and cross-checked against §2's fence. Net -14 bytes: the inlined `demo` command drops to its recipe name (`SPEC.md` had 7 bytes left) (foundry iter 310)
 - #291 41 duplicate version-freeze tests retire; 6092 -> 6051, ratchet 38 -> 21, headroom 6 -> 47 (foundry iter 312)
 - #292 `git_activity`/`working_tree` skip the root `git` spawn where no repo can exist (foundry iter 313)
+- #293 `runs --summary`: one aggregate over the listed runs -- count, per-status histogram, summed iterations/artifacts/retries/parse_errors (foundry iter 314)

@@ -777,15 +777,14 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     document with its own complement, so an aliased pair is an argparse usage error (exit 2)
     at PARSE time, before anything is collected or written.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
-  - `pla runs [--json] [--status STATUS] [--prune]` — read-only, LLM-free lister of past dispatched runs
-    under `--state-dir`: one row per `run-<goal_id>/` (run id, status, iterations,
-    artifact count, goal title, workspace, plus the two persisted resilience
-    counters retries and parse errors), id-sorted and deterministic; a run
-    dir with no loadable checkpoint degrades to a `(no checkpoint)` row rather
-    than aborting. Makes `resume --run-dir DIR`'s argument discoverable. `--json`
-    emits a parseable array (`[]` when empty). Builds no `LLMClient`. `--status STATUS`
-    narrows the listing to one `RunStatus`; `--prune` deletes the selected dirs instead of
-    listing them, DRY RUN unless `--yes`.
+  - `pla runs [--json] [--status STATUS] [--summary] [--prune]` — read-only, LLM-free lister of
+    past dispatched runs under `--state-dir`: one id-sorted row per `run-<goal_id>/` (run id,
+    status, iterations, artifact count, goal title, workspace, plus the persisted retries and
+    parse-error counters); a run dir with no loadable checkpoint degrades to a `(no
+    checkpoint)` row. `--json` emits an array (`[]` when empty); `--status STATUS` narrows to
+    one `RunStatus`; `--summary` swaps the listing for one aggregate of that selection (count,
+    per-status histogram, summed counters; one `--json` object), refused with `--prune` (exit
+    2); `--prune` deletes the selected dirs, DRY RUN unless `--yes`.
   - `pla explain --slate slate.json [--goal-id ID]` — read-only, LLM-free auditor
     of a saved slate. `--goal-id` is **optional**: given, it audits ONE goal;
     omitted, it audits the WHOLE slate in `ranked()` order in one pass (so a

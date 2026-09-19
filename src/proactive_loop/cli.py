@@ -1175,6 +1175,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Confirm the deletion for --prune (inert without it); mirrors dispatch --yes.",
     )
+    # The AGGREGATE twin of the listing, mirroring `signals --summary`: the two
+    # persisted resilience counters (retries, parse_errors) are readable only per
+    # row, so "how throttle- or garbage-pressured was this fleet?" needed `--json`
+    # piped through jq. --summary collapses the SAME selected rows (--status
+    # narrows it identically) to one count + per-status histogram + four sums; it
+    # never changes WHICH runs are selected, only how they are rendered. Refused
+    # with --prune inside _cmd_runs (exit 2): a summary of a deletion has no
+    # meaning, and an argparse exclusive group would hide the reason.
+    p_runs.add_argument(
+        "--summary",
+        action="store_true",
+        help=(
+            "Print one aggregate of the selected runs instead of the per-run "
+            "listing: run count, per-status histogram, and summed iterations/"
+            "artifacts/retries/parse_errors. Composes with --status (same "
+            "selection). With --json emits one {runs, by_status, iterations, "
+            "artifacts, retries, parse_errors} object; otherwise two human lines. "
+            "Cannot be combined with --prune (exit 2)."
+        ),
+    )
     p_runs.set_defaults(func=_cmd_runs)
 
     # `explain` mirrors `dispatch`'s slate input but runs nothing: it inherits the
@@ -3346,6 +3366,53 @@ def _render_runs(rows: list[dict[str, Any]]) -> str:
             f"{row['artifacts']:>9}  {row['goal']}"
         )
     return "\n".join(lines)
+
+
+# The four per-run integer fields `runs --summary` sums, in the order the human
+# form prints them; shared by the summarizer and the renderer so the two can
+# never disagree on WHICH counters make up the aggregate.
+_RUN_SUM_FIELDS: tuple[str, ...] = ("iterations", "artifacts", "retries", "parse_errors")
+
+
+def _summarize_runs(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Collapse ``_run_row`` rows into one aggregate: count, histogram, four sums.
+
+    A pure function of the rows the listing already built (the SAME selection,
+    post ``--status``), so the summary can never disagree with ``runs --json``:
+    ``runs`` is ``len(rows)``, ``by_status`` is the per-status count with keys
+    sorted ascending (``{}`` for no rows), and each of ``_RUN_SUM_FIELDS`` is the
+    plain ``sum()`` over the rows. A degraded ``(no checkpoint)`` row contributes
+    its marker as a status key and zeros to the sums, exactly as ``_run_row``
+    reports it -- the aggregate hides nothing the listing shows.
+    """
+    counts: dict[str, int] = {}
+    for row in rows:
+        counts[row["status"]] = counts.get(row["status"], 0) + 1
+    summary: dict[str, Any] = {
+        "runs": len(rows),
+        "by_status": {status: counts[status] for status in sorted(counts)},
+    }
+    for field in _RUN_SUM_FIELDS:
+        summary[field] = sum(row[field] for row in rows)
+    return summary
+
+
+def _render_runs_summary(summary: dict[str, Any]) -> str:
+    """Render a ``_summarize_runs`` aggregate as exactly two plain-text lines.
+
+    Line 1 is ``runs: N`` followed, only when N > 0, by a parenthetical of
+    ``<status> <count>`` pairs (ascending status order, comma-space separated);
+    line 2 is the four sums as ``<field>: <n>`` separated by two spaces, in
+    ``_RUN_SUM_FIELDS`` order. Deterministic and disk-free like ``_render_runs``;
+    the empty aggregate renders the same two-line shape with zeros rather than a
+    prose sentinel, so a script can always read both lines.
+    """
+    by_status: dict[str, int] = summary["by_status"]
+    head = f"runs: {summary['runs']}"
+    if by_status:
+        head += " (" + ", ".join(f"{k} {v}" for k, v in by_status.items()) + ")"
+    sums = "  ".join(f"{field}: {summary[field]}" for field in _RUN_SUM_FIELDS)
+    return f"{head}\n{sums}"
 
 
 def _render_explain(
@@ -5733,6 +5800,13 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     Without ``--prune`` no deletion code is reachable at all, so the listing
     contract every other caller depends on is unchanged.
     """
+    # Refused FIRST, before the state dir is even resolved: this is a fault in the
+    # ARGV SHAPE (a summary of a deletion has no meaning), decidable without
+    # touching disk, and it must never reach _prune_runs -- the same idiom as
+    # dispatch's `--dry-run cannot be combined with --json`. stdout stays EMPTY.
+    if args.summary and args.prune:
+        print("error: --summary cannot be combined with --prune", file=sys.stderr)
+        return 2
     settings = _settings(args)
     if args.prune:
         return _prune_runs(settings.state_dir, args)
@@ -5745,6 +5819,16 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     # "no runs" line (human) or "[]" (--json) verbatim.
     if args.status is not None:
         rows = [r for r in rows if r["status"] == args.status]
+    if args.summary:
+        # Aggregate over the SAME filtered rows the listing would print, so the
+        # summary and `runs --json` agree by construction. --json -> ONE object.
+        summary = _summarize_runs(rows)
+        _emit(
+            as_json=args.json,
+            payload=lambda: summary,
+            human=lambda: _render_runs_summary(summary),
+        )
+        return 0
     if args.json:
         # The ENTIRE stdout must parse as one JSON array (empty -> []); no prose.
         print(json.dumps(rows, indent=2))
