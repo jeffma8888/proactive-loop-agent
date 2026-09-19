@@ -83,6 +83,8 @@ NEW_ROW: Final[str] = (
 PRIOR_ROW_PREFIX: Final[str] = "- #293 "
 NEW_ROW_PREFIX: Final[str] = "- #294 "
 SHIP_TAG: Final[str] = "foundry iter 315"
+#: A FLOOR, not a freeze: the live pin was 83 when #294 landed and only ever grows;
+#: ``test_iter264`` owns the exact count (re-keyed there each time a row is added).
 EXPECTED_LEDGER_ROWS_AFTER: Final[int] = 83
 
 #: Behavior 6. The spec's headline arithmetic: with 20 items of headroom inherited, adds
@@ -295,10 +297,11 @@ def test_b3b_one_item_under_the_wall_fails_test_b7_naming_the_report(
 # ===========================================================================
 # Behavior 5 -- the record sites, all three, in one commit.
 # ===========================================================================
-def test_b5_ledger_row_294_is_appended_once_directly_after_293_and_the_pin_is_83() -> None:
+def test_b5_ledger_row_294_is_appended_once_directly_after_293_and_the_pin_moved_past_82() -> None:
     """Behavior 5: ROADMAP.md holds the spec's row verbatim, exactly once, on the line
     directly after ``- #293 ...``; the row fits the ledger bound and cites the ship tag;
-    ``EXPECTED_LEDGER_ROWS`` moved 82 -> 83; ROADMAP_ARCHIVE.md never mentions #294.
+    ``EXPECTED_LEDGER_ROWS`` moved past 82 (83 when #294 landed; ``test_iter264`` owns the
+    live count); ROADMAP_ARCHIVE.md never mentions #294.
     """
     lines = ROADMAP.read_text(encoding="utf-8").splitlines()
     prior = [i for i, line in enumerate(lines) if line.startswith(PRIOR_ROW_PREFIX)]
@@ -312,8 +315,8 @@ def test_b5_ledger_row_294_is_appended_once_directly_after_293_and_the_pin_is_83
     assert NEW_ROW.endswith(f"({SHIP_TAG})")
     assert NEW_ROW in ledger._ledger_rows("\n".join(lines))
 
-    assert ledger.EXPECTED_LEDGER_ROWS == EXPECTED_LEDGER_ROWS_AFTER
-    assert len(ledger._ledger_rows("\n".join(lines))) == EXPECTED_LEDGER_ROWS_AFTER
+    assert ledger.EXPECTED_LEDGER_ROWS >= EXPECTED_LEDGER_ROWS_AFTER
+    assert len(ledger._ledger_rows("\n".join(lines))) == ledger.EXPECTED_LEDGER_ROWS
 
     archive = ARCHIVE.read_text(encoding="utf-8")
     assert "#294" not in archive, "row #294 was not a queued index row; the archive is untouched"

@@ -153,8 +153,12 @@ MIN_INDEX_ROWS = 20
 #: repo can exist), again with no index retirement, so 80 -> 81 and the bullets hold.
 #: Foundry iter 314 added ledger row #293 (`runs --summary` aggregates the fleet's
 #: resilience counters), again with no index retirement, so 81 -> 82 and the bullets hold.
+#: Foundry iter 315 added ledger row #294 (`test_iter270::test_b7` re-anchors on the
+#: 6-item gauge), again with no index retirement, so 82 -> 83 and the bullets hold.
+#: Foundry iter 316 added ledger row #295 (every slate verb refuses a goals-less object
+#: via `_load_slate`), again with no index retirement, so 83 -> 84 and the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 83
+EXPECTED_LEDGER_ROWS = 84
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-433
+    lenses: hardening/DX -- iteration 433 (state dir) / repo HEAD b6b933d (foundry iter 315)
+    - Candidate A -- (placeholder, being measured)
+    - Candidate B -- (placeholder, being measured)
+    - Candidate B1 -- (being measured) a shipped surface nothing yet consults, wired to a real consumer
+    - Candidate B2 -- (being measured) a machine-readable output a neighbouring tool could script against but cannot today
+    - Candidate B3 -- (being measured) an on-ramp/default that turns a built capability into a used one
+    stubs: 2 of 5 candidate line(s) are write-early placeholders, not measured candidates
+    winner: B2
+    ship: pending (not yet decided)
   iter-432
     lenses: new-capability -- iteration 432 (write-early checkpoint, being refined in place), hardening/DX -- iteration 432
     - Candidate A1 -- (being measured) a new user-facing capability grounded in an open ROADMAP row
@@ -11,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- ROADMAP row #218, the conftest half: one exported `PLA_*` knob still reds 12 tests in 9 modules, and the fix is legal under the 20-wall because it REMOVES a collected item rather than adding one
     - Candidates I dropped after checking DIRECTIONS.md or measuring
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b6b933d
   iter-431
     lenses: narrative-and-docs -- iteration 431, new-capability -- iteration 431
     - Candidate A1 -- doc/code drift check (placeholder, being measured)
@@ -2085,4 +2095,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-207 scouted iterations
+208 scouted iterations

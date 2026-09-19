@@ -2059,18 +2059,27 @@ def _load_slate(path: Path) -> GoalSlate:
     """Load + validate a slate JSON file, mapping pydantic's ``ValidationError``
     to one dependency-opaque ``ValueError`` (see ``sanitize_validation_error``).
 
-    Shared by every slate-load verb (``explain``/``dispatch``/``diff``) so the
-    failure path is uniform: on a corrupt (malformed-JSON) OR schema-invalid slate
-    the ``main()`` boundary prints ONE ``error: invalid slate file '<path>': <N>
-    validation error[s][; first at <loc>]`` line -- never the vendor's multi-line
-    dump (model class name, ``[type=...]`` taxonomy, ``errors.pydantic.dev/<ver>``
-    URL, or the raw ``input_value=`` echo of the user's file bytes). The happy path
-    is byte-identical to a bare ``model_validate_json`` -- the sanitizer only
-    intercepts the failure; a ``read_text`` ``OSError`` still surfaces to ``main()``
-    unchanged (the callers' ``is_file`` guard runs first anyway).
+    Shared by every slate-load verb (``explain``/``dispatch``/``verify``/``diff``/
+    ``trend``) so the failure path is uniform: on a corrupt (malformed-JSON) OR
+    schema-invalid slate the ``main()`` boundary prints ONE ``error: invalid slate
+    file '<path>': <N> validation error[s][; first at <loc>]`` line -- never the
+    vendor's multi-line dump (model class name, ``[type=...]`` taxonomy,
+    ``errors.pydantic.dev/<ver>`` URL, or the raw ``input_value=`` echo of the user's
+    file bytes). A JSON object with NO top-level ``goals`` key is refused here as well,
+    by ``_reject_goals_less_slate``, because validation cannot see it (``GoalSlate``
+    defaults every field). The happy path is byte-identical to a bare
+    ``model_validate_json`` -- the sanitizer only intercepts the failure; a
+    ``read_text`` ``OSError`` still surfaces to ``main()`` unchanged (the callers'
+    ``is_file`` guard runs first anyway).
+
+    WHY ONE ``read_text``: the presence check and the validator consume the SAME bytes,
+    so the two can never disagree about what the file said, and a read-only verb pays
+    for the file once.
     """
+    text = path.read_text()
+    _reject_goals_less_slate(path, text)
     try:
-        return GoalSlate.model_validate_json(path.read_text())
+        return GoalSlate.model_validate_json(text)
     except ValidationError as exc:
         raise ValueError(sanitize_validation_error("slate", path, exc)) from None
 
@@ -6060,34 +6069,41 @@ def _verify_json_payload(
     }
 
 
-def _reject_goals_less_slate(path: Path) -> None:
+def _reject_goals_less_slate(path: Path, text: str) -> None:
     """Refuse a ``--slate`` document that is a JSON object carrying no ``goals`` key.
 
-    WHY this exists at all, and why only ``verify`` calls it: ``GoalSlate`` defaults
-    every field, so once ``_load_slate`` has run, "no ``goals`` key" and "a slate of
-    zero goals" are the SAME object -- and ``verify --fail-on-unresolved`` is a graded
-    step of ``make check`` and of ``.github/workflows/ci.yml``. So a mistyped path, or
-    ``--slate``/``--snapshot`` swapped (a ``signals --json`` snapshot is a goals-less
-    object), printed ``verified: 0 goals, 0 sources, 0 unresolved`` and exited ``0``:
-    the gate certified a green result it never checked. A gate that cannot fail is
-    worse than no gate, because it is quoted as evidence. The snapshot half of the same
-    invocation already fails closed on exactly this mistake (``snapshot file has no
-    'signals' array``), so this makes the two arguments of one verb equally honest.
+    WHY this exists at all: ``GoalSlate`` defaults every field, so once validation has
+    run, "no ``goals`` key" and "a slate of zero goals" are the SAME object. So a
+    mistyped path, or ``--slate``/``--snapshot`` swapped (a ``signals --json`` snapshot
+    is a goals-less object), printed a clean result and exited ``0``: ``verify
+    --fail-on-unresolved`` -- a graded step of ``make check`` and of
+    ``.github/workflows/ci.yml`` -- certified ``verified: 0 goals, 0 sources, 0
+    unresolved`` on a document it never checked. A gate that cannot fail is worse than
+    no gate, because it is quoted as evidence. The snapshot half of the same invocation
+    already fails closed on exactly this mistake (``snapshot file has no 'signals'
+    array``), so this makes the two arguments of one verb equally honest.
+
+    WHY it lives in the loader (``_load_slate``) and not in one verb: the argument
+    above is about what validation ERASES, not about ``verify``, so every loader caller
+    had the same hole -- ``explain``, the audit verb, reported ``(no goals in slate)``,
+    ``diff`` printed ``(no differences)``, ``trend --dir`` counted the tick, and
+    ``dispatch`` blamed the goal id -- each at a success or not-found code. Checking
+    once, on the bytes the loader already read, gives all five verbs one code path and
+    one message; ``verify``'s own pre-check call (foundry iter 298) retired for it.
 
     STRUCTURAL, not a count: only the PRESENCE of the key is checked, so a legitimate
     ``{"goals": []}`` slate still reports ``(no goals in slate)`` at exit ``0`` -- an
     empty slate is a real, degradable result, and row #177 pins it.
 
-    Every OTHER slate fault is left to ``_load_slate`` untouched, which is why the
-    parse failures below simply return: a non-object document, an unparseable one, or a
+    Every OTHER slate fault is left to the validator untouched, which is why an
+    unparseable ``text`` simply returns: a non-object document, an unparseable one, or a
     present-but-wrong-typed ``goals`` is ALREADY refused there in the shipped shape
     (pydantic -> one sanitized line at exit 1), and re-reporting it here would give one
-    input class two messages. Reading the file a second time is the price of checking a
-    key that validation erases; it is a few KB on a read-only verb.
+    input class two messages.
     """
     try:
-        document = json.loads(path.read_text())
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        document = json.loads(text)
+    except json.JSONDecodeError:
         return
     if isinstance(document, dict) and "goals" not in document:
         raise ValueError(
@@ -6121,8 +6137,8 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     ``--slate`` file or ANY malformed ``--snapshot`` document returns ``2`` explicitly
     on one ``error: `` line, before a single byte of stdout; a corrupt or
     schema-invalid slate -- INCLUDING a JSON object with no top-level ``goals`` key,
-    which ``_reject_goals_less_slate`` refuses because validation cannot see it -- raises
-    a ``ValueError`` that the ``main()`` boundary maps to ``1``. ``--json`` is applied
+    which ``_load_slate`` refuses because validation cannot see it -- raises a
+    ``ValueError`` that the ``main()`` boundary maps to ``1``. ``--json`` is applied
     after every guard, so it selects a rendering only.
     """
     slate_path = Path(args.slate)
@@ -6141,7 +6157,6 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         return 2
     # AFTER the snapshot ladder on purpose: a caller who got BOTH paths wrong is told
     # about the snapshot first (exit 2), so no shipped snapshot-guard case changes shape.
-    _reject_goals_less_slate(slate_path)
     slate = _load_slate(slate_path)
     rows = _verify_slate(slate, identities)
     if args.json:
