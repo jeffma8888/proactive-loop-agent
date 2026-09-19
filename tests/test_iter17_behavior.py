@@ -269,8 +269,3 @@ def test_behavior_11_write_file_still_overwrites(tmp_path: Path) -> None:
     assert (art / "x.md").read_text() == "second", (art / "x.md").read_text()
     assert _read(tools, "x.md") == "second", _read(tools, "x.md")
     assert tools.artifacts().count("x.md") == 1, tools.artifacts()
-
-
-def test_behavior_11_no_version_bump(tmp_path: Path) -> None:
-    # Additive tool: the package version stays pinned at 0.1.1.
-    assert proactive_loop.__version__ == "0.1.1", proactive_loop.__version__

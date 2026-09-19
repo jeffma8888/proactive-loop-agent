@@ -1,6 +1,50 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-429
+    lenses: simplification-and-deletion (iteration 429), performance-and-throughput
+    - Candidate A1 -- retire the 41 duplicate version-freeze tests, and make the census message-blind in the same commit
+    - Candidate A2 -- the 415 duplicate test HELPERS: start with `_console_script`, copied 21 times
+    - Candidate A3 -- collapse the four roster-count freeze spellings into one concept
+    - Candidates I dropped after measuring
+    - Candidate B1 -- the two child-process collectors spawn `git` even when no repo exists anywhere above the workspace: 89% of a scan's collector time buying ZERO signals
+    - Candidate B2 -- (being measured) per-invocation cost of the read-only consumer verbs on a stream/slate of realistic size
+    - Candidate B3 -- (being measured) the suite's current critical path re-priced at HEAD
+    winner: A1
+    ship: pending (not yet decided)
+  iter-428
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- the shipped `signals` gate can be adopted only by a clone of THIS repo: no `.pre-commit-hooks.yaml`, so a neighbouring repo cannot consume it at all
+    - Candidate A2 -- exit codes 3 and 4 are the product's headline safety contract and no gate ever produces one
+    - Candidate A3 -- the installable artifact points nowhere back at the repo: `[project.urls]`, classifiers and keywords are all absent
+    - Candidates I dropped after checking DIRECTIONS.md
+    - Candidate B1 -- (being measured) dormant src helpers referenced only by tests
+    - Candidate B2 -- (being measured) near-duplicate paths in the CLI
+    - Candidate B3 -- (being measured) superseded roadmap/doc sections eligible for retirement
+    winner: A1
+    ship: REVERTED
+  iter-427
+    lenses: hardening/DX -- iteration 427, integration-and-adoption
+    - Candidate A1 -- the repo's own anti-revert gauge reports 6 items of room where the truth is 0, and its docstring states the wrong action rule
+    - Candidate A2 -- ROADMAP row #218: one exported `PLA_*` knob still reds a clean checkout, and the README publishes that knob as the supported config surface
+    - Candidate A3 -- 10 skip sites carry a reason, and no invocation except the one gate CI never runs will print it
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- the L0 recovery arc gets its first executable consumer: `make demo` + CI grade `resume --json` with the grader that ALREADY SHIPS
+    - Candidate B2 -- `pla providers` is the only surface that answers "what do I install to leave offline mode", and its 6 package names are bound to nothing the code actually imports
+    - Candidate B3 -- the recovery command asks the user to retype two flags the product already knew: `meta.json` records the budget but not the provider
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: A1
+    ship: REVERTED
+  iter-426
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- the 18th collector (`python_version_drift`, ROADMAP row #122): its 11 auto-added test items are a perfect fit for the new floor, but the count ripple is 31 files
+    - Candidate A2 -- no committed settings file exists, so every policy this product accepts must be re-typed as a `PLA_*` env var on every invocation
+    - Candidate A3 -- per-category autonomy thresholds (ROADMAP row #191): the gate has ONE global score for all six categories, and the per-goal key it needs ALREADY SHIPS
+    - Candidate B1 -- the collector-degradation record reaches a verdict in 1 of 4 scan sites, and the 3 that PERSIST a document are the 3 nobody is watching
+    - Candidate B2 -- `make readme-headroom` publishes the ceiling and hides the floor, so the gauge that exists to prevent a revert cannot say "adding 1-7 items is illegal"
+    - Candidate B3 -- both graded populations print "1 skipped" with no reason, and 28 skip sites have no budget
+    winner: A3
+    ship: REVERTED
   iter-425
     lenses: narrative-and-docs (iteration 425), new-capability
     - Candidate A1 -- `SPEC.md` section 4.1 tells seven collectors to reuse a prune constant none of them imports, and the seam that actually owns it is named zero times in 95,479 chars
@@ -11,7 +55,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- the 18th collector `stale_branch`: the winner iteration 419 recorded and never landed
     - Candidates I dropped after checking DIRECTIONS.md
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED e4fcc52
   iter-424
     lenses: performance-and-throughput (iteration 424), narrative-and-docs (iteration 424)
     - Candidate A1 -- `todos` scans line-by-line with two regexes; one whole-text pass with one alternation cuts the product's second-hottest collector
@@ -2007,4 +2051,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-200 scouted iterations
+204 scouted iterations

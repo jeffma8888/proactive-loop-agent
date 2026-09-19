@@ -527,11 +527,6 @@ def test_plan_prompt_advertises_tail_file(tmp_path: Path) -> None:
     assert "head_file" in prompt, prompt
 
 
-def test_version_unchanged() -> None:
-    # Additive tool -> no version bump (mirrors iter-13 / 17 / 21 / 26 / 29).
-    assert proactive_loop.__version__ == "0.1.1"
-
-
 def test_head_file_contract_unchanged(tmp_path: Path) -> None:
     """Out-of-scope guard: head_file KEEPS its TRAILING note (not changed to a
     leading one to match tail_file)."""

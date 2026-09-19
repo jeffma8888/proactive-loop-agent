@@ -231,7 +231,3 @@ def test_behavior_08_find_files_symlink_escape_guard(tmp_path: Path) -> None:
 # Supplementary --- behavior-preserving refactor implies no version bump
 #   (spec AC: __version__ stays 0.1.1). Cheap regression pin.
 # ===========================================================================
-
-
-def test_behavior_supplementary_version_unchanged() -> None:
-    assert proactive_loop.__version__ == "0.1.1"

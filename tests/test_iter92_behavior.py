@@ -282,7 +282,3 @@ def test_b7_verb_count_unchanged():
     ]
     assert subactions, "no subparser choices found"
     assert len(subactions[0].choices) == 17, "CLI verb set changed (expected 17)"
-
-
-def test_b7_version_unchanged():
-    assert __version__ == "0.1.1", f"unexpected version bump: {__version__!r}"

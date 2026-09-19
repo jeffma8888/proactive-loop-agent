@@ -497,10 +497,3 @@ def test_eb17_binary_file_never_raises(tmp_path: Path) -> None:
 # ===========================================================================
 # Backward-compat guard --- additive tool, NO __version__ bump
 # ===========================================================================
-
-
-def test_no_version_bump_additive_tool() -> None:
-    assert proactive_loop.__version__ == "0.1.1", (
-        f"replace_in_file is an additive tool: __version__ must stay '0.1.1'; "
-        f"got {proactive_loop.__version__!r}"
-    )

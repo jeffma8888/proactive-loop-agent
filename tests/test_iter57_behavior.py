@@ -344,12 +344,6 @@ def test_b09_collectors_help_mentions_json(capsys):
 # ==========================================================================
 
 
-def test_b10_version_unchanged():
-    assert __version__ == "0.1.1", (
-        f"adding this verb must NOT bump the version; got {__version__!r}"
-    )
-
-
 def test_b10_registry_unchanged_fifteen_collectors():
     assert len(all_collectors()) == 17, "the collector registry must still have 17 entries"
     assert {c.name for c in all_collectors()} == CANONICAL_COLLECTORS, (

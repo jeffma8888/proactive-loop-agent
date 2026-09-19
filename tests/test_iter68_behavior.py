@@ -390,8 +390,3 @@ def test_b6_failsafe_control_flow_is_byte_for_byte_preserved(tmp_path, caplog):
     degraded = _degraded_records(caplog)
     assert len(degraded) == 1
     assert _iteration_index(degraded[0].getMessage()) == 1
-
-
-def test_b6_version_is_not_bumped_observability_only():
-    """The feature is behaviour-preserving --- no ``__version__`` bump."""
-    assert __version__ == "0.1.1"

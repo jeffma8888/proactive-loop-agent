@@ -253,15 +253,6 @@ def test_behavior6_scripted_path_imports_no_ollama_or_httpx(tmp_path):
 # ===========================================================================
 
 
-def test_behavior7_no_version_bump_additive_provider():
-    import proactive_loop
-
-    assert proactive_loop.__version__ == "0.1.1", (
-        "adding a provider is purely additive (no existing provider's behavior "
-        "changes), exactly like iters 09/11/13/17/21/23 -- so no version bump"
-    )
-
-
 # ===========================================================================
 # Behavior 8 -- scripted default path remains byte-stable end-to-end
 # (make demo uses --provider scripted; the default path is untouched). We drive

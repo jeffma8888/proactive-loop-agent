@@ -523,8 +523,3 @@ def test_read_only_no_artifacts_across_sequence(tmp_path: Path) -> None:
     # Nothing was ever tracked or written; the pre-existing artifact survives.
     assert tools.artifacts() == [], tools.artifacts()
     assert sorted(p.name for p in art.iterdir()) == ["art_only.txt"], list(art.iterdir())
-
-
-def test_version_unchanged() -> None:
-    # Additive tool -> no version bump (mirrors iter-13 / 17 / 21 / 26 / 29 / 54).
-    assert proactive_loop.__version__ == "0.1.1"

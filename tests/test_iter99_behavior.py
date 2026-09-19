@@ -486,13 +486,6 @@ def test_b10_workspace_guard_when_path_is_a_file(tmp_path):
 
 
 # ===========================================================================
-# Behavior 11 -- Version unchanged (a flag add, not a release bump).
-# ===========================================================================
-def test_b11_version_unchanged():
-    assert __version__ == "0.1.1", f"adding a flag must NOT bump the version; got {__version__!r}"
-
-
-# ===========================================================================
 # Behavior 12 -- Human table and JSON object are mutually consistent (same
 # per-kind counts, same total) for the same snapshot/filters.
 # ===========================================================================

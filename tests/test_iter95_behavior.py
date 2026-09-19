@@ -290,10 +290,3 @@ def test_b7b_providers_json_is_seven_objects(capsys):
     assert names == set(VALID_PROVIDERS), (
         f"the --json provider names must equal VALID_PROVIDERS; got {sorted(names)}"
     )
-
-
-def test_b7c_version_unchanged():
-    assert __version__ == "0.1.1", (
-        "this is a behavior-only boundary-hardening iteration: the package version "
-        f"must NOT bump; got {__version__!r}"
-    )

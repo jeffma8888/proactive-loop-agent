@@ -699,12 +699,6 @@ def test_eb11_runs_json_rows_gain_retries_and_parse_errors(tmp_path, capsys):
 # ===========================================================================
 
 
-def test_eb12_version_is_not_bumped():
-    assert __version__ == "0.1.1", (
-        f"a defaulted-additive field + human-render-only change must NOT bump the version; got {__version__!r}"
-    )
-
-
 def test_eb12_cli_version_still_reports_0_1_1(capsys):
     """`pla --version` still prints `pla 0.1.1` (argparse short-circuits with a
     clean SystemExit(0))."""

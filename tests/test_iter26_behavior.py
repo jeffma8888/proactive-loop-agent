@@ -421,12 +421,6 @@ def test_behavior_16_plan_prompt_advertises_stat_file(tmp_path: Path) -> None:
 # ===========================================================================
 
 
-def test_behavior_17_version_unchanged() -> None:
-    # Additive tool -> no version bump (mirrors iter-13 search_files / iter-17
-    # append_file / iter-21 find_files).
-    assert proactive_loop.__version__ == "0.1.1"
-
-
 def test_behavior_17_prior_tools_unchanged_smoke(tmp_path: Path) -> None:
     """Light smoke over the other six tools' public contracts to confirm the
     additive stat_file handler did not perturb them."""

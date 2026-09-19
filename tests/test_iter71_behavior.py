@@ -323,13 +323,6 @@ def test_eb7_trace_json_step_schema_gains_no_counters(tmp_path, capsys):
 # ===========================================================================
 
 
-def test_eb8_module_version_is_not_bumped():
-    assert __version__ == "0.1.1", (
-        "surfacing already-persisted counters on a tolerant machine-readable "
-        f"output must NOT bump the version; got {__version__!r}"
-    )
-
-
 def test_eb8_cli_version_still_reports_0_1_1(capsys):
     capsys.readouterr()
     with pytest.raises(SystemExit) as exc:

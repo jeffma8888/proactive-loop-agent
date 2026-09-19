@@ -436,12 +436,6 @@ def test_b10_spec_collectors_count_matches_registry() -> None:
     )
 
 
-def test_b10_version_unchanged() -> None:
-    assert __version__ == "0.1.1", (
-        f"adding this collector must NOT bump the version; got {__version__!r}"
-    )
-
-
 # ===========================================================================
 # Behavior 11 -- New kind flows through the pipeline: `pla signals --kind
 #   syntax_error --json` on a broken-py workspace emits the six-key signal dict

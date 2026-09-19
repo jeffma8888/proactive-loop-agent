@@ -324,9 +324,3 @@ def test_b10_human_form_reflects_env_override(monkeypatch, capsys):
 # (Full-suite green + make demo byte-stability are verified by the tester
 # out-of-band; this pins the version invariant in-suite.)
 # ==========================================================================
-
-
-def test_b11_version_unchanged():
-    assert __version__ == "0.1.1", (
-        f"policy is an additive verb: __version__ must stay '0.1.1'; got {__version__!r}"
-    )

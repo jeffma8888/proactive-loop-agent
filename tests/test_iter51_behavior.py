@@ -104,11 +104,3 @@ def test_raw_decode_first_precedence_returns_outer_object_not_inner() -> None:
         "args": {"content": "```json\n{\"tool\": \"INNER\"}\n```"},
     }
     assert parse_json_block(text) != {"tool": "INNER"}
-
-
-# ---------------------------------------------------------------------------
-# Behavior 4 -- zero behavior change / no version bump. This is a docstring
-#   correction, not a versioned contract change.
-# ---------------------------------------------------------------------------
-def test_version_is_unchanged_no_bump() -> None:
-    assert __version__ == "0.1.1"

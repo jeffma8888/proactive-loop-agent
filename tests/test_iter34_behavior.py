@@ -490,7 +490,3 @@ def test_b11_workspace_guard_precedes_csv_handling(tmp_path, capsys):
 # ===========================================================================
 # Backward-compat guard — additive extension, no __version__ bump (AC).
 # ===========================================================================
-
-
-def test_version_unchanged_additive_extension():
-    assert proactive_loop.__version__ == "0.1.1"

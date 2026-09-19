@@ -318,9 +318,3 @@ def test_b10_output_deterministic_sorted_by_summary(tmp_path: Path) -> None:
 # ===========================================================================
 # Behavior 11 -- No version bump (additive collector)
 # ===========================================================================
-
-
-def test_b11_no_version_bump() -> None:
-    import proactive_loop
-
-    assert proactive_loop.__version__ == "0.1.1"

@@ -426,11 +426,6 @@ def test_behavior_15_unknown_tool_lists_head_file(tmp_path: Path) -> None:
 # ===========================================================================
 
 
-def test_behavior_16_version_unchanged() -> None:
-    # Additive tool -> no version bump (mirrors iter-13 / 17 / 21 / 26).
-    assert proactive_loop.__version__ == "0.1.1"
-
-
 def test_behavior_16_prior_tools_unchanged_smoke(tmp_path: Path) -> None:
     """Light smoke over the prior tools' public contracts to confirm the
     additive head_file handler did not perturb them."""

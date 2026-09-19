@@ -424,12 +424,6 @@ def test_b12_positional_arg_is_usage_error_exit2():
 # ==========================================================================
 
 
-def test_b13_version_unchanged():
-    assert __version__ == "0.1.1", (
-        f"tools is an additive verb: __version__ must stay '0.1.1'; got {__version__!r}"
-    )
-
-
 def test_b13_unknown_tool_message_still_lists_available(tmp_path):
     workspace = tmp_path / "ws"
     artifacts = tmp_path / "art"

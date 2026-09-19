@@ -221,8 +221,6 @@ def test_behavior_06_jitter_frac_valid_bounds_unchanged() -> None:
 # ===========================================================================
 # Behavior 7 --- happy path unchanged: version pinned, deps unchanged, math stdlib
 # ===========================================================================
-def test_behavior_07_version_pinned() -> None:
-    assert proactive_loop.__version__ == "0.1.1"
 
 
 def test_behavior_07_pydantic_remains_sole_runtime_third_party_dep() -> None:

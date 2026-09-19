@@ -549,12 +549,6 @@ def test_b12_tool_count_fourteen():
     )
 
 
-def test_b12_version_unchanged():
-    assert __version__ == "0.1.1", (
-        f"adding this verb must NOT bump the version; got {__version__!r}"
-    )
-
-
 def test_b12_top_level_help_lists_providers_and_priors(capsys):
     with pytest.raises(SystemExit) as excinfo:
         main(["--help"])

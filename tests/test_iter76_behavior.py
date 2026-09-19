@@ -540,11 +540,6 @@ def test_plan_prompt_advertises_read_lines(tmp_path: Path) -> None:
         assert sib in prompt, (sib, prompt)
 
 
-def test_version_unchanged() -> None:
-    # Additive tool -> no version bump (mirrors iter-13 / 29 / 54 / 56).
-    assert proactive_loop.__version__ == "0.1.1"
-
-
 def test_sibling_reader_contracts_unchanged(tmp_path: Path) -> None:
     """Out-of-scope guard: head_file/tail_file KEEP their truncation trailers;
     read_lines is the trailer-free window. read_file is unchanged."""

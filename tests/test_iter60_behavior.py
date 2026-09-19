@@ -471,8 +471,3 @@ def test_b6_record_goes_only_to_the_synthesizer_package_logger(caplog):
     assert {r.name for r in pkg_retry_records} == {SYNTH_LOGGER}
     # No executor record was produced by a pure scout run.
     assert _retry_records(caplog, EXEC_LOGGER) == []
-
-
-def test_b6_version_stays_pinned():
-    """Additive observability wiring is not a versioned contract change."""
-    assert __version__ == "0.1.1"

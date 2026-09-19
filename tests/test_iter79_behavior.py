@@ -276,10 +276,6 @@ def test_b06_catalog_verbs_return_zero_no_docstring_leak(verb):
 # Behavior 7 -- version unchanged (docstring-only edit): __version__ == 0.1.1
 # and --version prints "pla 0.1.1".
 # ==========================================================================
-def test_b07_version_constant_unchanged():
-    assert __version__ == "0.1.1", (
-        f"a docstring-only fix must NOT bump the version; got {__version__!r}"
-    )
 
 
 def test_b07_cli_version_flag_prints_pla_version():

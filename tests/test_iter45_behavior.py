@@ -433,7 +433,3 @@ def test_behavior_16_plan_prompt_advertises_move_file(tmp_path: Path) -> None:
 # ===========================================================================
 # Backward-compat guard --- additive tool, no version bump (mirrors iters 13/33)
 # ===========================================================================
-
-
-def test_version_unchanged_additive_tool() -> None:
-    assert proactive_loop.__version__ == "0.1.1"

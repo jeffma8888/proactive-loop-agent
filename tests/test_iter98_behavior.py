@@ -303,12 +303,3 @@ def test_b07_readonly_llm_free_envelope_preserved(tmp_path):
     assert "run-aaa" in ids and "run-bbb" not in ids, (
         f"the filtered table must still print (done only); got rows {ids}\n{out}"
     )
-
-
-# ===========================================================================
-# Anchor -- a flag add, not a verb/version change: __version__ stays 0.1.1.
-# ===========================================================================
-def test_b08_version_constant_unchanged():
-    assert __version__ == "0.1.1", (
-        f"adding an optional flag must NOT bump the version; got {__version__!r}"
-    )

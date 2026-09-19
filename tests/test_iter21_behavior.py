@@ -416,11 +416,6 @@ def test_behavior_16_plan_prompt_advertises_find_files(tmp_path: Path) -> None:
 # ===========================================================================
 
 
-def test_behavior_17_version_unchanged(tmp_path: Path) -> None:
-    # Additive tool -> no version bump (mirrors iter-13 search_files / iter-17 append_file).
-    assert proactive_loop.__version__ == "0.1.1"
-
-
 def test_behavior_17_prior_tools_unchanged_smoke(tmp_path: Path) -> None:
     """Light smoke over the other five tools' public contracts to confirm the
     additive find_files handler did not perturb them."""

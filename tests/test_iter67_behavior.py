@@ -290,13 +290,6 @@ def test_eb5_access_mapping_names_every_tool() -> None:
 # ===========================================================================
 
 
-def test_eb6_no_version_bump() -> None:
-    assert proactive_loop.__version__ == "0.1.1", (
-        f"SPEC-prose-only change: __version__ must stay '0.1.1'; "
-        f"got {proactive_loop.__version__!r}"
-    )
-
-
 def test_eb6_inspector_output_stable_and_exit_zero(capsys) -> None:
     # Both inspectors still exit 0 and are stable across repeated invocations
     # (they read no SPEC.md and take no input, so they cannot regress on this change).

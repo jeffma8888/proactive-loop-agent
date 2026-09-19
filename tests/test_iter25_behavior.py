@@ -397,11 +397,6 @@ def test_b6_emission_is_independent_of_any_cli_handler(tmp_path, caplog):
 # ===========================================================================
 
 
-def test_b7_version_is_unchanged_additive_flag_no_bump():
-    """`-v` is additive behavior --- no version bump."""
-    assert __version__ == "0.1.1"
-
-
 def test_b7_no_v_runs_json_matches_verbose_stdout(tmp_path, capsys):
     """Regression proof at the CLI level: a verb's stdout is unchanged by `-v`
     (empty-state `runs --json` is `[]` either way)."""

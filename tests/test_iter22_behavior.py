@@ -572,10 +572,3 @@ def test_behavior11_corrupt_slate_json_exit1_with_json(tmp_path, capsys):
 # ===========================================================================
 # Backward-compat -- additive flag, no version bump
 # ===========================================================================
-
-
-def test_no_version_bump_additive_flag():
-    import proactive_loop
-    assert proactive_loop.__version__ == "0.1.1", (
-        "explain --json is an additive, backward-compatible flag -- no version bump"
-    )

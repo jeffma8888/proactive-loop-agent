@@ -433,13 +433,6 @@ def test_behavior7_missing_slate_flag_is_still_argparse_usage_error(capsys):
 # ===========================================================================
 
 
-def test_no_version_bump_additive_widening():
-    import proactive_loop
-    assert proactive_loop.__version__ == "0.1.1", (
-        "making --goal-id optional is an additive, backward-compatible widening -- no version bump"
-    )
-
-
 def test_explain_help_documents_optional_goal_id_and_still_required_slate(capsys):
     with pytest.raises(SystemExit) as excinfo:
         main(["explain", "--help"])

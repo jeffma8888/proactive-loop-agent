@@ -245,10 +245,3 @@ def test_eb7_happy_path_three_tools_behave_normally(tmp_path: Path) -> None:
     # the normal contracts intact.
     assert not list_obs.startswith("error:"), list_obs
     assert "ok.txt" in list_obs, list_obs
-
-
-# --------------------------------------------------------------------------- #
-# EB8 --- Additive, test-only iteration: no version bump.                       #
-# --------------------------------------------------------------------------- #
-def test_eb8_version_unchanged_test_only_iteration() -> None:
-    assert proactive_loop.__version__ == "0.1.1"

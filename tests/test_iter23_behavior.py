@@ -246,12 +246,3 @@ def test_behavior7_present_sdk_construction_succeeds(monkeypatch):
 # ===========================================================================
 # Backward-compat -- purely additive error-handling; no version bump
 # ===========================================================================
-
-
-def test_no_version_bump_additive_error_handling():
-    import proactive_loop
-
-    assert proactive_loop.__version__ == "0.1.1", (
-        "the missing-SDK guard is purely additive error-handling on the live "
-        "branches -- no public-contract change, so no version bump"
-    )

@@ -445,12 +445,3 @@ def test_behavior11_groq_usage_none(monkeypatch):
 # ===========================================================================
 # Behavior 12 -- No public-contract change (purely additive test coverage).
 # ===========================================================================
-
-
-def test_behavior12_version_unchanged():
-    import proactive_loop
-
-    assert proactive_loop.__version__ == "0.1.1", (
-        "this is a test-only hardening iteration: the package version must NOT bump; "
-        f"got {proactive_loop.__version__!r}"
-    )
