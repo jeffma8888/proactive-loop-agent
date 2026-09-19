@@ -186,10 +186,11 @@ class Collector(Protocol):
   broken by ascending relpath").
 - `git_activity.py: GitActivityCollector(name="git_activity", max_commits=15)` —
   `git -C <dir> log --pretty=...` via subprocess for `root` (scanned first) and each
-  direct child dir that has `.git`, the children scanned in ascending name order
-  (`sorted`) so cross-repo signal order is deterministic (per-repo commits stay
-  newest-first, since the directories are sorted, not the signals); `kind="git_commit"`;
-  return `[]` if git missing/not a repo.
+  direct child dir that has `.git`, children in ascending name order (`sorted`) so
+  cross-repo signal order is deterministic (per-repo commits stay newest-first);
+  `kind="git_commit"`; `[]` if git missing/not a repo. The root spawn is skipped when
+  no `.git` exists in root or any ancestor, no `GIT_DIR`/`GIT_WORK_TREE`/`GIT_COMMON_DIR`
+  is set, and root is not a bare repo (pure-`pathlib` precheck `_may_be_inside_repo`).
 - `todos.py: TodoCollector(name="todos", max_items=30, max_read_bytes=5_000_000)` — scan `*.py,*.ts,*.js,*.md`
   for `TODO|FIXME|XXX` comments and markdown `- [ ]`/`* [ ]`/`+ [ ]` checkboxes; `kind="todo"`.
   Files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread (composition note
@@ -214,18 +215,17 @@ class Collector(Protocol):
   stdlib-only parse (`tomllib`/`json`/line-split), never raises → `[]`. Reports
   facts (ecosystem, manifest, declared-dep count) only; the synthesizer judges.
 - `working_tree.py: WorkingTreeCollector(name="working_tree", max_items=30)` —
-  present-state git companion to `git_activity` (which sees only the committed
-  past). ONE `git -C <dir> status --porcelain --branch` per directory via
-  subprocess for `root` (scanned first) and each direct child dir that has
-  `.git`, the children scanned in ascending name order (`sorted`) so cross-repo
-  signal order is deterministic; emits one `kind="working_tree"` signal per
-  changed path (tracked change or untracked file; per-path signals capped at
-  `max_items`) plus at most one summary signal counting unpushed local commits.
-  Unpushed detection reads ONLY the local remote-tracking ref, taken from that
-  same output's `## ` header (an `@{u}..HEAD` comparison, never a second
-  spawn) — it NEVER runs `git fetch`/`ls-remote` or any network op (see
-  section 5); never raises → `[]`. Reports facts only; the synthesizer judges.
-  (Additive, non-breaking foundation-contract addition.)
+  present-state companion to `git_activity`. ONE
+  `git -C <dir> status --porcelain --branch` per directory via subprocess for `root`
+  (scanned first; spawn skipped by `git_activity`'s `_may_be_inside_repo` precheck)
+  and each direct child dir that has `.git`, children in ascending name order
+  (`sorted`) so cross-repo signal order is deterministic; emits one
+  `kind="working_tree"` signal per changed path (tracked or untracked; per-path
+  signals capped at `max_items`) plus at most one summary signal counting unpushed
+  local commits, read ONLY from that output's `## ` header (`@{u}..HEAD` against
+  the local remote-tracking ref, never a second spawn) — it NEVER runs
+  `git fetch`/`ls-remote` or any network op (section 5); never raises → `[]`.
+  Reports facts only; the synthesizer judges.
 - `git_state.py: GitStateCollector(name="git_state", max_items=30)` —
   interrupted-operation git companion to `git_activity` (committed past) and
   `working_tree` (present diff/unpushed). Reads `.git` **marker files with

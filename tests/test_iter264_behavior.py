@@ -149,8 +149,10 @@ MIN_INDEX_ROWS = 20
 #: declared recipe), again with no index retirement, so 78 -> 79 and the bullets hold.
 #: Foundry iter 312 added ledger row #291 (41 duplicate version-freeze tests retire),
 #: once more with no index retirement, so 79 -> 80 and the bullets still stop at 85.
+#: Foundry iter 313 added ledger row #292 (the root `git` spawn is skipped where no
+#: repo can exist), again with no index retirement, so 80 -> 81 and the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 80
+EXPECTED_LEDGER_ROWS = 81
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

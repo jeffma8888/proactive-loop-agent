@@ -123,6 +123,18 @@ def _collect(root: Path, **kwargs) -> list[ContextSignal]:
     return signals
 
 
+@pytest.fixture(autouse=True)
+def _root_may_be_a_repo(tmp_path: Path) -> None:
+    """Force a ``.git`` dir so the collector *attempts* a git subprocess call.
+
+    Since foundry iter 313 ``_dirs_to_scan`` queues the ROOT only when
+    ``_may_be_inside_repo`` holds (a ``.git`` in root or an ancestor); the
+    offline behaviors here spy on ``subprocess.run`` from a bare ``tmp_path``,
+    so the marker keeps that seam reachable (the ``test_iter11`` pattern).
+    """
+    (tmp_path / ".git").mkdir(exist_ok=True)
+
+
 def _unpushed(signals: list[ContextSignal]) -> list[ContextSignal]:
     return [s for s in signals if _UNPUSHED_RE.match(s.summary or "")]
 

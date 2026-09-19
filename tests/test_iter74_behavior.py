@@ -77,6 +77,18 @@ def _collect(path: Path) -> list[ContextSignal]:
     return signals
 
 
+@pytest.fixture(autouse=True)
+def _root_may_be_a_repo(tmp_path: Path) -> None:
+    """Force a ``.git`` dir so the collector *attempts* a git subprocess call.
+
+    Since foundry iter 313 the collector skips the ROOT spawn when no ``.git``
+    exists in root or any ancestor (``_may_be_inside_repo``); these behaviors
+    exercise the stubbed ``subprocess.run`` seam on a bare ``tmp_path``, so the
+    marker keeps the stub reachable exactly as ``test_iter11`` does.
+    """
+    (tmp_path / ".git").mkdir(exist_ok=True)
+
+
 # ===========================================================================
 # Behavior 1 --- Subprocess-level failure -> [] (no raise).
 # ===========================================================================

@@ -1,6 +1,19 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-430
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- the suite spawns the `pla` console script 542 times per run, 235 s of child wall (53% of all child-process time); the repeated identical argv groups are the slice
+    - Candidate A2 -- 2,155 `git` spawns per suite run (80 s child wall), most of them against tmp workspaces that are NOT repos: iteration 429 B1's non-repo precheck, re-priced against the suite it was never priced against
+    - Candidate A3 -- eleven tests each spawn the identical `pytest --collect-only -q -o addopts= -p no:cacheprovider` child (2.21 s each, 24.3 s child wall) to learn one number
+    - Candidates I dropped after measuring
+    - Candidate B1 -- ROADMAP row #122 has published a false ordinal AND a false roster fact for 285 iterations ("would be the 17th collector and only the 2nd RELATIONAL one"), and six later slates copied the error verbatim
+    - Candidate B2 -- (being measured)
+    - Candidate B3 -- (being measured)
+    - Candidates I dropped after measuring
+    stubs: 2 of 8 candidate line(s) are write-early placeholders, not measured candidates
+    winner: A2
+    ship: pending (not yet decided)
   iter-429
     lenses: simplification-and-deletion (iteration 429), performance-and-throughput
     - Candidate A1 -- retire the 41 duplicate version-freeze tests, and make the census message-blind in the same commit
@@ -11,7 +24,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- (being measured) per-invocation cost of the read-only consumer verbs on a stream/slate of realistic size
     - Candidate B3 -- (being measured) the suite's current critical path re-priced at HEAD
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 24f8e50
   iter-428
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- the shipped `signals` gate can be adopted only by a clone of THIS repo: no `.pre-commit-hooks.yaml`, so a neighbouring repo cannot consume it at all
@@ -2051,4 +2064,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-204 scouted iterations
+205 scouted iterations

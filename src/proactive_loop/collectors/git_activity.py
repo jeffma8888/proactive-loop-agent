@@ -7,6 +7,7 @@ not installed, the directory is not a repo, or the subprocess fails.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -18,6 +19,37 @@ from proactive_loop.models import ContextSignal
 # Format: hash<sep>date<sep>subject<sep>author
 _LOG_FORMAT = "%H\x1f%ai\x1f%s\x1f%an"
 _SEP = "\x1f"
+
+# Environment variables through which git accepts a repository location that
+# is NOT discoverable from the working directory's ancestry.
+_GIT_LOCATION_ENV_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
+
+
+def _may_be_inside_repo(path: Path) -> bool:
+    """Return False only when git discovery for *path* is certain to fail.
+
+    WHY this exists: the perception contract (SPEC 4.1) is "return [] if not a
+    repo", but for a plain directory that [] used to cost two child processes
+    per scan (``git log`` here, ``git status`` in ``working_tree``) -- most of a
+    non-repo scan's collector time buying zero signals. The precheck is
+    deliberately CONSERVATIVE: a false "may be a repo" merely falls back to the
+    spawn (git then reports not-a-repo -> []), so it must only say False in
+    exactly the set where git itself cannot find a repository, i.e. no ``.git``
+    entry in *path* or any ancestor (a directory, or the ``.git`` FILE that
+    worktrees and submodules use), no location override in the environment,
+    and *path* is not itself a bare repository. Pure pathlib: ``exists()`` /
+    ``is_file()`` / ``is_dir()`` only, never a subprocess.
+    """
+    if any(os.environ.get(name) for name in _GIT_LOCATION_ENV_VARS):
+        return True
+    if any((candidate / ".git").exists() for candidate in (path, *path.parents)):
+        return True
+    is_bare_layout = (
+        (path / "HEAD").is_file()
+        and (path / "objects").is_dir()
+        and (path / "refs").is_dir()
+    )
+    return is_bare_layout
 
 
 def _fetch_commits(directory: Path, max_commits: int) -> list[ContextSignal]:
@@ -96,8 +128,11 @@ class GitActivityCollector(BaseCollector):
         # Determine candidate directories: root itself + direct children with .git.
         dirs_to_scan: list[Path] = []
 
-        # Always try root (it may or may not be a repo — git will say).
-        dirs_to_scan.append(root)
+        # Try root only when git discovery could succeed; when no ``.git`` sits
+        # in root or any ancestor (and no env override / bare layout applies),
+        # git would just say not-a-repo, so skip the spawn (SPEC 4.1).
+        if _may_be_inside_repo(root):
+            dirs_to_scan.append(root)
 
         # Also check direct child directories. Scan them in ascending name order
         # (sorted) so a multi-repo workspace's cross-repo signal order is

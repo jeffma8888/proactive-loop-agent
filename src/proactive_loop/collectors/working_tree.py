@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from proactive_loop.collectors.base import BaseCollector
+from proactive_loop.collectors.git_activity import _may_be_inside_repo
 from proactive_loop.models import ContextSignal
 
 # Relevance weights, all bounded in (0, 1]. Ordered so a tracked change (real
@@ -238,7 +239,10 @@ class WorkingTreeCollector(BaseCollector):
         because it sorts every signal by ``summary`` before the cap; the two
         flavors are not interchangeable -- see roadmap row #163.
         """
-        dirs: list[Path] = [root]
+        # Queue root only when git discovery could succeed (shared precheck with
+        # GitActivityCollector): a root with no ``.git`` in itself or any
+        # ancestor would cost one ``git status`` spawn to learn "not a repo".
+        dirs: list[Path] = [root] if _may_be_inside_repo(root) else []
         # Scan child repos in ascending name order (`sorted`) so a multi-repo
         # workspace's cross-repo unpushed-summary signal order is deterministic
         # (filesystem iterdir order is arbitrary); the `sorted()` stays INSIDE
