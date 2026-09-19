@@ -130,3 +130,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #291 41 duplicate version-freeze tests retire; 6092 -> 6051, ratchet 38 -> 21, headroom 6 -> 47 (foundry iter 312)
 - #292 `git_activity`/`working_tree` skip the root `git` spawn where no repo can exist (foundry iter 313)
 - #293 `runs --summary`: one aggregate over the listed runs -- count, per-status histogram, summed iterations/artifacts/retries/parse_errors (foundry iter 314)
+- #294 `test_iter270::test_b7` re-anchors on the 6-item gauge; the 20-item hand-off wall retires (foundry iter 315)

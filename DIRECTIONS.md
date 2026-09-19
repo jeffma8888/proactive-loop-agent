@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-432
+    lenses: new-capability -- iteration 432 (write-early checkpoint, being refined in place), hardening/DX -- iteration 432
+    - Candidate A1 -- (being measured) a new user-facing capability grounded in an open ROADMAP row
+    - Candidate A2 -- (being measured) a new consumer-side CLI capability the product lacks
+    - Candidate A3 -- (being measured) a new-capability slice with zero collected-test ripple
+    - Candidate B1 -- retire the 20-item hand-off wall: `test_iter270::test_b7` has become a permanent ban on adding 1..21 tests, which is the opposite of what it was written to guarantee
+    - Candidate B2 -- the goals-less-document guard covers 1 of the 6 `_load_slate` call sites; move the presence check into the loader so `trend`/`diff`/`explain`/`dispatch` fail closed the way `verify` does
+    - Candidate B3 -- ROADMAP row #218, the conftest half: one exported `PLA_*` knob still reds 12 tests in 9 modules, and the fix is legal under the 20-wall because it REMOVES a collected item rather than adding one
+    - Candidates I dropped after checking DIRECTIONS.md or measuring
+    winner: B1
+    ship: pending (not yet decided)
   iter-431
     lenses: narrative-and-docs -- iteration 431, new-capability -- iteration 431
     - Candidate A1 -- doc/code drift check (placeholder, being measured)
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- (being measured) a new-capability slice with zero README-floor ripple
     - Candidates I dropped after checking DIRECTIONS.md
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 4c9f951
   iter-430
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- the suite spawns the `pla` console script 542 times per run, 235 s of child wall (53% of all child-process time); the repeated identical argv groups are the slice
@@ -2074,4 +2085,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-206 scouted iterations
+207 scouted iterations

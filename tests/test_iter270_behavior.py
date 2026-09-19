@@ -154,11 +154,9 @@ MIN_SURVIVING_COLLECTED: Final[int] = 4
 #: test) must fail here as well as there.
 RATCHET_BEFORE: Final[int] = 38
 
-#: Behavior 7. The collected-item room this iteration hands to the next one. The spec
-#: spends at most 25 of the 47 items the deletions bought and requires at least 20 to
-#: survive the new module; ``census.MIN_BINDING_HEADROOM`` is the hard wall at 6, so
-#: this is the deliberately stricter budget claim, not a duplicate of it.
-MIN_BINDING_HEADROOM_HANDED_ON: Final[int] = 20
+#: Behavior 7. History, not a bound: iter 312 handed on 47 items against a one-shot
+#: 20-item budget, which as a permanent assertion banned every add of 1..21 items; it
+#: retired in foundry iter 315 -- the permanent wall is ``census.MIN_BINDING_HEADROOM``.
 
 #: Behavior 8. The Done-ledger row this commit adds and the tag it must cite -- the
 #: repo's own counter (git's newest subject was ``foundry iter 311``), never the state
@@ -477,8 +475,9 @@ def test_b6_this_iteration_touches_no_module_the_sibling_census_pins() -> None:
 def test_b7_the_published_floor_is_unmoved_and_room_is_handed_to_the_next_iteration(
 ) -> None:
     """Behavior 7: the gauge reports the README's own floor unchanged and still TRUE, the
-    live count inside the window that floor opens, and at least the budget this iteration
-    promised the next one. The floor is read through the guard, never spelled here.
+    live count inside the window that floor opens, and at least the permanent 6-item wall
+    of headroom under it. The floor is read through the guard, never spelled here; the
+    wall is read from the census that owns it, so this module can never out-tighten it.
     """
     floor = guard.published_floor()
     live = guard.collect_live_test_count()
@@ -490,9 +489,10 @@ def test_b7_the_published_floor_is_unmoved_and_room_is_handed_to_the_next_iterat
     assert floor <= live <= floor + guard.SUITE_ROUNDING_WINDOW, (
         f"the live count left the window the published floor opens: {report}"
     )
-    assert fields["binding_headroom"] >= MIN_BINDING_HEADROOM_HANDED_ON, (
-        "this iteration's whole purpose was to hand the next one room to add a behavior "
-        f"module in; the gauge reports only {fields['binding_headroom']}: {report}"
+    assert fields["binding_headroom"] >= census.MIN_BINDING_HEADROOM, (
+        "the live count sits closer to the next README rounding boundary than the "
+        f"permanent {census.MIN_BINDING_HEADROOM}-item wall allows; the gauge reports only "
+        f"{fields['binding_headroom']}: {report}"
     )
     assert guard.suite_size_problems(guard._intro(), live) == [], (
         "the README's published floor is no longer true and fresh after the deletions"
