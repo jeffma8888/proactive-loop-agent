@@ -330,14 +330,6 @@ def test_b6_version_unchanged_via_dunder():
     )
 
 
-def test_b6_version_unchanged_in_pyproject():
-    cfg = _load_pyproject()
-    assert cfg["project"]["version"] == EXPECTED_VERSION, (
-        f"pyproject project.version must stay {EXPECTED_VERSION!r}; "
-        f"got {cfg['project']['version']!r}"
-    )
-
-
 def test_b6_cli_version_prints_pla_0_1_1_and_exits_zero(capsys):
     with pytest.raises(SystemExit) as excinfo:
         main(["--version"])

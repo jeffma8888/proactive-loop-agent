@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-434
+    lenses: simplification-and-deletion (iteration 434)
+    - Candidate A1 -- `.pre-commit-hooks.yaml`: the `signals` gate becomes adoptable by a NEIGHBOURING repo through the pre-commit framework, bound to the same four kinds the hook and CI arm
+    - Candidate A2 -- exit 4 gets its first executable consumer: the demo's own NEEDS_APPROVAL goal is dispatched WITHOUT `--yes` and the grader asserts exit 4 and an untouched state dir
+    - Candidate A3 -- `pyproject.toml` `[project.urls]` + `classifiers` + `keywords`: the installable artifact finally points back at the repo, and it is proven NOT to drift `uv.lock`
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- the 21 byte-identical `_console_script` test helpers collapse to one imported definition (iteration 429 A2, re-priced now that A1 bought headroom)
+    - Candidate B2 -- four roster-count freeze spellings (17 collectors / 14 tools / 7 providers / 17 verbs) become one parametrized oracle (iteration 429 A3, re-checked against test_iter263 pins)
+    - Candidate B3 -- four collectors hand-roll the same process-wide content memo (`syntax_error`, `todos`, `merge_conflict`, `broken_link`); collapse them into one `ContentMemo` seam and keep the 12 public names as one-line delegations
+    winner: A3
+    ship: pending (not yet decided)
   iter-433
     lenses: hardening/DX -- iteration 433 (state dir) / repo HEAD b6b933d (foundry iter 315)
     - Candidate A -- (placeholder, being measured)
@@ -10,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- (being measured) an on-ramp/default that turns a built capability into a used one
     stubs: 2 of 5 candidate line(s) are write-early placeholders, not measured candidates
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED cb07282
   iter-432
     lenses: new-capability -- iteration 432 (write-early checkpoint, being refined in place), hardening/DX -- iteration 432
     - Candidate A1 -- (being measured) a new user-facing capability grounded in an open ROADMAP row
@@ -2095,4 +2106,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-208 scouted iterations
+209 scouted iterations

@@ -157,8 +157,11 @@ MIN_INDEX_ROWS = 20
 #: 6-item gauge), again with no index retirement, so 82 -> 83 and the bullets hold.
 #: Foundry iter 316 added ledger row #295 (every slate verb refuses a goals-less object
 #: via `_load_slate`), again with no index retirement, so 83 -> 84 and the bullets hold.
+#: Foundry iter 317 added ledger row #296 (`pyproject.toml` gains `[project.urls]`,
+#: `classifiers` and `keywords`), again with no index retirement, so 84 -> 85 and the
+#: bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 84
+EXPECTED_LEDGER_ROWS = 85
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

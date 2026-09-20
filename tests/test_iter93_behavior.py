@@ -15,7 +15,7 @@ pre-existing garbled branches (unparseable JSON, non-dict JSON) keep the DISTINC
 ISOLATION CONTRACT (honored): these tests drive ONLY the public test seam --
 the ``@staticmethod`` ``GoalLoop._parse_check(raw)`` called directly (no loop /
 state / CLI harness needed) -- plus the public registries (``all_collectors()`` /
-``ToolRegistry`` / ``VALID_PROVIDERS`` / ``build_parser`` / ``__version__``) for the
+``ToolRegistry`` / ``VALID_PROVIDERS``; the verb census lives in ``test_iter92``) for the
 no-drift check. The two corrective-observation constants are imported for
 exact-match asserts. No file under ``src/`` was read, no engineer/reviewer notes
 were read, and no ``git diff`` was consulted; the assertions encode pm.md's
@@ -31,7 +31,6 @@ which for this iteration is factory iter 93 (pm.md header + ROADMAP row #93);
 from __future__ import annotations
 
 from proactive_loop import __version__
-from proactive_loop.cli import build_parser
 from proactive_loop.collectors import all_collectors
 from proactive_loop.llm.providers import VALID_PROVIDERS
 from proactive_loop.loop.executor import (
@@ -179,11 +178,3 @@ def test_b11_tool_count_unchanged():
 
 def test_b11_provider_count_unchanged():
     assert len(VALID_PROVIDERS) == 7, "provider set changed (expected 7)"
-
-
-def test_b11_verb_count_unchanged():
-    subactions = [
-        a for a in build_parser()._subparsers._group_actions if hasattr(a, "choices")
-    ]
-    assert subactions, "no subparser choices found"
-    assert len(subactions[0].choices) == 17, "CLI verb set changed (expected 17)"

@@ -132,3 +132,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #293 `runs --summary`: one aggregate over the listed runs -- count, per-status histogram, summed iterations/artifacts/retries/parse_errors (foundry iter 314)
 - #294 `test_iter270::test_b7` re-anchors on the 6-item gauge; the 20-item hand-off wall retires (foundry iter 315)
 - #295 Every slate verb refuses a goals-less object via `_load_slate`; `verify`'s pre-check retires (foundry iter 316)
+- #296 `pyproject.toml` gains `[project.urls]`, `classifiers`, `keywords`; 3 duplicate tests retire (foundry iter 317)

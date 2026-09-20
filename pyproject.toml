@@ -6,9 +6,27 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "jeffma8888" }]
+# Package metadata an installer surfaces WITHOUT the README (`pip show`, `uv tree`,
+# an index page). Every entry below is bound to a live in-repo source rather than
+# free text: each keyword is a token of `description` above (or a declared runtime
+# dependency), the `Typing :: Typed` classifier is the discoverable form of the PEP 561
+# `py.typed` marker the wheel ships, the two interpreter classifiers are exactly the CI
+# matrix in `.github/workflows/ci.yml`, and the license classifier restates `license`
+# above. Adding a classifier that no in-repo fact backs is a claim, not metadata.
+keywords = ["proactivity", "agentic", "goals", "dispatch", "resilient", "pydantic"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.7",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jeffma8888/proactive-loop-agent"
+Repository = "https://github.com/jeffma8888/proactive-loop-agent"
 
 [project.scripts]
 pla = "proactive_loop.cli:main"

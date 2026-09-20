@@ -34,8 +34,8 @@ public collector API ``SecretFileCollector(...).collect(root)`` named by the
 spec, plus the ``proactive_loop.collectors`` package import
 (``SecretFileCollector``, ``all_collectors``), the
 ``proactive_loop.collectors.secret_file`` submodule import, the ``Collector``
-protocol, the ``ContextSignal`` model, and ``proactive_loop.__version__`` /
-``pla --version``. **No file under ``src/`` was read, no engineer/reviewer notes
+protocol and the ``ContextSignal`` model (the ``__version__`` freeze this module once
+repeated lives in ``tests/test_iter37_behavior.py``). **No file under ``src/`` was read, no engineer/reviewer notes
 were read, and no ``git diff`` was consulted.** Signal field names were taken
 from the public spec + the existing published tests, never from the
 implementation. Every test builds its own fresh ``tmp_path`` synthetic workspace
@@ -54,7 +54,6 @@ from pathlib import Path
 
 import pytest
 
-import proactive_loop
 from proactive_loop.cli import main
 from proactive_loop.collectors import SecretFileCollector, all_collectors
 from proactive_loop.collectors.base import Collector
@@ -538,12 +537,3 @@ def test_b15_demo_fixture_has_no_secret_file_signals(tmp_path: Path, capsys) -> 
     assert fixture.is_dir(), fixture
     sigs = _signals_json(fixture, capsys)
     assert sigs == [], f"demo fixture must have no secret-shaped file; got {sigs!r}"
-
-
-def test_b15_no_version_bump(capsys) -> None:
-    assert proactive_loop.__version__ == "0.1.1", proactive_loop.__version__
-    with pytest.raises(SystemExit) as excinfo:
-        main(["--version"])
-    assert excinfo.value.code == 0, "`pla --version` must exit 0"
-    out = capsys.readouterr().out
-    assert "pla 0.1.1" in out, f"`pla --version` must print 'pla 0.1.1'; got {out!r}"
