@@ -702,6 +702,13 @@ def test_b8b_row_ids_stay_unique_across_the_document_pair() -> None:
     assert collisions == [], f"ids recorded in both documents: {collisions}"
 
 
+def _row_identity(row: str) -> tuple[str, str]:
+    """``(id, trailing iteration tag)`` -- what a ledger row IS, apart from its prose."""
+    match = re.fullmatch(r"(- #\d+) .*(\([^()]*\))", row)
+    assert match, f"ledger row lacks a `- #NNN ` prefix or a trailing `(... iter N)` tag: {row!r}"
+    return match.group(1), match.group(2)
+
+
 def test_b8c_no_pre_existing_ledger_row_was_edited_reordered_or_deleted() -> None:
     """Behavior 8: the HEAD ledger is an unbroken PREFIX of the shipping one.
 
@@ -711,12 +718,27 @@ def test_b8c_no_pre_existing_ledger_row_was_edited_reordered_or_deleted() -> Non
     row, so the invariant is spelled append-only instead: nothing ahead of the new
     tail may move, and one iteration adds at most one row (zero once the row is
     committed, which is what ``preship`` and CI see).
+
+    Amended at foundry iter 318: a settled row's PROSE may be trimmed to a stub whose
+    full text is archived verbatim in ``ROADMAP_ARCHIVE.md`` (the char wall otherwise
+    taxes every append with a reword), so each pre-existing row is graded by IDENTITY
+    -- same ``- #NNN `` id, same position, same trailing ``(... iter N)`` tag -- and
+    its text may only SHRINK. It may never grow, move or vanish.
     """
     head_rows = _ledger_rows(_head_text("ROADMAP.md"))
     live_rows = _ledger_rows(_worktree("ROADMAP.md"))
-    assert live_rows[: len(head_rows)] == head_rows, (
-        "a pre-existing ledger row was edited, reordered or deleted"
+    assert len(live_rows) >= len(head_rows), (
+        f"the ledger went {len(head_rows)} -> {len(live_rows)}; a pre-existing row was deleted"
     )
+    for head_row, live_row in zip(head_rows, live_rows, strict=False):
+        assert _row_identity(live_row) == _row_identity(head_row), (
+            f"a pre-existing ledger row was edited, reordered or deleted: "
+            f"{head_row!r} -> {live_row!r}"
+        )
+        assert live_row == head_row or len(live_row) < len(head_row), (
+            f"a pre-existing ledger row's prose GREW; it may only be trimmed to a stub "
+            f"whose original is archived verbatim: {head_row!r} -> {live_row!r}"
+        )
     assert len(live_rows) - len(head_rows) <= 1, (
         f"the ledger went {len(head_rows)} -> {len(live_rows)}; one iteration is one row"
     )

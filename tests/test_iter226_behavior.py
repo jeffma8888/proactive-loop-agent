@@ -351,11 +351,6 @@ def test_b5_the_two_bullet_shapes_are_distinguishable_so_the_census_is_meaningfu
 # ---------------------------------------------------------------------------
 
 
-def test_b6_the_roadmap_is_inside_its_char_budget() -> None:
-    verdict = check_char_budget(_read(ROADMAP))
-    assert verdict.ok, verdict.message
-
-
 def test_b6_the_relocation_bought_back_at_least_the_contracted_headroom() -> None:
     chars = len(_read(ROADMAP))
     headroom = CHAR_LIMIT - chars

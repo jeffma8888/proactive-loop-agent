@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-463
+    lenses: unknown
+    - Candidate A1 -- ROADMAP.md sits ONE char under `test_iter241::test_b09c`'s literal `< 35_428` pin, so the NEXT done-ledger row is a guaranteed red; buy measured headroom back in one relocation
+    - Candidate A2 -- the CI job has no `timeout-minutes`, and ~50 of the suite's 130 `subprocess.run(` calls carry no `timeout=`; one wedged child costs 360 runner-minutes per leg and a badge stuck "in progress"
+    - Candidate A3 -- commit `.python-version` = `3.12` so the LOCAL default leg is the CI floor by declaration, not by whatever `uv run --python X` last left in `.venv`
+    - Candidate B1 -- the watch -> diff -> trend stream arc has ZERO executable consumer: the bundled driver was extended to feed two DIFFERENT ticks (iter 135) and the suite proves it, but `make demo` and CI never run it
+    - Candidate B2 -- `hooks/pre-commit` arms 1 of CI's 3 signal gates: the count budget (`--fail-over 9` over notes/ci_config/dependencies/test_posture) exists only in the public gate, so a contributor learns of an overrun after the push
+    - Candidate B3 -- `diff` has `--json` but no exit code a script can branch on: `--fail-on-change` (exit 5, the gate code that already means "a finding") is the missing consumer-side half of the change feed
+    winner: A1
+    ship: pending (not yet decided)
   iter-434
     lenses: simplification-and-deletion (iteration 434)
     - Candidate A1 -- `.pre-commit-hooks.yaml`: the `signals` gate becomes adoptable by a NEIGHBOURING repo through the pre-commit framework, bound to the same four kinds the hook and CI arm
@@ -11,7 +21,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- four roster-count freeze spellings (17 collectors / 14 tools / 7 providers / 17 verbs) become one parametrized oracle (iteration 429 A3, re-checked against test_iter263 pins)
     - Candidate B3 -- four collectors hand-roll the same process-wide content memo (`syntax_error`, `todos`, `merge_conflict`, `broken_link`); collapse them into one `ContentMemo` seam and keep the 12 public names as one-line delegations
     winner: A3
-    ship: pending (not yet decided)
+    ship: PUSHED 2ca1a66
   iter-433
     lenses: hardening/DX -- iteration 433 (state dir) / repo HEAD b6b933d (foundry iter 315)
     - Candidate A -- (placeholder, being measured)
@@ -2106,4 +2116,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-209 scouted iterations
+210 scouted iterations

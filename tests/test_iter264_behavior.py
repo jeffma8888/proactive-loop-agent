@@ -160,8 +160,10 @@ MIN_INDEX_ROWS = 20
 #: Foundry iter 317 added ledger row #296 (`pyproject.toml` gains `[project.urls]`,
 #: `classifiers` and `keywords`), again with no index retirement, so 84 -> 85 and the
 #: bullets hold.
+#: Foundry iter 318 added ledger row #297 (rows #273-#278 shrink to stubs, their full text
+#: archived verbatim), again with no index retirement, so 85 -> 86 and the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 85
+EXPECTED_LEDGER_ROWS = 86
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

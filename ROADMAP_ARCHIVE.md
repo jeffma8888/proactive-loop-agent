@@ -447,3 +447,17 @@ _Roadmap owned by the PM-lead role; updated each iteration (mark shipped, re-ord
 - #129 todos prefilters its 2 regexes separately, sound derived tokens... (iter 177, factory iter 181)
 - #216 README documents the 2 shipped-but-undocumented make targets + a .PHONY drift guard (iter 179, factory iter 183)
 - #217 dependencies + lockfile_drift each log ONE aggregated WARNING for absorbed manifests (iter 180, factory iter 184)
+
+## Ledger prose trimmed to stubs in ROADMAP.md (foundry iter 318)
+
+The six ship records below STAY in `ROADMAP.md` as terse `- #NNN` rows, so the ledger
+count and every row's position are unchanged. Their original full text is preserved here
+verbatim, block-quoted so neither `tests/test_roadmap_ledger_conservation.py` nor any
+`- #NNN` ledger parser reads the same record twice.
+
+> - #273 One `_resolve_write_target` helper replaces the artifacts-dir containment guard `loop/tools.py` hand-copied at six write sites; every refusal message and precedence pinned black-box; the 12-site dual-root READ resolver stays open (foundry iter 290)
+> - #274 One `_emit(as_json, payload, human)` seam replaces the `--json`-or-human dispatch tail `cli.py` hand-copied at six sites, both branches LAZY; the 15 non-corresponding `json.dumps` sites and `loop/tools.py`'s 6-site READ guard stay open (foundry iter 291)
+> - #275 Floor census learns `AUTO_REGENERATED_LOGS` (`DIRECTIONS.md` is regenerated wholesale from state outside the repo, so a floor claim there is history by construction) and row #231's guard grades its ship from the retiring commit's frozen blobs, not mutable `HEAD`, which had frozen `ROADMAP.md` and `README.md` and armed a clone-only tag failure (foundry iter 293)
+> - #276 `make clone-check` runs the whole suite inside a throwaway fresh clone with the working tree committed into it, so the mtime-vacuity and frozen-row-vs-mutable-`HEAD` failures that reverted iters 278 and 371 are visible before the ship gate; opt-in (~74s), never wired into `check` or CI (foundry iter 294)
+> - #277 One `_OPENAI_SHAPED` table of 3 string rows plus one shared factory replaces the hand-copied `_create_openai` / `_create_groq` / `_create_together` bodies, taking `def _create_` from 7 to 5 while all 7 `create_client` branches keep their lazy in-branch SDK imports (foundry iter 295)
+> - #278 One `_peek_file(path, args, *, tool, render)` owns the resolve-read-split half `loop/tools.py` hand-copied in `_head_file` / `_tail_file`; the seam sits AFTER `_reject_unsafe`, so each handler keeps its own refusal wording and order; row #273's READ resolver stays open (foundry iter 296)
