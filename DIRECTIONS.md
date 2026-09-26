@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-466
+    lenses: unknown
+    - Candidate A1 -- `syntax_error` trusts the interpreter's own PEP 552 `__pycache__` header before paying `compile()`: 379 ms of a 657 ms one-shot scan is spent re-proving files the interpreter has already compiled
+    - Candidate A2 -- `todos` scans 51,889 lines with one `re.search` per line (50 ms) plus a `splitlines` per file; one anchored `MULTILINE` `finditer` over the shared text keeps the (relpath, lineno) contract and removes ~40 ms of the 170-200 ms row
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- ROADMAP row #109 tells every PM that `SPEC.md` "has NO size guard" at "90,269 chars"; two shipped oracles cap it at 95,500 bytes and redded iteration 464 on exactly that guard -- retire the row into the ledger + archive as superseded by #179/#270
+    - Candidate B2 -- `SPEC_ARCHIVE.md`'s header explains WHY prose moves there but names neither figure a relocator needs: the 95,500-byte `SPEC.md` ceiling and the 500-byte summary-pointer budget live only in `tests/test_iter255_behavior.py`; write them into the header and bind them to the constants
+    - Candidate B3 -- `collectors/dir_source.py`'s docstring prices the shared-walk seam only in the BEFORE tense ("13 os.walk traversals ... ~915 ms" on a 3,000-file workspace) and never states the AFTER; add the one line bound to the published `WALK_BUDGET`
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: B1
+    ship: pending (not yet decided)
   iter-465
     lenses: performance-and-throughput -- iteration 465 (state dir) / repo HEAD 5a7c0b9 (foundry iter 318)
     - Candidate A1 -- retire the 16 unpinned byte-identical duplicate test bodies (15 groups) and lower the census ratchet 17 -> 1
@@ -11,7 +22,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- the 17 collectors run SERIALLY (the `--timings` rows sum exactly to TOTAL), and the two independent git children are 30 of a ~48 ms scan: overlap them and the in-repo scan drops ~30%
     - Candidates I dropped after measuring
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 8862d04
   iter-464
     lenses: unknown
     - Candidate A1 -- `pla diff --fail-on-change`: the change feed has `--json` but no exit code a script can branch on; exit 5 (the gate code that already means "a finding") is the missing consumer-side half
@@ -2137,4 +2148,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-212 scouted iterations
+213 scouted iterations

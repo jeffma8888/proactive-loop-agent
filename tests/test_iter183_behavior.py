@@ -179,11 +179,6 @@ def test_behavior_4_the_checker_returns_a_sorted_list_naming_what_is_missing() -
 # ==========================================================================
 
 
-def test_behavior_5_the_word_checkpoint_does_not_document_the_check_target() -> None:
-    """Measured: 'checkpoint' occurs 17x in this README and contains 'check'."""
-    assert undocumented_targets("an atomic checkpoint under .pla_runs/", ["check"]) == ["check"]
-
-
 def test_behavior_5_a_longer_hyphenated_target_does_not_document_its_prefix() -> None:
     assert undocumented_targets("make check-matrix", ["check"]) == ["check"]
 

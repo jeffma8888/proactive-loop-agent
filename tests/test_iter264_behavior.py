@@ -164,8 +164,11 @@ MIN_INDEX_ROWS = 20
 #: archived verbatim), again with no index retirement, so 85 -> 86 and the bullets hold.
 #: Foundry iter 319 added ledger row #298 (`diff --fail-on-change` exits 5 on any added,
 #: removed or changed goal), again with no index retirement, so 86 -> 87 and the bullets hold.
-EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 87
+#: Foundry iter 320 retired ROADMAP row #109 (`SPEC.md` size guard) from the index as
+#: SUPERSEDED by `test_iter255::SPEC_CEILING_AFTER_SLICE` and added ledger row #109, so
+#: 85 -> 86 bullets and 87 -> 88 ledger rows.
+EXPECTED_ARCHIVE_BULLETS = 86
+EXPECTED_LEDGER_ROWS = 88
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

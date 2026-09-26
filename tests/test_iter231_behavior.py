@@ -202,16 +202,6 @@ def test_b1_documents_target_returns_a_bool_not_a_match_object() -> None:
 # ==========================================================================
 
 
-def test_b2_the_hyphenated_target_still_documents_itself() -> None:
-    """The other side of the same case: hyphen-awareness must not be over-strict."""
-    assert undocumented_targets("make check-matrix", ["check-matrix"]) == []
-
-
-def test_b2_a_hyphenated_prefix_does_not_document_the_target() -> None:
-    """``mypy-check`` is real README prose; it documents no target."""
-    assert undocumented_targets("mypy-check the package", ["check"]) == ["check"]
-
-
 # ==========================================================================
 # Behavior 3 -- the two accidental-English mentions no longer credit their target
 # ==========================================================================
@@ -396,12 +386,6 @@ def test_b9_a_section_documenting_all_but_one_target_reports_exactly_that_one() 
             f"planting a section that documents every target except {omitted!r} in "
             "invocation form must report exactly that one"
         )
-
-
-def test_b9_a_section_documenting_every_target_reports_nothing_missing() -> None:
-    targets = sorted(phony_targets(MAKEFILE.read_text(encoding="utf-8")))
-    planted = " ".join(f"`make {name}`" for name in targets)
-    assert undocumented_targets(planted, targets) == []
 
 
 def test_b9_a_section_documenting_the_words_but_never_the_commands_reports_them_all() -> None:
