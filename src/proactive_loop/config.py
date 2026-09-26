@@ -190,6 +190,19 @@ class Settings(BaseModel):
     )
     max_iterations: int = Field(default=8, ge=1)
     max_llm_calls: int = Field(default=24, ge=1)
+    # The L1 budget's third, WALL-CLOCK dimension: once one ``GoalLoop.run``
+    # invocation has been executing for this many seconds the loop stops on the
+    # same BUDGET_EXHAUSTED path the two counters above take. ``None`` (default) =
+    # no time ceiling, so every existing run is byte-identical. ``gt=0`` (not
+    # ``ge``) because a zero-second ceiling would stop every run before its first
+    # PLAN -- a bound nothing can satisfy is a misconfiguration, not a setting.
+    # Elapsed time is measured from the START OF THE INVOCATION, never persisted:
+    # ``iterations_used`` carries across ``resume`` because it is a count, but a
+    # monotonic clock reading is meaningless in another process, so a resumed run
+    # gets a fresh ceiling for its own leg. Checked before each PLAN, so an
+    # in-flight iteration always finishes (the ceiling is soft by one iteration,
+    # exactly like the two counters).
+    max_seconds: float | None = Field(default=None, gt=0.0)
     retry: RetryPolicy = Field(default_factory=RetryPolicy)
 
     # mode="after" so the ``ge=0.0`` bound runs first (rejecting ``-inf``/``nan``),
@@ -198,6 +211,14 @@ class Settings(BaseModel):
     @classmethod
     def _finite_threshold(cls, v: float) -> float:
         return _reject_non_finite(v)
+
+    # ``gt=0.0`` already rejects ``-inf``/``nan``; ``+inf`` would pass and mean
+    # "no ceiling" -- the same thing ``None`` says honestly -- so refuse it like
+    # the three ``RetryPolicy`` backoff floats rather than accept a second spelling.
+    @field_validator("max_seconds", mode="after")
+    @classmethod
+    def _finite_ceiling(cls, v: float | None) -> float | None:
+        return v if v is None else _reject_non_finite(v)
 
     @classmethod
     def from_env(cls, **overrides: object) -> "Settings":
@@ -235,6 +256,8 @@ class Settings(BaseModel):
             env_values["max_iterations"] = _coerce_env("MAX_ITERATIONS", v, int)
         if (v := _get("MAX_LLM_CALLS")) is not None:
             env_values["max_llm_calls"] = _coerce_env("MAX_LLM_CALLS", v, int)
+        if (v := _get("MAX_SECONDS")) is not None:
+            env_values["max_seconds"] = _coerce_env("MAX_SECONDS", v, float)
         # PLA_SENSITIVE_CATEGORIES REPLACES the always-approve gate set (comma-
         # separated GoalCategory values). Parsed via its own helper -- not the
         # numeric _coerce_env path -- because it is a string list, not an int/float.

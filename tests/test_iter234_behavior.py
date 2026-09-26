@@ -102,9 +102,10 @@ OWNED_PAIRS: tuple[tuple[str, str], ...] = tuple(
 
 #: 36 at iteration 256; 38 since foundry iter 282 gave `run` the two L1 budget
 #: flags (`--max-iterations`, `--max-llm-calls`); 39 since foundry iter 319 gave
-#: `diff` its exit-5 gate (`--fail-on-change`). A live flag the contract does not
+#: `diff` its exit-5 gate (`--fail-on-change`); 40 since foundry iter 321 gave `run`
+#: the wall-clock ceiling (`--max-seconds`). A live flag the contract does not
 #: name is what behavior 2 catches, so this literal only has to track the roster.
-EXPECTED_FLAG_COUNT = 39
+EXPECTED_FLAG_COUNT = 40
 EXPECTED_VERB_COUNT = 17
 EXPECTED_COLLECTOR_COUNT = 17
 

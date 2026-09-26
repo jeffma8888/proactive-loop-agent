@@ -10,6 +10,25 @@ change one of these contracts, move the text back into `SPEC.md` and edit it the
 
 ---
 
+### 4.3 scout -- synthesizer.py (relocated at foundry iter 321)
+
+- Builds a compact prompt from signals (grouped by kind, capped length; within
+  each kind, signals are shown highest-weight-first with an ascending-summary
+  tie-break BEFORE the per-kind cap, so the cap keeps the most relevant signals
+  and the shown set is deterministic), calls
+  `client.complete(system=..., prompt=..., tag=SYNTHESIZE_TAG)`, parses a JSON array
+  of goal dicts via `parse_json_block`, validates into `CandidateGoal`
+  (invalid entries are skipped, not fatal), **re-computes nothing** (score is a
+  computed field), dedupes by normalized title, returns `GoalSlate`.
+- The single `client.complete(...)` call is wrapped in
+  `with_retry(_call, settings.retry, sleep=self._sleep)` (an L2 → L0 dependency;
+  the arrow points inward), mirroring the L1 executor so a transient
+  throttle/timeout on the scout's front-door model call recovers with backoff
+  instead of crashing the scan. `sleep` is an optional keyword-only ctor arg
+  (default `time.sleep`), injected for deterministic, wait-free tests; only
+  `LLMThrottleError`/`LLMTimeoutError` are retried, so non-transient errors
+  still surface immediately.
+
 ### 4.4 loop -- executor.py (relocated at foundry iter 319)
 
   Per iteration: PLAN — LLM returns JSON `{"thought": str, "action": {"tool": str,

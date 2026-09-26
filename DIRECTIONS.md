@@ -1,6 +1,40 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-469
+    lenses: unknown
+    - Candidate A1 -- make the twice-reverted `--max-seconds` tree clone-proof: delete the unsanctioned `35_428` ROADMAP byte pin from `tests/test_iter281_behavior.py` and `git add -N` the module BEFORE the tester runs, so test_iter172's census grades it in the worktree the way preship grades it in the clone
+    - Candidate A2 -- close the worktree/clone gap at its source: one shared `tests/_corpus.py::corpus_test_modules()` = `git ls-files tests` UNION `git ls-files --others --exclude-standard tests`, adopted by test_iter172's `tracked_test_modules()` (the oracle that bit), so a census sees an untracked new module without anyone remembering `git add -N`
+    - Candidate A3 -- CI job `timeout-minutes` plus a ratchet on the 39 untimed `subprocess` calls in tests/: proposed at iterations 463 (A2) and 468 (B2), lost to other picks both times, never refuted; re-priced by AST rather than grep
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- `runs --summary` (shipped iter 314) has zero executable consumers: make the demo's own fleet read it and grade the resilience counters it publishes
+    - Candidate B2 -- the opt-in pre-commit gate has no on-ramp: `make hooks` installs `core.hooksPath hooks` (and `make help` lists it), so the built gate becomes a used one with one command
+    - Candidate B3 -- `trace` (the PLAN/ACT/CHECK transcript) is never consulted by the demo or the gate: render the demo's own run and assert the transcript names the three phases
+    winner: A1
+    ship: pending (not yet decided)
+  iter-468
+    lenses: new-capability -- iteration 468 (state dir) / repo HEAD b51b8b3 (foundry iter 320)
+    - Candidate A1 -- re-land `run` / `dispatch` / `resume --max-seconds N`: the L1 budget gains its missing TIME dimension, this time with the same-commit `SPEC_ARCHIVE.md` relocation that iteration 467 forgot
+    - Candidate A2 -- `scan --focus TEXT`: the scout gets an INTENT channel without becoming a goal-taker
+    - Candidate A3 -- `pla config show`: one verb that prints the effective autonomy contract (every `PLA_*` knob, its source, its value) so a user can SEE the policy the loop will run under before running it
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- the suite is still not environment-hermetic (ROADMAP row #218, conftest half): one exported `PLA_*` knob reds a clean checkout; a conftest autouse that scrubs `PLA_*` closes it and REMOVES collected items rather than adding any
+    - Candidate B2 -- ~50 of the suite's `subprocess.run(` calls carry no `timeout=` and `.github/workflows/ci.yml` has no `timeout-minutes`: one wedged child costs 360 runner-minutes per leg and a badge stuck "in progress" (iteration 463 A2, lost to the ROADMAP-pin emergency, never re-proposed)
+    - Candidate B3 -- ROADMAP row #121: close the deferred mypy `disallow_any_generics` flag (35 bare-generic `type-arg` sites: `cli.py` 19, `loop/tools.py` 15, `loop/executor.py` 1) so the public "fully type-hinted / PEP 561" claim is graded at strict, not permissive, settings
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: A1
+    ship: REVERTED
+  iter-467
+    lenses: narrative-and-docs -- iteration 467 (state dir) / repo HEAD b51b8b3 (foundry iter 320), new-capability -- iteration 467 (state dir) / repo HEAD b51b8b3 (foundry iter 320)
+    - Candidate A1 -- `SPEC_ARCHIVE.md`'s header explains WHY prose relocates there but names neither figure a relocator needs (the 95,500-byte `SPEC.md` ceiling and the 500-byte summary-pointer budget live only in `tests/test_iter255_behavior.py`); write them into the header and bind them to the constants
+    - Candidate A2 -- `collectors/dir_source.py`'s docstring prices the shared-walk seam only in the BEFORE tense ("13 os.walk traversals ... ~915 ms") and never states the AFTER; add the one line bound to the published `WALK_BUDGET`
+    - Candidate A3 -- a shipped artifact reports a stale figure (being located: README reference sections below the human-owned marker, docs/, role cards vs. the collector/verb roster at HEAD)
+    - Candidate B1 -- `run` / `dispatch` / `resume --max-seconds N`: the L1 budget gains its missing TIME dimension
+    - Candidate B2 -- `scan --focus TEXT`: the scout gets an INTENT channel without becoming a goal-taker
+    - Candidate B3 -- a committed policy file `<state-dir>/settings.toml`, read by `tomllib`, so the autonomy contract stops being retyped as `PLA_*` on every invocation
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: B1
+    ship: REVERTED
   iter-466
     lenses: unknown
     - Candidate A1 -- `syntax_error` trusts the interpreter's own PEP 552 `__pycache__` header before paying `compile()`: 379 ms of a 657 ms one-shot scan is spent re-proving files the interpreter has already compiled
@@ -11,7 +45,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- `collectors/dir_source.py`'s docstring prices the shared-walk seam only in the BEFORE tense ("13 os.walk traversals ... ~915 ms" on a 3,000-file workspace) and never states the AFTER; add the one line bound to the published `WALK_BUDGET`
     - Candidates I dropped after measuring or after checking DIRECTIONS.md
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b51b8b3
   iter-465
     lenses: performance-and-throughput -- iteration 465 (state dir) / repo HEAD 5a7c0b9 (foundry iter 318)
     - Candidate A1 -- retire the 16 unpinned byte-identical duplicate test bodies (15 groups) and lower the census ratchet 17 -> 1
@@ -2148,4 +2182,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-213 scouted iterations
+216 scouted iterations

@@ -241,6 +241,23 @@ def _positive_int(raw: str) -> int:
     return value
 
 
+def _positive_float(raw: str) -> float:
+    """argparse ``type=`` validator: parse a STRICTLY-positive, FINITE number.
+
+    Same PARSE-time contract as :func:`_positive_int` (exit 2, zero side effects),
+    for the wall-clock ceiling ``run --max-seconds``. ``float(raw)`` lets ``abc``
+    raise ``ValueError`` (argparse's usage error); ``<= 0`` is rejected because a
+    ceiling nothing can satisfy is a misconfiguration; ``inf``/``nan`` are rejected
+    HERE because ``float("inf")`` parses cleanly and would otherwise reach the
+    model's ``_finite_ceiling`` validator and surface as the pydantic dump
+    ``main()`` closes everywhere else (see ``--max-iterations`` below).
+    """
+    value = float(raw)
+    if not math.isfinite(value) or value <= 0:
+        raise argparse.ArgumentTypeError(f"must be a positive number (> 0), got {raw}")
+    return value
+
+
 def _non_negative_int(raw: str) -> int:
     """argparse ``type=`` validator: parse a NON-negative integer (``>= 0``).
 
@@ -958,6 +975,19 @@ def build_parser() -> argparse.ArgumentParser:
             "the L1 backstop; the scan's own synthesize call is not counted against "
             "it. Absent leaves the environment or built-in default in force. Must "
             "be >= 1; anything else is a usage error (exit 2) at parse time."
+        ),
+    )
+    p_run.add_argument(
+        "--max-seconds",
+        default=None,
+        type=_positive_float,
+        metavar="N",
+        help=(
+            "Stop this run's dispatched loop once it has been executing for N "
+            "seconds, overriding PLA_MAX_SECONDS (default: no ceiling). Checked "
+            "before each PLAN, so an in-flight iteration always finishes. Absent "
+            "leaves the environment or built-in default in force. Must be > 0; "
+            "anything else is a usage error (exit 2) at parse time."
         ),
     )
     p_run.add_argument(
@@ -2045,6 +2075,7 @@ def _settings(args: argparse.Namespace, *, workspace_root: Path | None = None) -
         workspace_root=workspace_root,
         max_iterations=getattr(args, "max_iterations", None),
         max_llm_calls=getattr(args, "max_llm_calls", None),
+        max_seconds=getattr(args, "max_seconds", None),
     )
 
 

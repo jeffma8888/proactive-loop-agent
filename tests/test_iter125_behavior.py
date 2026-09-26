@@ -1,7 +1,7 @@
 """Black-box oracle for factory iteration 125 (foundry iteration 118).
 
 This iteration's feature is a *drift guard* over the README's
-``## Configuration (environment variables)`` section: the 14 published ``PLA_*``
+``## Configuration (environment variables)`` section: the 15 published ``PLA_*``
 rows, their documented defaults and their "flag equivalent" column must agree
 with the live ``Settings`` / ``RetryPolicy`` field defaults and the live
 ``build_parser()``.
@@ -40,7 +40,7 @@ REPO = Path(__file__).resolve().parents[1]
 README = REPO / "README.md"
 
 CONFIG_HEADING = "## Configuration (environment variables)"
-EXPECTED_ROW_COUNT = 14
+EXPECTED_ROW_COUNT = 15
 ENV_ONLY_CELL = "*(env-only)*"
 NONE_CELL = "*(none)*"
 
@@ -127,7 +127,7 @@ def test_b1_helper_asserts_when_heading_missing_or_duplicated() -> None:
 # --------------------------------------------------------------------------
 # behavior 2 -- row parsing
 # --------------------------------------------------------------------------
-def test_b2_section_parses_exactly_fourteen_rows() -> None:
+def test_b2_section_parses_exactly_fifteen_rows() -> None:
     rows = parse_rows(config_section(readme_text()))
     assert len(rows) == EXPECTED_ROW_COUNT
     names = [name for name, _flag, _default in rows]
@@ -220,6 +220,7 @@ def live_defaults() -> dict[str, object]:
         "PLA_SENSITIVE_CATEGORIES": settings.sensitive_categories,
         "PLA_MAX_ITERATIONS": settings.max_iterations,
         "PLA_MAX_LLM_CALLS": settings.max_llm_calls,
+        "PLA_MAX_SECONDS": settings.max_seconds,
     }
     for env_suffix, field, _coerce in _RETRY_ENV_VARS:
         values[ENV_PREFIX + env_suffix] = getattr(settings.retry, field)
@@ -421,7 +422,8 @@ def test_b5_flag_column_matches_live_parser() -> None:
     flagged = [(n, f) for n, f, _d in rows if f != ENV_ONLY_CELL]
     # Six / eight as of foundry iter 282, which gave the two L1 budget knobs a flag on
     # `run` (`--max-iterations` / `--max-llm-calls`); the split was four / ten before it.
-    assert len(flagged) == 6
+    # Seven / eight as of foundry iter 321 (`--max-seconds`, the wall-clock ceiling).
+    assert len(flagged) == 7
     for name, cell in flagged:
         match = re.fullmatch(r"`(--[a-z0-9-]+)`", cell)
         assert match is not None, f"{name}: unparsable flag cell {cell!r}"
@@ -450,7 +452,7 @@ def test_b6_prose_number_words_match_the_counts() -> None:
     rows = parse_rows(section)
     flagged = sum(1 for _n, f, _d in rows if f != ENV_ONLY_CELL)
     env_only = sum(1 for _n, f, _d in rows if f == ENV_ONLY_CELL)
-    words = {6: "Six", 8: "eight"}
+    words = {7: "Seven", 8: "eight"}
     assert f"{words[flagged]} settings also have a direct CLI flag" in section
     assert f"the remaining {words[env_only]} are environment-only" in section
 

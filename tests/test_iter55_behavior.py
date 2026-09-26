@@ -1,7 +1,7 @@
 """Black-box behavior tests for iteration 55.
 
 Feature under test: a new ``## Configuration (environment variables)`` section
-in ``README.md`` documenting the complete ``PLA_*`` env-var surface (all 14
+in ``README.md`` documenting the complete ``PLA_*`` env-var surface (all 15
 recognized variables, their CLI-flag equivalents, defaults, and meaning),
 backed by a fully-offline docs<->code drift guard that pins the documented set
 to what ``Settings.from_env()`` actually reads and to the code's own retry-var
@@ -47,6 +47,7 @@ CANONICAL_ENV_VARS = {
     "PLA_AUTO_DISPATCH_MIN_SCORE",
     "PLA_MAX_ITERATIONS",
     "PLA_MAX_LLM_CALLS",
+    "PLA_MAX_SECONDS",
     "PLA_RETRY_MAX_ATTEMPTS",
     "PLA_RETRY_BASE_BACKOFF_SEC",
     "PLA_RETRY_BACKOFF_FACTOR",
@@ -58,7 +59,7 @@ CANONICAL_ENV_VARS = {
 # The spec's own env-var token regex (Behavior 2).
 _PLA_TOKEN_RE = re.compile(r"\bPLA_[A-Z][A-Z_]*\b")
 
-# Behavior 5: each of the 14 vars set to a distinct, valid, NON-default value,
+# Behavior 5: each of the 15 vars set to a distinct, valid, NON-default value,
 # paired with an accessor into the resulting Settings and the expected value.
 _ENV_ROUNDTRIP = [
     ("PLA_PROVIDER", "anthropic", lambda s: s.provider, "anthropic"),
@@ -72,6 +73,7 @@ _ENV_ROUNDTRIP = [
      lambda s: s.auto_dispatch_min_score, 6.5),
     ("PLA_MAX_ITERATIONS", "3", lambda s: s.max_iterations, 3),
     ("PLA_MAX_LLM_CALLS", "10", lambda s: s.max_llm_calls, 10),
+    ("PLA_MAX_SECONDS", "12.5", lambda s: s.max_seconds, 12.5),
     ("PLA_RETRY_MAX_ATTEMPTS", "7", lambda s: s.retry.max_attempts, 7),
     ("PLA_RETRY_BASE_BACKOFF_SEC", "2.5",
      lambda s: s.retry.base_backoff_sec, 2.5),
@@ -142,18 +144,18 @@ def test_behavior1_configuration_section_exists():
 
 
 # ---------------------------------------------------------------------------
-# Behavior 2 -- docs<->code drift guard: EXACTLY the 14 canonical names
+# Behavior 2 -- docs<->code drift guard: EXACTLY the 15 canonical names
 # ---------------------------------------------------------------------------
 
 
-def test_behavior2_section_env_vars_equal_canonical_fourteen():
+def test_behavior2_section_env_vars_equal_canonical_fifteen():
     section = _config_section(_readme_text())
     found = set(_PLA_TOKEN_RE.findall(section))
     extra = found - CANONICAL_ENV_VARS
     missing = CANONICAL_ENV_VARS - found
     assert not extra, (
         "the Configuration section documents PLA_ tokens OUTSIDE the canonical "
-        f"14-name set: {sorted(extra)}"
+        f"15-name set: {sorted(extra)}"
     )
     assert not missing, (
         "the Configuration section is MISSING canonical PLA_ vars: "
@@ -212,7 +214,7 @@ def test_behavior4_defaults_match_bare_settings(monkeypatch):
     from_env = Settings.from_env()
     bare = Settings()
     assert from_env == bare, (
-        "with all 14 PLA_ vars ABSENT, Settings.from_env() must equal a bare "
+        "with all 15 PLA_ vars ABSENT, Settings.from_env() must equal a bare "
         f"Settings() (documented defaults are the model defaults); got "
         f"{from_env!r} != {bare!r}"
     )
@@ -224,10 +226,10 @@ def test_behavior4_defaults_match_bare_settings(monkeypatch):
 
 
 def test_behavior5_every_documented_var_is_read(monkeypatch):
-    # Sanity: the roundtrip table covers exactly the canonical 14.
+    # Sanity: the roundtrip table covers exactly the canonical 15.
     covered = {name for name, *_ in _ENV_ROUNDTRIP}
     assert covered == CANONICAL_ENV_VARS, (
-        "the Behavior-5 roundtrip table must cover exactly the canonical 14; "
+        "the Behavior-5 roundtrip table must cover exactly the canonical 15; "
         f"diff: {covered ^ CANONICAL_ENV_VARS}"
     )
     for name, raw, _accessor, _expected in _ENV_ROUNDTRIP:

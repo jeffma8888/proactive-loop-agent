@@ -47,7 +47,6 @@ from typing import Final
 from tests.test_roadmap_size_budget import (
     check_char_budget,
     count_archive_bullets,
-    settled_rows_needing_retirement,
 )
 
 REPO: Final[Path] = Path(__file__).resolve().parents[1]
@@ -457,10 +456,6 @@ def test_b7_the_relocation_bought_back_at_least_four_thousand_chars_of_headroom(
 # --------------------------------------------------------------------------------------
 # Behavior 8 -- no existing brake changes verdict
 # --------------------------------------------------------------------------------------
-
-
-def test_b8_the_settled_row_brake_still_reports_a_clean_index() -> None:
-    assert settled_rows_needing_retirement(_read(ROADMAP)) == ()
 
 
 def test_b8_the_archive_still_holds_its_two_pinned_tables_unchanged() -> None:

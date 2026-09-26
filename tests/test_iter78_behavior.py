@@ -59,9 +59,10 @@ ALL_CATEGORY_VALUES = [
     "project",
 ]
 
-# The canonical PLA_ env-var set AFTER this iteration -- 14 names. Re-encoded
+# The canonical PLA_ env-var set AFTER this iteration -- 15 names (PLA_MAX_SECONDS
+# joined in foundry iter 321). Re-encoded
 # here as a black-box anti-rot bar: the README Configuration section must
-# document exactly these 14 (independent of test_iter55's own drift guard).
+# document exactly these 15 (independent of test_iter55's own drift guard).
 CANONICAL_ENV_VARS = {
     "PLA_PROVIDER",
     "PLA_MODEL",
@@ -71,6 +72,7 @@ CANONICAL_ENV_VARS = {
     "PLA_AUTO_DISPATCH_MIN_SCORE",
     "PLA_MAX_ITERATIONS",
     "PLA_MAX_LLM_CALLS",
+    "PLA_MAX_SECONDS",
     "PLA_RETRY_MAX_ATTEMPTS",
     "PLA_RETRY_BASE_BACKOFF_SEC",
     "PLA_RETRY_BACKOFF_FACTOR",
@@ -415,7 +417,7 @@ def test_b11_readme_row_explains_meaning():
 
 
 def test_b11_config_section_documents_exactly_fourteen_env_vars():
-    # Independent anti-rot bar: the documented PLA_ set equals the canonical 14
+    # Independent anti-rot bar: the documented PLA_ set equals the canonical 15
     # (this iteration bumps the surface 13 -> 14 by adding PLA_SENSITIVE_CATEGORIES).
     section = _config_section(README.read_text(encoding="utf-8"))
     found = set(_PLA_TOKEN_RE.findall(section))
@@ -424,9 +426,9 @@ def test_b11_config_section_documents_exactly_fourteen_env_vars():
     assert not missing, f"Configuration section MISSING canonical vars: {sorted(missing)}"
     assert not extra, f"Configuration section has NON-canonical PLA_ tokens: {sorted(extra)}"
     assert found == CANONICAL_ENV_VARS, (
-        f"documented set {sorted(found)} != canonical 14 {sorted(CANONICAL_ENV_VARS)}"
+        f"documented set {sorted(found)} != canonical 15 {sorted(CANONICAL_ENV_VARS)}"
     )
-    assert ENV_VAR in found, f"{ENV_VAR} must be one of the documented 14"
+    assert ENV_VAR in found, f"{ENV_VAR} must be one of the documented 15"
 
 
 def test_b11_from_env_actually_reads_the_documented_var(monkeypatch):

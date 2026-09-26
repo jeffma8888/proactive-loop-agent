@@ -58,8 +58,10 @@ class GoalLoop:
 
     Every LLM call is retried via :func:`with_retry`; every step is appended to
     a :class:`RunState` that is checkpointed immediately, so the run is both
-    throttle-resilient and resumable. *sleep* is injectable purely so tests can
-    assert backoff timing without waiting on the wall clock.
+    throttle-resilient and resumable. *sleep* and *clock* are injectable purely
+    so tests can assert backoff timing and the ``max_seconds`` ceiling without
+    waiting on the wall clock; ``time.monotonic`` is the default clock because a
+    budget must never run backwards when the system clock is adjusted.
     """
 
     PLAN_TAG: str = "plan"
@@ -78,6 +80,7 @@ class GoalLoop:
         checkpoint: Checkpoint | None = None,
         *,
         sleep: Callable[[float], object] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._client = client
         self._settings = settings
@@ -85,6 +88,9 @@ class GoalLoop:
         self._checkpoint = checkpoint
         # Injected into with_retry so tests can assert backoff without waiting.
         self._sleep = sleep
+        # Read once at the top of run() and again before every PLAN; the difference
+        # is the elapsed budget `settings.max_seconds` bounds.
+        self._clock = clock
 
     def run(self, goal: CandidateGoal, *, resume: RunState | None = None) -> RunState:
         """Execute *goal* to DONE or budget exhaustion; return the final state.
@@ -93,8 +99,12 @@ class GoalLoop:
         count, step history, and artifacts carry over untouched.
         """
         state = self._init_state(goal, resume)
+        # Elapsed time is per INVOCATION, deliberately not persisted on the state:
+        # a monotonic reading has no meaning in another process, so a resumed run
+        # earns a fresh `max_seconds` ceiling for its own leg (see Settings).
+        started = self._clock()
 
-        while not self._budget_exhausted(state):
+        while not self._budget_exhausted(state, started):
             plan_raw = self._llm(self.PLAN_TAG, self._plan_prompt(state), state)
             self._record(state, StepKind.PLAN, plan_raw)
 
@@ -171,11 +181,21 @@ class GoalLoop:
         self._save(state)
         return state
 
-    def _budget_exhausted(self, state: RunState) -> bool:
-        """True once the iteration cap or the LLM-call cap is reached."""
+    def _budget_exhausted(self, state: RunState, started: float) -> bool:
+        """True once the iteration cap, the LLM-call cap or the time ceiling is hit.
+
+        *started* is the clock reading taken when this invocation began. The
+        time clause is evaluated in the SAME place as the two counters -- before
+        a PLAN, never mid-iteration -- so all three budgets share one semantics:
+        an iteration that has begun always completes, and the ceiling is soft by
+        at most one iteration. ``None`` disables the clause, keeping runs that
+        set no ceiling byte-identical.
+        """
+        ceiling = self._settings.max_seconds
         return (
             state.iterations_used >= self._settings.max_iterations
             or state.llm_calls_used >= self._settings.max_llm_calls
+            or (ceiling is not None and self._clock() - started >= ceiling)
         )
 
     def _llm(self, tag: str, prompt: str, state: RunState) -> str:

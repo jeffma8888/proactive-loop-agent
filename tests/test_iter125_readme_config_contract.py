@@ -10,7 +10,7 @@ claim in the document:
     on ``Settings`` / ``RetryPolicy``), so ``Settings.from_env()`` with none of
     these set is identical to a bare ``Settings()``."
 
-Until this file existed, that sentence, 14 published default values and 14
+Until this file existed, that sentence, 15 published default values and 15
 flag-equivalence claims were UNGUARDED PROSE on a public portfolio repo: a
 one-character edit to a field default was enough to publish a lie with a green
 build.
@@ -22,7 +22,7 @@ guards in ``tests/test_readme_and_ci_contract.py`` route through its
 of them. :func:`config_section` is the counterpart seam for this section, and it
 asserts (rather than returning ``""``) when the heading is missing or duplicated,
 for the same reason ``cli_section`` does: a silently empty section makes the
-forward check scream about all 14 rows while the reverse check goes blind.
+forward check scream about all 15 rows while the reverse check goes blind.
 
 Derivation, not grepping
 ------------------------
@@ -33,7 +33,7 @@ The live env-var NAME set is derived from the code that reads it:
 * every suffix in the module-level ``_RETRY_ENV_VARS`` tuple,
 
 each joined to ``ENV_PREFIX``. A grep over ``src/`` could not do this: 5 of the
-14 names (``PLA_MODEL``, ``PLA_PROVIDER``, ``PLA_STATE_DIR``,
+15 names (``PLA_MODEL``, ``PLA_PROVIDER``, ``PLA_STATE_DIR``,
 ``PLA_WORKSPACE_ROOT``, ``PLA_MAX_LLM_CALLS``) exist NOWHERE as literals, because
 ``from_env`` calls ``_get("PROVIDER")`` and prepends the prefix -- the literals
 that do grep are docstrings and error messages. A grep-derived guard would report
@@ -53,7 +53,7 @@ Known limitations, recorded on purpose
 * The env-only check derives a flag spelling from the variable name
   (``PLA_MAX_ITERATIONS`` -> ``--max-iterations``). A new flag added under a
   spelling unrelated to its env name would not be caught.
-* The 14-row count and the prose's own number words are PINNED. Shipping a 15th
+* The 15-row count and the prose's own number words are PINNED. Shipping a 16th
   ``PLA_*`` variable is meant to fail here until the table and that sentence
   document it.
 
@@ -90,7 +90,7 @@ NONE_CELL: Final = "*(none)*"
 #: Pinned row count. Derived equality against the live name set is the real
 #: check (:func:`name_problems`); this pin is what makes a 15th variable fail
 #: loudly here instead of quietly widening the derived set on both sides.
-EXPECTED_ROWS: Final = 14
+EXPECTED_ROWS: Final = 15
 
 #: A backticked long option, e.g. ``` `--provider` ``` -> ``--provider``.
 BACKTICKED_FLAG: Final = re.compile(r"`(--[A-Za-z][A-Za-z0-9-]*)`")
@@ -241,7 +241,7 @@ def env_field_map() -> dict[str, str]:
 
 
 def live_defaults() -> dict[str, object]:
-    """``{PLA_NAME: live default value}`` for all 14 environment variables."""
+    """``{PLA_NAME: live default value}`` for all 15 environment variables."""
     settings = Settings()
     values: dict[str, object] = {}
     for suffix, field in env_field_map().items():
@@ -507,7 +507,7 @@ def test_config_section_extractor_fails_loudly_when_the_heading_is_absent() -> N
 # --------------------------------------------------------------------------
 
 
-def test_parsing_yields_exactly_the_fourteen_documented_rows(readme_text: str) -> None:
+def test_parsing_yields_exactly_the_fifteen_documented_rows(readme_text: str) -> None:
     rows = parse_rows(config_section(readme_text))
     assert len(rows) == EXPECTED_ROWS, [row.name for row in rows]
     assert len({row.name for row in rows}) == EXPECTED_ROWS, "a row is duplicated"
@@ -561,7 +561,7 @@ def test_the_live_name_set_is_derived_from_call_sites_not_from_grepped_literals(
             "module's docstring needs updating (the derivation itself still holds)"
         )
         assert name in live, f"{name} was not derived from the _get(...) call sites"
-    assert len(env_field_map()) == 9 and len(_RETRY_ENV_VARS) == 5
+    assert len(env_field_map()) == 10 and len(_RETRY_ENV_VARS) == 5
 
 
 def test_name_problems_reports_both_directions_and_never_passes_vacuously() -> None:
@@ -633,10 +633,12 @@ def test_flag_column_agrees_with_the_live_parser(readme_text: str) -> None:
         flag for row in rows for flag in BACKTICKED_FLAG.findall(row.flag_cell)
     }
     # Six as of foundry iter 282, which gave the two L1 budget knobs a flag on `run`
-    # (`--max-iterations` / `--max-llm-calls`); it was four before that.
+    # (`--max-iterations` / `--max-llm-calls`); it was four before that. Seven as of
+    # foundry iter 321, which added the wall-clock ceiling `--max-seconds`.
     assert documented == {
         "--max-iterations",
         "--max-llm-calls",
+        "--max-seconds",
         "--provider",
         "--scripted-responses",
         "--state-dir",
@@ -673,17 +675,17 @@ def test_section_prose_agrees_with_its_own_table(readme_text: str) -> None:
     }
     flagged = sum(1 for row in rows if row.flag_cell != ENV_ONLY_CELL)
     env_only = sum(1 for row in rows if row.flag_cell == ENV_ONLY_CELL)
-    assert (flagged, env_only, flagged + env_only) == (6, 8, EXPECTED_ROWS)
+    assert (flagged, env_only, flagged + env_only) == (7, 8, EXPECTED_ROWS)
 
 
 def test_prose_problems_fires_when_the_prose_count_stops_matching() -> None:
     section = config_section(README.read_text(encoding="utf-8"))
     rows = parse_rows(section)
     reworded = section.replace(
-        "Six settings also have a direct CLI flag", "Five settings also have a direct CLI flag"
+        "Seven settings also have a direct CLI flag", "Six settings also have a direct CLI flag"
     )
     assert reworded != section
-    assert any("prose claims Five" in p for p in prose_problems(reworded, rows))
+    assert any("prose claims Six" in p for p in prose_problems(reworded, rows))
 
 
 # --------------------------------------------------------------------------
@@ -696,7 +698,7 @@ def test_from_env_with_none_of_the_documented_variables_set_equals_a_bare_settin
 ) -> None:
     """The sentence the section leads with, asserted rather than trusted.
 
-    Every one of the 14 names is removed from the environment first, so a
+    Every one of the 15 names is removed from the environment first, so a
     developer's own exported ``PLA_*`` value can neither rescue nor break this.
     """
     names = sorted(live_defaults())

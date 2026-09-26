@@ -501,9 +501,9 @@ def test_b7_the_docs_and_the_roadmap_record_ship_in_the_same_commit() -> None:
         )
         assert flag in spec, f"SPEC section 4.5 must name {flag}"
 
-    assert "Six settings also have a direct CLI flag" in readme, (
+    assert "Seven settings also have a direct CLI flag" in readme, (
         "the README configuration prose counts the flag-backed settings in words; "
-        "adding two flags moves that count to six"
+        "adding two flags moved that count to six (iter 282); `--max-seconds` (iter 321) to seven"
     )
     assert "the remaining eight are environment-only" in readme, (
         "the same prose counts the env-only settings; it must read eight"

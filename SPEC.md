@@ -463,22 +463,12 @@ class GoalSynthesizer:
 SYNTHESIZE_TAG = "synthesize"
 ```
 
-- Builds a compact prompt from signals (grouped by kind, capped length; within
-  each kind, signals are shown highest-weight-first with an ascending-summary
-  tie-break BEFORE the per-kind cap, so the cap keeps the most relevant signals
-  and the shown set is deterministic), calls
-  `client.complete(system=..., prompt=..., tag=SYNTHESIZE_TAG)`, parses a JSON array
-  of goal dicts via `parse_json_block`, validates into `CandidateGoal`
-  (invalid entries are skipped, not fatal), **re-computes nothing** (score is a
-  computed field), dedupes by normalized title, returns `GoalSlate`.
-- The single `client.complete(...)` call is wrapped in
-  `with_retry(_call, settings.retry, sleep=self._sleep)` (an L2 → L0 dependency;
-  the arrow points inward), mirroring the L1 executor so a transient
-  throttle/timeout on the scout's front-door model call recovers with backoff
-  instead of crashing the scan. `sleep` is an optional keyword-only ctor arg
-  (default `time.sleep`), injected for deterministic, wait-free tests; only
-  `LLMThrottleError`/`LLMTimeoutError` are retried, so non-transient errors
-  still surface immediately.
+- Builds a compact prompt from signals grouped by kind (deterministic
+  highest-weight-first order within each kind), calls `client.complete(...)` with
+  `SYNTHESIZE_TAG`, parses the JSON array via `parse_json_block`, validates entries
+  into `CandidateGoal` (invalid entries skipped), dedupes by normalized title and
+  returns `GoalSlate`; the single call is wrapped in `with_retry` with an injectable
+  `sleep`. Settled contract prose: see [SPEC_ARCHIVE.md](SPEC_ARCHIVE.md).
 - LLM JSON contract (documented in module docstring):
   `[{"title","rationale","category","impact","urgency","confidence","effort_weight","appropriate_now","sources","suggested_first_steps"}]`
 - `policy.py`:
@@ -732,7 +722,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
   - `pla run --workspace W [--dry-run] [--collector NAME ...] [--exclude-path GLOB ...]
-    [--baseline FILE] [--max-iterations N] [--max-llm-calls N]` — scan then auto-dispatch the top
+    [--baseline FILE] [--max-iterations N] [--max-llm-calls N] [--max-seconds N]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
@@ -754,6 +744,10 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `PLA_MAX_ITERATIONS` / `PLA_MAX_LLM_CALLS`; absent, the environment or the built-in
     default (8 / 24) stands. A non-positive or non-integer value is an argparse usage
     error (exit 2) at PARSE time, before any client, collector or run dir exists.
+    `--max-seconds N` adds the wall-clock dimension (overriding `PLA_MAX_SECONDS`; absent =
+    no ceiling): checked before each PLAN via an injectable monotonic clock, so the
+    iteration in flight finishes; per invocation, never persisted to `meta.json`. A
+    non-positive or non-finite value is the same exit-2 usage error at PARSE time.
     `--baseline FILE` and `--snapshot FILE` may not resolve to the SAME path: `--snapshot`
     would rewrite FILE with only the signals `--baseline` did not suppress, replacing the
     document with its own complement, so an aliased pair is an argparse usage error (exit 2)
