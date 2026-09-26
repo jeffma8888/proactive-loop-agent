@@ -162,8 +162,10 @@ MIN_INDEX_ROWS = 20
 #: bullets hold.
 #: Foundry iter 318 added ledger row #297 (rows #273-#278 shrink to stubs, their full text
 #: archived verbatim), again with no index retirement, so 85 -> 86 and the bullets hold.
+#: Foundry iter 319 added ledger row #298 (`diff --fail-on-change` exits 5 on any added,
+#: removed or changed goal), again with no index retirement, so 86 -> 87 and the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 85
-EXPECTED_LEDGER_ROWS = 86
+EXPECTED_LEDGER_ROWS = 87
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

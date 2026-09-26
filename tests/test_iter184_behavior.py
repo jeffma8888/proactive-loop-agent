@@ -52,9 +52,15 @@ REPO = Path(__file__).resolve().parents[1]
 GUARD_MODULE = REPO / "tests" / "test_iter152_behavior.py"
 CLI_SOURCE = REPO / "src" / "proactive_loop" / "cli.py"
 
-#: The three flags ``cli.py`` announces today. An assertion ABOUT the
-#: derivation, never its source of truth -- the guard must compute this itself.
-EXPECTED_PRODUCERS = ("--fail-on-kind", "--fail-on-unresolved", "--fail-over")
+#: The four flags ``cli.py`` announces today (``--fail-on-change`` since foundry
+#: iter 319). An assertion ABOUT the derivation, never its source of truth -- the
+#: guard must compute this itself.
+EXPECTED_PRODUCERS = (
+    "--fail-on-change",
+    "--fail-on-kind",
+    "--fail-on-unresolved",
+    "--fail-over",
+)
 
 #: The two spellings behavior 7 retires, assembled from fragments so this file
 #: holds NEITHER of them verbatim. Measured, not stylistic: this module unions
@@ -170,7 +176,7 @@ def _normalized(text: str) -> str:
 # --------------------------------------------------------------------------
 
 
-def test_b01_helper_takes_source_text_and_returns_the_three_shipped_producers(
+def test_b01_helper_takes_source_text_and_returns_the_four_shipped_producers(
     guard: ModuleType,
 ) -> None:
     """Behavior 1: derived from a SOURCE-TEXT argument, sorted, deduplicated."""
@@ -190,7 +196,7 @@ def test_b01_helper_takes_source_text_and_returns_the_three_shipped_producers(
 
     derived = derive(CLI_SOURCE.read_text(encoding="utf-8"))
     assert derived == EXPECTED_PRODUCERS, (
-        "cli.py announces exactly three `gate: <flag> tripped` literals today; a "
+        "cli.py announces exactly four `gate: <flag> tripped` literals today; a "
         "change here means a gate was added or renamed and every published "
         f"surface must name it in the same commit; got {derived!r}"
     )
@@ -369,9 +375,9 @@ def test_b04_derived_producer_count_equals_the_literal_exit_5_route_count(
     source = CLI_SOURCE.read_text(encoding="utf-8")
     producers = guard._code5_producers(source)
     routes = sum(len(linenos) for linenos in guard._exit5_sites(source).values())
-    assert len(producers) == routes == 3, (
+    assert len(producers) == routes == 4, (
         f"cli.py announces {len(producers)} gate(s) {producers} and holds {routes} "
-        "literal exit-5 route(s); on the shipped tree both are 3, and a "
+        "literal exit-5 route(s); on the shipped tree both are 4, and a "
         "disagreement means a route or a gate literal is undocumented"
     )
 
@@ -519,7 +525,7 @@ def _live_surfaces(guard: ModuleType) -> dict[str, str]:
 def test_b06_removing_any_producer_from_any_surface_fails_and_names_it(
     guard: ModuleType, surface: str, dropped: str
 ) -> None:
-    """Behavior 6: nine cases -- three surfaces x three producers.
+    """Behavior 6: twelve cases -- three surfaces x four producers.
 
     The engineer's own guard proves the third gate; this widens it to EVERY
     producer on EVERY surface, so no single flag is guarded by accident. The

@@ -134,3 +134,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #295 Every slate verb refuses a goals-less object via `_load_slate`; `verify`'s pre-check retires (foundry iter 316)
 - #296 `pyproject.toml` gains `[project.urls]`, `classifiers`, `keywords`; 3 duplicate tests retire (foundry iter 317)
 - #297 Rows #273-#278 shrink to stubs, full text archived verbatim; ROADMAP.md regains headroom (foundry iter 318)
+- #298 `diff --fail-on-change` exits 5 on an added/removed/changed goal; 8 duplicates fund its tests (foundry iter 319)

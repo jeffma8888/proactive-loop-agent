@@ -660,30 +660,12 @@ class GoalLoop:
 GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 ```
 
-  Per iteration: PLAN — LLM returns JSON `{"thought": str, "action": {"tool": str,
-  "args": dict}}`; ACT — `tools.execute`; CHECK — LLM sees observation, returns JSON
-  `{"done": bool, "reason": str}`. All LLM calls wrapped in `with_retry`, with an
-  `on_retry` hook that increments `RunState.retries` on every recovered
-  backoff-retry (PLAN and CHECK alike, since both route through the one wrapped
-  call site). Append `LoopStep`s to `RunState`, checkpoint after every step. Stop: done=True → DONE;
-  `iterations_used >= settings.max_iterations` or llm call budget hit →
-  BUDGET_EXHAUSTED; unparseable PLAN/CHECK JSON → feed error observation back, count
-  iteration, continue — AND (a) emit one live `WARNING` per absorbed parse
-  failure on the executor module logger `proactive_loop.loop.executor`, message
-  prefix `L1 degraded ` carrying the 1-based iteration index, AND (b) increment
-  `RunState.parse_errors` once per absorbed parse failure in those same two
-  fail-safe branches (the `CHECK` case fires on a genuine parse failure OR a
-  PRESENT-but-non-boolean `done` — a quoted `"false"`/`"no"` string, an int, or
-  `null` — which is a garbled verdict routed through the SAME fail-safe path as
-  unparseable JSON but with a DISTINCT corrective observation, so it never
-  falsely completes the run; it fires NEITHER on a well-formed `done: false` NOR
-  on an absent `done`, both of which stay an honest not-yet non-degradation —
-  the counter is keyed on the same parse-failure flag as the WARNING). The WARNING is the degradation twin of the
-  iter-25 `L0 retry ` INFO record and the counter is the persisted twin of that
-  WARNING (mirroring how `RunState.retries` persists the `L0 retry ` INFO);
-  together a behaviour-preserving, non-versioned observability add (no schema /
-  stdout / exit-code / control-flow change; prefix disjoint from `L0 retry `).
-  `resume` continues from a loaded RunState.
+  Per iteration: PLAN (JSON thought + tool action), ACT (`tools.execute`),
+  CHECK (LLM returns `{"done": bool, "reason": str}`). LLM calls run under
+  `with_retry`; each `LoopStep` is checkpointed as it lands. Stops: done=True → DONE;
+  iteration or LLM-call budget hit → BUDGET_EXHAUSTED. Garbled PLAN/CHECK JSON is fed
+  back as an error observation, logs one `L1 degraded ` WARNING and bumps
+  `RunState.parse_errors`. Settled contract prose: see [SPEC_ARCHIVE.md](SPEC_ARCHIVE.md).
 - Tests: `tests/test_loop.py` — 2-iteration scripted run reaches DONE with artifact
   written; sandbox rejects `../evil`; throttle-twice-then-succeed asserts backoff
   sequence via injected sleep; budget exhaustion; checkpoint save→load→resume
@@ -900,7 +882,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     logged to stderr as `scan <n> failed: <exc>`, and the watch continues to the
     next tick — a transient outage on one scan never kills the long-lived watcher.
     No `--out`/`--format`; no slate-file writing (that is `scan`'s job).
-  - `pla diff --old A.json --new B.json [--json]` — read-only, LLM-free
+  - `pla diff --old A.json --new B.json [--json] [--fail-on-change]` — read-only, LLM-free
     slate-delta inspector: the comparative companion to `watch`, turning a stream
     of point-in-time slates into a change feed (every other saved artifact already
     has a viewer — `runs`/`trace`/`explain`/`signals` — but the slate itself had no
@@ -929,8 +911,11 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     A missing/non-file `--old` (checked FIRST) or `--new` → `error: slate file not
     found: <path>` on stderr + exit 2; a corrupt/schema-invalid slate → exit 1 via
     the `main()` boundary (both before any rendering, so the exit contract is
-    `--json`-independent). Builds no `LLMClient`, runs no collector/subprocess, and
-    writes no file.
+    `--json`-independent). Report-only by default (exit 0 even when goals changed);
+    `--fail-on-change` opts into gate code `5` once any goal is added, removed or
+    changed, announced after the render as one stderr line
+    `gate: fail-on-change tripped -- added=A removed=R changed=C`, stdout untouched.
+    Builds no `LLMClient`, runs no collector/subprocess, and writes no file.
   - `pla trend --dir DIR [--json]` — read-only, LLM-free PERSISTENCE inspector over a
     whole `watch --out-dir` stream directory: for each goal title it reports the number
     of ticks the title appears in plus the FIRST and LAST tick index it was seen at,

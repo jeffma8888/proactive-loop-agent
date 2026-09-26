@@ -202,10 +202,6 @@ def test_b1_documents_target_returns_a_bool_not_a_match_object() -> None:
 # ==========================================================================
 
 
-def test_b2_a_longer_hyphenated_target_does_not_document_its_prefix() -> None:
-    assert undocumented_targets("make check-matrix", ["check"]) == ["check"]
-
-
 def test_b2_the_hyphenated_target_still_documents_itself() -> None:
     """The other side of the same case: hyphen-awareness must not be over-strict."""
     assert undocumented_targets("make check-matrix", ["check-matrix"]) == []
@@ -214,11 +210,6 @@ def test_b2_the_hyphenated_target_still_documents_itself() -> None:
 def test_b2_a_hyphenated_prefix_does_not_document_the_target() -> None:
     """``mypy-check`` is real README prose; it documents no target."""
     assert undocumented_targets("mypy-check the package", ["check"]) == ["check"]
-
-
-def test_b2_the_measured_substring_fail_open_is_still_closed() -> None:
-    """``checkpoint`` occurs many times in this README and contains ``check``."""
-    assert undocumented_targets("an atomic checkpoint under .pla_runs/", ["check"]) == ["check"]
 
 
 # ==========================================================================

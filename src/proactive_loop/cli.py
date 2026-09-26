@@ -574,8 +574,9 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
         5,
         "a gate you armed tripped on a finding -- --fail-on-kind matched at "
         "least one reported signal, --fail-over saw more reported signals "
-        "than its budget, or verify --fail-on-unresolved could not resolve a "
-        "cited source against the snapshot. The command itself succeeded and "
+        "than its budget, verify --fail-on-unresolved could not resolve a "
+        "cited source against the snapshot, or diff --fail-on-change saw at "
+        "least one added, removed or changed goal. The command itself succeeded and "
         "printed its normal output; the gate names itself on one line on "
         "stderr and stdout is unchanged.",
     ),
@@ -1716,6 +1717,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the diff as one JSON object instead of the human sections.",
     )
+    # The fourth exit-5 gate, same shape as `signals --fail-on-kind/--fail-over` and
+    # `verify --fail-on-unresolved`: `diff` was the one read-only consumer verb a CI
+    # step or pre-commit hook could not branch on without parsing --json. It gates
+    # on what the view REPORTS (any added/removed/changed row), so stdout stays
+    # byte-identical with and without the flag and the one report line goes to
+    # STDERR.
+    p_diff.add_argument(
+        "--fail-on-change",
+        action="store_true",
+        dest="fail_on_change",
+        help=(
+            "Exit 5 instead of 0 when the diff reports at least one added, removed "
+            "or changed goal -- the gate for a CI step or pre-commit hook watching a "
+            "`watch --out-dir` stream; an unchanged pair still exits 0. STDOUT is "
+            "byte-identical with and without this flag (a --json pipeline keeps "
+            "parsing as exactly one object); the only added output is one 'gate: "
+            "fail-on-change tripped -- added=A removed=R changed=C' line on STDERR."
+        ),
+    )
     p_diff.set_defaults(func=_cmd_diff)
 
     # `trend` reads the WHOLE `watch --out-dir` stream instead of only its newest
@@ -1957,8 +1977,9 @@ def main(argv: list[str] | None = None) -> int:
       reported what it perceived, but a gate the caller armed refused the
       result -- ``signals --fail-on-kind`` matched at least one reported signal,
       ``signals --fail-over`` saw more reported signals than its budget allows,
-      or ``verify --fail-on-unresolved`` could not resolve a cited source
-      against the snapshot. EVERY producer is named deliberately: the code is
+      ``verify --fail-on-unresolved`` could not resolve a cited source
+      against the snapshot, or ``diff --fail-on-change`` saw at least one
+      added, removed or changed goal. EVERY producer is named deliberately: the code is
       the only thing a script sees, so a second route to it that the contract
       omits is an undocumented contract. Distinct from ``1`` (the tool itself failed) and from ``2``
       (nothing to act on / bad invocation) -- this is the *finding* channel a
@@ -6690,6 +6711,26 @@ def _cmd_diff(args: argparse.Namespace) -> int:
         print(json.dumps(_diff_json_payload(old_echo, new_echo, result), indent=2))
     else:
         print(_render_diff(result))
+    # THE GATE, LAST AND AFTER STDOUT ON PURPOSE (the `verify --fail-on-unresolved`
+    # shape): every exit-2 refusal and the exit-1 `_load_slate` path have already
+    # fired, so this branch can only ever re-colour the SUCCESSFUL `0`, and placing
+    # it after the render means it changes the exit status without touching one
+    # byte of output -- which is what keeps `--json` exactly one parseable object.
+    if args.fail_on_change:
+        # Re-derived from the SAME `result` the renderer just consumed, never from
+        # the JSON payload, so the counts on stderr cannot disagree with the report
+        # on stdout -- the house convention the sibling gates follow.
+        added, removed, changed = (len(result[key]) for key in ("added", "removed", "changed"))
+        if added or removed or changed:
+            # STDERR, exactly one line, NO `error: ` prefix -- a changed slate is a
+            # finding, not a fault in the tool. Three `key=value` pairs (the
+            # `--fail-over` idiom) so a hook can tell WHICH direction moved without
+            # parsing --json, and no singular/plural branch for grammar.
+            print(
+                f"gate: fail-on-change tripped -- added={added} removed={removed} changed={changed}",
+                file=sys.stderr,
+            )
+            return 5
     return 0
 
 

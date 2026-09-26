@@ -1,6 +1,27 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-465
+    lenses: performance-and-throughput -- iteration 465 (state dir) / repo HEAD 5a7c0b9 (foundry iter 318)
+    - Candidate A1 -- retire the 16 unpinned byte-identical duplicate test bodies (15 groups) and lower the census ratchet 17 -> 1
+    - Candidate A2 -- collapse the four hand-copied FIFO content memos into ONE `FifoMemo` seam in `collectors/base.py`; the 12 public names stay as one-line delegations
+    - Candidate A3 -- ROADMAP row #163: one definition site for the gated root+children git walk (`git_activity._collect` L128-146 folds onto the `working_tree` helper body)
+    - Candidate B1 -- the suite's costliest child class is the `pla` console script (542 spawns / 235 s child wall at iter 430, 53% of all child time); ONE module's identical-argv group becomes one module-scoped result
+    - Candidate B2 -- 42 nested-pytest spawn sites in 7 modules each run `pytest --collect-only -q -o addopts= -p no:cacheprovider` to learn ONE number (11 identical spawns x 2.21 s = 24.3 s child wall at iter 430)
+    - Candidate B3 -- the 17 collectors run SERIALLY (the `--timings` rows sum exactly to TOTAL), and the two independent git children are 30 of a ~48 ms scan: overlap them and the in-repo scan drops ~30%
+    - Candidates I dropped after measuring
+    winner: A1
+    ship: pending (not yet decided)
+  iter-464
+    lenses: unknown
+    - Candidate A1 -- `pla diff --fail-on-change`: the change feed has `--json` but no exit code a script can branch on; exit 5 (the gate code that already means "a finding") is the missing consumer-side half
+    - Candidate A2 -- `hooks/pre-commit` arms 1 of CI's 3 signal gates: the count budget (`--fail-over`) exists only in the public gate, so a contributor learns of an overrun after the push
+    - Candidate A3 -- exit 4 (NEEDS_APPROVAL) gets its first executable consumer: `make demo` dispatches the demo's own approval-gated goal WITHOUT `--yes` and asserts exit 4 plus an untouched state dir
+    - Candidate B1 -- retire the 16 unpinned byte-identical duplicate test bodies (15 groups) and lower the census ratchet 17 -> 1
+    - Candidate B2 -- ROADMAP row #163: one definition site for the gated root+children walk (`git_activity._collect` L128-146 folds into the `working_tree` helper body)
+    - Candidate B3 -- ROADMAP row #165 residual: `notes.py:185` and `todos.py:396` stop hand-rolling `str(file_path.relative_to(root))` and call the shared `BaseCollector._relative`
+    winner: A1
+    ship: REVERTED
   iter-463
     lenses: unknown
     - Candidate A1 -- ROADMAP.md sits ONE char under `test_iter241::test_b09c`'s literal `< 35_428` pin, so the NEXT done-ledger row is a guaranteed red; buy measured headroom back in one relocation
@@ -10,7 +31,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `hooks/pre-commit` arms 1 of CI's 3 signal gates: the count budget (`--fail-over 9` over notes/ci_config/dependencies/test_posture) exists only in the public gate, so a contributor learns of an overrun after the push
     - Candidate B3 -- `diff` has `--json` but no exit code a script can branch on: `--fail-on-change` (exit 5, the gate code that already means "a finding") is the missing consumer-side half of the change feed
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 5a7c0b9
   iter-434
     lenses: simplification-and-deletion (iteration 434)
     - Candidate A1 -- `.pre-commit-hooks.yaml`: the `signals` gate becomes adoptable by a NEIGHBOURING repo through the pre-commit framework, bound to the same four kinds the hook and CI arm
@@ -2116,4 +2137,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-210 scouted iterations
+212 scouted iterations

@@ -512,9 +512,23 @@ def test_b09_epilog_still_publishes_exactly_six_codes_in_ascending_order() -> No
     )
 
 
-def test_b09_code5_entry_still_names_all_three_producers_on_all_surfaces() -> None:
-    assert len(CODE5_PRODUCERS) == 3, (
-        f"exit code 5's derived producer set must still be 3; got {CODE5_PRODUCERS!r}"
+def _code5_set_grew_since_head() -> bool:
+    """True only inside the pre-commit window of a commit that ships a NEW exit-5 gate.
+
+    That is the single event ``tests/test_iter152_behavior.py::test_b09`` makes a
+    release condition of the SAME commit (raise its route census, name the gate on
+    every surface, README row 5 included), so it is the one legitimate reason for
+    the two HEAD pins below to see a difference. Written as byte-equality, they were
+    the letter of "this iteration edits code 1 only" and blocked every future gate;
+    foundry iter 319 (``diff --fail-on-change``, 3 -> 4) hit both.
+    """
+    head = _code5_producers(_head_blob("src/proactive_loop/cli.py"))
+    return set(head) < set(CODE5_PRODUCERS)
+
+
+def test_b09_code5_entry_still_names_all_four_producers_on_all_surfaces() -> None:
+    assert len(CODE5_PRODUCERS) == 4, (
+        f"exit code 5's derived producer set must still be 4; got {CODE5_PRODUCERS!r}"
     )
     doc = main.__doc__ or ""
     surfaces = {
@@ -537,19 +551,28 @@ def test_b09_readme_rows_for_codes_0_and_2_to_5_are_unchanged() -> None:
     committed = _readme_exit_code_rows(_head_blob("README.md"))
     assert committed, "HEAD's README publishes no exit-code table to compare against"
     for code in (0, 2, 3, 4, 5):
-        assert worktree.get(code) == committed.get(code), (
-            f"README exit-code row {code} changed -- this iteration edits contract "
-            "TEXT for code 1 only, and the README's code-1 row was already correct, "
-            "so no README row may move"
+        if worktree.get(code) == committed.get(code):
+            continue
+        assert code == 5 and _code5_set_grew_since_head(), (
+            f"README exit-code row {code} changed -- this module's iteration edited "
+            "contract TEXT for code 1 only, and the README's code-1 row was already "
+            "correct; the ONE row that may move afterwards is 5, and only in the "
+            "commit that adds a new exit-5 gate (the derived producer set grew "
+            "against HEAD), so no other README row may move"
         )
 
 
 def test_b09_sibling_exit5_oracle_is_not_edited() -> None:
     committed = _head_blob(SIBLING_ORACLE)
     assert committed, f"HEAD:{SIBLING_ORACLE} is empty"
-    assert (REPO / SIBLING_ORACLE).read_text(encoding="utf-8") == committed, (
+    live = (REPO / SIBLING_ORACLE).read_text(encoding="utf-8")
+    if live == committed:
+        return
+    assert _code5_set_grew_since_head(), (
         f"{SIBLING_ORACLE} must ship unchanged: this module carries its own local "
-        "readers precisely so the exit-5 oracle never has to be touched"
+        "readers precisely so the exit-5 oracle never has to be touched -- except "
+        "by the commit that adds a new exit-5 gate, whose own release condition "
+        "(its test_b09 route census) demands to be raised there in that same commit"
     )
 
 

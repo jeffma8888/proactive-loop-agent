@@ -10,6 +10,33 @@ change one of these contracts, move the text back into `SPEC.md` and edit it the
 
 ---
 
+### 4.4 loop -- executor.py (relocated at foundry iter 319)
+
+  Per iteration: PLAN — LLM returns JSON `{"thought": str, "action": {"tool": str,
+  "args": dict}}`; ACT — `tools.execute`; CHECK — LLM sees observation, returns JSON
+  `{"done": bool, "reason": str}`. All LLM calls wrapped in `with_retry`, with an
+  `on_retry` hook that increments `RunState.retries` on every recovered
+  backoff-retry (PLAN and CHECK alike, since both route through the one wrapped
+  call site). Append `LoopStep`s to `RunState`, checkpoint after every step. Stop: done=True → DONE;
+  `iterations_used >= settings.max_iterations` or llm call budget hit →
+  BUDGET_EXHAUSTED; unparseable PLAN/CHECK JSON → feed error observation back, count
+  iteration, continue — AND (a) emit one live `WARNING` per absorbed parse
+  failure on the executor module logger `proactive_loop.loop.executor`, message
+  prefix `L1 degraded ` carrying the 1-based iteration index, AND (b) increment
+  `RunState.parse_errors` once per absorbed parse failure in those same two
+  fail-safe branches (the `CHECK` case fires on a genuine parse failure OR a
+  PRESENT-but-non-boolean `done` — a quoted `"false"`/`"no"` string, an int, or
+  `null` — which is a garbled verdict routed through the SAME fail-safe path as
+  unparseable JSON but with a DISTINCT corrective observation, so it never
+  falsely completes the run; it fires NEITHER on a well-formed `done: false` NOR
+  on an absent `done`, both of which stay an honest not-yet non-degradation —
+  the counter is keyed on the same parse-failure flag as the WARNING). The WARNING is the degradation twin of the
+  iter-25 `L0 retry ` INFO record and the counter is the persisted twin of that
+  WARNING (mirroring how `RunState.retries` persists the `L0 retry ` INFO);
+  together a behaviour-preserving, non-versioned observability add (no schema /
+  stdout / exit-code / control-flow change; prefix disjoint from `L0 retry `).
+  `resume` continues from a loaded RunState.
+
 ### 4.2 llm/providers.py
 
 ```python

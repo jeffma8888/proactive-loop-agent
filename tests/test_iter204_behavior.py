@@ -378,9 +378,25 @@ def test_b06_the_table_rows_are_byte_identical_to_head() -> None:
         pytest.skip("HEAD:README.md unavailable")
     head_rows = _table_rows(_region(proc.stdout))
     assert head_rows, "the HEAD reader found no table -- comparison would be vacuous"
-    assert _table_rows(_region(_readme())) == head_rows, (
+    live_rows = _table_rows(_region(_readme()))
+    assert [code for code, _ in live_rows] == [code for code, _ in head_rows], (
         "the six exit-code table rows are out of scope for this iteration"
     )
+    for (code, live), (_, head) in zip(live_rows, head_rows, strict=True):
+        if live == head:
+            continue
+        # The one row that legitimately moves after this iteration: 5 is the gate
+        # row, and ``tests/test_iter152_behavior.py::test_b09`` makes naming a NEW
+        # gate there a release condition of the same commit that adds the route
+        # (foundry iter 319, ``diff --fail-on-change``, was the first). Such a commit
+        # may only GROW the row: every gate flag HEAD names must survive verbatim.
+        assert code == 5, f"exit-code table row {code} is out of scope for this iteration"
+        head_flags = set(re.findall(r"--fail-[a-z-]+", head))
+        live_flags = set(re.findall(r"--fail-[a-z-]+", live))
+        assert head_flags < live_flags and len(live) > len(head), (
+            "row 5 may only move to name a NEW exit-5 gate, keeping every flag HEAD "
+            f"named; HEAD names {sorted(head_flags)}, the worktree {sorted(live_flags)}"
+        )
 
 
 # --------------------------------------------------------------------------- #

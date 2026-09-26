@@ -452,14 +452,6 @@ def test_eb10_pla_tools_json_diff_files_object(capsys) -> None:
     assert catalog_names == CANONICAL_TOOLS, sorted(catalog_names)
 
 
-def test_eb10_pla_tools_human_lists_all_fourteen(capsys) -> None:
-    rc = main(["tools"])
-    out = capsys.readouterr().out
-    assert rc == 0, "`pla tools` must exit 0"
-    for name in CANONICAL_TOOLS:
-        assert name in out, f"human catalog must name {name!r}; got:\n{out}"
-
-
 # ===========================================================================
 # EB11 --- PLAN prompt advertises diff_files (and keeps prior tools)
 # ===========================================================================

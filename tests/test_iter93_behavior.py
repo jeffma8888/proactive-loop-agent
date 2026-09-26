@@ -14,9 +14,9 @@ pre-existing garbled branches (unparseable JSON, non-dict JSON) keep the DISTINC
 
 ISOLATION CONTRACT (honored): these tests drive ONLY the public test seam --
 the ``@staticmethod`` ``GoalLoop._parse_check(raw)`` called directly (no loop /
-state / CLI harness needed) -- plus the public registries (``all_collectors()`` /
-``ToolRegistry`` / ``VALID_PROVIDERS``; the verb census lives in ``test_iter92``) for the
-no-drift check. The two corrective-observation constants are imported for
+state / CLI harness needed). (The three registry no-drift checks that once sat here
+were byte-identical to ``test_iter92``'s and retired in foundry iter 319; the verb
+census lives in ``test_iter92`` too.) The two corrective-observation constants are imported for
 exact-match asserts. No file under ``src/`` was read, no engineer/reviewer notes
 were read, and no ``git diff`` was consulted; the assertions encode pm.md's
 Expected Behaviors, not the implementation.
@@ -31,14 +31,11 @@ which for this iteration is factory iter 93 (pm.md header + ROADMAP row #93);
 from __future__ import annotations
 
 from proactive_loop import __version__
-from proactive_loop.collectors import all_collectors
-from proactive_loop.llm.providers import VALID_PROVIDERS
 from proactive_loop.loop.executor import (
     GoalLoop,
     _CHECK_BAD_DONE,
     _CHECK_PARSE_ERROR,
 )
-from proactive_loop.loop.tools import ToolRegistry
 
 
 # --- Behaviors 1-5: PRESENT-but-non-boolean done -> garbled verdict (the bug) ---
@@ -166,15 +163,3 @@ def test_b11_bad_done_observation_mentions_boolean():
     assert "boolean" in _CHECK_BAD_DONE, (
         f"_CHECK_BAD_DONE must mention 'boolean', got {_CHECK_BAD_DONE!r}"
     )
-
-
-def test_b11_collector_count_unchanged():
-    assert len(all_collectors()) == 17, "collector set changed (expected 17)"
-
-
-def test_b11_tool_count_unchanged():
-    assert len(ToolRegistry.tool_names()) == 14, "tool set changed (expected 14)"
-
-
-def test_b11_provider_count_unchanged():
-    assert len(VALID_PROVIDERS) == 7, "provider set changed (expected 7)"

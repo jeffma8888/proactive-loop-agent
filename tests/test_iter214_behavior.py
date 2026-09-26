@@ -443,11 +443,6 @@ def test_b6_every_relocated_row_keeps_its_exact_pre_move_retirement_count() -> N
 # --------------------------------------------------------------------------------------
 
 
-def test_b7_the_roadmap_is_inside_its_char_budget() -> None:
-    verdict = check_char_budget(_read(ROADMAP))
-    assert verdict.ok, verdict.message
-
-
 def test_b7_the_relocation_bought_back_at_least_four_thousand_chars_of_headroom() -> None:
     verdict = check_char_budget(_read(ROADMAP))
     headroom = CHAR_LIMIT - verdict.chars

@@ -280,13 +280,6 @@ def test_b06_trailing_glob_still_excludes_the_subtree(ws: Path) -> None:
     assert "sub/a/b.py" not in paths
 
 
-def test_b06_trailing_glob_still_reports_the_bare_directory_signal(ws: Path) -> None:
-    """A top-level path has NO ancestors, so the new arm cannot widen this case."""
-    records = _records(ws, "--exclude-path", "sub/*")
-    assert "sub" in _paths(records)
-    assert {r["kind"] for r in records if r["path"] == "sub"} == {"test_posture"}
-
-
 # ===========================================================================
 # Behavior 7 -- a trailing `:LINE` suffix does not defeat an ancestor match.
 # ===========================================================================
@@ -355,17 +348,6 @@ def test_b08_a_dot_pattern_hides_only_the_repo_level_dot_paths(ws: Path) -> None
         assert survivor in _paths(filtered), (
             f"'{survivor}' has no ancestor equal to '.', so it must survive"
         )
-
-
-@pytest.mark.parametrize("pattern", ["", "   ", "\t"])
-def test_b08_empty_or_whitespace_pattern_is_still_a_parse_time_usage_error(
-    ws: Path, pattern: str
-) -> None:
-    proc = _signals(ws, "--exclude-path", pattern)
-    assert proc.returncode == 2, f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
-    assert proc.stdout == "", "a parse-time error must emit no collection output"
-    assert "usage:" in proc.stderr
-    assert "--exclude-path" in proc.stderr
 
 
 # ===========================================================================

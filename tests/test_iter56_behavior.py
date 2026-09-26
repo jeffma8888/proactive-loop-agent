@@ -501,36 +501,6 @@ def test_b10_existing_formats_unperturbed(tmp_path, capsys):
 
 
 # ===========================================================================
-# Behavior 11 — Invalid --format still a parse-time usage error (exit 2)
-# ===========================================================================
-
-
-def test_b11_invalid_format_rejected_at_parse_time(tmp_path, capsys):
-    out = tmp_path / "should_not_exist.json"
-    state = tmp_path / "state_xml"
-    with pytest.raises(SystemExit) as excinfo:
-        main([
-            "scan",
-            "--workspace", str(FIXTURE),
-            "--provider", "scripted",
-            "--scripted-responses", str(SCRIPT),
-            "--state-dir", str(state),
-            "--out", str(out),
-            "--format", "xml",
-        ])
-    # argparse rejects the unknown choice at parse time -> SystemExit(2); adding
-    # "html" to the choices list did not weaken parse-time validation.
-    assert excinfo.value.code == 2
-
-    cap = capsys.readouterr()
-    assert cap.out == "", f"nothing on stdout for a rejected format; got {cap.out!r}"
-    assert "xml" in cap.err, f"usage error must name the invalid choice; got:\n{cap.err}"
-    assert "--format" in cap.err
-    # No work happened: no slate file written (rejection precedes collect/render/write).
-    assert not out.exists()
-
-
-# ===========================================================================
 # Behavior 12 — Workspace guard unchanged for html (front-door, format-independent)
 # ===========================================================================
 

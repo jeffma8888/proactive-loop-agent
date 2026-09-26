@@ -81,7 +81,7 @@ MIN_BINDING_HEADROOM = 6
 #: RATCHET DIRECTION: this number may only ever go DOWN. Raising it is never a fix --
 #: a rise records that a byte-identical collected test was re-added, which is the exact
 #: defect the sixteen deletions below retired.
-REDUNDANT_TEST_DEFINITIONS: int = 17
+REDUNDANT_TEST_DEFINITIONS: int = 6
 
 #: Behavior 1. The sixteen ``(module, function)`` pairs that must be ABSENT.
 DELETED: dict[str, tuple[str, ...]] = {
