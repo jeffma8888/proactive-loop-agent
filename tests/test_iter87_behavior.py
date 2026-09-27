@@ -272,17 +272,6 @@ def test_b6_within_kind_reorder_does_not_leak_across_kinds() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_b7_cli_subcommand_count_unchanged() -> None:
-    parser = build_parser()
-    subactions = [
-        a for a in parser._actions if isinstance(a, argparse._SubParsersAction)
-    ]
-    assert len(subactions) == 1, "expected exactly one subparsers action"
-    assert len(subactions[0].choices) == 17, (
-        f"CLI subcommand count must stay 17; got {len(subactions[0].choices)}"
-    )
-
-
 def test_b7_version_frozen() -> None:
     assert __version__ == "0.1.1", (
         f"a behavior-only synthesizer fix must NOT bump the version; got {__version__!r}"

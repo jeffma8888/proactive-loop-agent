@@ -24,6 +24,12 @@ jobs:
   test:
     name: tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    # Without this GitHub's default job timeout is 360 minutes. The suite spawns
+    # `git`, `pla` and `python -m` children, dozens of them without `timeout=`,
+    # so one wedged child would hold the public badge at "in progress" for six
+    # hours PER LEG. Twenty minutes is several-fold headroom over a healthy run
+    # of every step below and turns a hang into a red build within the hour.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

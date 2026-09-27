@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-474
+    lenses: new-capability -- iteration 474 (state dir) / repo HEAD 4beda63 (foundry iter 325), hardening/DX -- iteration 474 (state dir) / repo HEAD 4beda63 (foundry iter 325)
+    - Candidate A1 -- `PythonVersionDriftCollector` (ROADMAP row #122): the 2nd RELATIONAL collector, cross-checking `requires-python`, `.python-version` and the CI matrix floor
+    - Candidate A2 -- `scan --suppress FILE` (ROADMAP row #194): let the user retire a goal that keeps coming back
+    - Candidate A3 -- `run` / `dispatch --allow-tool NAME` (ROADMAP row #212): narrow the ACT sandbox for one dispatch
+    - Candidates I dropped after checking DIRECTIONS.md
+    - Candidate B1 -- CI job `timeout-minutes` plus a ratchet oracle over the untimed `subprocess.run(` calls in `tests/`
+    - Candidate B2 -- conftest autouse that scrubs ambient `PLA_*` knobs (ROADMAP row #218, conftest half)
+    - Candidate B3 -- commit `.python-version` = `3.12` so the local default leg is the CI floor by declaration
+    winner: B1
+    ship: pending (not yet decided)
   iter-473
     lenses: new-capability -- iteration 473 (state dir) / repo HEAD 685a5ba (foundry iter 324)
     - Candidate A1 -- `collectors/dir_source.py`'s docstring tells only the BEFORE half and misquotes its sibling: state the AFTER figure bound to the live walk counter, and quote `text_source.py` as it actually reads
@@ -11,7 +22,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `run --max-goals N` (ROADMAP row #192): dispatch the top N AUTO_DISPATCH goals, not only the head
     - Candidate B3 -- `signals --max-items N` (ROADMAP row #182): let the user raise the perception depth
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 4beda63
   iter-472
     lenses: unknown
     - Candidate A1 -- extend `syntax_error`'s pyc trust to pytest's assertion-rewritten pyc (`<stem>.<cache_tag>-pytest-<ver>.pyc`): 250 of the 255 files still compiled at HEAD already carry a header-valid PEP 552 pyc under that name; the collector drops 493 -> 43 ms in an in-process simulation
@@ -2228,4 +2239,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-220 scouted iterations
+221 scouted iterations

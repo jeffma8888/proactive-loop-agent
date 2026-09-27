@@ -126,7 +126,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #282 Test floor rises 5,900 -> 6,000 at all eight carriers; the collected-item window reopens (foundry iter 307)
 - #288 `resume` stops no-op'ing silently on a spent L1 bound: one `note:` per exhausted dimension naming used-of-bound and the `PLA_MAX_*` knob that raises it, plus one `hint:` that the run dir records no provider configuration; stderr in both modes, exit codes and the nine-key document untouched (foundry iter 308)
 - #289 The nine-key dispatched-run document roster is DEFINED ONCE in the test corpus -- `DISPATCHED_RUN_KEYS` in `tests/test_iter158_behavior.py`, imported by `test_iter163` / `test_iter173` / `test_iter203` / `test_iter267`, which each hand-spelled it (two names, three orderings); the new census is keyed on the roster VALUE, so it is name-blind and a rename cannot restore a copy. No `src/` byte, no dep, zero collected items removed; `CANONICAL_TOOLS` x6 and `EXPECTED_PHONY_TARGETS` x3 stay unpaid (foundry iter 309)
-- #290 `SPEC.md` §4.6's `Makefile` bullet named 4 of 11 recipes, hiding `typecheck` (the PEP 561 oracle) and all three local gates; it now names every declared target, bound two-sided to the `Makefile`'s own `target:` lines with no exempt set and cross-checked against §2's fence. Net -14 bytes: the inlined `demo` command drops to its recipe name (`SPEC.md` had 7 bytes left) (foundry iter 310)
+- #290 `SPEC.md` §4.6 `Makefile` bullet names every target, bound two-sided to the `Makefile` (foundry iter 310)
 - #291 41 duplicate version-freeze tests retire; 6092 -> 6051, ratchet 38 -> 21, headroom 6 -> 47 (foundry iter 312)
 - #292 `git_activity`/`working_tree` skip the root `git` spawn where no repo can exist (foundry iter 313)
 - #293 `runs --summary`: one aggregate over the listed runs -- count, per-status histogram, summed iterations/artifacts/retries/parse_errors (foundry iter 314)
@@ -141,3 +141,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #299 syntax_error trusts a valid PEP 552 pyc header, skips compile(): -106 of 666 ms, -16% not -55% (foundry iter 323)
 - #303 SPEC 4.1 syntax_error bullet states the PEP 552 pyc skip, bound to _pyc_says_ok; 3 dups retire (foundry iter 324)
 - #304 dir_source docstring: AFTER (5 walks/scan, bound to WALK_BUDGET), text_source quoted verbatim (foundry iter 325)
+- #305 CI test job: timeout-minutes 20; ratchet pins untimed subprocess sites at 39 tests/, 0 src/ (foundry iter 326)

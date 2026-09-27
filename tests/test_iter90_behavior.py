@@ -323,13 +323,3 @@ def test_b6_non_directory_root_degrades_to_empty(tmp_path: Path) -> None:
     f = tmp_path / "not_a_dir.txt"
     f.write_text("# TODO: file-as-root\n", encoding="utf-8")
     assert TodoCollector().collect(f) == [], "a non-directory root must degrade to []"
-
-
-# ===========================================================================
-# B7 -- count-lock: a behavior-only collector determinism fix adds NO registry
-# entry; the suite stays FLAT at the iter-79 baseline.
-# ===========================================================================
-
-
-def test_b7_provider_count_unchanged() -> None:
-    assert len(VALID_PROVIDERS) == 7, f"provider count must stay 7; got {len(VALID_PROVIDERS)}"

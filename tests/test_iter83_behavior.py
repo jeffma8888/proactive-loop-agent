@@ -188,10 +188,6 @@ def test_b7_inline_tag_precedence_no_double_count(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_b8_provider_count_unchanged() -> None:
-    assert len(VALID_PROVIDERS) == 7, f"provider count must stay 7; got {len(VALID_PROVIDERS)}"
-
-
 def test_b8_version_frozen() -> None:
     assert __version__ == "0.1.1", (
         f"a behavior-only collector widening must NOT bump the version; got {__version__!r}"

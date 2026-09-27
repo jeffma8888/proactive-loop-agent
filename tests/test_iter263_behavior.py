@@ -81,7 +81,7 @@ MIN_BINDING_HEADROOM = 6
 #: RATCHET DIRECTION: this number may only ever go DOWN. Raising it is never a fix --
 #: a rise records that a byte-identical collected test was re-added, which is the exact
 #: defect the sixteen deletions below retired.
-REDUNDANT_TEST_DEFINITIONS: int = 1
+REDUNDANT_TEST_DEFINITIONS: int = 0
 
 #: Behavior 1. The sixteen ``(module, function)`` pairs that must be ABSENT.
 DELETED: dict[str, tuple[str, ...]] = {
@@ -120,13 +120,16 @@ DELETED: dict[str, tuple[str, ...]] = {
 #: test_iter82/83 (canonical copy: test_iter75::test_b12), so 10 -> 9 and 11 -> 10.
 #: Foundry iter 325 retired the same duplicate from test_iter87/89/90 (14 -> 13,
 #: 12 -> 11, 19 -> 18) to fund the three items of tests/test_iter285_behavior.py.
+#: Foundry iter 326 retired the byte-identical provider-count copy from test_iter83/90
+#: (10 -> 9, 18 -> 17) and the subcommand-count copy from test_iter87 (13 -> 12) to fund
+#: tests/test_iter286_behavior.py; REDUNDANT_TEST_DEFINITIONS reaches 0.
 REMAINDERS: dict[str, int] = {
     "test_iter82_behavior.py": 9,
-    "test_iter83_behavior.py": 10,
+    "test_iter83_behavior.py": 9,
     "test_iter85_behavior.py": 7,
-    "test_iter87_behavior.py": 13,
+    "test_iter87_behavior.py": 12,
     "test_iter89_behavior.py": 11,
-    "test_iter90_behavior.py": 18,
+    "test_iter90_behavior.py": 17,
     "test_iter91_behavior.py": 17,
 }
 
@@ -470,7 +473,15 @@ def test_b5_the_ratchet_constant_matches_the_shipped_corpus() -> None:
         "a byte-identical collected test was re-added -- delete it instead of raising "
         "the constant. If it FELL, lower the constant in the same commit."
     )
-    assert groups, "a corpus with zero duplicate groups would mean the census died"
+    if not groups:
+        # Foundry iter 326 drove the ratchet to its floor, so an EMPTY census is now
+        # the shipped state, not proof the census died. Plant one byte-identical copy
+        # of this module under a second label: a live instrument must find it.
+        planted = {**corpus, "planted_copy.py": corpus[Path(__file__).name]}
+        assert duplicate_body_groups(planted), (
+            "the census found no duplicate groups even after a byte-identical copy of "
+            "this module was planted, so it is dead rather than clean"
+        )
 
 
 # ===========================================================================
