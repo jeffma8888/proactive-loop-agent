@@ -32,12 +32,12 @@ indent at compile time while 3.12 does not.
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
+
+from tests.test_iter158_behavior import _console_script
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -63,21 +63,6 @@ _UNKNOWN_KIND = "bogus"
 # ---------------------------------------------------------------------------
 # Harness -- drive the shipped console script, read observable output only.
 # ---------------------------------------------------------------------------
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (iter-114's resolution convention)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:

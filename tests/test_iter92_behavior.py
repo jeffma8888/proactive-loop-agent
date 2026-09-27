@@ -268,10 +268,6 @@ def test_b7_collector_count_unchanged():
     assert len(all_collectors()) == 17, "collector set changed (expected 17)"
 
 
-def test_b7_tool_count_unchanged():
-    assert len(ToolRegistry.tool_names()) == 14, "tool set changed (expected 14)"
-
-
 def test_b7_provider_count_unchanged():
     assert len(VALID_PROVIDERS) == 7, "provider set changed (expected 7)"
 

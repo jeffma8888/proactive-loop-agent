@@ -73,12 +73,13 @@ import json
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 from proactive_loop.cli import build_parser
+
+from tests.test_iter158_behavior import _console_script
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
@@ -101,21 +102,6 @@ _VENDOR_GLOB = "vendor/*"
 # ---------------------------------------------------------------------------
 # Harness -- drive the shipped console script, read observable output only.
 # ---------------------------------------------------------------------------
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (the iter-114/152/179 convention)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:

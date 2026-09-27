@@ -179,10 +179,6 @@ def test_b03_cmd_tools_docstring_names_live_tool_count():
     )
 
 
-def test_b03_live_tool_count_is_fourteen():
-    assert len(ToolRegistry.tool_names()) == 14
-
-
 # ==========================================================================
 # Behavior 4 -- the stale "ten registered tools" is gone; no OTHER count-word
 # precedes "registered tools" (drift-safe stale guard).
@@ -219,10 +215,6 @@ def test_b05_cmd_collectors_docstring_matches_live_count():
         f"_cmd_collectors.__doc__ must name the live collector count as "
         f"{phrase!r} (live count = {n}); got docstring:\n{doc}"
     )
-
-
-def test_b05_live_collector_count_is_fifteen():
-    assert len(all_collectors()) == 17
 
 
 def test_b05_no_other_count_word_precedes_registered_collectors():

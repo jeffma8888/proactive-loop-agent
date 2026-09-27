@@ -116,7 +116,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any, Final
@@ -125,6 +124,8 @@ import pytest
 
 from tests.test_iter214_behavior import MIN_HEADROOM
 from tests.test_roadmap_size_budget import ROADMAP_CHAR_LIMIT
+
+from tests.test_iter158_behavior import _console_script
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 
@@ -273,17 +274,6 @@ def _ledger_rows() -> list[str]:
 # ======================================================================================
 # Helpers -- running the shipped console script (offline, scripted provider)
 # ======================================================================================
-
-
-def _console_script() -> Path:
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, "the `pla` console script must be installed"
-    return script
 
 
 def _pla(*args: str) -> subprocess.CompletedProcess[str]:

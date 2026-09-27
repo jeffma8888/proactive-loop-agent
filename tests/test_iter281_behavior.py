@@ -53,7 +53,6 @@ import math
 import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Final
@@ -68,6 +67,8 @@ from proactive_loop.loop.executor import GoalLoop
 from proactive_loop.loop.tools import ToolRegistry
 from proactive_loop.models import CandidateGoal, RunStatus, StepKind
 from tests.test_iter172_behavior import roadmap_size_bounds
+
+from tests.test_iter158_behavior import _console_script
 
 REPO: Final[Path] = Path(__file__).resolve().parents[1]
 README: Final[Path] = REPO / "README.md"
@@ -344,18 +345,6 @@ def _b5_run_max_seconds_refuses_bad_values_at_parse_time_with_exit_2(
 
 
 # --- (5b) the accepted value reaches the loop: a real offline run under a tiny ceiling ---------
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` entry point next to the running interpreter (tests/test_iter253 shape)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, f"the `pla` console script must be installed; searched {candidates}"
-    return script
 
 
 def _stamped_workspace(root: Path) -> Path:

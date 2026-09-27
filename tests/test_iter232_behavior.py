@@ -56,11 +56,11 @@ docstring, comment or help-text indentation.
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Final
+
+from tests.test_iter158_behavior import _console_script
 
 REPO: Final = Path(__file__).resolve().parents[1]
 MAKEFILE: Final = REPO / "Makefile"
@@ -196,21 +196,6 @@ def _sole_index(steps: list[str], flag: str, surface: str) -> int:
         f"{[steps[i] for i in hits]}"
     )
     return hits[0]
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (iter114's resolution convention)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _budget_argv(*, override: str | None = None) -> list[str]:

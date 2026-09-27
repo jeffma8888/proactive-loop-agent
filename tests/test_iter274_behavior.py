@@ -30,12 +30,12 @@ import ast
 import inspect
 import json
 import re
-import shutil
 import subprocess
-import sys
 import textwrap
 from collections.abc import Callable
 from pathlib import Path
+
+from tests.test_iter158_behavior import _console_script
 
 _PHRASE = "no top-level 'goals' array"
 _REPO = Path(__file__).resolve().parents[1]
@@ -43,20 +43,6 @@ _ROW_295 = (
     "- #295 Every slate verb refuses a goals-less object via `_load_slate`; "
     "`verify`'s pre-check retires (foundry iter 316)"
 )
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (declared in pyproject, installed by ``uv sync``)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        f"the `pla` console script must be installed; searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:

@@ -48,9 +48,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,7 +57,7 @@ import pytest
 from proactive_loop.cli import build_parser
 from proactive_loop.models import CandidateGoal, GoalSlate
 
-from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS
+from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS, _console_script
 
 REPO = Path(__file__).resolve().parents[1]
 README = REPO / "README.md"
@@ -78,21 +76,6 @@ _PASTE_PREFIX = "pla dispatch"
 # ---------------------------------------------------------------------------
 # Helpers -- drive the public CLI, read back exit code / stdout / stderr / disk
 # ---------------------------------------------------------------------------
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:

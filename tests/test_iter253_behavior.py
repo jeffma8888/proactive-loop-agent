@@ -46,11 +46,12 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 
 import pytest
+
+from tests.test_iter158_behavior import _console_script
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
@@ -93,21 +94,6 @@ _FLAG = re.compile(r"--[a-z][a-z0-9-]*")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (iter-114 / iter-163 convention)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _clean_env(**overrides: str) -> dict[str, str]:

@@ -93,6 +93,10 @@ _MARKER = "PORTFOLIO INTRO"
 # ---------------------------------------------------------------------------
 
 
+#: The installed `pla` console script. THE SINGLE DEFINITION of this helper in the
+#: whole test corpus -- 26 process-level modules (test_iter128 ... test_iter281) IMPORT
+#: `_console_script` from here rather than hand-copying the body, so do not localize it
+#: back into any of them: one shared object cannot drift, 27 equal copies can.
 def _console_script() -> Path:
     """The installed ``pla`` console script."""
     bindir = Path(sys.executable).parent

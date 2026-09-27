@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-470
+    lenses: unknown
+    - Candidate A1 -- `run --max-seconds` (shipped e08085b, HEAD) has zero executable consumers: make the demo's own dispatch exercise the wall-clock ceiling and assert the BUDGET_EXHAUSTED exit
+    - Candidate A2 -- `make hooks` on-ramp for the opt-in pre-commit gate (iteration 469 B2, lost to the re-land emergency, never refuted)
+    - Candidate A3 -- a machine-readable output a neighbouring tool cannot yet script against: the `--json` / exit-code coverage of the verb roster is uneven
+    - Candidate B1 -- retire ROADMAP row #184 (`signals --fail-over N has had ZERO consumers`) as SHIPPED: it has misreported its own ship for ~215 iterations, and the index sits EXACTLY on the 20-row floor
+    - Candidate B2 -- collapse the 19 semantically identical `_console_script()` test helpers (27 definitions in 27 modules) onto ONE imported definition; the collected-body census is exhausted, so helper duplication is now the only duplication class left in `tests/` and it is under no oracle
+    - Candidate B3 -- delete the four verb-named empty-`path` special cases in `loop/tools.py` (`head_file`/`tail_file`/`read_lines`/`stat_file`) and let the general rule `_reject_unsafe` answer, as the other five path tools already do
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: B2
+    ship: pending (not yet decided)
   iter-469
     lenses: unknown
     - Candidate A1 -- make the twice-reverted `--max-seconds` tree clone-proof: delete the unsanctioned `35_428` ROADMAP byte pin from `tests/test_iter281_behavior.py` and `git add -N` the module BEFORE the tester runs, so test_iter172's census grades it in the worktree the way preship grades it in the clone
@@ -11,7 +22,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the opt-in pre-commit gate has no on-ramp: `make hooks` installs `core.hooksPath hooks` (and `make help` lists it), so the built gate becomes a used one with one command
     - Candidate B3 -- `trace` (the PLAN/ACT/CHECK transcript) is never consulted by the demo or the gate: render the demo's own run and assert the transcript names the three phases
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED e08085b
   iter-468
     lenses: new-capability -- iteration 468 (state dir) / repo HEAD b51b8b3 (foundry iter 320)
     - Candidate A1 -- re-land `run` / `dispatch` / `resume --max-seconds N`: the L1 budget gains its missing TIME dimension, this time with the same-commit `SPEC_ARCHIVE.md` relocation that iteration 467 forgot
@@ -2182,4 +2193,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-216 scouted iterations
+217 scouted iterations

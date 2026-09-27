@@ -57,9 +57,7 @@ from __future__ import annotations
 
 import inspect
 import os
-import shutil
 import subprocess
-import sys
 from collections import Counter
 from pathlib import Path
 
@@ -79,6 +77,8 @@ from proactive_loop.collectors.todos import (
     todo_memo_stats,
 )
 from proactive_loop.models import ContextSignal
+
+from tests.test_iter158_behavior import _console_script
 
 # Behavior 1's comparison contract (the spec's six fields, plus ``timestamp`` --- see
 # AMBIGUITY NOTES).
@@ -542,21 +542,6 @@ def test_b10a_the_two_memos_are_independent(tmp_path: Path) -> None:
         f"clear_parse_memo() must not touch the todo memo; {todo_again!r} -> "
         f"{todo_memo_stats()!r}"
     )
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (iter114/iter128 resolution convention)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def test_b10b_two_signals_subprocesses_print_identical_stdout(tmp_path: Path) -> None:

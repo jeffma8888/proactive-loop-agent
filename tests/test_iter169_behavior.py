@@ -59,9 +59,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -69,6 +67,8 @@ import pytest
 from proactive_loop.collectors import all_collectors
 from proactive_loop.collectors.base import BaseCollector, Collector
 from proactive_loop.models import ContextSignal
+
+from tests.test_iter158_behavior import _console_script
 
 # ---------------------------------------------------------------------------
 # Registry-driven parameters (no hardcoded collector list) -- iter129's shape.
@@ -147,17 +147,6 @@ class _ExplodingCollector(BaseCollector):
 
     def _collect(self, root: Path) -> list[ContextSignal]:
         raise RuntimeError(_BOOM)
-
-
-def _console_script() -> Path:
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, "the `pla` console script must be installed"
-    return script
 
 
 def _workspace(tmp_path: Path) -> Path:

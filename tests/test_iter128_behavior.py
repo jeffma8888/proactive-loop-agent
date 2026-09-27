@@ -47,11 +47,11 @@ each and 1.91s together, no network.
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
-import sys
 import tomllib
 from pathlib import Path
+
+from tests.test_iter158_behavior import _console_script
 
 # --------------------------------------------------------------------------
 # Tester's ground facts --- the spec-declared contract constants (pm.md).
@@ -250,21 +250,6 @@ def _ci_commands() -> list[str]:
 def _armed_kinds(step: str) -> list[str]:
     """The kinds a ``--fail-on-kind`` step arms, parsed out of the step text."""
     return re.findall(r"--fail-on-kind\s+([A-Za-z_]+)", step)
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script (iter114's resolution convention)."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _gate_argv(workspace: Path) -> list[str]:

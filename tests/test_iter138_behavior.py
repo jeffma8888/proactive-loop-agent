@@ -34,9 +34,7 @@ API key, no ``git`` subprocess, and NO DURATION IS ASSERTED ANYWHERE (roadmap ro
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -44,18 +42,9 @@ import pytest
 from proactive_loop.cli import _select_signals, _signal_identity
 from proactive_loop.models import ContextSignal, WorkspaceSnapshot
 
+from tests.test_iter158_behavior import _console_script
+
 _KEYS = ("source", "kind", "summary", "detail", "path", "weight")
-
-
-def _console_script() -> Path:
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, "the `pla` console script must be installed"
-    return script
 
 
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:

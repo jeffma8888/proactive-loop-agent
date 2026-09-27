@@ -169,8 +169,11 @@ MIN_INDEX_ROWS = 20
 #: 85 -> 86 bullets and 87 -> 88 ledger rows.
 #: Foundry iter 321 added ledger row #300 (`run --max-seconds` / `PLA_MAX_SECONDS`, the L1
 #: budget's wall-clock ceiling), again with no index retirement, so 88 -> 89 and the bullets hold.
+#: Foundry iter 322 added ledger row #301 (one `_console_script` helper definition in
+#: test_iter158, imported by 26 modules), again with no index retirement, so 89 -> 90 and
+#: the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 86
-EXPECTED_LEDGER_ROWS = 89
+EXPECTED_LEDGER_ROWS = 90
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

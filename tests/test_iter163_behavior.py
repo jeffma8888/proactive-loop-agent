@@ -46,12 +46,11 @@ import json
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS
+from tests.test_iter158_behavior import DISPATCHED_RUN_KEYS, _console_script
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
@@ -74,21 +73,6 @@ _SENSITIVE_CATEGORY = "finance_legal"
 # ---------------------------------------------------------------------------
 # Helpers (iter-114 / iter-152 console-script convention)
 # ---------------------------------------------------------------------------
-
-
-def _console_script() -> Path:
-    """The installed ``pla`` console script."""
-    bindir = Path(sys.executable).parent
-    candidates = [bindir / "pla", bindir / "pla.exe"]
-    which = shutil.which("pla")
-    if which:
-        candidates.append(Path(which))
-    script = next((c for c in candidates if c.is_file()), None)
-    assert script is not None, (
-        "the `pla` console script must be installed (declared in pyproject and "
-        f"installed by `uv sync`); searched {[str(c) for c in candidates]}"
-    )
-    return script
 
 
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:

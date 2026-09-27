@@ -137,3 +137,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #298 `diff --fail-on-change` exits 5 on an added/removed/changed goal; 8 duplicates fund its tests (foundry iter 319)
 - #109 SPEC.md size-guard row SUPERSEDED: test_iter255 SPEC_CEILING_AFTER_SLICE=95_500 (#179/#270) (foundry iter 320)
 - #300 `run --max-seconds N` / `PLA_MAX_SECONDS`: wall-clock ceiling on the L1 budget, injectable clock; SPEC 4.3 synthesizer bullets -> SPEC_ARCHIVE.md (foundry iter 321)
+- #301 One `_console_script` helper definition in test_iter158, imported by 26 modules; 3 assert-message-only duplicate count tests fund the oracle (foundry iter 322)
