@@ -331,12 +331,5 @@ def test_b6_non_directory_root_degrades_to_empty(tmp_path: Path) -> None:
 # ===========================================================================
 
 
-def test_b7_collector_registry_count_unchanged() -> None:
-    assert len(all_collectors()) == 17, (
-        "a determinism fix on TodoCollector must add NO collector; "
-        f"expected 17, got {len(all_collectors())}"
-    )
-
-
 def test_b7_provider_count_unchanged() -> None:
     assert len(VALID_PROVIDERS) == 7, f"provider count must stay 7; got {len(VALID_PROVIDERS)}"

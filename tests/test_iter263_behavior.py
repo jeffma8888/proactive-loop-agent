@@ -118,13 +118,15 @@ DELETED: dict[str, tuple[str, ...]] = {
 #: ``tests/test_iter150_behavior.py`` separately forbids. Foundry iter 324 retired one
 #: assert-message-only ``len(all_collectors()) == 17`` duplicate from each of
 #: test_iter82/83 (canonical copy: test_iter75::test_b12), so 10 -> 9 and 11 -> 10.
+#: Foundry iter 325 retired the same duplicate from test_iter87/89/90 (14 -> 13,
+#: 12 -> 11, 19 -> 18) to fund the three items of tests/test_iter285_behavior.py.
 REMAINDERS: dict[str, int] = {
     "test_iter82_behavior.py": 9,
     "test_iter83_behavior.py": 10,
     "test_iter85_behavior.py": 7,
-    "test_iter87_behavior.py": 14,
-    "test_iter89_behavior.py": 12,
-    "test_iter90_behavior.py": 19,
+    "test_iter87_behavior.py": 13,
+    "test_iter89_behavior.py": 11,
+    "test_iter90_behavior.py": 18,
     "test_iter91_behavior.py": 17,
 }
 

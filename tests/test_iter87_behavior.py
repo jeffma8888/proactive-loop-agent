@@ -272,12 +272,6 @@ def test_b6_within_kind_reorder_does_not_leak_across_kinds() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_b7_collector_count_unchanged() -> None:
-    assert len(all_collectors()) == 17, (
-        f"a weight-aware cap fix must add NO collector; got {len(all_collectors())}"
-    )
-
-
 def test_b7_cli_subcommand_count_unchanged() -> None:
     parser = build_parser()
     subactions = [

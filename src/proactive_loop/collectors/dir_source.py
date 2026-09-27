@@ -8,14 +8,20 @@ first had already paid for. The four non-walking collectors cost 1-2 ms each whi
 the cheapest WALKING ones cost 22-43 ms even when they read almost nothing, which
 puts roughly a third of the scan in redundant traversal. ``watch`` re-pays that
 cost every tick, so the waste scales with the SIZE of the user's project rather
-than with anything it contains.
+than with anything it contains. Measured AFTER (foundry iter 263, nine collectors
+converted) on the bundled ``examples/fixture_workspace``:
+**5** ``os.walk`` calls per scan -- this module's ONE shared walk, plus
+``filesystem.py`` (3: two ``_has_source`` peeks and one recency pass) and
+``notes.py`` (1), the two holdouts explained below. That integer is the published
+ceiling ``WALK_BUDGET`` in ``tests/test_iter192_behavior.py``; lower both together.
 
 This is the second half of a story ``collectors/text_source.py`` (iter 129) opened
 and its own docstring named: that module removed the redundant *content decode* --
-one read+decode per path per scan instead of one per collector -- and called the
-walk "the missing half: the I/O". This module is that half, one level up from
-bytes to dirents. The two are deliberately separate caches with the same shape:
-text_source answers "what is IN this file", dir_source answers "what IS there".
+one read+decode per path per scan instead of one per collector -- and closed by
+saying of itself "This module is the missing half: the I/O." -- the I/O of
+reading bytes. This module is the same idea one level up, from bytes to dirents.
+The two are deliberately separate caches with the same shape: text_source answers
+*what is IN this file*, dir_source answers *what IS there*.
 
 WHY sharing is safe here, and why it needed no union computation: the package's
 two prune rules live in exactly ONE place (``filesystem._SKIP_DIRS`` /

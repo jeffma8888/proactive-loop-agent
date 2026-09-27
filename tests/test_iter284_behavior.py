@@ -28,7 +28,7 @@ starts with the collector's own ``- `syntax_error.py:`` line and exceeds 500 cha
 module source says ``import struct`` / ``import importlib.util`` (equalities), and ``Pure
 stdlib`` occurs in the bullet exactly once;
 (3) behaviors 4-7: ``SPEC.md`` stays under ``test_iter281::SPEC_CEILING_BYTES`` (imported,
-never respelled); the README collector row is untouched; ROADMAP.md ends with exactly one
+never respelled); the README collector row is untouched; ROADMAP.md holds exactly one
 verbatim 120-char ``- #303`` Done-ledger row tagged ``(foundry iter 324)``, the index keeps
 its 20 rows and ROADMAP_ARCHIVE.md never mentions #303; the three named duplicates are gone,
 their canonical copy survives, and this module holds exactly three collected items.
@@ -221,8 +221,10 @@ def _b6_roadmap_records() -> None:
     text = ROADMAP.read_text(encoding="utf-8")
     non_empty = [line for line in text.splitlines() if line.strip()]
     assert non_empty, "precondition: ROADMAP.md is non-empty"
-    assert non_empty[-1] == LEDGER_ROW, (
-        f"behavior 6: ROADMAP.md ends with the verbatim #303 ledger row; got {non_empty[-1]!r}"
+    # Membership, not position: the row was appended LAST in foundry iter 324, but every
+    # later ship appends its own row below it (foundry iter 325's #304 was the first).
+    assert LEDGER_ROW in non_empty, (
+        f"behavior 6: ROADMAP.md holds the verbatim #303 ledger row; tail is {non_empty[-1]!r}"
     )
     assert len(LEDGER_ROW) == LEDGER_ROW_MAX_CHARS, (
         f"behavior 6: the pinned row is {LEDGER_ROW_MAX_CHARS} chars; got {len(LEDGER_ROW)}"

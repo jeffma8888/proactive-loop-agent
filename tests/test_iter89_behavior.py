@@ -270,10 +270,3 @@ def test_b6_non_directory_root_degrades_to_empty(tmp_path: Path) -> None:
 # ===========================================================================
 # B7 -- count-lock: a behavior-only collector-sort fix adds NO registry entry.
 # ===========================================================================
-
-
-def test_b7_collector_registry_count_unchanged() -> None:
-    assert len(all_collectors()) == 17, (
-        "a sort tie-break on RecentFilesCollector must add NO collector; "
-        f"expected 17, got {len(all_collectors())}"
-    )

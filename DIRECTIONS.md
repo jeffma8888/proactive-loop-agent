@@ -1,6 +1,17 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-473
+    lenses: new-capability -- iteration 473 (state dir) / repo HEAD 685a5ba (foundry iter 324)
+    - Candidate A1 -- `collectors/dir_source.py`'s docstring tells only the BEFORE half and misquotes its sibling: state the AFTER figure bound to the live walk counter, and quote `text_source.py` as it actually reads
+    - Candidate A2 -- `ROADMAP.md`'s header rule "Rows are dropped from this index once shipped" has an unstated exception that misled a scout: name the test-pinned exception in the header and bind it
+    - Candidate A3 -- open ROADMAP row #302 prices its own leverage on the toy fixture only ("88% of the scan") when the recorded repo-root measurement puts the same pair at ~5%: carry both figures so the ranking reads honestly
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- `scan --focus TEXT`: an INTENT channel for the scout without making it a goal-taker
+    - Candidate B2 -- `run --max-goals N` (ROADMAP row #192): dispatch the top N AUTO_DISPATCH goals, not only the head
+    - Candidate B3 -- `signals --max-items N` (ROADMAP row #182): let the user raise the perception depth
+    winner: A1
+    ship: pending (not yet decided)
   iter-472
     lenses: unknown
     - Candidate A1 -- extend `syntax_error`'s pyc trust to pytest's assertion-rewritten pyc (`<stem>.<cache_tag>-pytest-<ver>.pyc`): 250 of the 255 files still compiled at HEAD already carry a header-valid PEP 552 pyc under that name; the collector drops 493 -> 43 ms in an in-process simulation
@@ -12,7 +23,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- `ROADMAP.md`'s header states "Rows are dropped from this index once shipped" while row #121 sits in the index with Status `**SHIPPED -- iter-139**`, the reasoning (a test-pinned archived-yet-live fixture, test_iter115/164/226) existing nowhere a roadmap reader looks -- and iteration 468's scout B proposed paying #121 as open work
     - Candidates I dropped after measuring or after checking DIRECTIONS.md
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 685a5ba
   iter-471
     lenses: simplification-and-deletion -- iteration 471 (state dir) / repo HEAD 6051524 (foundry iter 322)
     - Candidate A1 -- collapse the largest byte-identical test-helper family left after `_console_script`: the 23 verbatim `_run(argv, capsys)` definitions (152 redundant lines) onto ONE imported definition, mirroring `6051524`'s shape
@@ -2217,4 +2228,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-219 scouted iterations
+220 scouted iterations
