@@ -182,13 +182,6 @@ def test_b6_missing_directory_returns_empty(tmp_path: Path) -> None:
     assert sigs == [], f"nonexistent dir must degrade to []; got {sigs!r}"
 
 
-def test_b6_collector_registry_count_unchanged() -> None:
-    assert len(all_collectors()) == 17, (
-        "a weight-clamp fix on RecentFilesCollector must add NO collector; "
-        f"expected 17, got {len(all_collectors())}"
-    )
-
-
 def test_b6_cli_subcommand_count_unchanged() -> None:
     parser = build_parser()
     subactions = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]

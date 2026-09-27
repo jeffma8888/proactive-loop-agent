@@ -1,6 +1,18 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-472
+    lenses: unknown
+    - Candidate A1 -- extend `syntax_error`'s pyc trust to pytest's assertion-rewritten pyc (`<stem>.<cache_tag>-pytest-<ver>.pyc`): 250 of the 255 files still compiled at HEAD already carry a header-valid PEP 552 pyc under that name; the collector drops 493 -> 43 ms in an in-process simulation
+    - Candidate A2 -- `todos`: replace the 51,926 per-line `re.search` calls with one anchored `MULTILINE` `finditer` per prefiltered file (iteration 466 A2, lost to a docs pick; re-measured at HEAD as the #2 row and the #1 row once A1 lands)
+    - Candidate A3 -- the CLI import floor re-priced (iteration 471 B3 lost; the honest product-owned slice is `collectors` at 20.7 ms, because 85% of the floor is the pydantic tree the product cannot drop)
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- `SPEC.md` section 4.1 still promises `compile()` runs on "every `*.py` file" and that the size skip "is what keeps 'every `*.py` file' literally true"; since 3f1455d (one iteration ago) a pyc-vouched file is ALSO skipped unread, so the vision document contradicts the shipped collector -- correct the bullet and bind it two-sided to `_pyc_says_ok`
+    - Candidate B2 -- `SPEC_ARCHIVE.md`'s header explains WHY prose relocates there but names none of the figures a relocator needs: the binding 94,400-B `SPEC.md` pin, the 95,500-B ceiling, the 100,000-B action point, the 500-B pointer budget, and the "newest section goes directly under the `---` rule" placement rule all live only in `tests/test_iter281/255/234` -- write them into the header and bind each to its constant
+    - Candidate B3 -- `ROADMAP.md`'s header states "Rows are dropped from this index once shipped" while row #121 sits in the index with Status `**SHIPPED -- iter-139**`, the reasoning (a test-pinned archived-yet-live fixture, test_iter115/164/226) existing nowhere a roadmap reader looks -- and iteration 468's scout B proposed paying #121 as open work
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: B1
+    ship: pending (not yet decided)
   iter-471
     lenses: simplification-and-deletion -- iteration 471 (state dir) / repo HEAD 6051524 (foundry iter 322)
     - Candidate A1 -- collapse the largest byte-identical test-helper family left after `_console_script`: the 23 verbatim `_run(argv, capsys)` definitions (152 redundant lines) onto ONE imported definition, mirroring `6051524`'s shape
@@ -12,7 +24,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- the cost paid most often is the import floor: `pla --version` is 150 ms wall against a 30 ms bare interpreter, `import proactive_loop.cli` is 136-158 ms cumulative, and `cli.py:47-49` eagerly imports the whole `collectors` package (21-35 ms: 17 modules + `hashlib`/`_blake2` 7, `subprocess` 6.5, `json` 5, `tomllib` 3) for every verb, including the ~10 that never scan
     - Candidates I dropped after measuring or after checking DIRECTIONS.md
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 3f1455d
   iter-470
     lenses: unknown
     - Candidate A1 -- `run --max-seconds` (shipped e08085b, HEAD) has zero executable consumers: make the demo's own dispatch exercise the wall-clock ceiling and assert the BUDGET_EXHAUSTED exit
@@ -2205,4 +2217,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-218 scouted iterations
+219 scouted iterations

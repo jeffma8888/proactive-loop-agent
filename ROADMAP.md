@@ -139,3 +139,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #300 `run --max-seconds N` / `PLA_MAX_SECONDS`: wall-clock ceiling on the L1 budget, injectable clock; SPEC 4.3 synthesizer bullets -> SPEC_ARCHIVE.md (foundry iter 321)
 - #301 One `_console_script` helper definition in test_iter158, imported by 26 modules; 3 assert-message-only duplicate count tests fund the oracle (foundry iter 322)
 - #299 syntax_error trusts a valid PEP 552 pyc header, skips compile(): -106 of 666 ms, -16% not -55% (foundry iter 323)
+- #303 SPEC 4.1 syntax_error bullet states the PEP 552 pyc skip, bound to _pyc_says_ok; 3 dups retire (foundry iter 324)

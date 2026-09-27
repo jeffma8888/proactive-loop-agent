@@ -246,13 +246,6 @@ def test_b7_collect_never_raises_and_returns_list(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_b8_collector_registry_count_unchanged(tmp_path: Path) -> None:
-    assert len(all_collectors()) == 17, (
-        "a fence-awareness fix on NotesCollector must add NO collector; "
-        f"expected 17, got {len(all_collectors())}"
-    )
-
-
 def test_b8_tool_registry_count_unchanged() -> None:
     assert len(ToolRegistry.tool_names()) == 14, (
         f"tool registry count must stay 14; got {len(ToolRegistry.tool_names())}"

@@ -115,10 +115,12 @@ DELETED: dict[str, tuple[str, ...]] = {
 
 #: Behavior 3. The measured remainder each edited module must still collect. The spec
 #: pins these exactly, and a module that empties would be a DELETED module -- which
-#: ``tests/test_iter150_behavior.py`` separately forbids.
+#: ``tests/test_iter150_behavior.py`` separately forbids. Foundry iter 324 retired one
+#: assert-message-only ``len(all_collectors()) == 17`` duplicate from each of
+#: test_iter82/83 (canonical copy: test_iter75::test_b12), so 10 -> 9 and 11 -> 10.
 REMAINDERS: dict[str, int] = {
-    "test_iter82_behavior.py": 10,
-    "test_iter83_behavior.py": 11,
+    "test_iter82_behavior.py": 9,
+    "test_iter83_behavior.py": 10,
     "test_iter85_behavior.py": 7,
     "test_iter87_behavior.py": 14,
     "test_iter89_behavior.py": 12,

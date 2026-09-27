@@ -404,10 +404,13 @@ class Collector(Protocol):
   no version bump.)
 - `syntax_error.py: SyntaxErrorCollector(name="syntax_error", max_items=30, max_read_bytes=5_000_000)` — the first
   code-PARSING collector: it runs the stdlib parser `compile(text, str(full), "exec")` on
-  every `*.py` file under `root` (via `dir_source`, `_is_hidden` FILES only, read via
-  `text_source`; scans `.py` ONLY, case-insensitive; `.pyi` stubs excluded;
-  files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread, which is what
-  keeps "every `*.py` file" literally true; composition note under `large_file`) and
+  every `*.py` file under `root` it cannot already vouch for (via `dir_source`, `_is_hidden`
+  FILES only, read via `text_source`; scans `.py` ONLY, case-insensitive; `.pyi` stubs
+  excluded; files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread, composition
+  note under `large_file`; so is a file whose `__pycache__` pyc -- the one
+  `importlib.util.cache_from_source` names -- carries a PEP 552 TIMESTAMP header (magic,
+  flags `0`, source mtime and size) matching the source `stat`, the trust `import` places
+  in that pyc; see `_pyc_says_ok`, output byte-identical) and
   emits one `kind="syntax_error"` signal per file that raises a `SyntaxError`. **Parse-only
   is the load-bearing safety property**: `compile(..., "exec")` builds a code object but
   NEVER runs the user's code (no `exec`/`eval`/`import`/subprocess), so scanning a workspace
@@ -422,10 +425,10 @@ class Collector(Protocol):
   degrades to skipped, not a crash); a NUL-byte or pathological source is skipped
   (`ValueError`/`MemoryError`/`RecursionError` and a NUL-byte pre-guard), never a false
   signal. Output sorted by relpath ascending and capped at `max_items`. Pure stdlib
-  (`os`/`pathlib`/builtin `compile`), never raises → `[]`. Reports facts only (which file,
-  which line); the synthesizer judges whether to propose fixing it. (Additive collector,
-  exactly like iters 09/11/16/20/28/37/42/53/63/70 — a new `kind` flows into synthesis via
-  `by_kind()` with zero synthesizer change, so no version bump.)
+  (`os`/`pathlib`/`struct`/`importlib.util`/builtin `compile`), never raises → `[]`. Reports
+  facts only (which file, which line); the synthesizer judges whether to propose fixing
+  it. (Additive collector, exactly like iters 09/11/16/20/28/37/42/53/63/70 — a new `kind`
+  flows into synthesis via `by_kind()` with zero synthesizer change, so no version bump.)
 - `license.py: LicenseCollector(name="license", max_items=30)` — root-anchored
   open-source-hygiene gap: at most ONE `kind="license"` signal (`summary="no license
   file"`, `weight=0.7`, `detail=""`, `path=str(root)`, `timestamp=None`) when `root` holds
