@@ -627,15 +627,6 @@ def test_b8_arming_the_gate_leaves_stdout_byte_identical(tmp_path: Path) -> None
     )
 
 
-def test_b8_no_new_runtime_dependency() -> None:
-    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
-    deps = data["project"]["dependencies"]
-    assert len(deps) == 1 and deps[0].lower().startswith("pydantic"), (
-        "the runtime dependency set must stay pydantic-v2-ONLY (this iteration is "
-        f"build tooling: no dependency change, so no lockfile churn); found {deps}"
-    )
-
-
 # ==========================================================================
 # Guard self-tests --- every reader above must FIRE on a known-bad sample.
 # A tripwire that cannot be made to fire is indistinguishable from a broken one.

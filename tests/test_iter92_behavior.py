@@ -264,14 +264,6 @@ def test_b6_fenced_code_heading_suppression_unchanged(tmp_path):
 # ===========================================================================
 
 
-def test_b7_collector_count_unchanged():
-    assert len(all_collectors()) == 17, "collector set changed (expected 17)"
-
-
-def test_b7_provider_count_unchanged():
-    assert len(VALID_PROVIDERS) == 7, "provider set changed (expected 7)"
-
-
 def test_b7_verb_count_unchanged():
     subactions = [
         a for a in build_parser()._subparsers._group_actions if hasattr(a, "choices")

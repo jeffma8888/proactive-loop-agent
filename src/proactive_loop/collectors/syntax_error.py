@@ -45,8 +45,31 @@ the source (see the parse-memo block below). Output is unchanged: the memo
 returns exactly what ``compile`` would have returned for that same source
 text.
 
-Pure stdlib (``pathlib`` / ``hashlib`` / builtin ``compile``, plus the shared
-pruned traversal from ``collectors/dir_source``) only, so
+TRUST THE INTERPRETER'S OWN RECORD BEFORE PARSING. Even with the memo, every
+one-shot ``pla signals`` / ``pla scan`` / ``pla run`` pays the full read + decode
++ digest + compile for every ``*.py`` it meets: measured at commit ``6051524``,
+this collector was 363 of a 666 ms repo-root scan. Most of that work re-proves
+what the interpreter already recorded -- a ``__pycache__`` pyc with a PEP 552
+TIMESTAMP header (``importlib.util.MAGIC_NUMBER``, flags ``0``, source mtime and
+size) that matches the source ``stat`` is exactly what ``import`` trusts as
+"this source compiled clean". So ``_check_file`` consults that header (see
+``_pyc_says_ok``) and SKIPS such a file without reading it: a trusted file
+compiled clean, so it yields no signal either way and the output is
+byte-identical; the only change is the work not done. Only the interpreter's
+own pyc is trusted (``importlib.util.cache_from_source``, keyed on the running
+``cache_tag``), never a hash-based one (flags != 0) nor a third-party writer's.
+
+THE ONE EXCEPTION TO "CAN'T EVEN RUN": trusting that header inherits the
+interpreter's stale-pyc blind spot. A source edited into a ``SyntaxError``
+within the SAME mtime second AND to the SAME byte size as the compile the pyc
+records is excused until either changes -- the identical trust ``import``
+places in that pyc, so this collector is never LESS sound than the interpreter
+that would run the file. Any other mismatch (wrong magic, hash-based flags, a
+short or missing pyc, a different mtime or size) falls through to the parse.
+
+Pure stdlib (``pathlib`` / ``hashlib`` / ``struct`` / ``importlib.util`` /
+builtin ``compile``, plus the shared pruned traversal from
+``collectors/dir_source``) only, so
 the runtime stays pydantic-v2-only and fully offline; never raises -> ``[]``. A new
 ``kind="syntax_error"`` flows into the synthesis prompt automatically because
 ``synthesizer._build_prompt`` iterates ``snapshot.by_kind()``, so this file plus
@@ -57,6 +80,8 @@ the two-line registry wiring is the whole cost -- additive, no version bump
 from __future__ import annotations
 
 import hashlib
+import importlib.util
+import struct
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -125,6 +150,7 @@ def clear_parse_memo() -> None:
     _PARSE_MEMO.clear()
     _PARSE_MEMO_COUNTS["hits"] = 0
     _PARSE_MEMO_COUNTS["misses"] = 0
+    _PYC_TRUST_COUNTS["trusted"] = 0
 
 
 def parse_memo_stats() -> dict[str, int]:
@@ -141,6 +167,60 @@ def parse_memo_stats() -> dict[str, int]:
         "misses": _PARSE_MEMO_COUNTS["misses"],
         "entries": len(_PARSE_MEMO),
     }
+
+
+# ---------------------------------------------------------------------------
+# Pyc trust: skip the read + parse when the interpreter's own pyc vouches for
+# the source. Process-wide like the memo, and reset by the same
+# ``clear_parse_memo`` so one call restores the whole module to a cold state.
+# The count lives in its OWN dict rather than as a fourth ``parse_memo_stats``
+# key because that dict's exact three-key shape is a published contract.
+# ---------------------------------------------------------------------------
+
+# A PEP 552 pyc header: 4-byte magic, 4-byte flags, then for a TIMESTAMP pyc the
+# source mtime and size as two little-endian 32-bit words.
+_PYC_HEADER_SIZE: int = 16
+_PYC_TIMESTAMP_FLAGS: int = 0
+
+_PYC_TRUST_COUNTS: dict[str, int] = {"trusted": 0}
+
+
+def pyc_trusted_count() -> int:
+    """Return how many files this process skipped on a trusted interpreter pyc.
+
+    Kept separate from ``parse_memo_stats`` (whose three-key shape is pinned) so
+    the speed-up stays INSPECTABLE without changing a published dict. Zeroed by
+    ``clear_parse_memo``: a trusted file never touches the memo, so this is the
+    only place its work-not-done is visible.
+    """
+    return _PYC_TRUST_COUNTS["trusted"]
+
+
+def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
+    """Return True when *full*'s interpreter pyc vouches for the current source.
+
+    Reads only the 16-byte header of ``importlib.util.cache_from_source(full)``
+    -- the pyc the RUNNING interpreter would import, so a foreign ``cache_tag``
+    simply is not found and the caller parses as before -- and trusts it only
+    when it is a TIMESTAMP pyc (magic matches, flags are ``0``) whose recorded
+    mtime and size equal the source ``stat`` the caller already took, masked to
+    32 bits exactly as the interpreter writes them. Every other outcome (missing
+    or unreadable pyc, short header, wrong magic, hash-based flags, mtime or size
+    drift, an interpreter with no ``cache_tag``) is a plain ``False``: the caller
+    falls through to today's read + parse, so this can only ever REMOVE work,
+    never change a verdict.
+    """
+    try:
+        with open(importlib.util.cache_from_source(str(full)), "rb") as pyc:
+            header = pyc.read(_PYC_HEADER_SIZE)
+    except (OSError, NotImplementedError):
+        return False
+    if len(header) != _PYC_HEADER_SIZE or header[:4] != importlib.util.MAGIC_NUMBER:
+        return False
+    flags, mtime, size = struct.unpack("<III", header[4:])
+    if flags != _PYC_TIMESTAMP_FLAGS:
+        return False
+    return (mtime, size) == (int(source_mtime) & 0xFFFFFFFF, source_size & 0xFFFFFFFF)
 
 
 def _remember_verdict(digest: bytes, verdict: _Verdict) -> None:
@@ -294,7 +374,18 @@ class SyntaxErrorCollector(BaseCollector):
         # the reactive MemoryError/RecursionError branch (now in
         # ``_parse_verdict``) can only help once the whole file is already decoded.
         try:
-            if full.stat().st_size > self.max_read_bytes:
+            st = full.stat()
+            if st.st_size > self.max_read_bytes:
+                return None
+            # The interpreter's own timestamp pyc, when its header matches this
+            # very stat, is proof the source compiled clean -- so the read,
+            # decode, digest, memo and compile below are all work not done.
+            # Sits AFTER the size guard (a pyc never vouches for an oversized
+            # file this collector would skip anyway) and BEFORE the read, and
+            # never touches the memo: see the module docstring for the one
+            # stale-pyc exception this inherits from ``import``.
+            if _pyc_says_ok(full, st.st_mtime, st.st_size):
+                _PYC_TRUST_COUNTS["trusted"] += 1
                 return None
             # Shared per-scan decode (see text_source), with this collector's
             # STRICT policy preserved: the provider attempts a strict read first,

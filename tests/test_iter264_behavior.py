@@ -172,8 +172,11 @@ MIN_INDEX_ROWS = 20
 #: Foundry iter 322 added ledger row #301 (one `_console_script` helper definition in
 #: test_iter158, imported by 26 modules), again with no index retirement, so 89 -> 90 and
 #: the bullets hold.
-EXPECTED_ARCHIVE_BULLETS = 86
-EXPECTED_LEDGER_ROWS = 90
+#: Foundry iter 323 retired ROADMAP row #299 (`syntax_error` trusts a valid PEP 552 timestamp
+#: pyc before `compile()`) from the index as SHIPPED and added ledger row #299, so 86 -> 87
+#: bullets and 90 -> 91 ledger rows.
+EXPECTED_ARCHIVE_BULLETS = 87
+EXPECTED_LEDGER_ROWS = 91
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

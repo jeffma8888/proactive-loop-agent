@@ -1,6 +1,18 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-471
+    lenses: simplification-and-deletion -- iteration 471 (state dir) / repo HEAD 6051524 (foundry iter 322)
+    - Candidate A1 -- collapse the largest byte-identical test-helper family left after `_console_script`: the 23 verbatim `_run(argv, capsys)` definitions (152 redundant lines) onto ONE imported definition, mirroring `6051524`'s shape
+    - Candidate A2 -- retire ROADMAP row #184 (`signals --fail-over N has had ZERO consumers since iter 145`) as SHIPPED-and-misreporting, with the same-commit replacement row the 20-row floor demands
+    - Candidate A3 -- `_registry(tmp_path)` + `_loop(tools)` in the 12 tool-sandbox test modules: the single-topic variant of A1 (12 files, 128 redundant lines, one canonical module `test_iter13`)
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    - Candidate B1 -- pay ROADMAP row #299 (`syntax_error` trusts the PEP 552 `__pycache__` header before `compile()`), re-priced at HEAD: the honest win is -106 ms of a 666 ms scan (-16%), NOT the -55% the row states, so the row's number must be corrected in the same commit
+    - Candidate B2 -- overlap the two independent git children (`git_activity` L61 `subprocess.run`, `working_tree` L71 `subprocess.run`): 43.5 of the fixture's 49.7 ms scan (88%) is two ~20 ms children waiting in SERIES inside `cli._collect`'s `for collector in all_collectors()` loop (L2373)
+    - Candidate B3 -- the cost paid most often is the import floor: `pla --version` is 150 ms wall against a 30 ms bare interpreter, `import proactive_loop.cli` is 136-158 ms cumulative, and `cli.py:47-49` eagerly imports the whole `collectors` package (21-35 ms: 17 modules + `hashlib`/`_blake2` 7, `subprocess` 6.5, `json` 5, `tomllib` 3) for every verb, including the ~10 that never scan
+    - Candidates I dropped after measuring or after checking DIRECTIONS.md
+    winner: B1
+    ship: pending (not yet decided)
   iter-470
     lenses: unknown
     - Candidate A1 -- `run --max-seconds` (shipped e08085b, HEAD) has zero executable consumers: make the demo's own dispatch exercise the wall-clock ceiling and assert the BUDGET_EXHAUSTED exit
@@ -11,7 +23,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 -- delete the four verb-named empty-`path` special cases in `loop/tools.py` (`head_file`/`tail_file`/`read_lines`/`stat_file`) and let the general rule `_reject_unsafe` answer, as the other five path tools already do
     - Candidates I dropped after measuring or after checking DIRECTIONS.md
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 6051524
   iter-469
     lenses: unknown
     - Candidate A1 -- make the twice-reverted `--max-seconds` tree clone-proof: delete the unsanctioned `35_428` ROADMAP byte pin from `tests/test_iter281_behavior.py` and `git add -N` the module BEFORE the tester runs, so test_iter172's census grades it in the worktree the way preship grades it in the clone
@@ -2193,4 +2205,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-217 scouted iterations
+218 scouted iterations

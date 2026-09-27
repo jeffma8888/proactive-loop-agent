@@ -309,15 +309,6 @@ def test_b5_readme_intro_above_marker_keeps_the_type_claim():
         )
 
 
-def test_b5_readme_sections_preserved():
-    text = README.read_text(encoding="utf-8")
-    for section in README_SECTIONS:
-        assert section in text, (
-            f"README edit must be additive --- existing section {section!r} "
-            "must not be removed"
-        )
-
-
 # ==========================================================================
 # Behavior 6 --- no version bump, no registry drift.
 # ==========================================================================

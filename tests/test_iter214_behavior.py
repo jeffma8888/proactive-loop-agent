@@ -410,11 +410,13 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # new floor true, so the row's own blocker is gone and its text is preserved in
     # the archive rather than re-priced a third time; and 85 before foundry iter 320
     # retired row #109 (the `SPEC.md` size guard) as SUPERSEDED by the shipped
-    # `test_iter255::SPEC_CEILING_AFTER_SLICE = 95_500`, so 85 -> 86.
+    # `test_iter255::SPEC_CEILING_AFTER_SLICE = 95_500`, so 85 -> 86; and 86 before
+    # foundry iter 323 retired row #299 (`syntax_error` trusts a valid PEP 552 timestamp
+    # pyc before `compile()`) as SHIPPED, so 86 -> 87.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 86, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 86). If you just "
+    assert sum(counts.values()) == 87, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 87). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )

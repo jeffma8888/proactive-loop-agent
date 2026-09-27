@@ -614,11 +614,13 @@ def test_b9_the_relanded_prose_names_this_iteration_not_the_reverted_one() -> No
     # `--dist worksteal`) as SHIPPED, so 83 -> 84. Factory iter 307 then retired row
     # #282 (the EXHAUSTED collected-item window) as SHIPPED, so 84 -> 85. Foundry iter 320
     # then retired row #109 (the `SPEC.md` size guard) as SUPERSEDED by the shipped
-    # `test_iter255::SPEC_CEILING_AFTER_SLICE`, so 85 -> 86.
+    # `test_iter255::SPEC_CEILING_AFTER_SLICE`, so 85 -> 86. Foundry iter 323 then retired
+    # row #299 (`syntax_error` trusts a valid PEP 552 timestamp pyc before `compile()`) as
+    # SHIPPED, so 86 -> 87.
     # Re-key this token with each such bump; do not freeze it (same
     # lesson as tests/test_iter258_behavior.py::test_ac1, which forbids the return of the
     # ledger-id pin that used to red this build on every new ledger row).
-    assert "== 86" in iter214, "the retirement-bullet total is not the expected literal 86"
+    assert "== 87" in iter214, "the retirement-bullet total is not the expected literal 87"
     iter234 = _read("tests/test_iter234_behavior.py")
     assert "foundry iter 288" in iter234, (
         "test_iter234::test_b7's prose does not name foundry iter 288"
