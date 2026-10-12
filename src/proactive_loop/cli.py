@@ -1698,6 +1698,15 @@ def build_parser() -> argparse.ArgumentParser:
             "file, so the stream feeds `pla diff --old ... --new ...` directly."
         ),
     )
+    p_watch.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Emit each tick as one JSON object on stdout (same shape as "
+            "`scan --format json`). The tick header and slate-written trailer "
+            "move to stderr so stdout is clean JSON."
+        ),
+    )
     p_watch.set_defaults(func=_cmd_watch)
 
     # `diff` compares TWO saved slates and classifies goals as added/removed/
@@ -6612,6 +6621,8 @@ def _cmd_watch(args: argparse.Namespace) -> int:
 
     count = 0
 
+    use_json = args.json
+
     def scan_once() -> None:
         # run_periodic owns the timer; this closure owns one tick: a 1-based
         # header then the SAME scan body scan/run use (with the slate-file write
@@ -6619,11 +6630,14 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         # on what a scan produces.
         nonlocal count
         count += 1
-        print(f"=== scan {count} ===")
+        print(f"=== scan {count} ===", file=sys.stderr if use_json else sys.stdout)
         snapshot = _collect(workspace)
         slate = GoalSynthesizer(client, settings).synthesize(snapshot)
         decisions = gate_slate(slate, settings)
-        print(_render_table(slate, decisions))
+        if use_json:
+            print(json.dumps(_scan_json_payload(slate, decisions), indent=2))
+        else:
+            print(_render_table(slate, decisions))
         if out_dir is not None:
             # Opt-in tick artifact. Written AFTER the render, so a tick whose
             # synthesize() raised leaves no file behind (the exception propagates
@@ -6633,7 +6647,10 @@ def _cmd_watch(args: argparse.Namespace) -> int:
             # verbs cannot describe the same act differently.
             target = out_dir / _stream_slate_name(count)
             _write_slate(slate, target)
-            print(f"\nslate written: {target}")
+            print(
+                f"\nslate written: {target}",
+                file=sys.stderr if use_json else sys.stdout,
+            )
 
     def _on_scan_error(scan_number: int, exc: Exception) -> None:
         # Resilient by design (SPEC L0): a scan whose synthesize() exhausts the L0

@@ -214,6 +214,70 @@ def test_b01_flag_absent_persists_nothing_and_prints_no_trailer(tmp_path, capsys
     stray = sorted(p.name for p in state_dir.rglob("*.json")) if state_dir.exists() else []
     assert stray == [], f"no-flag watch must persist no JSON under the state dir; found {stray}"
 
+    # -- PART B: watch --json (iter 480) — machine-readable JSON per tick --
+    # EB1: --json exits 0, stdout valid JSON with workspace_root + goals
+    json_root = tmp_path / "json_root"
+    json_root.mkdir()
+    ws2 = _workspace(json_root)
+    script2 = _script(json_root, ["JSON tick goal"], name="json_script.json")
+    rc2, out2, err2 = _run(
+        _watch_argv(ws2, script2, state_dir=json_root / "state", max_scans="1")
+        + ["--json"],
+        capsys,
+    )
+    assert rc2 == 0, f"watch --json must exit 0; stderr={err2!r}"
+    obj = json.loads(out2)
+    assert "workspace_root" in obj, f"JSON must contain workspace_root; keys={list(obj)}"
+    assert "goals" in obj, f"JSON must contain goals; keys={list(obj)}"
+    assert isinstance(obj["goals"], list), f"goals must be a list; got {type(obj['goals'])}"
+    assert len(obj["goals"]) >= 1, "at least one goal expected"
+    assert obj["goals"][0]["title"] == "JSON tick goal", obj["goals"][0]
+
+    # EB2: tick header goes to stderr under --json (stdout is clean JSON)
+    assert "=== scan 1 ===" not in out2, (
+        f"tick header must NOT appear in stdout under --json; got:\n{out2}"
+    )
+    assert "=== scan 1 ===" in err2, (
+        f"tick header must appear in stderr under --json; stderr={err2!r}"
+    )
+
+    # EB3: --json composes with --out-dir
+    compose_root = tmp_path / "compose_root"
+    compose_root.mkdir()
+    ws3 = _workspace(compose_root)
+    script3 = _script(compose_root, ["Compose goal"], name="compose_script.json")
+    compose_dir = compose_root / "stream"
+    rc3, out3, err3 = _run(
+        _watch_argv(
+            ws3, script3, state_dir=compose_root / "state",
+            max_scans="1", out_dir=compose_dir,
+        ) + ["--json"],
+        capsys,
+    )
+    assert rc3 == 0, f"stderr={err3!r}"
+    obj3 = json.loads(out3)
+    assert "workspace_root" in obj3
+    assert "goals" in obj3
+    compose_slate = compose_dir / "slate-001.json"
+    assert compose_slate.exists(), "slate file must be written under --out-dir with --json"
+    slate = GoalSlate.model_validate_json(compose_slate.read_text(encoding="utf-8"))
+    assert slate.goals, "persisted slate must be non-empty"
+    assert _TRAILER in err3, (
+        f"'slate written:' trailer must appear on stderr under --json; stderr={err3!r}"
+    )
+    assert _TRAILER not in out3, (
+        f"'slate written:' trailer must NOT appear on stdout under --json; got:\n{out3}"
+    )
+
+    # EB4: bare watch (no --json) unchanged — human table to stdout
+    assert "=== scan 1 ===" in out, "tick header must appear in stdout without --json"
+    assert "DECISION" in out, f"human table must appear in stdout; got:\n{out}"
+    try:
+        json.loads(out)
+        raise AssertionError("stdout should NOT be valid JSON for bare watch")
+    except json.JSONDecodeError:
+        pass
+
 
 # ===========================================================================
 # Behavior 2 --- One slate file per successful tick, in a fresh dir.
@@ -542,3 +606,4 @@ def test_b09e_out_dir_is_exposed_on_watch_only():
         )
     )
     assert carriers == ["watch"], f"--out-dir must exist on watch only; got {carriers}"
+

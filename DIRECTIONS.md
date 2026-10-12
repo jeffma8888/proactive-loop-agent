@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-480
+    lenses: unknown
+    - Candidate A1 — `watch --json`: machine-readable output for the namesake proactive-loop verb
+    - Candidate A2 — `scan --focus TEXT`: an intent channel for the scout
+    - Candidate A3 — `PythonVersionDriftCollector` (ROADMAP row #122): the 18th collector, 2nd RELATIONAL
+    - Candidate B1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition in `test_iter13_behavior.py`
+    - Candidate B2 -- Cap the xdist pool with `--maxprocesses=8` (ROADMAP row #257, obstacle cleared iter-267)
+    - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its assertion (ROADMAP row #232)
+    winner: A1
+    ship: pending (not yet decided)
   iter-479
     lenses: unknown
     - Candidate A1 -- README has three mutually contradictory transparency-arc chains; none names the full shipped set
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PythonVersionDriftCollector` (ROADMAP row #122, the 18th collector)
     - Candidate B3 -- `watch --json`: machine-readable output for the one verb of 17 that lacks it
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 821ddc0
   iter-478
     lenses: unknown
     - Candidate A1 -- fix _pyc_says_ok's pytest pyc suffix guard: isdigit() rejects every real pytest version (697 ms -> ~100 ms, -58% scan)
@@ -2289,4 +2299,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-226 scouted iterations
+227 scouted iterations

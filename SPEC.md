@@ -855,7 +855,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     per-collector cost table on stderr; and two stdout-neutral CI gates exit 5 instead of
     0 -- `--fail-on-kind K` (repeatable) on a reported kind, `--fail-over N` once the
     reported count exceeds N strictly.
-  - `pla watch --workspace W [--interval S] [--max-scans N]` — the proactive
+  - `pla watch --workspace W [--interval S] [--max-scans N] [--json]` — the proactive
     watch loop: re-run the SAME `scan` pipeline (collect → synthesize → gate →
     render the ranked slate + gate decisions to stdout) every `--interval`
     seconds via `scheduler.run_periodic`, prefixing each tick with a
@@ -879,7 +879,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     non-retryable model fault) is caught via `run_periodic`'s `on_error` hook,
     logged to stderr as `scan <n> failed: <exc>`, and the watch continues to the
     next tick — a transient outage on one scan never kills the long-lived watcher.
-    No `--out`/`--format`; no slate-file writing (that is `scan`'s job).
+    `--json` emits each tick as JSON; no `--out`/`--format` (that is `scan`).
   - `pla diff --old A.json --new B.json [--json] [--fail-on-change]` — read-only, LLM-free
     slate-delta inspector: the comparative companion to `watch`, turning a stream
     of point-in-time slates into a change feed (every other saved artifact already

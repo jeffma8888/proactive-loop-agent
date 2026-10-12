@@ -131,9 +131,10 @@ SURVIVING_RENDERERS: Final[frozenset[str]] = frozenset(
 )
 
 #: Behavior 6.  ``cli.py`` carried 21 ``print(json.dumps(`` occurrences at
-#: ``HEAD_BLOB_SHA``; exactly six become ``_emit`` calls, so 15 remain.  A ratchet:
-#: a later iteration that consolidates more must move this number deliberately.
-EXPECTED_PRINT_JSON_DUMPS: Final[int] = 15
+#: ``HEAD_BLOB_SHA``; exactly six become ``_emit`` calls, so 15 remain; +1 for
+#: ``watch --json`` (foundry iter 327).  A ratchet: a later iteration that
+#: consolidates more must move this number deliberately.
+EXPECTED_PRINT_JSON_DUMPS: Final[int] = 16
 
 #: Behavior 6.  The three ``_cmd_run`` sites that write to ``result_stream``
 #: instead of stdout are NOT in correspondence and must be untouched, verbatim.
