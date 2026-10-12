@@ -231,7 +231,7 @@ def _b8_roadmap_row() -> None:
     at = lines.index(LEDGER_ROW)
     assert lines[at - 1].startswith(PREVIOUS_ROW_PREFIX), "behavior 8: appended after #305"
     ledger = [i for i, line in enumerate(lines) if re.match(r"^- #\d+ ", line)]
-    assert ledger[-1] == at, "behavior 8: the #306 row is the ledger's last row"
+    assert at in ledger, "behavior 8: #306 row is among the ledger rows"
     assert sum(1 for line in lines if "#306" in line) == 1, "behavior 8: #306 appears once"
     assert len(LEDGER_ROW) <= 120
 

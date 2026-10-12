@@ -407,10 +407,10 @@ class Collector(Protocol):
   every `*.py` file under `root` it cannot already vouch for (via `dir_source`, `_is_hidden`
   FILES only, read via `text_source`; scans `.py` ONLY, case-insensitive; `.pyi` stubs
   excluded; files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread, composition
-  note under `large_file`; so is a file whose `__pycache__` pyc -- the one
-  `importlib.util.cache_from_source` names -- carries a PEP 552 TIMESTAMP header (magic,
-  flags `0`, source mtime and size) matching the source `stat`, the trust `import` places
-  in that pyc; see `_pyc_says_ok`, output byte-identical) and
+  note under `large_file`; so is a file whose `__pycache__` pyc -- the interpreter's own
+  (`importlib.util.cache_from_source`) or any pytest assertion-rewritten
+  (`<stem>.<cache_tag>-pytest-<NNN>.pyc`) -- carries a PEP 552 TIMESTAMP header (magic,
+  flags `0`, source mtime and size) matching the source `stat`; see `_pyc_says_ok`) and
   emits one `kind="syntax_error"` signal per file that raises a `SyntaxError`. **Parse-only
   is the load-bearing safety property**: `compile(..., "exec")` builds a code object but
   NEVER runs the user's code (no `exec`/`eval`/`import`/subprocess), so scanning a workspace

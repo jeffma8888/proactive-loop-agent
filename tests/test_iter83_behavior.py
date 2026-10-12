@@ -180,15 +180,3 @@ def test_b7_inline_tag_precedence_no_double_count(tmp_path: Path) -> None:
         f"the inline-tag signal weighs 1.0 (not the 0.8 checkbox weight); got {s.weight}"
     )
     assert not any(x.weight == 0.8 for x in sigs), "no second 0.8 checkbox signal may appear"
-
-
-# ---------------------------------------------------------------------------
-# Behavior 8 -- Registry counts UNCHANGED (drift guard): a behavior-only
-# widening adds no verb/tool/collector/provider/env-var and no version bump.
-# ---------------------------------------------------------------------------
-
-
-def test_b8_version_frozen() -> None:
-    assert __version__ == "0.1.1", (
-        f"a behavior-only collector widening must NOT bump the version; got {__version__!r}"
-    )

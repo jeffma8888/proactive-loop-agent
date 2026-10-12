@@ -125,7 +125,7 @@ DELETED: dict[str, tuple[str, ...]] = {
 #: tests/test_iter286_behavior.py; REDUNDANT_TEST_DEFINITIONS reaches 0.
 REMAINDERS: dict[str, int] = {
     "test_iter82_behavior.py": 9,
-    "test_iter83_behavior.py": 9,
+    "test_iter83_behavior.py": 8,
     "test_iter85_behavior.py": 7,
     "test_iter87_behavior.py": 12,
     "test_iter89_behavior.py": 11,

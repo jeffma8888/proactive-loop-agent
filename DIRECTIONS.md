@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-477
+    lenses: unknown
+    - Candidate A1 -- collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition in `test_iter13_behavior.py`
+    - Candidate A2 -- retire ROADMAP rows #165 and #170, whose own Status text declares them void / not-worth-an-iteration
+    - Candidate A3 -- rename `test_catalog_has_sixteen_entries` to `test_catalog_has_seventeen_entries` (ROADMAP row #232)
+    - Candidate B1 -- extend `syntax_error`'s pyc trust to pytest's assertion-rewritten pyc: 310 ms -> ~4 ms (-53% scan)
+    - Candidate B2 -- `todos`: replace the per-line `re.search` loop with `MULTILINE` `finditer`: 167 ms -> ~50 ms (-20% scan)
+    - Candidate B3 -- overlap the two serial git children in `cli._collect`: 32 ms -> ~16 ms (-3% scan)
+    winner: B1
+    ship: pending (not yet decided)
   iter-476
     lenses: unknown
     - Candidate A1 -- `make hooks`: a one-command on-ramp for the pre-commit gate the repo already ships
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- delete the four tool-specific empty-`path` guards in `loop/tools.py` and let `_reject_unsafe` answer
     - Candidate B3 -- retire ROADMAP rows #165 and #170, whose own status text declares them void/not-worth-an-iteration
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED defbb95
   iter-475
     lenses: hardening/DX -- iteration 475 (state dir) / repo HEAD 9c70704 (foundry iter 326), integration-and-adoption -- iteration 475 (state dir) / repo HEAD 9c70704 (foundry iter 326)
     - Candidate A1 -- conftest autouse that scrubs ambient `PLA_*` knobs (ROADMAP row #218, conftest half)
@@ -2259,4 +2269,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-223 scouted iterations
+224 scouted iterations

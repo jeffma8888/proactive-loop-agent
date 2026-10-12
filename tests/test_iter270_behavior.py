@@ -128,7 +128,6 @@ VICTIM_COUNT: Final[int] = 41
 #: reds ``tests/test_iter263_behavior.py`` itself.
 KEEPERS: Final[tuple[tuple[str, str], ...]] = (
     ("test_iter81_behavior.py", "test_b8_version_frozen"),
-    ("test_iter83_behavior.py", "test_b8_version_frozen"),
     ("test_iter87_behavior.py", "test_b7_version_frozen"),
 )
 
