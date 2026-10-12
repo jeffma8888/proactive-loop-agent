@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-479
+    lenses: unknown
+    - Candidate A1 -- README has three mutually contradictory transparency-arc chains; none names the full shipped set
+    - Candidate A2 -- SPEC_ARCHIVE.md header names no operational figures a relocator needs
+    - Candidate A3 -- README "Try it on your own repo" section's LLM-free verb listing omits `verify` from the standalone seven
+    - Candidate B1 -- `python -m proactive_loop` on-ramp (`__main__.py`)
+    - Candidate B2 -- `PythonVersionDriftCollector` (ROADMAP row #122, the 18th collector)
+    - Candidate B3 -- `watch --json`: machine-readable output for the one verb of 17 that lacks it
+    winner: B1
+    ship: pending (not yet decided)
   iter-478
     lenses: unknown
     - Candidate A1 -- fix _pyc_says_ok's pytest pyc suffix guard: isdigit() rejects every real pytest version (697 ms -> ~100 ms, -58% scan)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- SPEC_ARCHIVE.md header names no operational figures a relocator needs
     - Candidate B3 -- README's LLM-free verb summary omits `collectors`, `providers`, `config`, and `verify`
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 08c44a8
   iter-477
     lenses: unknown
     - Candidate A1 -- collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition in `test_iter13_behavior.py`
@@ -2279,4 +2289,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-225 scouted iterations
+226 scouted iterations

@@ -23,6 +23,8 @@ network, zero API keys.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -81,6 +83,19 @@ def test_behavior2_printed_version_is_single_source_of_truth(capsys):
     assert PKG_VERSION in line, (
         f"version line must contain proactive_loop.__version__ ({PKG_VERSION!r}); "
         f"got {line!r}"
+    )
+
+    # -- PART B: `python -m proactive_loop --version` matches pla --version --
+    proc = subprocess.run(
+        [sys.executable, "-m", "proactive_loop", "--version"],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert proc.returncode == 0, (
+        f"`python -m proactive_loop --version` must exit 0; got {proc.returncode}: {proc.stderr}"
+    )
+    m_line = proc.stdout.strip()
+    assert PKG_VERSION in m_line, (
+        f"`python -m proactive_loop --version` must print {PKG_VERSION!r}; got {m_line!r}"
     )
 
 

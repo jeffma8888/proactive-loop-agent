@@ -52,7 +52,8 @@ proactive-loop-agent/
 ├── .gitignore
 ├── src/proactive_loop/
 │   ├── __init__.py           # package metadata + __version__ (single source of truth)
-│   ├── py.typed              # PEP 561 marker: ships inline type hints to consumers
+│   ├── __main__.py
+│   ├── py.typed              # PEP 561 marker
 │   ├── models.py             # pydantic domain models
 │   ├── config.py             # Settings / RetryPolicy
 │   ├── llm/

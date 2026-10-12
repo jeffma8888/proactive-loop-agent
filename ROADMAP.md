@@ -145,3 +145,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #306 make check + CI re-scan the fixture, diff --fail-on-change vs demo slate: determinism gate (foundry iter 327)
 - #307 _pyc_says_ok probes pytest assertion-rewritten pyc; syntax_error skips compile() for 297 more files (foundry iter 327)
 - #308 _pyc_says_ok accepts dotted pytest versions (9.1.1); the dead isdigit guard fixed (foundry iter 327)
+- #309 `python -m proactive_loop` on-ramp: __main__.py delegates to cli.main (foundry iter 327)
