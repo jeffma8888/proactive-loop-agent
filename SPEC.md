@@ -409,7 +409,7 @@ class Collector(Protocol):
   excluded; files whose `st_size` EXCEEDS `max_read_bytes` are skipped unread, composition
   note under `large_file`; so is a file whose `__pycache__` pyc -- the interpreter's own
   (`importlib.util.cache_from_source`) or any pytest assertion-rewritten
-  (`<stem>.<cache_tag>-pytest-<NNN>.pyc`) -- carries a PEP 552 TIMESTAMP header (magic,
+  (`<stem>.<cache_tag>-pytest-<VER>.pyc`, VER a pytest version string like `9.1.1`) -- carries a PEP 552 TIMESTAMP header (magic,
   flags `0`, source mtime and size) matching the source `stat`; see `_pyc_says_ok`) and
   emits one `kind="syntax_error"` signal per file that raises a `SyntaxError`. **Parse-only
   is the load-bearing safety property**: `compile(..., "exec")` builds a code object but

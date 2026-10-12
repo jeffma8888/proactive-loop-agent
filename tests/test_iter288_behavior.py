@@ -80,7 +80,7 @@ class _CompileSpy:
 def _forge_pytest_pyc(
     src: Path,
     *,
-    nnn: int = 1,
+    nnn: int | str = 1,
     magic: bytes | None = None,
     mtime_delta: int = 0,
     size_delta: int = 0,
@@ -163,6 +163,37 @@ def test_b1_pytest_pyc_trust_skips_compile_and_stale_falls_through(
             f"EB1: _pyc_says_ok must accept NNN={nnn}"
         )
         pyc_n.unlink()
+
+    # -- PART B2: dotted version strings (real pytest naming) --
+    for ver in ("9.1.1", "8.0.0", "10.2.3"):
+        pyc_v = _forge_pytest_pyc(ok, nnn=ver)
+        clear_parse_memo()
+        assert _pyc_says_ok(ok, ok.stat().st_mtime, ok.stat().st_size) is True, (
+            f"EB1: _pyc_says_ok must accept dotted version NNN={ver!r}"
+        )
+        pyc_v.unlink()
+
+    # -- PART B3: invalid suffixes are rejected --
+    for bad in ("abc", "9..1", ".9", "9.", ""):
+        if bad == "":
+            bad_name = f"{ok.stem}.{sys.implementation.cache_tag}-pytest-.pyc"
+        else:
+            bad_name = f"{ok.stem}.{sys.implementation.cache_tag}-pytest-{bad}.pyc"
+        cache_dir_b3 = ok.parent / "__pycache__"
+        cache_dir_b3.mkdir(parents=True, exist_ok=True)
+        bad_path = cache_dir_b3 / bad_name
+        st = ok.stat()
+        hdr = (
+            importlib.util.MAGIC_NUMBER
+            + struct.pack("<I", 0)
+            + struct.pack("<II", int(st.st_mtime) & 0xFFFFFFFF, st.st_size & 0xFFFFFFFF)
+        )
+        bad_path.write_bytes(hdr + b"\x00" * 8)
+        clear_parse_memo()
+        assert _pyc_says_ok(ok, ok.stat().st_mtime, ok.stat().st_size) is False, (
+            f"EB1: _pyc_says_ok must reject invalid suffix {bad!r}"
+        )
+        bad_path.unlink()
 
     # -- PART C: stale pytest pyc (mtime off by 1) falls through --
     stale = _forge_pytest_pyc(ok, nnn=1, mtime_delta=1)

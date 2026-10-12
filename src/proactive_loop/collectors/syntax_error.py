@@ -59,8 +59,8 @@ byte-identical; the only change is the work not done.
 
 The interpreter's own pyc (``importlib.util.cache_from_source``, keyed on the
 running ``cache_tag``) is checked first. When it does not match, pytest's
-assertion-rewritten pyc files (``<stem>.<cache_tag>-pytest-<NNN>.pyc`` in
-``__pycache__``, where NNN is any positive integer) are probed with the same
+assertion-rewritten pyc files (``<stem>.<cache_tag>-pytest-<VER>.pyc`` in
+``__pycache__``, where VER is a pytest version string like ``9.1.1``) are probed with the same
 16-byte header validation. On a repo with a pytest suite (the product's target
 user), this typically covers the majority of ``*.py`` files in the test tree,
 dropping the collector from ~310 ms to ~4 ms. Neither pyc flavour is trusted
@@ -227,7 +227,8 @@ def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
     ):
         return True
     # Pytest assertion-rewrites produce pyc files named
-    # <stem>.<cache_tag>-pytest-<NNN>.pyc in the same __pycache__ dir.
+    # <stem>.<cache_tag>-pytest-<VER>.pyc in the same __pycache__ dir,
+    # where VER is a pytest version string like 9.1.1.
     # Trust them with the same 16-byte timestamp-header check.
     cache_dir = full.parent / "__pycache__"
     tag = sys.implementation.cache_tag
@@ -239,8 +240,11 @@ def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
             if (
                 name.startswith(prefix)
                 and name.endswith(".pyc")
-                and name[len(prefix) : -4].isdigit()
-                and int(name[len(prefix) : -4]) > 0
+                and ((_ver := name[len(prefix) : -4]) != "")
+                and _ver[0].isdigit()
+                and not _ver.endswith(".")
+                and ".." not in _ver
+                and all(c.isdigit() or c == "." for c in _ver)
             ):
                 if _pyc_header_matches(str(candidate), source_mtime, source_size):
                     return True

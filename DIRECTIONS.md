@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-478
+    lenses: unknown
+    - Candidate A1 -- fix _pyc_says_ok's pytest pyc suffix guard: isdigit() rejects every real pytest version (697 ms -> ~100 ms, -58% scan)
+    - Candidate A2 -- overlap git_activity + working_tree subprocess children in cli._collect: 52 ms -> ~28 ms (-2.3% scan)
+    - Candidate A3 -- todos: skip the per-line regex loop for non-matching files via a whole-file prefilter (217 ms -> ~170 ms, -4.6% scan)
+    - Candidate B1 -- README `tools` paragraph claims to "complete" the transparency arc but two later verbs extend it
+    - Candidate B2 -- SPEC_ARCHIVE.md header names no operational figures a relocator needs
+    - Candidate B3 -- README's LLM-free verb summary omits `collectors`, `providers`, `config`, and `verify`
+    winner: A1
+    ship: pending (not yet decided)
   iter-477
     lenses: unknown
     - Candidate A1 -- collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition in `test_iter13_behavior.py`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `todos`: replace the per-line `re.search` loop with `MULTILINE` `finditer`: 167 ms -> ~50 ms (-20% scan)
     - Candidate B3 -- overlap the two serial git children in `cli._collect`: 32 ms -> ~16 ms (-3% scan)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED bd1f7da
   iter-476
     lenses: unknown
     - Candidate A1 -- `make hooks`: a one-command on-ramp for the pre-commit gate the repo already ships
@@ -2269,4 +2279,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-224 scouted iterations
+225 scouted iterations
