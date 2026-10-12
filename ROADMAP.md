@@ -142,3 +142,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #303 SPEC 4.1 syntax_error bullet states the PEP 552 pyc skip, bound to _pyc_says_ok; 3 dups retire (foundry iter 324)
 - #304 dir_source docstring: AFTER (5 walks/scan, bound to WALK_BUDGET), text_source quoted verbatim (foundry iter 325)
 - #305 CI test job: timeout-minutes 20; ratchet pins untimed subprocess sites at 39 tests/, 0 src/ (foundry iter 326)
+- #306 make check + CI re-scan the fixture, diff --fail-on-change vs demo slate: determinism gate (foundry iter 327)

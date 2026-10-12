@@ -130,7 +130,7 @@ REMAINDERS: dict[str, int] = {
     "test_iter87_behavior.py": 12,
     "test_iter89_behavior.py": 11,
     "test_iter90_behavior.py": 17,
-    "test_iter91_behavior.py": 17,
+    "test_iter91_behavior.py": 16,
 }
 
 MIN_REMAINDER = 7

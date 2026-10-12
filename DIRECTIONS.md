@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-476
+    lenses: unknown
+    - Candidate A1 -- `make hooks`: a one-command on-ramp for the pre-commit gate the repo already ships
+    - Candidate A2 -- `pla trace` gains its first executable consumer: the demo grades the dispatched run's transcript
+    - Candidate A3 -- `runs --summary` gains its first executable consumer: the demo grades the fleet-level resilience counters
+    - Candidate B1 -- collapse the 13 byte-identical `_run(argv, capsys)` helpers onto ONE imported definition in `test_iter158_behavior.py`
+    - Candidate B2 -- delete the four tool-specific empty-`path` guards in `loop/tools.py` and let `_reject_unsafe` answer
+    - Candidate B3 -- retire ROADMAP rows #165 and #170, whose own status text declares them void/not-worth-an-iteration
+    winner: B1
+    ship: pending (not yet decided)
+  iter-475
+    lenses: hardening/DX -- iteration 475 (state dir) / repo HEAD 9c70704 (foundry iter 326), integration-and-adoption -- iteration 475 (state dir) / repo HEAD 9c70704 (foundry iter 326)
+    - Candidate A1 -- conftest autouse that scrubs ambient `PLA_*` knobs (ROADMAP row #218, conftest half)
+    - Candidate A2 -- commit `.python-version` = `3.12` so the local default leg is the CI floor by declaration
+    - Candidate A3 -- ROADMAP.md sits ~171 chars under the `< 35_428` byte pin: make the stub-trim relief valve an oracle-checked headroom floor instead of a per-ship emergency
+    - Candidate B1 -- `diff --fail-on-change` gets its first executable consumer: the graded gate re-scans the fixture and proves slate-level determinism (exit 0) in `make check` + CI
+    - Candidate B2 -- exit 4 (and exit 3) get their first executable consumer from the demo's own slate: dispatch the held goal without `--yes` and assert 4 + an untouched state dir
+    - Candidate B3 -- `python -m proactive_loop`: the interpreter-level, PATH-free on-ramp does not exist (`__main__.py`)
+    winner: B1
+    ship: REVERTED
   iter-474
     lenses: new-capability -- iteration 474 (state dir) / repo HEAD 4beda63 (foundry iter 325), hardening/DX -- iteration 474 (state dir) / repo HEAD 4beda63 (foundry iter 325)
     - Candidate A1 -- `PythonVersionDriftCollector` (ROADMAP row #122): the 2nd RELATIONAL collector, cross-checking `requires-python`, `.python-version` and the CI matrix floor
@@ -11,7 +31,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- conftest autouse that scrubs ambient `PLA_*` knobs (ROADMAP row #218, conftest half)
     - Candidate B3 -- commit `.python-version` = `3.12` so the local default leg is the CI floor by declaration
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9c70704
   iter-473
     lenses: new-capability -- iteration 473 (state dir) / repo HEAD 685a5ba (foundry iter 324)
     - Candidate A1 -- `collectors/dir_source.py`'s docstring tells only the BEFORE half and misquotes its sibling: state the AFTER figure bound to the live walk counter, and quote `text_source.py` as it actually reads
@@ -2239,4 +2259,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-221 scouted iterations
+223 scouted iterations

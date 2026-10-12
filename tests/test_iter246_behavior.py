@@ -33,9 +33,9 @@ TWO SPEC READINGS THIS MODULE HAD TO CHOOSE (reported as PM feedback in
 ``tester.md``, tested here in their only satisfiable form):
 
 1. The spec's behavior 4 says the gate-step constants "each still declare 9
-   entries". MEASURED, the live tuples declare **10** entries; 9 is
-   ``EXPECTED_CI_RUN_STEPS``, which is one lower BY DESIGN because the two
-   demo-artifact assertions share a single ``run: |`` block. This module asserts
+   entries". MEASURED, the live tuples declare **10** entries (12 since factory
+   iter 327); 9 (now 10) is ``EXPECTED_CI_RUN_STEPS``, which is lower BY DESIGN
+   because each ``run: |`` block holds two gate commands. This module asserts
    both real numbers and derives neither from the other.
 2. The spec's behavior 6 says the ``check`` recipe must not name any path under
    ``examples/fixture_workspace``. Taken literally that is unsatisfiable and
@@ -96,9 +96,10 @@ GRADED_EXAMPLES = ("examples/check_run.py", "examples/check_autonomy.py")
 UNGRADED_EXAMPLE_SUBTREE = "examples/fixture_workspace"
 
 #: The number of ENTRIES each gate-step tuple declares. Higher than
-#: ``EXPECTED_CI_RUN_STEPS`` by exactly one, because the two demo-artifact
-#: assertions share one ``run: |`` block: one graded CI step, two gate commands.
-EXPECTED_GATE_STEP_ENTRIES = 10
+#: ``EXPECTED_CI_RUN_STEPS`` by exactly two, because two ``run: |`` blocks (the
+#: demo-artifact assertions; the fixture re-scan + ``diff --fail-on-change``,
+#: factory iter 327) each hold two gate commands: one graded CI step apiece.
+EXPECTED_GATE_STEP_ENTRIES = 12
 
 #: The armed self-scan that must remain the LAST gate step.
 LAST_GATE_STEP_PREFIX = "uv run pla signals --workspace . --fail-on-kind"

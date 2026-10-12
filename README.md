@@ -241,6 +241,17 @@ stayed green. These four are the whole set that is both state-independent *and*
 unsaturated: `todo`, `recent_file` and `git_commit` sit on their caps, so a budget
 over them could never fire, and a gate that cannot fire is worse than no gate.
 
+**Both graded gates also prove slate-level determinism.** After `make demo` writes
+`.pla_runs/slate.json`, `make check` and CI re-scan the same fixture into a second state dir
+and branch on `pla diff --fail-on-change`, which exits 5 on any added, removed or changed
+goal -- the first executable consumer of that flag outside the test suite. The gates
+discard the re-scan's stdout (`> /dev/null`); only the diff's exit code is graded:
+
+```bash
+uv run pla scan --workspace examples/fixture_workspace --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan
+uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json --fail-on-change
+```
+
 Three more developer entry points exist, all opt-in rather than part of `make check`:
 
 - `make check-matrix` -- run the suite under both interpreters CI's matrix grades (3.12 and 3.13).

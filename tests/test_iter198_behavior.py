@@ -376,14 +376,16 @@ def test_b3c_no_gate_step_was_added_by_this_iteration() -> None:
     # 7 at the time of THIS iteration; 8 since factory iter 254 added the armed
     # count-budget step. The claim being pinned is that iter 198 itself added no
     # gate step, so the literal tracks the live census rather than freezing it.
-    # ...and 9 since factory iter 264 added the same-run `--baseline` round trip.
-    assert C102 == C110 == 9, f"the graded step count changed: {C102} / {C110}"
+    # ...and 9 since factory iter 264 added the same-run `--baseline` round trip,
+    # 10 since factory iter 327 added the fixture re-scan + `diff --fail-on-change`.
+    assert C102 == C110 == 10, f"the graded step count changed: {C102} / {C110}"
     expensive = [s for s in CI_GATE_STEPS if s not in tuple(ARTIFACT_ASSERTION_STEPS)]
-    assert len(expensive) == 8, (
+    assert len(expensive) == 10, (
         f"the expensive gate-step set must not grow for THIS iteration -- it adds a "
         f"graded consumer WITHOUT adding a gate step (6 when iter 198 shipped, 7 "
         f"since factory iter 254 added the armed count budget, 8 since factory iter "
-        f"264 added the same-run `--baseline` round trip); got "
+        f"264 added the same-run `--baseline` round trip, 10 since factory iter 327 "
+        f"added the fixture re-scan + `diff --fail-on-change` pair); got "
         f"{len(expensive)}: {expensive!r}"
     )
     assert CONSUMER_STEP not in tuple(CI_GATE_STEPS), (

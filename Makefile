@@ -190,10 +190,10 @@ clean:
 	rm -rf .venv-py*
 
 # Reproduce the EXACT CI graded gate locally, in CI's own order, in one command.
-# CI (.github/workflows/ci.yml) grades eight run-steps on every push: locked
+# CI (.github/workflows/ci.yml) grades ten run-steps on every push: locked
 # install -> suite -> mypy oracle -> offline demo -> demo-artifact assertions ->
-# armed source-citation verification -> armed signal COUNT BUDGET -> armed
-# signals self-scan.
+# armed source-citation verification -> armed signal COUNT BUDGET -> slate
+# re-scan determinism (`diff --fail-on-change`) -> armed signals self-scan.
 # Before this target there was no single local command to run that gate, and the
 # two demo-artifact assertions lived ONLY in ci.yml (nowhere runnable locally),
 # so they could silently rot. It reuses `$(MAKE) demo` (no re-inline) so the demo
@@ -202,17 +202,17 @@ clean:
 #
 # WHAT `check` IS NOT: everything CI grades. CI's `test` job is a
 # `fail-fast: false` matrix over python-version ["3.12", "3.13"], so it grades
-# those eight steps TWICE -- sixteen run-steps -- while `make check` runs them ONCE,
+# those ten steps TWICE -- twenty run-steps -- while `make check` runs them ONCE,
 # under whichever interpreter uv last left in `.venv`. There is no
 # `.python-version` in this repo, so which leg runs locally is an accident
 # rather than a choice, and the gap is not hypothetical: a failure reproducible
 # only on the newer interpreter has already reached CI unseen. `make check-matrix`
 # (below) runs the SUITE under both matrix interpreters, which is the leg-varying
-# half of that gap; the second leg's demo, demo-artifact assertions, count budget
-# and armed self-scan stay CI-only, along with the second leg's citation
+# half of that gap; the second leg's demo, demo-artifact assertions, count budget,
+# re-scan determinism gate and armed self-scan stay CI-only, along with the second leg's citation
 # verification, and mypy is leg-invariant by config
-# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 10 of CI's 16
-# run-steps rather than all 16.
+# (`python_version = "3.12"`), so `check` plus `check-matrix` grades 12 of CI's 20
+# run-steps rather than all 20.
 #
 # WHY the recipe OPENS with `rm -rf .pla_runs` (the demo's own state dir): the
 # last two steps are EXISTENCE checks (`test -f` / `ls`) against a persistent,
@@ -345,6 +345,8 @@ check:
 	uv run pla verify --slate .pla_runs/slate.json --snapshot .pla_runs/snapshot.json --fail-on-unresolved
 	uv run pla signals --workspace examples/fixture_workspace --baseline .pla_runs/snapshot.json --fail-over 0
 	uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
+	uv run pla scan --workspace examples/fixture_workspace --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan > /dev/null
+	uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json --fail-on-change
 	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
 
 # Run the suite under EVERY interpreter CI's matrix grades -- the SUITE half of the

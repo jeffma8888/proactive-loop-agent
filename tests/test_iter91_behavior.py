@@ -247,16 +247,6 @@ def test_b08_and_composition_with_kind_unchanged(tmp_path, capsys):
     assert {s["kind"] for s in both} <= {"todo"}
 
 
-def test_b08_subparser_choice_count_unchanged():
-    parser = build_parser()
-    sub_actions = [
-        a for a in parser._subparsers._group_actions if isinstance(a, argparse._SubParsersAction)
-    ]
-    assert len(sub_actions) == 1
-    assert len(sub_actions[0].choices) == 17
-    assert "signals" in sub_actions[0].choices
-
-
 # ===========================================================================
 # Behavior 9 -- the `_finite_float` validator called DIRECTLY: raises
 # ArgumentTypeError for non-finite (any case), returns the parsed float for

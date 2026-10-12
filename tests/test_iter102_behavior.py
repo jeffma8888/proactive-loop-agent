@@ -98,6 +98,15 @@ CI_GATE_STEPS = (
     # fragments to stay inside the line budget -- count ENTRIES here, never lines.
     "uv run pla signals --workspace . --collector notes --collector ci_config "
     "--collector dependencies --collector test_posture --fail-over 9",
+    # The 11th and 12th entries (added factory iter 327) are the first executable
+    # consumer `diff --fail-on-change` has ever had: re-scan the SAME fixture into a
+    # second state dir, then require the demo slate and the re-scan to agree --
+    # slate-level determinism, exit 5 on any drift. ONE ci.yml `run: |` block, two
+    # gate commands (the scan is matched WITHOUT its `> /dev/null` suffix).
+    "uv run pla scan --workspace examples/fixture_workspace --provider scripted "
+    "--scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan",
+    "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
+    "--fail-on-change",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -108,10 +117,11 @@ CI_GATE_STEPS = (
 # demo-artifact assertions, the armed source-citation verification, and the armed
 # signal count budget, and the armed signals self-scan. If a CI run-step is
 # added/removed, behavior 4 fails, forcing CI_GATE_STEPS + the `check` recipe to
-# be updated together. NOTE the count is 8 while CI_GATE_STEPS holds 9: the two
-# demo-artifact assertions share one `run: |` block, so they are one graded step
-# and two gate commands.
-EXPECTED_CI_RUN_STEPS = 9
+# be updated together. NOTE the count is 10 while CI_GATE_STEPS holds 12: two
+# `run: |` blocks -- the demo-artifact assertions, and the fixture re-scan +
+# `diff --fail-on-change` -- each hold two gate commands, so each is one graded
+# step and two gate commands.
+EXPECTED_CI_RUN_STEPS = 10
 
 # Every pre-existing .PHONY target that must survive this additive edit
 # (behavior 5): each must remain declared in .PHONY AND keep a non-empty recipe.

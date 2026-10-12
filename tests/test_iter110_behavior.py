@@ -62,11 +62,11 @@ PYPROJECT = REPO / "pyproject.toml"
 FRESHNESS_PRE_STEP = "rm -rf .pla_runs"
 DEMO_STATE_DIR = ".pla_runs"
 
-# The ordered nine commands of the CI graded gate (the first six unchanged from
+# The ordered twelve commands of the CI graded gate (the first six unchanged from
 # iter-102; an armed `pla signals` self-scan added factory iter 128, and an armed
 # `pla verify --fail-on-unresolved` of the demo's own slate/snapshot pair added
 # factory iter 186 AHEAD of it, so the self-scan stays LAST).
-# The artifact-list step is matched WITHOUT its `> /dev/null` suffix.
+# The artifact-list and re-scan steps are matched WITHOUT their `> /dev/null` suffix.
 CI_GATE_STEPS = (
     "uv sync --locked",
     "uv run pytest",
@@ -103,6 +103,15 @@ CI_GATE_STEPS = (
     # fragments to stay inside the line budget -- count ENTRIES here, never lines.
     "uv run pla signals --workspace . --collector notes --collector ci_config "
     "--collector dependencies --collector test_posture --fail-over 9",
+    # The 11th and 12th entries (added factory iter 327) are the first executable
+    # consumer `diff --fail-on-change` has ever had: re-scan the SAME fixture into a
+    # second state dir, then require the demo slate and the re-scan to agree --
+    # slate-level determinism, exit 5 on any drift. ONE ci.yml `run: |` block, two
+    # gate commands (the scan is matched WITHOUT its `> /dev/null` suffix).
+    "uv run pla scan --workspace examples/fixture_workspace --provider scripted "
+    "--scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan",
+    "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
+    "--fail-on-change",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -124,10 +133,11 @@ ARTIFACT_ASSERTION_STEPS = CI_GATE_STEPS[4:6]
 # Pre-existing .PHONY targets that must survive this additive edit.
 PREEXISTING_TARGETS = ("setup", "test", "cov", "typecheck", "demo", "clean")
 
-# Graded `run:` steps ci.yml exposes today. Deliberately 8 while CI_GATE_STEPS
-# holds 9: the two demo-artifact assertions share one `run: |` block, so they are
-# one graded step and two gate commands.
-EXPECTED_CI_RUN_STEPS = 9
+# Graded `run:` steps ci.yml exposes today. Deliberately 10 while CI_GATE_STEPS
+# holds 12: two `run: |` blocks (the demo-artifact assertions; the fixture re-scan
+# + `diff --fail-on-change`) each carry two gate commands, so each is one graded
+# step and two gate commands.
+EXPECTED_CI_RUN_STEPS = 10
 
 # Only these command words may appear in the `check` recipe: pure shell plus
 # `$(MAKE)` and the `uv` runner. A new tool would trip behavior 7.
@@ -639,6 +649,15 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
         # CI_GATE_STEPS entry above, same two-fragment split.
         "uv run pla signals --workspace . --collector notes --collector ci_config "
         "--collector dependencies --collector test_posture --fail-over 9",
+        # factory iter 327: the fixture re-scan + `diff --fail-on-change` pair.
+        # Expensive for the same reason (both shell out to `uv`; the scan also
+        # invokes a provider), inserted AFTER the count budget and BEFORE the
+        # self-scan so that scan stays the final graded step. Byte-equal to the
+        # CI_GATE_STEPS entries above, same fragment split.
+        "uv run pla scan --workspace examples/fixture_workspace --provider scripted "
+        "--scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan",
+        "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
+        "--fail-on-change",
         "uv run pla signals --workspace . --fail-on-kind merge_conflict "
         "--fail-on-kind syntax_error --fail-on-kind secret_file "
         "--fail-on-kind broken_link",

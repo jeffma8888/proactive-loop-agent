@@ -98,7 +98,8 @@ Coverage (numbered to match the spec's Expected Behaviors):
    both ``count=1`` and ``budget=0``.
 6. ``test_iter102`` and ``test_iter110`` each carry the step at index 7 of
    ``CI_GATE_STEPS``, immediately after the ``verify`` entry, and each set
-   ``EXPECTED_CI_RUN_STEPS = 9``; the two modules' constants agree.
+   ``EXPECTED_CI_RUN_STEPS = 9`` (10 since factory iter 327); the two modules'
+   constants agree.
 7. Row ``| 161 |`` is gone from ``ROADMAP.md`` and one ``- **#161 -- `` bullet
    carrying its pre-ship index text is in ``ROADMAP_ARCHIVE.md``.
 8. ``ROADMAP.md``'s Done ledger carries exactly one ``- #161 `` record, <= 120
@@ -240,7 +241,8 @@ def _ci_run_step_count() -> int:
     ``test_iter102_behavior.py::test_b4`` uses ``re.findall(r"^\s*run:", text,
     re.MULTILINE)``, which counts the one ``run: |`` block as a single graded
     step even though it holds two gate commands. That is why
-    ``EXPECTED_CI_RUN_STEPS`` (9) is one less than ``len(CI_GATE_STEPS)`` (10).
+    ``EXPECTED_CI_RUN_STEPS`` (10) is two less than ``len(CI_GATE_STEPS)`` (12)
+    since factory iter 327 added a second ``run: |`` pair (re-scan + diff).
     Re-deriving the count with a narrower rule that skips ``run: |`` reports 8
     and falsely accuses a correct workflow -- measured while writing this module.
     """
@@ -845,9 +847,9 @@ def test_b06_gate_parity_module_carries_the_step_at_index_seven(
         f"{module}: the --fail-over 9 self-scan must follow the round trip, but "
         f"CI_GATE_STEPS[8] is {steps[8]!r}"
     )
-    assert _module_constant(module, "EXPECTED_CI_RUN_STEPS") == 9, (
-        f"{module}: EXPECTED_CI_RUN_STEPS must be 9 now that ci.yml exposes a "
-        "ninth one-line run: step"
+    assert _module_constant(module, "EXPECTED_CI_RUN_STEPS") == 10, (
+        f"{module}: EXPECTED_CI_RUN_STEPS must be 10 now that ci.yml exposes the "
+        "fixture re-scan + `diff --fail-on-change` run: | step (factory iter 327)"
     )
 
 
@@ -873,11 +875,12 @@ def test_b06c_expected_ci_run_steps_matches_the_live_workflow() -> None:
         f"ci.yml counted the shipped oracle's way, which is "
         f"{_ci_run_step_count()}"
     )
-    # And the ONE-LINE commands are one fewer, because the two demo-artifact
-    # assertions share a single `run: |` block. Pinning the relationship stops a
-    # future reader "fixing" the constant to match a narrower extractor.
-    assert len(_ci_run_commands()) == _ci_run_step_count() - 1, (
-        f"ci.yml must hold exactly one `run: |` block step; one-line steps="
+    # And the ONE-LINE commands are two fewer, because two `run: |` blocks each
+    # hold a command pair: the demo-artifact assertions, and (factory iter 327)
+    # the fixture re-scan + `diff --fail-on-change`. Pinning the relationship
+    # stops a future reader "fixing" the constant to match a narrower extractor.
+    assert len(_ci_run_commands()) == _ci_run_step_count() - 2, (
+        f"ci.yml must hold exactly two `run: |` block steps; one-line steps="
         f"{len(_ci_run_commands())} total run: steps={_ci_run_step_count()}"
     )
 

@@ -5,7 +5,9 @@ in factory iter 145 and never once executed by a gate, recipe, hook or example -
 gains its FIRST CONSUMER. An armed, scoped count-budget step is inserted into
 ``make check`` and byte-identically into ``.github/workflows/ci.yml``,
 immediately BEFORE the existing armed ``--fail-on-kind`` self-scan, which stays
-last on both surfaces.
+last on both surfaces. (Factory iter 327 later inserted the fixture re-scan +
+``diff --fail-on-change`` pair BETWEEN the budget and the self-scan, so the
+adjacency pins below hold the budget at ``self-scan - 3``; self-scan still last.)
 
 MODULE NAME (derived from the REPO, never from the state-dir number). This repo
 names behavior modules by an ITERATION counter that runs ahead of nothing in
@@ -263,8 +265,12 @@ def test_b2_budget_precedes_the_self_scan_which_stays_last() -> None:
         f"the count budget must be INSERTED BEFORE the self-scan, not appended "
         f"after it; budget at {idx_budget}, self-scan at {idx_self_scan}"
     )
-    assert idx_budget == idx_self_scan - 1, (
-        "the spec places the budget IMMEDIATELY before the self-scan; budget at "
+    # Immediately before the self-scan when iter 254 shipped; factory iter 327
+    # inserted the fixture re-scan + `diff --fail-on-change` pair between them,
+    # so exactly two steps now separate the budget from the self-scan.
+    assert idx_budget == idx_self_scan - 3, (
+        "the budget must sit exactly three steps before the self-scan (only the "
+        "factory-iter-327 re-scan + diff pair between them); budget at "
         f"{idx_budget}, self-scan at {idx_self_scan}"
     )
 
@@ -295,9 +301,10 @@ def test_b3b_ci_self_scan_also_stays_last() -> None:
         "the armed self-scan must stay the LAST graded CI command, mirroring "
         f"`check`; it sits at {idx_self_scan} of {len(ci_steps) - 1}: {ci_steps}"
     )
-    assert idx_budget == idx_self_scan - 1, (
-        "CI must place the budget immediately before the self-scan, exactly as "
-        f"`check` does; budget {idx_budget}, self-scan {idx_self_scan}"
+    assert idx_budget == idx_self_scan - 3, (
+        "CI must place the budget three steps before the self-scan (the factory-"
+        "iter-327 re-scan + diff pair between them), exactly as `check` does; "
+        f"budget {idx_budget}, self-scan {idx_self_scan}"
     )
 
 

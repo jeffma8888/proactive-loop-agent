@@ -155,6 +155,17 @@ jobs:
       - name: Budget the state-independent signal kinds the kind gate cannot arm
         run: uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
 
+      # Slate-level determinism, executed: `make demo` (above) wrote `.pla_runs/slate.json`
+      # via `pla run`; this step re-scans the SAME fixture into a second state dir and
+      # `diff --fail-on-change` exits 5 on any added, removed or changed goal. Until this
+      # step existed the flag had 2 README + 3 SPEC mentions and zero executable consumers.
+      # Byte-identical to the same two lines of `make check`, placed BEFORE the self-scan
+      # so that scan stays the final graded step.
+      - name: Re-scan the fixture and assert the demo slate is unchanged
+        run: |
+          uv run pla scan --workspace examples/fixture_workspace --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan > /dev/null
+          uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json --fail-on-change
+
       # The product dogfoods its own enforcement mode: `--fail-on-kind KIND`
       # exits 5 when a named signal kind is present, and the README sells that
       # exit code as the channel a CI step branches on -- so THIS is that step.
