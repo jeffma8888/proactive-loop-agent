@@ -80,7 +80,7 @@ LEDGER_ROW = (
     "_pyc_says_ok; 3 dups retire (foundry iter 324)"
 )
 LEDGER_ROW_MAX_CHARS = 120  # tests/test_iter241_behavior.py cap
-INDEX_ROWS = 20  # #303 never had an index row (mirrors #301 in 6051524)
+INDEX_ROWS = 19  # #303 never had an index row (mirrors #301 in 6051524)
 README_COLLECTOR_ROW = (
     "| `syntax_error` | `syntax_error` | Python files that fail to parse "
     "(stdlib compile, parse-only). |"

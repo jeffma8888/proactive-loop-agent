@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-493
+    lenses: unknown
+    - Candidate A1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
+    - Candidate A2 -- Cap the xdist pool with `--maxprocesses=8` (ROADMAP row #257)
+    - Candidate A3 -- Rename `test_catalog_has_sixteen_entries` to match its assertion (ROADMAP row #232)
+    - Candidate B1 -- `pla trace` gains its first executable consumer: the demo grades the dispatched run's transcript
+    - Candidate B2 -- `pla runs --summary` gains its first executable consumer: the demo grades the fleet-level resilience counters
+    - Candidate B3 -- `make hooks`: a one-command on-ramp that installs the shipped pre-commit gate
+    winner: A2
+    ship: pending (not yet decided)
   iter-480
     lenses: unknown
     - Candidate A1 — `watch --json`: machine-readable output for the namesake proactive-loop verb
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Cap the xdist pool with `--maxprocesses=8` (ROADMAP row #257, obstacle cleared iter-267)
     - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its assertion (ROADMAP row #232)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 4cff850
   iter-479
     lenses: unknown
     - Candidate A1 -- README has three mutually contradictory transparency-arc chains; none names the full shipped set
@@ -2299,4 +2309,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-227 scouted iterations
+228 scouted iterations

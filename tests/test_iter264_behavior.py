@@ -131,7 +131,7 @@ MIN_CORPUS_MODULES = 200
 #: floor ``tests/test_iter168_behavior.py`` puts under the index.
 RETIRED_ROWS = (173, 205)
 KEPT_ROW = 165
-MIN_INDEX_ROWS = 20
+MIN_INDEX_ROWS = 19
 
 #: Behavior 6/7. RUNNING TOTALS over the whole corpus, not this iteration's delta: both
 #: counts move whenever ANY later iteration retires a row, so they must be re-keyed with
@@ -178,8 +178,8 @@ MIN_INDEX_ROWS = 20
 #: Foundry iter 324 added ledger row #303 (SPEC 4.1's `syntax_error` bullet states the PEP 552
 #: pyc skip, bound two-sided to `_pyc_says_ok`), again with no index retirement, so 91 -> 92
 #: and the bullets hold.
-EXPECTED_ARCHIVE_BULLETS = 87
-EXPECTED_LEDGER_ROWS = 99  # +1 for row #310 (foundry iter 327)
+EXPECTED_ARCHIVE_BULLETS = 88
+EXPECTED_LEDGER_ROWS = 100  # +1 for row #311 (foundry iter 327)
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

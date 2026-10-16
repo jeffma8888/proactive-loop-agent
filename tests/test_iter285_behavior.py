@@ -85,7 +85,7 @@ LEDGER_ROW_NUMBER = 304
 ITER_TAG = "(foundry iter 325)"
 LEDGER_ROW_MAX_CHARS = 120  # tests/test_iter241_behavior.py cap
 LEDGER_ROW_NEEDLES = ("dir_source", "WALK_BUDGET", "text_source", "verbatim")
-INDEX_ROWS = 20  # #304 never had an index row (mirrors #303 in 685a5ba)
+INDEX_ROWS = 19  # #304 never had an index row (mirrors #303 in 685a5ba)
 LEDGER_ROWS_BEFORE = 92  # test_iter264::EXPECTED_LEDGER_ROWS at the parent commit
 COLLECTED_ITEMS = 3
 

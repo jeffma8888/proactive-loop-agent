@@ -230,16 +230,16 @@ class TestAddoptsContract:
             f"revert hands back the measured 3.45x. Found {_addopts()!r}"
         )
 
-    def test_eb5_addopts_tokenizes_to_exactly_five_tokens(self) -> None:
+    def test_eb5_addopts_tokenizes_to_exactly_six_tokens(self) -> None:
         # Derived, never re-spelled: a second literal token list is exactly the
         # duplicate this iteration removes. The length assertion keeps this
-        # function's name ("five tokens") load-bearing rather than decorative --
+        # function's name ("six tokens") load-bearing rather than decorative --
         # it was three (`-q -n auto`) until foundry iter 305 appended `--dist
         # worksteal`, so move BOTH the name and the number together or the name
         # starts lying about what it checks.
         expected = EXPECTED_ADDOPTS.split()
-        assert len(expected) == 5, (
-            f"the pinned addopts stopped being five tokens: {EXPECTED_ADDOPTS!r}"
+        assert len(expected) == 6, (
+            f"the pinned addopts stopped being six tokens: {EXPECTED_ADDOPTS!r}"
         )
         assert _addopts().split() == expected
 

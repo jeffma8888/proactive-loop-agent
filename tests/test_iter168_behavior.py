@@ -264,9 +264,9 @@ def test_b3_the_live_index_holds_no_unretired_settled_row() -> None:
     assert settled_rows_needing_retirement(_live_roadmap()) == ()
 
 
-def test_b5_the_live_parse_finds_at_least_twenty_rows() -> None:
+def test_b5_the_live_parse_finds_at_least_nineteen_rows() -> None:
     """An empty parse must not be able to satisfy behavior 3."""
-    assert len(parse_index_rows(_live_roadmap())) >= 20
+    assert len(parse_index_rows(_live_roadmap())) >= 19
 
 
 def test_b5_the_verdict_is_a_subset_of_the_parsed_rows() -> None:

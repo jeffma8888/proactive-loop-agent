@@ -581,7 +581,7 @@ def test_the_live_row_parser_is_not_vacuous() -> None:
     """
     roadmap = _read(ROADMAP)
     numbers = [row for row, _status in parse_index_rows(roadmap)]
-    assert len(numbers) >= 20, (
+    assert len(numbers) >= 19, (
         f"only {len(numbers)} index rows parsed out of {BUDGETED_FILENAME}; the "
         "table shape changed and this census is now blind"
     )

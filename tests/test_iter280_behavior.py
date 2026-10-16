@@ -43,7 +43,7 @@ RETIRED_ROW: Final[str] = "109"
 SHIP_TAG: Final[str] = "(foundry iter 320)"
 INDEX_ROW: Final[re.Pattern[str]] = re.compile(r"^\| (\d+) \|", re.MULTILINE)
 #: Shipped floor on numeric index rows (test_iter168 / test_iter264 / test_iter265).
-MIN_INDEX_ROWS: Final[int] = 20
+MIN_INDEX_ROWS: Final[int] = 19
 
 LEDGER_HEADING: Final[str] = "## Done ledger"
 LEDGER_ROW: Final[re.Pattern[str]] = re.compile(r"^- #(\d+) ", re.MULTILINE)

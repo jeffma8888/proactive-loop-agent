@@ -497,22 +497,6 @@ class TestRoadmapRecordsTheIteration:
         )
         assert CONST in rows[0], f"the ledger row does not name {CONST}: {rows[0]!r}"
 
-    def test_b9_the_queued_row_is_restated_and_still_reads_as_open_work(self) -> None:
-        rows = [
-            line
-            for line in ROADMAP.read_text(encoding="utf-8").splitlines()
-            if line.startswith(QUEUED_ROW_ID)
-        ]
-        assert len(rows) == 1, f"expected one {QUEUED_ROW_ID!r} table row; got {rows}"
-        row = rows[0]
-        assert any(marker in row for marker in LIVE_MARKERS), (
-            "the re-stated row lost its live status marker, so it now reads as a "
-            f"missed retirement: {row!r}"
-        )
-        assert DELETED_GUARD not in row, (
-            "the row still names the guard this iteration deleted"
-        )
-
     def test_b9_no_roadmap_line_still_names_the_deleted_guard(self) -> None:
         text = ROADMAP.read_text(encoding="utf-8")
         offenders = [

@@ -411,12 +411,11 @@ def test_b6_the_live_retirement_census_is_unmoved_across_every_row() -> None:
     # the archive rather than re-priced a third time; and 85 before foundry iter 320
     # retired row #109 (the `SPEC.md` size guard) as SUPERSEDED by the shipped
     # `test_iter255::SPEC_CEILING_AFTER_SLICE = 95_500`, so 85 -> 86; and 86 before
-    # foundry iter 323 retired row #299 (`syntax_error` trusts a valid PEP 552 timestamp
-    # pyc before `compile()`) as SHIPPED, so 86 -> 87.
+    # foundry iter 327 retired row #257 (cap the xdist pool: --maxprocesses=8), so 87 -> 88.
     archive = _read(ARCHIVE)
     counts = {str(row): count_archive_bullets(archive, str(row)) for row in range(301)}
-    assert sum(counts.values()) == 87, (
-        f"retirement-bullet total moved: {sum(counts.values())} (expected 87). If you just "
+    assert sum(counts.values()) == 88, (
+        f"retirement-bullet total moved: {sum(counts.values())} (expected 88). If you just "
         "retired an index row, bump this literal by one and say which row in the comment; "
         "if you did not, a retirement bullet was lost or duplicated."
     )
@@ -466,7 +465,7 @@ def test_b8_the_archive_still_holds_its_two_pinned_tables_unchanged() -> None:
 
 def test_b8_the_roadmap_still_holds_exactly_one_table() -> None:
     bodies = _table_bodies(_read(ROADMAP))
-    assert len(bodies) == 1 and bodies[0] >= 20, bodies
+    assert len(bodies) == 1 and bodies[0] >= 19, bodies
 
 
 def test_b8_this_iterations_own_ship_record_is_in_the_ledger() -> None:

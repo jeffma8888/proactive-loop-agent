@@ -127,7 +127,7 @@ LEDGER_ROW: Final[str] = "- #301 "
 LEDGER_TAG: Final[str] = "(foundry iter 322)"
 ARCHIVE_BULLET: Final[str] = "- **#301 "
 LEDGER_FLOOR: Final[int] = 90
-INDEX_ROWS: Final[int] = 20
+INDEX_ROWS: Final[int] = 19
 
 _LEDGER_RE: Final[re.Pattern[str]] = re.compile(r"^- #\d+ ")
 _INDEX_RE: Final[re.Pattern[str]] = re.compile(r"^\| \d+ \|")

@@ -78,7 +78,7 @@ testpaths = ["tests"]
 # reaches the nested `cwd=REPO` pytest children this suite spawns, which a CLI flag
 # would not; the `-n0` ones drop it automatically, because xdist forces `dist = "no"`
 # at zero workers.
-addopts = "-q -n auto --dist worksteal"
+addopts = "-q -n auto --dist worksteal --maxprocesses=8"
 
 # Every warning the suite raises is an ERROR. A printed-and-forgotten
 # DeprecationWarning is the one failure class that stays silent until the day it

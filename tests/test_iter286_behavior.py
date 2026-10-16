@@ -83,7 +83,7 @@ LEDGER_ROW_NUMBER = 305
 ITER_TAG = "(foundry iter 326)"
 LEDGER_ROW_MAX_CHARS = 120  # tests/test_iter241_behavior.py cap
 LEDGER_ROW_NEEDLES = (TIMEOUT_KEY, "subprocess", str(UNTIMED_SUBPROCESS_BUDGET))
-INDEX_ROWS = 20  # #305 never had an index row (mirrors #304 in 4beda63)
+INDEX_ROWS = 19  # #305 never had an index row (mirrors #304 in 4beda63)
 LEDGER_ROWS_BEFORE = 93  # test_iter264::EXPECTED_LEDGER_ROWS at the parent commit
 COLLECTED_ITEMS = 3
 
