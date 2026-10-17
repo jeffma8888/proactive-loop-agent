@@ -426,12 +426,12 @@ def test_b10_collectors_json_15_objects_includes_syntax_error(capsys) -> None:
 
 def test_b10_spec_collectors_count_matches_registry() -> None:
     spec = SPEC.read_text(encoding="utf-8")
-    matches = re.findall(r"array of (\d+)\s+`\{name, description\}` objects", spec)
+    matches = re.findall(r"array of (\d+)\s+`\{name, kind, description\}` objects", spec)
     assert len(matches) == 1, (
         f"expected EXACTLY one collectors count-anchor in SPEC; found {matches!r}"
     )
     assert int(matches[0]) == len(all_collectors()) == EXPECTED_COLLECTOR_COUNT, (
-        f"SPEC 'array of N {{name, description}}' count ({matches[0]}) must equal the "
+        f"SPEC 'array of N {{name, kind, description}}' count ({matches[0]}) must equal the "
         f"live collector count ({len(all_collectors())})"
     )
 

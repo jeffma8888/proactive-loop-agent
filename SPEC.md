@@ -1019,35 +1019,34 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     arc policy (autonomy rules) → signals (L2 perception) → **tools** (L1 action
     surface) → explain (why THIS goal) → trace (what a run did). Additive verb
     (iter-48) — no existing verb behavior changes, so **no version bump**.
-  - `pla collectors [--json]` — read-only, LLM-free, zero-input catalog of the L2
-    PERCEPTION surface: every registered context collector + a one-line
-    description of what it perceives, so a reader of this public repo can answer
-    "what does the proactivity layer even look at?" WITHOUT a workspace or an LLM.
-    It is the L2 analogue of `tools` (the L1 action surface) and the context-free
-    FRONT DOOR to `signals`: where `signals` REQUIRES `--workspace` and enumerates
-    only the signals that fired THERE, `collectors` answers the prior question
-    "what perceivers even exist?" against the static collector SET. Takes NO
-    `--workspace` and no positional argument; inherits the shared `globals_` parent
-    so `--provider`/`--scripted-responses`/`--state-dir` are ACCEPTED but INERT — it
-    builds no `LLMClient` (an inert/nonexistent `--scripted-responses` is never
-    opened → exit 0, unlike a client-building verb's eager-load exit 1), resolves
-    no settings, runs no collector, and touches no filesystem, so it structurally
-    cannot regress any existing behavior (the same envelope as `policy`/`tools`).
-    Human form lists every collector name-ascending, one per line as
-    `name  description`. `--json` emits one object of EXACTLY one top-level key
+  - `pla collectors [--json] [--kind KIND]` — read-only, LLM-free, zero-input
+    catalog of the L2 PERCEPTION surface: every registered context collector, the
+    signal `kind` it emits, and a one-line description, so a reader can answer
+    "what does the proactivity layer look at?" without a workspace or LLM. The L2
+    analogue of `tools` and the context-free FRONT DOOR to `signals`: where
+    `signals` REQUIRES `--workspace`, `collectors` answers "what perceivers even
+    exist?" against the static collector SET. Takes NO `--workspace`; inherits
+    `globals_` so `--provider`/`--scripted-responses`/`--state-dir` are ACCEPTED
+    but INERT — builds no `LLMClient` (an inert `--scripted-responses` is never
+    opened → exit 0), resolves no settings, runs no collector, touches no
+    filesystem (the same envelope as `policy`/`tools`). Human form lists every
+    collector name-ascending, one per line as `name  kind  description` (three
+    columns). `--json` emits one object of EXACTLY one top-level key
     `{collectors}` — an explicit allowlist (never `model_dump`; the iter-08
-    schema-leak discipline): `collectors` is a name-ascending array of 17
-    `{name, description}` objects (exactly those two keys each). The catalog
-    (`name → description`) is a hand-maintained map (mirroring `_TOOL_CATALOG` for
-    `tools`); a test drift-guards its key set to equal `{c.name for c in
-    all_collectors()}`, so a collector added to (or dropped from) the registry
-    without a matching catalog edit turns that guard RED. It emits name→description
-    only — NOT the per-signal `kind` (a per-signal attribute that can differ from a
-    collector's name, e.g. `git_activity` → `git_commit`). Always exits 0 (no input
-    to fail on). It is the FRONT DOOR of the transparency arc **collectors** (what
-    perceivers exist) → signals (raw output for a workspace) → scan (proposals) →
-    explain (why THIS goal) → trace (what a run did). Additive verb (iter-57) — no
-    existing verb behavior changes, so **no version bump**.
+    schema-leak discipline): a name-ascending array of 17
+    `{name, kind, description}` objects (exactly those three keys each); `kind` is the
+    `ContextSignal.kind` that collector emits — NOT always the collector's name
+    (e.g. `git_activity` → `git_commit`, `todos` → `todo`). The catalog and kind
+    mapping are hand-maintained maps (mirroring `_TOOL_CATALOG` for `tools`); a
+    test drift-guards both key sets and verifies each published kind against the
+    collector's source module, so a registry change without a matching edit turns
+    that guard RED. `--kind KIND` narrows to the single collector emitting that
+    signal kind (the reverse lookup of the kind column); vocabulary is
+    `SIGNAL_KINDS` (the SAME closed set `signals --kind` takes), unknown kind →
+    exit 2; at most once (a second `--kind` is exit 2, not last-wins). Always
+    exits 0 (no input to fail on). FRONT DOOR of the transparency arc
+    **collectors** → signals → scan → explain → trace. Additive verb (iter-57) —
+    no existing verb behavior changes, so **no version bump**.
   - `pla providers [--json]` — read-only, LLM-free, zero-input catalog of the L0
     LLM-BACKEND surface: every accepted provider (`VALID_PROVIDERS`) + its
     offline/cloud kind + the pip package that fulfils it (or `null` for the

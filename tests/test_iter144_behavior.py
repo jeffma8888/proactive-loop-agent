@@ -718,7 +718,7 @@ def test_b14_readme_portfolio_intro_collector_count_matches_the_live_registry() 
 def test_b14_spec_catalog_shape_sentence_reads_seventeen() -> None:
     text = (REPO / "SPEC.md").read_text(encoding="utf-8")
     match = re.search(
-        r"array of (\d+)\s*\n?\s*`\{name, description\}` objects", text
+        r"array of (\d+)\s*\n?\s*`\{name, kind, description\}` objects", text
     )
     assert match, "SPEC.md must keep its `collectors` catalog-shape sentence"
     assert int(match.group(1)) == EXPECTED_COLLECTOR_COUNT == len(all_collectors()), (

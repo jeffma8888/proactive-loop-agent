@@ -217,10 +217,8 @@ def test_eb3_spec_tool_count_matches_live_registry(capsys) -> None:
 
 def test_eb4_spec_collector_count_matches_live_registry(capsys) -> None:
     norm = _spec_norm()
-    # Anchor on the {name, description} tuple --- it does NOT match the tools
-    # {name, access, description} tuple.
     matches = re.findall(
-        r"array of (\d+) [^{}]*\{name, description\}[^{}]*objects", norm
+        r"array of (\d+) [^{}]*\{name, kind, description\}[^{}]*objects", norm
     )
     assert len(matches) == 1, (
         f"SPEC must state the collectors catalog shape exactly once; "
