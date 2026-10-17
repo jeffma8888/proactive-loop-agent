@@ -96,6 +96,8 @@ def _count_markers(text: str) -> int:
     ``=======`` separator is never counted. A standard single conflict block
     (``<<<<<<< HEAD`` / ``=======`` / ``>>>>>>> branch``) therefore returns 2.
     """
+    if _OPEN_PREFIX not in text and _CLOSE_PREFIX not in text:
+        return 0
     count = 0
     for line in text.splitlines():
         if line.startswith(_OPEN_PREFIX) or line.startswith(_CLOSE_PREFIX):

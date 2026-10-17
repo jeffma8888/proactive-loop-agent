@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-495
+    lenses: performance-and-throughput
+    - Candidate A1 -- Collapse the 13 byte-identical `_run(argv, capsys)` helpers onto ONE imported definition
+    - Candidate A2 -- Retire ROADMAP row #170 to the archive: self-declared "not worth an iteration"
+    - Candidate A3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    - Candidate B1 -- `merge_conflict` prefilters the whole-text before `splitlines`: 65 ms -> ~30 ms (-5.3% scan)
+    - Candidate B2 -- `todos` whole-file prefilter + MULTILINE finditer: 136 ms -> ~90 ms (-7% scan)
+    - Candidate B3 -- Overlap `git_activity` + `working_tree` subprocess children: 40 ms -> ~20 ms (-3% scan) (ROADMAP row #302)
+    winner: B1
+    ship: pending (not yet decided)
   iter-494
     lenses: unknown
     - Candidate A1 -- `pla trace` gains its first executable consumer: `examples/check_trace.py` grades the dispatched run's transcript
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Collapse the 13 byte-identical `_run(argv, capsys)` helpers onto ONE imported definition
     - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED dc638e0
   iter-493
     lenses: unknown
     - Candidate A1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
@@ -2319,4 +2329,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-229 scouted iterations
+230 scouted iterations

@@ -147,3 +147,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #309 `python -m proactive_loop` on-ramp: __main__.py delegates to cli.main (foundry iter 327)
 - #310 `watch --json`: each tick emits JSON to stdout; 17th verb gains --json (foundry iter 327)
 - #311 Cap the xdist pool: --maxprocesses=8 in addopts, obstacle cleared iter-267 (foundry iter 327)
+- #312 merge_conflict prefilter: whole-text `in` check before splitlines() (foundry iter 327)
