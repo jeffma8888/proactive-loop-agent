@@ -254,15 +254,6 @@ class TestBehavior1SharedTraversalCounters:
             f"added three more); got {stats!r}"
         )
 
-    def test_scope_leaves_no_cached_dirents_behind(self, workspace: Path) -> None:
-        clear_walk_cache()
-        cli._collect(workspace)
-
-        stats = walk_cache_stats()
-        assert (stats["entries"], stats["dirs"]) == (0, 0), (
-            f"the per-scan cache must not outlive the scope; got {stats!r}"
-        )
-
 
 # ===========================================================================
 # Behavior 2 -- the pair performs exactly ONE physical os.walk

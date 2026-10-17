@@ -84,11 +84,11 @@ README = REPO / "README.md"
 #: from this constant so a future re-key is a one-line edit.
 WIDE = (
     "uv run mypy src/proactive_loop "
-    "examples/check_run.py examples/check_autonomy.py"
+    "examples/check_run.py examples/check_autonomy.py examples/check_trace.py"
 )
 
-#: The two GRADED example consumers the widening pulls into the oracle.
-GRADED_EXAMPLES = ("examples/check_run.py", "examples/check_autonomy.py")
+#: The three GRADED example consumers the widening pulls into the oracle.
+GRADED_EXAMPLES = ("examples/check_run.py", "examples/check_autonomy.py", "examples/check_trace.py")
 
 #: The example subtree that must stay OUT of the oracle: it exists to be
 #: imperfect (a directory-form ``mypy examples`` reports real errors, all inside

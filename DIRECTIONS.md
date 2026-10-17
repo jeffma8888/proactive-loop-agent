@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-494
+    lenses: unknown
+    - Candidate A1 -- `pla trace` gains its first executable consumer: `examples/check_trace.py` grades the dispatched run's transcript
+    - Candidate A2 -- `make hooks`: a one-command on-ramp that installs the shipped pre-commit gate
+    - Candidate A3 -- `pla runs --summary` gains its first executable consumer: the demo grades fleet-level resilience counters
+    - Candidate B1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
+    - Candidate B2 -- Collapse the 13 byte-identical `_run(argv, capsys)` helpers onto ONE imported definition
+    - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    winner: A1
+    ship: pending (not yet decided)
   iter-493
     lenses: unknown
     - Candidate A1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla runs --summary` gains its first executable consumer: the demo grades the fleet-level resilience counters
     - Candidate B3 -- `make hooks`: a one-command on-ramp that installs the shipped pre-commit gate
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 897504e
   iter-480
     lenses: unknown
     - Candidate A1 — `watch --json`: machine-readable output for the namesake proactive-loop verb
@@ -2309,4 +2319,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-228 scouted iterations
+229 scouted iterations

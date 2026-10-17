@@ -78,6 +78,7 @@ proactive-loop-agent/
 ├── examples/
 │   ├── check_autonomy.py
 │   ├── check_run.py
+│   ├── check_trace.py
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
 └── tests/                    # behavior oracles: one test_iterNN_behavior.py per increment + contract modules
@@ -1138,4 +1139,4 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 - No references to Amazon, internal tools, employers, or real people anywhere.
 - Type hints everywhere; docstrings explain WHY; small functions.
 - Every module ships with tests; `uv run pytest` must pass from a clean checkout.
-- `SecretFileCollector` is **basename/metadata-only**: it never opens file content, does no entropy/regex content scan, and has no `.gitignore`/git-lfs awareness (out of scope — this hard line keeps it binary-safe and prevents it from becoming the vetoed iter-31 content scanner).
+- `SecretFileCollector` is **basename/metadata-only**: no content scan, no `.gitignore`/git-lfs awareness (out of scope).

@@ -70,7 +70,7 @@ SCRIPT: Final = REPO / "examples" / "scripted_responses.json"
 
 STATE_DIR_NAME: Final = ".pla_runs"
 AUDIT_NAME: Final = "explain.json"
-EXPECTED_DEMO_STEPS: Final = 5
+EXPECTED_DEMO_STEPS: Final = 7
 
 # Spec behavior 1 fixes this step verbatim.
 PUBLISH_STEP: Final = (
