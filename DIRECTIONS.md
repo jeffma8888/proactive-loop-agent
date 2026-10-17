@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-496
+    lenses: narrative-and-docs
+    - Candidate A1 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
+    - Candidate A2 -- `notes.py` reads its own `os.walk` instead of `dir_source`: convert to shared walk (ROADMAP row #210 batch 4)
+    - Candidate A3 -- `_scan_items` in `todos.py`: skip the per-line `_CHECKBOX_RE.match` when `scan_checkbox` is False (micro-optimization of the hot inner loop)
+    - Candidate B1 -- README "Nine collector modules" is stale: 11 now use dir_source
+    - Candidate B2 -- README carries four mutually contradictory transparency-arc chains
+    - Candidate B3 -- SPEC.md §2 Layout fence says "17 CLI verbs" but the roster comment says "17 verbs"
+    winner: B2
+    ship: pending (not yet decided)
   iter-495
     lenses: performance-and-throughput
     - Candidate A1 -- Collapse the 13 byte-identical `_run(argv, capsys)` helpers onto ONE imported definition
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `todos` whole-file prefilter + MULTILINE finditer: 136 ms -> ~90 ms (-7% scan)
     - Candidate B3 -- Overlap `git_activity` + `working_tree` subprocess children: 40 ms -> ~20 ms (-3% scan) (ROADMAP row #302)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 060d9f5
   iter-494
     lenses: unknown
     - Candidate A1 -- `pla trace` gains its first executable consumer: `examples/check_trace.py` grades the dispatched run's transcript
@@ -2329,4 +2339,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-230 scouted iterations
+231 scouted iterations
