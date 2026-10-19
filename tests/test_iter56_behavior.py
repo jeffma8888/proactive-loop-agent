@@ -48,6 +48,7 @@ from proactive_loop.cli import main
 from proactive_loop.config import Settings
 from proactive_loop.models import GoalSlate
 from proactive_loop.scout import gate_slate
+from tests.test_iter06_behavior import _run
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
@@ -66,14 +67,6 @@ HOSTILE_TITLE = 'Fix <script>alert("x")</script> & <b>bold</b>'
 # parse the emitted HTML with the stdlib parser (never a src helper).
 # ---------------------------------------------------------------------------
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _scan_argv(

@@ -52,6 +52,7 @@ from proactive_loop.collectors.base import Collector
 from proactive_loop.collectors.merge_conflict import (
     MergeConflictCollector as MergeConflictCollector_direct,
 )
+from tests.test_iter06_behavior import _run
 
 # A single standard conflict block: <<<<<<< / ======= / >>>>>>>  -> N == 2.
 BLOCK = "<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n"
@@ -69,14 +70,6 @@ def _write(path: Path, content: str) -> Path:
     path.write_text(content, encoding="utf-8")
     return path
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _signals_json(workspace: Path, capsys, *, kind: str | None = "merge_conflict") -> list[dict]:

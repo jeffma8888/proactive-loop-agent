@@ -150,3 +150,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #312 merge_conflict prefilter: whole-text `in` check before splitlines() (foundry iter 327)
 - #313 README transparency-arc chain: one canonical statement, two references replace two inconsistent restated chains (foundry iter 327)
 - #314 SPEC §4.5 `pla collectors` corrected: 3-key JSON, 3-column human form, `--kind KIND` documented, false `kind` denial removed (foundry iter 327)
+- #315 `_run(argv, capsys)` 13-copy helper consolidated: one canonical def in test_iter06, 12 importers, body-hash ratchet (foundry iter 327)

@@ -42,6 +42,7 @@ from proactive_loop.cli import main
 from proactive_loop.config import Settings
 from proactive_loop.models import CandidateGoal, GoalSlate
 from proactive_loop.scout import gate
+from tests.test_iter06_behavior import _run
 from tests.test_iter125_behavior import clear_pla_env
 
 
@@ -103,14 +104,6 @@ def _write_slate(tmp_path: Path, *goals: CandidateGoal, name: str = "slate.json"
     path.write_text(slate.model_dump_json())
     return path
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _explain_json(slate_path: Path, goal_id: str, capsys, extra: list[str] | None = None):

@@ -44,6 +44,7 @@ import pytest
 
 from proactive_loop.cli import main, _render_signals, _signals_json_payload
 from proactive_loop.models import ContextSignal, WorkspaceSnapshot
+from tests.test_iter06_behavior import _run
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "examples" / "fixture_workspace"
@@ -68,14 +69,6 @@ _SIGNAL_KEYS = {"source", "kind", "summary", "detail", "path", "weight"}
 # Helpers -- all black-box: build argv, drive main(), read back stdout/stderr.
 # ---------------------------------------------------------------------------
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _worked_example_snapshot() -> WorkspaceSnapshot:

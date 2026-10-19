@@ -62,6 +62,7 @@ from proactive_loop.collectors.large_file import (
     LargeFileCollector as LargeFileCollector_direct,
 )
 from proactive_loop.models import ContextSignal
+from tests.test_iter06_behavior import _run
 
 DEFAULT_MIN_BYTES = 5_000_000
 DEFAULT_MAX_ITEMS = 20
@@ -92,14 +93,6 @@ def _relpath(sig) -> str:
     """The forward-slashed relpath carried at the head of the summary."""
     return (sig["summary"] if isinstance(sig, dict) else sig.summary).split(":", 1)[0]
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _signals_json(workspace: Path, capsys, *, kind: str | None = "large_file") -> list[dict]:

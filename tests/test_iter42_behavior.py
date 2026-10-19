@@ -61,6 +61,7 @@ from proactive_loop.collectors.secret_file import (
     SecretFileCollector as SecretFileCollector_direct,
 )
 from proactive_loop.models import ContextSignal
+from tests.test_iter06_behavior import _run
 
 DEFAULT_MAX_ITEMS = 20
 FIXED_WEIGHT = 0.85
@@ -105,14 +106,6 @@ def _relpath(sig) -> str:
     summary = sig["summary"] if isinstance(sig, dict) else sig.summary
     return summary.split(":", 1)[0]
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _signals_json(workspace: Path, capsys, *, kind: str | None = "secret_file") -> list[dict]:

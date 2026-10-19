@@ -46,6 +46,7 @@ from proactive_loop.cli import main
 from proactive_loop.config import Settings
 from proactive_loop.models import CandidateGoal, GoalSlate
 from proactive_loop.scout import gate
+from tests.test_iter06_behavior import _run
 
 _TRACEBACK = "Traceback (most recent call last)"
 
@@ -73,14 +74,6 @@ _ID_RE = re.compile(r"\(id=([^)]+)\)")
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 def _write_slate(tmp_path: Path, *goals: CandidateGoal, name: str = "slate.json") -> Path:

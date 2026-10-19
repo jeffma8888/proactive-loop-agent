@@ -482,6 +482,31 @@ def test_b5_the_ratchet_constant_matches_the_shipped_corpus() -> None:
             "the census found no duplicate groups even after a byte-identical copy of "
             "this module was planted, so it is dead rather than clean"
         )
+    # _run(argv, capsys) helper-family ratchet: the 12 consolidated modules must
+    # import _run from the canonical source, not redefine it locally.
+    canonical_src = corpus[_RUN_CANONICAL_MODULE]
+    canonical_lines = code_lines(canonical_src)
+    canonical_fp = None
+    for node in ast.parse(canonical_src).body:
+        if isinstance(node, ast.FunctionDef) and node.name == "_run":
+            canonical_fp = body_fingerprint(canonical_lines, node)
+            break
+    assert canonical_fp is not None, (
+        f"{_RUN_CANONICAL_MODULE} must define _run"
+    )
+    regrown = [
+        name
+        for name in sorted(_RUN_CONSOLIDATED_MODULES)
+        if name in corpus and any(
+            isinstance(n, ast.FunctionDef) and n.name == "_run"
+            and body_fingerprint(code_lines(corpus[name]), n) == canonical_fp
+            for n in ast.parse(corpus[name]).body
+        )
+    ]
+    assert regrown == [], (
+        f"the _run(argv, capsys) helper was supposed to be imported from "
+        f"{_RUN_CANONICAL_MODULE} by these modules, but they re-define it: {regrown}"
+    )
 
 
 # ===========================================================================
@@ -684,3 +709,23 @@ def test_ac_every_src_status_guard_is_provenance_gated() -> None:
             "guards that carry the acceptance criterion after this deletion, so it "
             "must survive; the criterion is asserted four times, not zero"
         )
+
+
+# ===========================================================================
+# _run(argv, capsys) helper-family ratchet -- exactly 1 canonical definition.
+# ===========================================================================
+_RUN_CANONICAL_MODULE = "test_iter06_behavior.py"
+_RUN_CONSOLIDATED_MODULES = frozenset({
+    "test_iter07_behavior.py",
+    "test_iter12_behavior.py",
+    "test_iter15_behavior.py",
+    "test_iter22_behavior.py",
+    "test_iter24_behavior.py",
+    "test_iter27_behavior.py",
+    "test_iter28_behavior.py",
+    "test_iter34_behavior.py",
+    "test_iter37_behavior.py",
+    "test_iter42_behavior.py",
+    "test_iter56_behavior.py",
+    "test_iter72_behavior.py",
+})

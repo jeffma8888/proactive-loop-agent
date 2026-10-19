@@ -43,6 +43,7 @@ from proactive_loop.models import (
     RunStatus,
     StepKind,
 )
+from tests.test_iter06_behavior import _run
 
 REPO = Path(__file__).resolve().parents[1]
 # Absolute paths (runner-location-independent) to the offline fixtures.
@@ -134,14 +135,6 @@ def _produce_demo_run(state_dir: Path) -> Path:
     assert len(run_dirs) == 1, f"demo must dispatch exactly one run, got {run_dirs}"
     return run_dirs[0]
 
-
-def _run(argv: list[str], capsys) -> tuple[int, str, str]:
-    """Invoke the CLI and return (rc, stdout, stderr). Drains capsys first so
-    setup output never leaks into the assertion window."""
-    capsys.readouterr()
-    rc = main(argv)
-    cap = capsys.readouterr()
-    return rc, cap.out, cap.err
 
 
 # ---------------------------------------------------------------------------
