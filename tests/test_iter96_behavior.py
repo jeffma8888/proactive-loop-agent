@@ -32,21 +32,7 @@ import pytest
 
 import proactive_loop
 from proactive_loop.loop.tools import ToolRegistry
-
-
-# ---------------------------------------------------------------------------
-# Shared helpers (mirroring tests/test_iter13_behavior.py + test_iter21_behavior.py)
-# ---------------------------------------------------------------------------
-
-
-def _registry(tmp_path: Path) -> tuple[ToolRegistry, Path, Path]:
-    """Build a ToolRegistry over a fresh (created) workspace + artifacts dir and
-    return (registry, workspace_root, artifacts_dir)."""
-    ws = tmp_path / "workspace"
-    art = tmp_path / "artifacts"
-    ws.mkdir()
-    art.mkdir()
-    return ToolRegistry(workspace_root=ws, artifacts_dir=art), ws, art
+from tests.test_iter13_behavior import _registry
 
 
 def _lines(observation: str) -> list[str]:

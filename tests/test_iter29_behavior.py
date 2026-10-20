@@ -45,19 +45,7 @@ ML_ERR = "error: head_file 'max_lines' must be a positive integer"
 PATH_ERR = "error: head_file requires a non-empty 'path'"
 
 
-# ---------------------------------------------------------------------------
-# Shared helpers (mirroring tests/test_iter26_behavior.py)
-# ---------------------------------------------------------------------------
-
-
-def _registry(tmp_path: Path) -> tuple[ToolRegistry, Path, Path]:
-    """Build a ToolRegistry over a fresh (created) workspace + artifacts dir and
-    return (registry, workspace_root, artifacts_dir)."""
-    ws = tmp_path / "workspace"
-    art = tmp_path / "artifacts"
-    ws.mkdir()
-    art.mkdir()
-    return ToolRegistry(workspace_root=ws, artifacts_dir=art), ws, art
+from tests.test_iter13_behavior import _registry
 
 
 def _head(tools: ToolRegistry, path: str | None = None, **extra) -> str:

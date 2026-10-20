@@ -29,21 +29,7 @@ from proactive_loop.llm.client import ScriptedLLMClient
 from proactive_loop.loop.executor import GoalLoop
 from proactive_loop.loop.tools import ToolRegistry
 from proactive_loop.models import CandidateGoal, RunState
-
-
-# ---------------------------------------------------------------------------
-# Shared helpers (mirroring tests/test_loop.py + tests/test_iter13_behavior.py)
-# ---------------------------------------------------------------------------
-
-
-def _registry(tmp_path: Path) -> tuple[ToolRegistry, Path, Path]:
-    """Build a ToolRegistry over a fresh (created) workspace + artifacts dir and
-    return (registry, workspace_root, artifacts_dir)."""
-    ws = tmp_path / "workspace"
-    art = tmp_path / "artifacts"
-    ws.mkdir()
-    art.mkdir()
-    return ToolRegistry(workspace_root=ws, artifacts_dir=art), ws, art
+from tests.test_iter13_behavior import _registry
 
 
 def _goal(title: str = "Grow a multi-step document") -> CandidateGoal:

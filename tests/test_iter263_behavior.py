@@ -507,6 +507,32 @@ def test_b5_the_ratchet_constant_matches_the_shipped_corpus() -> None:
         f"the _run(argv, capsys) helper was supposed to be imported from "
         f"{_RUN_CANONICAL_MODULE} by these modules, but they re-define it: {regrown}"
     )
+    # _registry(tmp_path) helper-family ratchet: the 11 consolidated modules must
+    # import _registry from the canonical source, not redefine it locally.
+    reg_canonical_src = corpus[_REGISTRY_CANONICAL_MODULE]
+    reg_canonical_lines = code_lines(reg_canonical_src)
+    reg_canonical_fp = None
+    for node in ast.parse(reg_canonical_src).body:
+        if isinstance(node, ast.FunctionDef) and node.name == "_registry":
+            reg_canonical_fp = body_fingerprint(reg_canonical_lines, node)
+            break
+    assert reg_canonical_fp is not None, (
+        f"{_REGISTRY_CANONICAL_MODULE} must define _registry"
+    )
+    reg_regrown = [
+        name
+        for name in sorted(_REGISTRY_CONSOLIDATED_MODULES)
+        if name in corpus and any(
+            isinstance(n, ast.FunctionDef) and n.name == "_registry"
+            and body_fingerprint(code_lines(corpus[name]), n) == reg_canonical_fp
+            for n in ast.parse(corpus[name]).body
+        )
+    ]
+    assert reg_regrown == [], (
+        f"the _registry(tmp_path) helper was supposed to be imported from "
+        f"{_REGISTRY_CANONICAL_MODULE} by these modules, but they re-define it: "
+        f"{reg_regrown}"
+    )
 
 
 # ===========================================================================
@@ -728,4 +754,22 @@ _RUN_CONSOLIDATED_MODULES = frozenset({
     "test_iter42_behavior.py",
     "test_iter56_behavior.py",
     "test_iter72_behavior.py",
+})
+
+# ===========================================================================
+# _registry(tmp_path) helper-family ratchet -- exactly 1 canonical definition.
+# ===========================================================================
+_REGISTRY_CANONICAL_MODULE = "test_iter13_behavior.py"
+_REGISTRY_CONSOLIDATED_MODULES = frozenset({
+    "test_iter17_behavior.py",
+    "test_iter21_behavior.py",
+    "test_iter26_behavior.py",
+    "test_iter29_behavior.py",
+    "test_iter33_behavior.py",
+    "test_iter45_behavior.py",
+    "test_iter54_behavior.py",
+    "test_iter61_behavior.py",
+    "test_iter66_behavior.py",
+    "test_iter76_behavior.py",
+    "test_iter96_behavior.py",
 })
