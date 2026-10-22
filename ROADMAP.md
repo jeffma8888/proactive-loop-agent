@@ -102,7 +102,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #265 The type oracle covers the two GRADED examples/ consumers: make typecheck + the CI step add check_run.py and check_autonomy.py (foundry iter 276)
 - #266 Bare `make` prints a help listing instead of running a network install: help is the default goal, bound to the .PHONY set by an oracle (foundry iter 277)
 - #267 Test floor rises 5,700 -> 5,800; the floor-carrier census reads the underscore spelling too (foundry iter 281)
-- #268 The two position-keyed roadmap fixtures retire: `HISTORY_LINES` selects history lines by content anchor and the `max(ids)` newest-row pin is deleted, so an iteration's own ROADMAP edit can no longer red a HEAD-blind gate (foundry iter 283)
+- #268 Position-keyed roadmap fixtures retire: content-anchor selection, max-id pin deleted (foundry iter 283)
 - #269 `run --max-iterations` / `--max-llm-calls`: the L1 loop budget becomes settable per invocation, reusing the shipped `_positive_int` parse-time validator (foundry iter 284)
 - #270 `SPEC.md`'s settled §4.2 provider contract relocates to a new tracked `SPEC_ARCHIVE.md`, retiring row #179; test floor rises 5,800 -> 5,900 to seat the relocation's oracle (foundry iter 288)
 - #272 `diff --dir` / `trend --dir` refusals print a paste-ready `pla watch --out-dir` hint single-sourced from the stream-name constants; the ledger max-id pin retires (foundry iter 289)
@@ -155,3 +155,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #317 `make hooks`: install the shipped pre-commit hook via `git config core.hooksPath hooks` (foundry iter 327)
 - #318 `check_runs_summary.py`: 4th graded consumer, grades `runs --summary --json` (foundry iter 327)
 - #319 `_ITERDIR_CACHE` in `_pyc_says_ok`: cache __pycache__ listings, 194 ms saved per scan (foundry iter 327)
+- #320 `todos _scan_items` finditer rewrite: C-level finditer replaces 52k-line Python loop (foundry iter 327)

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-514
+    lenses: unknown
+    - Candidate A1 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
+    - Candidate A2 -- `todos` skip blake2b hashing for text_source cache-hit paths: 8.3 ms saved per cold scan
+    - Candidate A3 -- `todos` _scan_items: MULTILINE `re.finditer` over the whole text instead of per-line `re.search` loop
+    - Candidate B1 -- README's two newer graded consumers (`check_trace.py`, `check_runs_summary.py`) have no narrative paragraph
+    - Candidate B2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    - Candidate B3 -- SPEC §4.1 `syntax_error.py` bullet omits the `_ITERDIR_CACHE` shipped in iter-513
+    winner: A3
+    ship: pending (not yet decided)
   iter-513
     lenses: unknown
     - Candidate A1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
     - Candidate B3 -- `todos` whole-file prefilter: skip per-line regex on files with no tag keyword (~30 ms -> ~15 ms, -3% of scan)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 2468bdc
   iter-512
     lenses: simplification-and-deletion
     - Candidate A1 -- `runs --summary` gains its first graded consumer: `examples/check_runs_summary.py` wired into `make demo`
@@ -2399,4 +2409,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-237 scouted iterations
+238 scouted iterations

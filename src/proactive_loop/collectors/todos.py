@@ -22,6 +22,7 @@ would have produced for that same text.
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import re
 from dataclasses import dataclass
@@ -85,6 +86,14 @@ _CHECKBOX_PREFILTER_RE: Final[re.Pattern[str]] = re.compile(r"\[\s\]")
 # than one prefilter over the whole loop) is what lets each gate be as strong as
 # its own regex allows; see ``_CHECKBOX_PREFILTER_RE`` for the other one.
 TODO_PREFILTER_TOKENS: Final[tuple[str, ...]] = ("todo", "xme", "xxx")
+
+_INLINE_TAG_FINDITER_RE = re.compile(
+    r"\b(?:TODO|FIXME|XXX)\b", re.IGNORECASE,
+)
+_CHECKBOX_FINDITER_RE = re.compile(
+    r"^[^\S\n]*[-*+][^\S\n]+\[[^\S\n]\]", re.MULTILINE,
+)
+_LINE_TERM_RE = re.compile(r"\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
 
 _SCAN_EXTENSIONS: frozenset[str] = frozenset({".py", ".ts", ".js", ".md"})
 
@@ -279,20 +288,39 @@ def _scan_items(text: str) -> tuple[_TodoItem, ...]:
         # wasted work -- the common case for source files with no open items.
         return ()
 
+    lines = text.splitlines()
+    line_starts = [0]
+    for term in _LINE_TERM_RE.finditer(text):
+        line_starts.append(term.end())
+
+    inline_candidates: set[int] = set()
+    checkbox_candidates: set[int] = set()
+
+    if scan_inline:
+        for hit in _INLINE_TAG_FINDITER_RE.finditer(text):
+            inline_candidates.add(bisect.bisect_right(line_starts, hit.start()) - 1)
+
+    if scan_checkbox:
+        for hit in _CHECKBOX_FINDITER_RE.finditer(text):
+            checkbox_candidates.add(bisect.bisect_right(line_starts, hit.start()) - 1)
+
     items: list[_TodoItem] = []
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        # Check for TODO/FIXME/XXX pattern.
-        if scan_inline:
+    for idx in sorted(inline_candidates | checkbox_candidates):
+        if idx >= len(lines):
+            continue
+        line = lines[idx]
+        lineno = idx + 1
+
+        if idx in inline_candidates:
             m = _INLINE_TAG_RE.search(line)
             if m:
                 tag = m.group(1).upper()
                 description = m.group(2).strip()
                 summary = f"{tag}: {description}" if description else tag
                 items.append((lineno, summary, line.strip(), 1.0))
-                continue  # Don't double-count a line that is also a checkbox.
+                continue
 
-        # Check for Markdown unchecked checkbox.
-        if scan_checkbox:
+        if idx in checkbox_candidates:
             m2 = _CHECKBOX_RE.match(line)
             if m2:
                 task_text = m2.group(1).strip()

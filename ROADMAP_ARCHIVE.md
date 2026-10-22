@@ -471,3 +471,7 @@ verbatim, block-quoted so neither `tests/test_roadmap_ledger_conservation.py` no
 ## Row #287 trimmed to stub in ROADMAP.md (foundry iter 327)
 
 > - #287 The README's `DIRECTIONS.md` description stops promising per-iteration blocks and rejection reasons the log never carried (193 blocks over a 327-iteration span, no rejection field); a bullet-scoped phrase census plus a backticked-label binding keep it out (foundry iter 306)
+
+## Row #268 trimmed to stub in ROADMAP.md (foundry iter 327)
+
+> - #268 The two position-keyed roadmap fixtures retire: `HISTORY_LINES` selects history lines by content anchor and the `max(ids)` newest-row pin is deleted, so an iteration's own ROADMAP edit can no longer red a HEAD-blind gate (foundry iter 283)
