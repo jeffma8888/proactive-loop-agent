@@ -803,11 +803,11 @@ offline-first from the scripted test double to real runtime execution.
 `hooks/pre-commit` points the `signals` gate at your own commits: it runs `pla signals --workspace .`
 in gate mode over the working tree and lets git abort the commit when the gate exits **5**. It is a
 plain POSIX-sh git hook -- no hook framework, no network, no dependency beyond this project's own CLI
--- and cloning does **not** install it. Opt in per clone with one line (unset `core.hooksPath` again
-to uninstall):
+-- and cloning does **not** install it. Opt in per clone with `make hooks` (unset `core.hooksPath`
+again to uninstall):
 
 ```bash
-git config core.hooksPath hooks
+make hooks          # or: git config core.hooksPath hooks
 ```
 
 It arms **the same four kinds the CI self-scan arms** -- `merge_conflict`, `syntax_error`,

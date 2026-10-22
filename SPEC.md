@@ -39,7 +39,7 @@ resilient plan→act→check execution loop.
 proactive-loop-agent/
 ├── pyproject.toml            # uv-managed, src layout, console script `pla`
 ├── uv.lock
-├── Makefile                  # help setup test cov typecheck readme-headroom demo clean check check-matrix clone-check
+├── Makefile                  # help setup test cov typecheck readme-headroom demo clean check check-matrix clone-check hooks
 ├── README.md
 ├── LICENSE                   # MIT
 ├── SPEC.md                   # this file
@@ -1125,8 +1125,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
   API key. Plus plan/check pairs for a 3-iteration loop that writes `learning_plan.md` +
   `project_scaffold.md` artifacts, then done.
 - `Makefile`: `help`, `setup`, `test`, `cov`, `typecheck` (the PEP 561 oracle),
-  `readme-headroom`, `demo`, `clean`, `check`, `check-matrix` (both CI legs) and
-  `clone-check` (fresh clone); `make help` glosses each.
+  `readme-headroom`, `demo`, `clean`, `check`, `check-matrix` (both CI legs),
+  `clone-check` (fresh clone) and `hooks` (install pre-commit); `make help` glosses each.
 - Tests: `tests/test_cli_integration.py` — end-to-end `main([...])` offline demo run
   asserts exit 0, slate file written, artifacts exist, sensitive goal NOT auto-run;
   `tests/test_scheduler.py` — injectable-sleep periodicity.

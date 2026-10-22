@@ -80,6 +80,7 @@ EXPECTED_PHONY_TARGETS = frozenset(
         "check",
         "check-matrix",
         "clone-check",
+        "hooks",
     }
 )
 
@@ -241,7 +242,7 @@ def test_b4_the_phony_set_is_exactly_the_measured_targets() -> None:
         f"missing {sorted(EXPECTED_PHONY_TARGETS - parsed)}. A new target must be "
         "documented below the README marker in invocation form in the same commit."
     )
-    assert len(parsed) == 11
+    assert len(parsed) == 12
 
 
 def test_b4_every_phony_target_is_documented_in_invocation_form_below_the_marker() -> None:

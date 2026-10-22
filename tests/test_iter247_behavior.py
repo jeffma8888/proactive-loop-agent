@@ -102,6 +102,7 @@ EXPECTED_PHONY_TARGETS = frozenset(
         "check",
         "check-matrix",
         "clone-check",
+        "hooks",
     }
 )
 PREEXISTING_TARGETS = frozenset(EXPECTED_PHONY_TARGETS - {"help"})

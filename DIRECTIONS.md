@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-511
+    lenses: unknown
+    - Candidate A1 -- Consolidate the 9 byte-identical `_loop(tmp_path)` helpers onto ONE imported definition
+    - Candidate A2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    - Candidate A3 -- Suite environment hermeticity: a `tests/conftest.py` that strips `PLA_*` env vars (ROADMAP row #218)
+    - Candidate B1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition
+    - Candidate B2 -- `make hooks`: a one-command on-ramp that installs the shipped pre-commit gate
+    - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    winner: B2
+    ship: pending (not yet decided)
   iter-507
     lenses: unknown
     - Candidate A1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
     - Candidate B3 -- `todos` per-line regex: replace the `_INLINE_TAG_RE.search(line)` per-line loop with a `MULTILINE` `finditer` over the whole text
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 2cafad0
   iter-504
     lenses: unknown
     - Candidate A1 -- `PythonVersionDriftCollector` (ROADMAP row #122): the 18th collector, 2nd RELATIONAL
@@ -2369,4 +2379,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-234 scouted iterations
+235 scouted iterations

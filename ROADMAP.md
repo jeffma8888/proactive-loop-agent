@@ -152,3 +152,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #314 SPEC §4.5 `pla collectors` corrected: 3-key JSON, 3-column human form, `--kind KIND` documented, false `kind` denial removed (foundry iter 327)
 - #315 `_run(argv, capsys)` 13-copy helper consolidated: one canonical def in test_iter06, 12 importers, body-hash ratchet (foundry iter 327)
 - #316 `_registry(tmp_path)` 12-copy helper consolidated: one canonical def in test_iter13, 11 importers, body-hash ratchet (foundry iter 327)
+- #317 `make hooks`: install the shipped pre-commit hook via `git config core.hooksPath hooks` (foundry iter 327)

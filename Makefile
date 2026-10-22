@@ -1,5 +1,5 @@
 # Developer entry points. All targets run fully offline (scripted provider).
-.PHONY: help setup test cov typecheck readme-headroom demo clean check check-matrix clone-check
+.PHONY: help setup test cov typecheck readme-headroom demo clean check check-matrix clone-check hooks
 
 # Bare `make` prints this listing.
 #
@@ -36,6 +36,7 @@ help:
 	@echo "  make check            reproduce the CI graded gate locally, in CI's own order"
 	@echo "  make check-matrix     run the suite under both interpreters CI's matrix grades"
 	@echo "  make clone-check      run the whole suite inside a throwaway fresh clone of this repo"
+	@echo "  make hooks            install the shipped pre-commit hook into this clone"
 	@echo ""
 	@echo "README.md documents what each one grades. Nothing here touches a network."
 
@@ -453,3 +454,8 @@ clone-check:
 	echo "clone-check: running the full suite at $$(git -C "$$clone" rev-parse --short HEAD)"; \
 	cd "$$clone"; \
 	PYTHONPATH="$$clone:$$clone/src" "$$repo/.venv/bin/python" -m pytest -p no:cacheprovider -rs
+
+# Point git at the shipped pre-commit hook so `pla signals` gates every commit.
+# README documents the underlying command; this target surfaces it via `make`.
+hooks:
+	git config core.hooksPath hooks
