@@ -78,6 +78,7 @@ proactive-loop-agent/
 ├── examples/
 │   ├── check_autonomy.py
 │   ├── check_run.py
+│   ├── check_runs_summary.py
 │   ├── check_trace.py
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json

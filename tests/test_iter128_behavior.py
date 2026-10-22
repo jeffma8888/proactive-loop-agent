@@ -95,7 +95,8 @@ PREEXISTING_GATE_STEPS = (
     "uv sync --locked",
     "uv run pytest",
     "uv run mypy src/proactive_loop "
-    "examples/check_run.py examples/check_autonomy.py examples/check_trace.py",
+    "examples/check_run.py examples/check_autonomy.py examples/check_trace.py "
+    "examples/check_runs_summary.py",
     "make demo",
     "test -f .pla_runs/slate.json",
     "ls .pla_runs/run-*/artifacts/*.md",

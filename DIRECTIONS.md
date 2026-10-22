@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-512
+    lenses: simplification-and-deletion
+    - Candidate A1 -- `runs --summary` gains its first graded consumer: `examples/check_runs_summary.py` wired into `make demo`
+    - Candidate A2 -- `pla policy --check-goal` gains its first gate consumer: `make check` asserts the headline autonomy rule with no fixture, no LLM, no workspace
+    - Candidate A3 -- README documents `python -m proactive_loop`: the shipped on-ramp has no user-facing mention
+    - Candidate B1 -- Consolidate the 9 byte-identical `_loop(tools)` helpers onto ONE imported definition
+    - Candidate B2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    - Candidate B3 -- Retire ROADMAP rows #165 and #170 to the archive: both self-declared "not worth an iteration"
+    winner: A1
+    ship: pending (not yet decided)
   iter-511
     lenses: unknown
     - Candidate A1 -- Consolidate the 9 byte-identical `_loop(tmp_path)` helpers onto ONE imported definition
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `make hooks`: a one-command on-ramp that installs the shipped pre-commit gate
     - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED aad2471
   iter-507
     lenses: unknown
     - Candidate A1 -- Collapse the 12 byte-identical `_registry(tmp_path)` helpers onto ONE imported definition
@@ -2379,4 +2389,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-235 scouted iterations
+236 scouted iterations

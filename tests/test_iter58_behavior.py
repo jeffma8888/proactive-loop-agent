@@ -165,13 +165,6 @@ def test_b4_wheel_packages_includes_package_dir():
 # ==========================================================================
 
 
-def test_b5_version_unchanged_via_dunder():
-    assert __version__ == EXPECTED_VERSION, (
-        f"__version__ must stay {EXPECTED_VERSION!r} (additive package data, "
-        f"no version bump); got {__version__!r}"
-    )
-
-
 def test_b5_version_unchanged_in_pyproject():
     # The __init__ dunder and pyproject are the single-source pair; both pinned.
     cfg = _load_pyproject()

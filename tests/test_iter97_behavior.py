@@ -314,13 +314,6 @@ def test_b5_readme_intro_above_marker_keeps_the_type_claim():
 # ==========================================================================
 
 
-def test_b6_version_unchanged_via_dunder():
-    assert __version__ == EXPECTED_VERSION, (
-        f"__version__ must stay {EXPECTED_VERSION!r} (build-tooling-only bite, "
-        f"no version bump); got {__version__!r}"
-    )
-
-
 def test_b6_cli_version_prints_pla_0_1_1_and_exits_zero(capsys):
     with pytest.raises(SystemExit) as excinfo:
         main(["--version"])

@@ -29,7 +29,7 @@ help:
 	@echo "  make setup            install the exact locked dependency set into the project venv"
 	@echo "  make test             run the whole test suite"
 	@echo "  make cov              run the suite with a coverage report (term-missing)"
-	@echo "  make typecheck        type-check the package and the three graded examples/ consumers"
+	@echo "  make typecheck        type-check the package and the four graded examples/ consumers"
 	@echo "  make readme-headroom  print how many tests fit under the published README floor"
 	@echo "  make demo             scan the fixture workspace and auto-dispatch the top goal"
 	@echo "  make clean            delete generated run state, coverage artifacts and caches"
@@ -62,7 +62,7 @@ test:
 cov:
 	uv run pytest --cov=proactive_loop --cov-report=term-missing
 
-# Type-check the package AND the three graded examples/ consumers with the locked
+# Type-check the package AND the four graded examples/ consumers with the locked
 # mypy -- the local half of the permanent oracle for the README's "fully
 # type-hinted" claim (the CI type step is the other half). Runs the pinned mypy
 # from the project venv, offline.
@@ -77,7 +77,7 @@ cov:
 # is deliberately OUT: it exists to be imperfect (a directory-form `mypy examples`
 # reports 7 real errors, all inside it), so scope by file, never by directory.
 typecheck:
-	uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py examples/check_trace.py
+	uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py examples/check_trace.py examples/check_runs_summary.py
 
 # Print the README suite-size ratchet's HEADROOM: how many tests may still be added
 # before the published floor in the human-owned intro goes stale and reds a PUBLIC
@@ -182,6 +182,8 @@ demo:
 	uv run python examples/check_autonomy.py < .pla_runs/explain.json
 	uv run pla trace --run-dir .pla_runs/run-*/ --json > .pla_runs/trace.json
 	uv run python examples/check_trace.py < .pla_runs/trace.json
+	uv run pla runs --summary --json --state-dir .pla_runs > .pla_runs/summary.json
+	uv run python examples/check_runs_summary.py < .pla_runs/summary.json
 	uv run python examples/check_run.py < .pla_runs/run.json
 
 # Remove generated run state, coverage artifacts, and Python/pytest caches.
@@ -341,7 +343,7 @@ check:
 	rm -rf .pla_runs
 	uv sync --locked
 	uv run pytest
-	uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py examples/check_trace.py
+	uv run mypy src/proactive_loop examples/check_run.py examples/check_autonomy.py examples/check_trace.py examples/check_runs_summary.py
 	$(MAKE) demo
 	test -f .pla_runs/slate.json
 	ls .pla_runs/run-*/artifacts/*.md > /dev/null

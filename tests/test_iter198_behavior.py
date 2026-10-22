@@ -87,7 +87,7 @@ RUN_DOC: Final = ".pla_runs/run.json"
 MKDIR_STEP: Final = "mkdir -p .pla_runs"
 CONSUMER_STEP: Final = f"uv run python examples/check_run.py < {RUN_DOC}"
 RUN_STEP_PREFIX: Final = "uv run pla run"
-EXPECTED_DEMO_STEPS: Final = 7
+EXPECTED_DEMO_STEPS: Final = 9
 
 # `make check`'s opening step -- the reason `mkdir -p` has to exist at all.
 FRESHNESS_PRESTEP: Final = "rm -rf .pla_runs"

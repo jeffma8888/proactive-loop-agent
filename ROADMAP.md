@@ -153,3 +153,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #315 `_run(argv, capsys)` 13-copy helper consolidated: one canonical def in test_iter06, 12 importers, body-hash ratchet (foundry iter 327)
 - #316 `_registry(tmp_path)` 12-copy helper consolidated: one canonical def in test_iter13, 11 importers, body-hash ratchet (foundry iter 327)
 - #317 `make hooks`: install the shipped pre-commit hook via `git config core.hooksPath hooks` (foundry iter 327)
+- #318 `check_runs_summary.py`: 4th graded consumer, grades `runs --summary --json` (foundry iter 327)

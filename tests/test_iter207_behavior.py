@@ -70,7 +70,7 @@ SCRIPT: Final = REPO / "examples" / "scripted_responses.json"
 
 STATE_DIR_NAME: Final = ".pla_runs"
 AUDIT_NAME: Final = "explain.json"
-EXPECTED_DEMO_STEPS: Final = 7
+EXPECTED_DEMO_STEPS: Final = 9
 
 # Spec behavior 1 fixes this step verbatim.
 PUBLISH_STEP: Final = (
@@ -301,7 +301,7 @@ def test_b1_demo_recipe_publishes_the_audit_after_the_run_step() -> None:
     assert len(publishers) == 1, (
         f"exactly one step must be {PUBLISH_STEP!r}; got {publishers!r} in {recipe!r}"
     )
-    runners = [i for i, step in enumerate(recipe) if "pla run" in step]
+    runners = [i for i, step in enumerate(recipe) if "pla run " in step and "pla runs " not in step]
     assert len(runners) == 1, f"exactly one step must invoke `pla run`; got {runners!r}"
     assert publishers[0] > runners[0], (
         "the audit is derived from the slate the run writes, so the publish step "
