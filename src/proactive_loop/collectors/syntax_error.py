@@ -145,6 +145,11 @@ _DIGEST_SIZE: int = 16
 _PARSE_MEMO: dict[bytes, _Verdict] = {}
 _PARSE_MEMO_COUNTS: dict[str, int] = {"hits": 0, "misses": 0}
 
+# Per-__pycache__ directory listing cache: avoids re-listing the same directory
+# for every sibling .py file whose CPython pyc misses and falls through to the
+# pytest assertion-rewritten pyc probe. Cleared by ``clear_parse_memo``.
+_ITERDIR_CACHE: dict[Path, list[str]] = {}
+
 
 def clear_parse_memo() -> None:
     """Empty the parse memo and zero its counters.
@@ -159,6 +164,7 @@ def clear_parse_memo() -> None:
     _PARSE_MEMO_COUNTS["hits"] = 0
     _PARSE_MEMO_COUNTS["misses"] = 0
     _PYC_TRUST_COUNTS["trusted"] = 0
+    _ITERDIR_CACHE.clear()
 
 
 def parse_memo_stats() -> dict[str, int]:
@@ -235,8 +241,11 @@ def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
     stem = full.stem
     prefix = f"{stem}.{tag}-pytest-"
     try:
-        for candidate in cache_dir.iterdir():
-            name = candidate.name
+        names = _ITERDIR_CACHE.get(cache_dir)
+        if names is None:
+            names = [entry.name for entry in cache_dir.iterdir()]
+            _ITERDIR_CACHE[cache_dir] = names
+        for name in names:
             if (
                 name.startswith(prefix)
                 and name.endswith(".pyc")
@@ -246,7 +255,7 @@ def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
                 and ".." not in _ver
                 and all(c.isdigit() or c == "." for c in _ver)
             ):
-                if _pyc_header_matches(str(candidate), source_mtime, source_size):
+                if _pyc_header_matches(str(cache_dir / name), source_mtime, source_size):
                     return True
     except OSError:
         pass

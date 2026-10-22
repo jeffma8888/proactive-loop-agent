@@ -121,7 +121,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #284 Sixteen byte-identical copies of the six-spelling registry/version freeze guard retire from seven shipped modules, one canonical copy of each family kept, and a body-hash duplicate census ratchets the count down (foundry iter 303)
 - #285 The lone worktree-keyed `src/` ban retires; a corpus ratchet keeps it out (foundry iter 304)
 - #286 `addopts` gains `--dist worksteal`; the three exact-value pins and the exactness prose move with it, no dep and no `src/` byte (foundry iter 305)
-- #287 The README's `DIRECTIONS.md` description stops promising per-iteration blocks and rejection reasons the log never carried (193 blocks over a 327-iteration span, no rejection field); a bullet-scoped phrase census plus a backticked-label binding keep it out (foundry iter 306)
+- #287 README `DIRECTIONS.md` description corrected; phrase census + label binding (foundry iter 306)
 - #282 Test floor rises 5,900 -> 6,000 at all eight carriers; the collected-item window reopens (foundry iter 307)
 - #288 `resume` notes on spent L1 bounds + hint on missing provider config (foundry iter 308)
 - #289 Nine-key dispatched-run roster `DISPATCHED_RUN_KEYS` defined once in `test_iter158_behavior.py` (foundry iter 309)
@@ -154,3 +154,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #316 `_registry(tmp_path)` 12-copy helper consolidated: one canonical def in test_iter13, 11 importers, body-hash ratchet (foundry iter 327)
 - #317 `make hooks`: install the shipped pre-commit hook via `git config core.hooksPath hooks` (foundry iter 327)
 - #318 `check_runs_summary.py`: 4th graded consumer, grades `runs --summary --json` (foundry iter 327)
+- #319 `_ITERDIR_CACHE` in `_pyc_says_ok`: cache __pycache__ listings, 194 ms saved per scan (foundry iter 327)

@@ -467,3 +467,7 @@ verbatim, block-quoted so neither `tests/test_roadmap_ledger_conservation.py` no
 > - #277 One `_OPENAI_SHAPED` table of 3 string rows plus one shared factory replaces the hand-copied `_create_openai` / `_create_groq` / `_create_together` bodies, taking `def _create_` from 7 to 5 while all 7 `create_client` branches keep their lazy in-branch SDK imports (foundry iter 295)
 > - #278 One `_peek_file(path, args, *, tool, render)` owns the resolve-read-split half `loop/tools.py` hand-copied in `_head_file` / `_tail_file`; the seam sits AFTER `_reject_unsafe`, so each handler keeps its own refusal wording and order; row #273's READ resolver stays open (foundry iter 296)
 > - #290 `SPEC.md` §4.6's `Makefile` bullet named 4 of 11 recipes, hiding `typecheck` (the PEP 561 oracle) and all three local gates; it now names every declared target, bound two-sided to the `Makefile`'s own `target:` lines with no exempt set and cross-checked against §2's fence. Net -14 bytes: the inlined `demo` command drops to its recipe name (`SPEC.md` had 7 bytes left) (foundry iter 310)
+
+## Row #287 trimmed to stub in ROADMAP.md (foundry iter 327)
+
+> - #287 The README's `DIRECTIONS.md` description stops promising per-iteration blocks and rejection reasons the log never carried (193 blocks over a 327-iteration span, no rejection field); a bullet-scoped phrase census plus a backticked-label binding keep it out (foundry iter 306)

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-513
+    lenses: unknown
+    - Candidate A1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition
+    - Candidate A2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    - Candidate A3 -- Retire ROADMAP rows #165 and #170 to the archive: both self-declared "not worth an iteration"
+    - Candidate B1 -- Cache `__pycache__` directory listings in `_pyc_says_ok`: 196 ms -> ~10 ms (-38% of scan)
+    - Candidate B2 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
+    - Candidate B3 -- `todos` whole-file prefilter: skip per-line regex on files with no tag keyword (~30 ms -> ~15 ms, -3% of scan)
+    winner: B1
+    ship: pending (not yet decided)
   iter-512
     lenses: simplification-and-deletion
     - Candidate A1 -- `runs --summary` gains its first graded consumer: `examples/check_runs_summary.py` wired into `make demo`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
     - Candidate B3 -- Retire ROADMAP rows #165 and #170 to the archive: both self-declared "not worth an iteration"
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 69b467d
   iter-511
     lenses: unknown
     - Candidate A1 -- Consolidate the 9 byte-identical `_loop(tmp_path)` helpers onto ONE imported definition
@@ -2389,4 +2399,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-236 scouted iterations
+237 scouted iterations
