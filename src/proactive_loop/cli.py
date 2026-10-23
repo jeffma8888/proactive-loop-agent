@@ -1226,6 +1226,17 @@ def build_parser() -> argparse.ArgumentParser:
             "Cannot be combined with --prune (exit 2)."
         ),
     )
+    p_runs.add_argument(
+        "--goal",
+        default=None,
+        dest="goal",
+        metavar="TITLE",
+        help=(
+            "Narrow the listing to runs whose persisted goal title contains "
+            "TITLE (case-insensitive substring match). Composes with --status, "
+            "--json, --summary, --prune."
+        ),
+    )
     p_runs.set_defaults(func=_cmd_runs)
 
     # `explain` mirrors `dispatch`'s slate input but runs nothing: it inherits the
@@ -3360,7 +3371,11 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
     }
 
 
-def _select_prunable(state_dir: Path, status: str | None) -> tuple[list[Path], list[str]]:
+def _select_prunable(
+    state_dir: Path,
+    status: str | None,
+    goal: str | None = None,
+) -> tuple[list[Path], list[str]]:
     """Split *state_dir*'s run dirs into (deletable paths, refused names).
 
     The ONLY producer of paths that ``--prune --yes`` is allowed to delete, and
@@ -3375,12 +3390,14 @@ def _select_prunable(state_dir: Path, status: str | None) -> tuple[list[Path], l
       show. A degraded ``(no checkpoint)`` row matches no ``RunStatus`` value and
       is therefore excluded by any filter and included when none is given --
       inherited from the listing, not re-implemented.
+    * ``goal`` reuses ``_run_row``'s persisted goal title (case-insensitive
+      substring), so prune can never select a run ``runs --goal`` would not show.
     * Symlinks are REFUSED, not followed: ``_iter_run_dirs`` filters on
       ``is_dir()``, which follows links, so a symlinked ``run-evil`` IS listed
       today. ``shutil.rmtree`` on a symlink raises ``OSError``, and swallowing
       that would be strictly worse than declining it by name.
 
-    WHY the symlink partition runs AFTER the status filter: "refused" means "we
+    WHY the symlink partition runs AFTER the filters: "refused" means "we
     would have deleted this and chose not to", so a link the selector never
     selected is not reported as a refusal.
 
@@ -3390,6 +3407,11 @@ def _select_prunable(state_dir: Path, status: str | None) -> tuple[list[Path], l
     candidates = _iter_run_dirs(state_dir)
     if status is not None:
         candidates = [d for d in candidates if _run_row(d)["status"] == status]
+    if goal is not None:
+        goal_lower = goal.casefold()
+        candidates = [
+            d for d in candidates if goal_lower in _run_row(d)["goal"].casefold()
+        ]
     selected: list[Path] = []
     refused: list[str] = []
     for candidate in candidates:
@@ -5819,7 +5841,7 @@ def _prune_runs(state_dir: Path, args: argparse.Namespace) -> int:
     matches no run, and a refused symlink are all legitimate answers, and the
     verb introduces no new exit code.
     """
-    selected, refused = _select_prunable(state_dir, args.status)
+    selected, refused = _select_prunable(state_dir, args.status, args.goal)
     # A refusal is a stderr TRAILER-style warning (the `signals --timings`
     # convention): it must survive --json, because suppressing "I declined to
     # touch this" in machine mode is exactly when a human would want to see it,
@@ -5889,6 +5911,9 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     # "no runs" line (human) or "[]" (--json) verbatim.
     if args.status is not None:
         rows = [r for r in rows if r["status"] == args.status]
+    if args.goal is not None:
+        goal_lower = args.goal.casefold()
+        rows = [r for r in rows if goal_lower in r["goal"].casefold()]
     if args.summary:
         # Aggregate over the SAME filtered rows the listing would print, so the
         # summary and `runs --json` agree by construction. --json -> ONE object.

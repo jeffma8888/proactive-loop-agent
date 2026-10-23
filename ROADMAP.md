@@ -118,7 +118,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #281 One shared front-door guard owns the missing-`--workspace` rejection that scan/run/signals/watch hand-copied four times; message, exit 2 and guard order unchanged (foundry iter 300)
 - #271 `headroom_report` publishes the BINDING suite-size wall: `binding_at` + `binding_headroom` beside the slack figures, and three prose sites that claimed the gauge cannot disagree with the build corrected (foundry iter 301)
 - #283 `verify`'s goals-less `--slate` refusal published in README/SPEC §4.5, exit code derived live (foundry iter 302)
-- #284 Sixteen byte-identical copies of the six-spelling registry/version freeze guard retire from seven shipped modules, one canonical copy of each family kept, and a body-hash duplicate census ratchets the count down (foundry iter 303)
+- #284 Registry/version freeze guard: 16 copies retired to 6, body-hash census ratchets (foundry iter 303)
 - #285 The lone worktree-keyed `src/` ban retires; a corpus ratchet keeps it out (foundry iter 304)
 - #286 `addopts` gains `--dist worksteal`; the three exact-value pins and the exactness prose move with it, no dep and no `src/` byte (foundry iter 305)
 - #287 README `DIRECTIONS.md` description corrected; phrase census + label binding (foundry iter 306)
@@ -157,3 +157,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #319 `_ITERDIR_CACHE` in `_pyc_says_ok`: cache __pycache__ listings, 194 ms saved per scan (foundry iter 327)
 - #320 `todos _scan_items` finditer rewrite: C-level finditer replaces 52k-line Python loop (foundry iter 327)
 - #321 README narrative paragraphs for check_trace.py and check_runs_summary.py (foundry iter 327)
+- #322 `runs --goal TITLE`: case-insensitive substring filter on goal title (foundry iter 327)
