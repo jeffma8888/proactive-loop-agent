@@ -606,6 +606,31 @@ own `auto_dispatch_threshold`, or is too thin to exercise either rule. The sensi
 imported from `Settings`, never spelled, so widening it re-grades the demo with no edit here:
 `python examples/check_autonomy.py < .pla_runs/explain.json`, fed by `make demo`.
 
+`examples/check_trace.py` is the third committed consumer, and it grades a
+`pla trace --run-dir DIR --json` document: the step-by-step transcript of one
+dispatched run. It exits **0** when the trace is a non-empty array of well-formed
+step objects whose `kind` values are valid `StepKind` members, **1** when the
+document parsed but a grading rule failed (an empty trace, a missing required key,
+an invalid kind, a non-integer index, a non-boolean `done`, or a non-list
+`artifacts`), and **2** when stdin was not one valid JSON document or not a JSON
+array. The valid-kinds set is imported from `proactive_loop.models.StepKind`,
+never typed as a literal, so adding a step kind re-grades every trace with no edit
+here: `pla trace --run-dir DIR --json | python examples/check_trace.py`. Standard
+library only: no network, no new dependency.
+
+`examples/check_runs_summary.py` is the fourth committed consumer, and it grades
+a `pla runs --summary --json` document: the aggregate view of all dispatched runs
+under a state directory. It exits **0** when the summary describes at least one
+run with valid `RunStatus` keys in `by_status` and non-negative integer aggregate
+counters (`iterations`, `artifacts`, `retries`, `parse_errors`), **1** when the
+document parsed but a grading rule failed (a missing key, a zero-run summary, an
+invalid status, or a negative counter), and **2** when stdin was not one valid
+JSON document or not a JSON object. The valid-status set is imported from
+`proactive_loop.models.RunStatus`, never typed as a literal, so renaming a status
+member re-grades every summary with no edit here:
+`pla runs --summary --json --state-dir DIR | python examples/check_runs_summary.py`.
+Standard library only: no network, no new dependency.
+
 ### What the state directory contains
 
 Every dispatched goal leaves an audit trail on disk, and `--state-dir` (default

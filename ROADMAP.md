@@ -156,3 +156,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #318 `check_runs_summary.py`: 4th graded consumer, grades `runs --summary --json` (foundry iter 327)
 - #319 `_ITERDIR_CACHE` in `_pyc_says_ok`: cache __pycache__ listings, 194 ms saved per scan (foundry iter 327)
 - #320 `todos _scan_items` finditer rewrite: C-level finditer replaces 52k-line Python loop (foundry iter 327)
+- #321 README narrative paragraphs for check_trace.py and check_runs_summary.py (foundry iter 327)
