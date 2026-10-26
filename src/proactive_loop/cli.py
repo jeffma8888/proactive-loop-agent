@@ -859,6 +859,32 @@ def build_parser() -> argparse.ArgumentParser:
             "--baseline` document. Default (absent) writes nothing."
         ),
     )
+    # The READ half of --snapshot: that document is the only record of what a slate was
+    # synthesized FROM, and before this flag it could be diffed but never re-fed. scan-only
+    # (run/signals/watch share a different _collect seam and are untouched) and absent by
+    # default, so a bare scan is byte-identical. A bare string, not `type=Path`, like every
+    # other file-taking flag here: the handler builds the Path, so the guard order in
+    # _cmd_scan (workspace -> flag conflict -> output targets -> input document) stays the
+    # single place that decides which fault is reported first.
+    p_scan.add_argument(
+        "--from-snapshot",
+        default=None,
+        metavar="FILE",
+        dest="from_snapshot",
+        help=(
+            "Replay the recorded perception in FILE instead of walking --workspace: "
+            "FILE is a document `pla scan --snapshot FILE` wrote ({workspace_root, "
+            "signals[]}), and the slate is synthesized from exactly the signals it "
+            "records, so a scan can be re-examined against the evidence a previous "
+            "scan saved instead of a workspace that has moved since (synthesis is "
+            "still a live LLM call -- only perception is replayed). No collector runs, "
+            "so pairing it with --collector is a usage error (exit 2); --exclude-path "
+            "still narrows the replayed signals and --snapshot still records exactly "
+            "the survivors. A missing or malformed document is a usage error (exit 2) "
+            "reported before any client, slate or snapshot exists. Default (absent) "
+            "collects from the workspace."
+        ),
+    )
     p_scan.set_defaults(func=_cmd_scan)
 
     p_dispatch = sub.add_parser(
@@ -3734,48 +3760,42 @@ def _signal_identity(signal: ContextSignal | dict[str, object]) -> tuple[object,
     return tuple(getattr(signal, key) for key in _SIGNAL_IDENTITY_KEYS)
 
 
-def _load_signal_baseline(
-    path: Path, *, label: str = "baseline"
-) -> set[tuple[object, ...]]:
-    """Load a saved ``signals --json`` document into a SET of signal identities.
+def _load_signal_document(
+    path: Path, *, label: str
+) -> tuple[object, list[dict[str, object]]]:
+    """Validate one saved ``signals --json`` document; return ``(workspace_root, entries)``.
 
-    *label* names the ARGUMENT the document arrived on, and it is interpolated into
-    every message below. WHY: ``scan --snapshot FILE`` writes this exact schema and
-    ``verify --snapshot`` loads it through this one ladder, so a malformed document
-    must report the flag the operator actually typed -- a "baseline file ..." error
-    for a ``--snapshot`` path would send them to the wrong argument. The default
-    keeps every ``--baseline`` message byte-identical to before the parameter
-    existed, which is what lets the two flags share one validator instead of
-    drifting apart as two.
+    The ONE structural ladder every consumer of that file format shares. It was extracted
+    from :func:`_load_signal_baseline` when ``scan --from-snapshot`` became a SECOND
+    consumer: the identity-set loader wants tuples and the replay loader wants
+    :class:`ContextSignal` models, but the seven ways the FILE itself can be wrong --
+    absent, not UTF-8, not JSON, not an object, no ``signals`` array, an entry that is not
+    an object, an entry missing an identity key -- are properties of the DOCUMENT and must
+    report identically whichever verb read it. One function makes that structural rather
+    than a review promise, the same argument :func:`_signal_identity` gives for existing.
 
-    The CONSUME half of ``--baseline``: the user produces the file themselves with
-    ``pla signals --json > base.json`` -- the same bring-your-own-file shape
-    ``dispatch --slate`` has -- so ``signals`` stays strictly read-only and this
-    function only ever reads.
+    *label* names the ARGUMENT the document arrived on and is interpolated into every
+    message, so a malformed file blames the flag the operator actually typed
+    (``baseline`` / ``snapshot`` / ``from-snapshot``). There is deliberately NO default:
+    each caller states its own flag name, so a new consumer cannot inherit the wrong blame
+    by forgetting to pass one.
 
-    A SET, not a list, for two reasons: suppression is SET semantics (one baseline
-    entry hides EVERY live signal sharing its identity, so a workspace with two
-    identical TODO lines needs one entry, not two), and membership stays O(1) over a
-    workspace surfacing thousands of signals.
+    FAIL-CLOSED: every case raises ``ValueError`` carrying a ready-to-print message body,
+    which the caller turns into ONE ``error: `` line on stderr plus exit 2 before any
+    collector runs, any client is built or any file is written. See
+    :func:`_load_signal_baseline` for WHY degrading to "load nothing" is the quietly wrong
+    direction.
 
-    FAIL-CLOSED on malformed input, mirroring the ``--fail-on-kind``-unreachable
-    guard in ``_cmd_signals``: every case below raises ``ValueError`` carrying a
-    ready-to-print message body, which the caller turns into ONE ``error: `` line on
-    stderr plus exit 2 BEFORE any collector runs. The alternative -- treating an
-    unreadable baseline as "suppress nothing" -- is quietly wrong in the direction
-    that matters, because a hook author who typos the path would inherit a green
-    build computed against a baseline that never loaded. The missing-``signals`` case
-    is the realistic one: it is exactly what a ``--summary --json`` document saved by
-    mistake looks like.
+    ``workspace_root`` is returned RAW (``None`` when the key is absent) and is NOT
+    validated here: the shipped ``--baseline`` contract requires only the ``signals``
+    array, so demanding a root would change the meaning of an already-published format.
+    Narrowing it is the replay loader's job.
 
-    Extra keys on an entry are IGNORED rather than rejected, so a document written by
-    a future version that adds a field still loads -- only the six identity keys
-    participate. Value TYPES are not checked (a string ``"0.5"`` weight loads and
-    simply never matches): the schema contract enforced here is the six key NAMES.
-    The one exception is structural rather than a type rule -- a JSON array or object
-    as an identity value is UNHASHABLE, so the identity ``set`` cannot hold it, and it
-    is rejected with the other malformed-input cases rather than escaping as a
-    ``TypeError``.
+    Each returned entry is a ``dict`` carrying all six ``_SIGNAL_IDENTITY_KEYS``; extra
+    keys are IGNORED rather than rejected, so a document written by a future version that
+    adds a field still loads. Value TYPES are not checked here -- what is enforced is the
+    six key NAMES -- because the two consumers reject bad values differently (an
+    unhashable identity vs. a schema-invalid signal).
     """
     if not path.is_file():
         raise ValueError(f"{label} file not found or not a regular file: {path}")
@@ -3801,7 +3821,7 @@ def _load_signal_baseline(
             "by `pla signals --json` (a --summary --json document carries counts, "
             "not signals)"
         )
-    baseline: set[tuple[object, ...]] = set()
+    validated: list[dict[str, object]] = []
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             raise ValueError(
@@ -3814,6 +3834,111 @@ def _load_signal_baseline(
                 + ", ".join(missing)
                 + f": {path}"
             )
+        validated.append(entry)
+    return document.get("workspace_root"), validated
+
+
+def _load_replay_snapshot(
+    path: Path, *, fallback_root: str, label: str = "from-snapshot"
+) -> WorkspaceSnapshot:
+    """Rebuild the perception a ``scan --snapshot FILE`` recorded, for ``--from-snapshot``.
+
+    The READ half of the document :func:`_write_snapshot_document` writes. Several
+    collectors are mtime-driven, so a second ``scan`` answers a different question at a
+    different time; replaying the recorded document re-examines the SAME evidence. Only
+    PERCEPTION is replayed -- synthesis is still a live LLM call -- so this makes no claim
+    about the slate.
+
+    It shares :func:`_load_signal_document`'s ladder with ``--baseline`` and
+    ``verify --snapshot`` and adds exactly the two rungs an identity SET does not need:
+
+    * ``workspace_root`` is narrowed. The document's value wins verbatim when it is a
+      string, so a replay reports the root it RECORDED rather than the ``--workspace`` it
+      is re-run from. *fallback_root* covers the absent / non-string case instead of
+      raising, because the published ``--baseline`` contract requires only the
+      ``signals`` array and this loader must not reject a document that format accepts.
+    * A value the :class:`ContextSignal` schema rejects (``weight`` ``"not-a-number"``)
+      becomes a ``ValueError`` naming the ENTRY, so it exits 2 with its sibling
+      malformed-document cases instead of escaping ``main()``'s
+      ``(LLMError, ValueError, OSError)`` boundary as a pydantic ``ValidationError`` at a
+      different exit code. Only the failing FIELD NAMES are reported, never ``exc``
+      itself: the vendor dump is multi-line and echoes the user's own bytes back onto
+      stderr. ``models.sanitize_validation_error`` is not reused because its wording
+      (``invalid <kind> file '<path>'``) cannot carry an entry index, while this
+      ladder's other rungs all read ``<label> file entry signals[<i>] ...``.
+
+    Each entry is projected onto the six ``_SIGNAL_IDENTITY_KEYS`` before validation, so a
+    forward-compatible extra key cannot enter the model and cannot widen what a later
+    ``--snapshot`` writes back out. ``collected_at`` is deliberately NOT restored: it is
+    excluded from the wire schema (the iter-08 schema-leak discipline), so it is not in
+    the document, and the fresh stamp is invisible in every published surface.
+    """
+    document_root, entries = _load_signal_document(path, label=label)
+    signals: list[ContextSignal] = []
+    for index, entry in enumerate(entries):
+        try:
+            signals.append(
+                ContextSignal.model_validate(
+                    {key: entry[key] for key in _SIGNAL_IDENTITY_KEYS}
+                )
+            )
+        except ValidationError as exc:
+            fields = ", ".join(
+                ".".join(str(part) for part in error["loc"]) for error in exc.errors()
+            )
+            raise ValueError(
+                f"{label} file entry signals[{index}] has a value the signal schema "
+                f"rejects: {path}: {fields or 'unknown field'}"
+            ) from None
+    root = document_root if isinstance(document_root, str) else fallback_root
+    return WorkspaceSnapshot(root=root, signals=signals)
+
+
+def _load_signal_baseline(
+    path: Path, *, label: str = "baseline"
+) -> set[tuple[object, ...]]:
+    """Load a saved ``signals --json`` document into a SET of signal identities.
+
+    Structural validation is delegated to :func:`_load_signal_document`, the ONE ladder
+    ``verify --snapshot`` and ``scan --from-snapshot`` read the same file format through;
+    this function adds only what a SET of identities needs on top of it.
+
+    *label* names the ARGUMENT the document arrived on and is forwarded to that ladder, so
+    a malformed document reports the flag the operator actually typed -- a "baseline file
+    ..." error for a ``--snapshot`` path would send them to the wrong argument. The
+    default keeps every ``--baseline`` message byte-identical to before the parameter
+    existed, which is what lets the flags share one validator instead of drifting apart.
+
+    The CONSUME half of ``--baseline``: the user produces the file themselves with
+    ``pla signals --json > base.json`` -- the same bring-your-own-file shape
+    ``dispatch --slate`` has -- so ``signals`` stays strictly read-only and this
+    function only ever reads.
+
+    A SET, not a list, for two reasons: suppression is SET semantics (one baseline
+    entry hides EVERY live signal sharing its identity, so a workspace with two
+    identical TODO lines needs one entry, not two), and membership stays O(1) over a
+    workspace surfacing thousands of signals.
+
+    FAIL-CLOSED on malformed input, mirroring the ``--fail-on-kind``-unreachable
+    guard in ``_cmd_signals``: every case -- the shared ladder's and the one below --
+    raises ``ValueError`` carrying a ready-to-print message body, which the caller
+    turns into ONE ``error: `` line on stderr plus exit 2 BEFORE any collector runs.
+    The alternative -- treating an unreadable baseline as "suppress nothing" -- is
+    quietly wrong in the direction that matters, because a hook author who typos the
+    path would inherit a green build computed against a baseline that never loaded.
+    The missing-``signals`` case is the realistic one: it is exactly what a
+    ``--summary --json`` document saved by mistake looks like.
+
+    Extra keys on an entry are IGNORED and value TYPES are unchecked (a string ``"0.5"``
+    weight loads and simply never matches) -- both properties of the shared ladder, whose
+    contract is the six key NAMES. The one rung that belongs HERE is structural rather
+    than a type rule: a JSON array or object as an identity value is UNHASHABLE, so the
+    identity ``set`` cannot hold it, and it is rejected with the other malformed-input
+    cases rather than escaping as a ``TypeError``.
+    """
+    _root, entries = _load_signal_document(path, label=label)
+    baseline: set[tuple[object, ...]] = set()
+    for index, entry in enumerate(entries):
         try:
             baseline.add(_signal_identity(entry))
         except TypeError:
@@ -5243,10 +5368,30 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     keep the human trailer. The ``table`` branch is the
     pre-existing code path verbatim, so a bare ``scan`` and ``scan --format table``
     are byte-for-byte identical (behaviors 1-2).
+
+    ``--from-snapshot FILE`` substitutes the COLLECT step with a replay of the document
+    ``--snapshot`` writes (see :func:`_load_replay_snapshot`). It is one substitution at
+    one assignment on purpose: ``--exclude-path``, the ``--snapshot`` record and
+    synthesis all consume ``snapshot`` BELOW that line, so every one of the five
+    ``--format`` branches inherits the replay by construction.
     """
     # Shared front-door guard (:func:`_checked_workspace`), ahead of ALL format handling, so
     # it holds for every --format value (behavior 12).
     if (workspace := _checked_workspace(args.workspace)) is None:
+        return 2
+    # --from-snapshot REPLACES collection, so a --collector allowlist could only be
+    # SILENTLY INERT during a replay -- the failure mode that teaches an operator a
+    # narrowing worked when it did nothing. Refused as a usage error, and decided HERE:
+    # after the --workspace guard (whose message keeps precedence) and before settings,
+    # the output guards, the client and any file, so the refusal writes neither a slate
+    # nor a snapshot. A handler check rather than add_mutually_exclusive_group(): an
+    # exclusive group in scan's usage line is reserved for the --json/--format pair.
+    if args.from_snapshot is not None and args.collector:
+        print(
+            "error: --from-snapshot cannot be combined with --collector: a replay runs "
+            "no collector, so the allowlist would be silently inert",
+            file=sys.stderr,
+        )
         return 2
     settings = _settings(args, workspace_root=workspace)
     # Symmetric OUTPUT-path guard (the mirror image of the --workspace INPUT
@@ -5274,15 +5419,37 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         if msg is not None:
             print(f"error: {msg}", file=sys.stderr)
             return 2
+    # --from-snapshot is an INPUT file, loaded on the same fail-closed terms the output
+    # targets above are guarded on: BEFORE the client exists, so a malformed document
+    # costs no LLM budget, and before anything is written, so it leaves neither a slate
+    # nor a --snapshot record. Input after output is the order `run --baseline` uses. It
+    # reports through the SAME ladder `--baseline` and `verify --snapshot` do, with
+    # label="from-snapshot" so the message blames the flag typed here.
+    replayed: WorkspaceSnapshot | None = None
+    if args.from_snapshot is not None:
+        try:
+            replayed = _load_replay_snapshot(
+                Path(args.from_snapshot), fallback_root=str(workspace)
+            )
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
     client = create_client(settings)
 
-    # --collector is a repeatable allowlist (argparse action="append" -> a list or
-    # None). Fold it into the OPTIONAL _collect filter: a non-empty list restricts
-    # synthesis to those collectors; absent (None or []) => None => all collectors,
-    # keeping a bare scan byte-identical. Only scan threads this; the shared
-    # _collect seam under run/signals/watch still calls _collect(workspace).
-    only = set(args.collector) if args.collector else None
-    snapshot = _collect(workspace, only=only)
+    if replayed is not None:
+        # REPLACES the collect rather than merging with it: a replay that also walked the
+        # tree would silently mix recorded evidence with whatever the workspace looks like
+        # now. --exclude-path, _write_snapshot_document and the synthesizer all consume
+        # `snapshot` BELOW here, so every --format branch inherits the replay.
+        snapshot = replayed
+    else:
+        # --collector is a repeatable allowlist (argparse action="append" -> a list or
+        # None). Fold it into the OPTIONAL _collect filter: a non-empty list restricts
+        # synthesis to those collectors; absent (None or []) => None => all collectors,
+        # keeping a bare scan byte-identical. Only scan threads this; the shared
+        # _collect seam under run/signals/watch still calls _collect(workspace).
+        only = set(args.collector) if args.collector else None
+        snapshot = _collect(workspace, only=only)
     # --exclude-path is the LOCATION-shaped companion to that allowlist, and it is
     # applied HERE -- after the collect that produced the snapshot and ABOVE every
     # consumer of it -- so the --snapshot audit document and the synthesis prompt

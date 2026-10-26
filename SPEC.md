@@ -671,7 +671,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
 
 - `cli.py` (argparse, `main(argv=None) -> int`, console script `pla`, global `--version`):
   - `pla scan --workspace W [--out slate.json] [--format {table,json,markdown,csv,html}]
-    [--top N] [--collector NAME ...] [--exclude-path GLOB ...]` —
+    [--top N] [--collector NAME ...] [--exclude-path GLOB ...] [--from-snapshot FILE]` —
     collect → synthesize → gate → render the ranked slate + gate decisions to
     stdout; write slate JSON. `--format` (default `table`, backward compatible)
     selects stdout rendering ONLY and never changes the persisted slate file:
@@ -723,6 +723,9 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     structural typing only, no write-permission pre-detection).
     `--exclude-path GLOB` (repeatable; `run` and `signals` take the identical flag) drops
     path-matching signals BEFORE synthesis, narrowing the persisted RECORD, not the view alone.
+    `--from-snapshot FILE` replays the signals a `--snapshot` document recorded instead of
+    collecting (synthesis stays a live LLM call; the document's `workspace_root` is kept and
+    `--exclude-path` still applies); with `--collector`, or on a malformed file, exit 2.
   - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count and parse-error

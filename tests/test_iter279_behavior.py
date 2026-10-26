@@ -156,7 +156,9 @@ def test_b7b_spec_keeps_the_fence_and_bullet_around_one_bounded_summary_with_a_p
 # ===========================================================================
 # Behavior 6 (SPEC.md side) -- the flag that cost iteration 464 its ship is documented on
 # the `diff` usage line AND in a gate clause against exit 5, and the relocation left the
-# document >= 1,100 B under test_iter255's ceiling (not merely at it).
+# document >= 1,100 B under test_iter255's ceiling (not merely at it). The margin is 800 B
+# since the `scan --from-snapshot` re-land (foundry iter 270) spent 296 B on its required
+# 4.5 entry: 95_500 - 800 == test_iter281's re-keyed 94_700 pin, so the two carriers agree.
 # ===========================================================================
 
 
@@ -178,8 +180,8 @@ def test_b7c_spec_names_the_flag_on_the_diff_usage_line_and_gate_clause_under_th
 
     size = len(spec.encode("utf-8"))
     bought = PARAGRAPH_BYTES - MAX_SUMMARY_BYTES  # >= 1,436 B the move must have freed
-    assert size <= SPEC_CEILING_AFTER_SLICE - 1_100, (
+    assert size <= SPEC_CEILING_AFTER_SLICE - 800, (
         f"SPEC.md is {size} B; relocating the {PARAGRAPH_BYTES}-B paragraph behind a "
         f"<= {MAX_SUMMARY_BYTES}-B summary frees >= {bought} B, so the document must sit "
-        f">= 1,100 B under the {SPEC_CEILING_AFTER_SLICE}-B ceiling, not 18 B like iter 464"
+        f">= 800 B under the {SPEC_CEILING_AFTER_SLICE}-B ceiling, not 18 B like iter 464"
     )

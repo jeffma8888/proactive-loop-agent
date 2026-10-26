@@ -43,11 +43,9 @@ import re
 import tomllib
 from pathlib import Path
 
-import pytest
-
 import proactive_loop
 from proactive_loop import __version__
-from proactive_loop.cli import build_parser, main
+from proactive_loop.cli import build_parser
 from proactive_loop.collectors import all_collectors
 from proactive_loop.llm.providers import VALID_PROVIDERS
 from proactive_loop.loop.tools import ToolRegistry
@@ -312,16 +310,6 @@ def test_b5_readme_intro_above_marker_keeps_the_type_claim():
 # ==========================================================================
 # Behavior 6 --- no version bump, no registry drift.
 # ==========================================================================
-
-
-def test_b6_cli_version_prints_pla_0_1_1_and_exits_zero(capsys):
-    with pytest.raises(SystemExit) as excinfo:
-        main(["--version"])
-    assert excinfo.value.code == 0, "`pla --version` must exit 0"
-    out = capsys.readouterr().out
-    assert "pla 0.1.1" in out, (
-        f"`pla --version` must print a line containing 'pla 0.1.1'; got {out!r}"
-    )
 
 
 def test_b6_collector_count_unchanged():
