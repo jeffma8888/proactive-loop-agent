@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-531
+    lenses: unknown
+    - Candidate A1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition in `test_iter13_behavior.py`
+    - Candidate A2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    - Candidate A3 -- Retire ROADMAP row #170 to the archive: self-declared "not worth an iteration" since iter-147
+    - Candidate B1 -- `_scan_items` line-starts: replace `_LINE_TERM_RE.finditer` with `splitlines(True)` (-28 ms, -7.2% of scan)
+    - Candidate B2 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
+    - Candidate B3 -- `_scan_items` lazy line-starts: build offset array only when finditer actually matches (dominated by B1)
+    winner: B1
+    ship: pending (not yet decided)
   iter-530
     lenses: unknown
     - Candidate A1 -- `dispatch --dry-run` gains a graded consumer in `make demo` + CI
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Retire ROADMAP row #170 to the archive: self-declared "not worth an iteration" since iter-147
     - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 8f1dbb5
   iter-516
     lenses: unknown
     - Candidate A1 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`): the 18th collector and 2nd RELATIONAL one
@@ -2439,4 +2449,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-241 scouted iterations
+242 scouted iterations

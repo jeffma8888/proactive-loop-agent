@@ -93,7 +93,7 @@ _INLINE_TAG_FINDITER_RE = re.compile(
 _CHECKBOX_FINDITER_RE = re.compile(
     r"^[^\S\n]*[-*+][^\S\n]+\[[^\S\n]\]", re.MULTILINE,
 )
-_LINE_TERM_RE = re.compile(r"\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85  ]")
+_SPLITLINES_TERMINATORS = "\r\n\x0b\x0c\x1c\x1d\x1e\x85  "
 
 _SCAN_EXTENSIONS: frozenset[str] = frozenset({".py", ".ts", ".js", ".md"})
 
@@ -288,10 +288,14 @@ def _scan_items(text: str) -> tuple[_TodoItem, ...]:
         # wasted work -- the common case for source files with no open items.
         return ()
 
-    lines = text.splitlines()
+    raw_lines = text.splitlines(True)
     line_starts = [0]
-    for term in _LINE_TERM_RE.finditer(text):
-        line_starts.append(term.end())
+    lines: list[str] = []
+    pos = 0
+    for raw in raw_lines:
+        lines.append(raw.rstrip(_SPLITLINES_TERMINATORS))
+        pos += len(raw)
+        line_starts.append(pos)
 
     inline_candidates: set[int] = set()
     checkbox_candidates: set[int] = set()
