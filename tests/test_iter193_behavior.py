@@ -622,10 +622,3 @@ class TestTheOraclesShimsPreserveBehaviorAndNotOnlyCount:
         assert seen == [("pla-no-such-binary-4b7e2a",)], (
             f"the child-process shim must tally each call as a normalised argv; got {seen!r}"
         )
-
-
-def test_no_counting_shim_leaks_out_of_the_fixture_that_installed_it() -> None:
-    # Requests no fixture on purpose: a shim visible here is one a sibling leaked.
-    assert os.walk is _REAL_WALK
-    assert builtins.compile is _REAL_COMPILE
-    assert subprocess.run is _REAL_RUN

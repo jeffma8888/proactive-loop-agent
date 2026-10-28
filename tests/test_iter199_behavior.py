@@ -534,7 +534,7 @@ def test_b5b_the_cross_check_reaches_both_gates_without_a_new_gate_step() -> Non
     assert demo[-1] == CONSUMER_STEP, (
         f"the consumer must still be the LAST step of the demo recipe: {demo!r}"
     )
-    assert len(demo) == 9, (
+    assert len(demo) == 11, (
         f"the demo recipe's length is pinned so a new gate step cannot be smuggled "
         f"in as a demo step unnoticed -- iteration 199 changed the consumer, not "
         f"the recipe, and factory iter 204 took it to five by publishing and "

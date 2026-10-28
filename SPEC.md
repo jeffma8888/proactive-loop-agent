@@ -47,7 +47,7 @@ proactive-loop-agent/
 ├── ROADMAP.md
 ├── ROADMAP_ARCHIVE.md
 ├── DIRECTIONS.md
-├── .github/workflows/ci.yml  # 3.12 + 3.13: `uv sync --locked` -> pytest -> demo
+├── .github/workflows/ci.yml  # CI: 3.12 + 3.13 matrix
 ├── hooks/pre-commit
 ├── .gitignore
 ├── src/proactive_loop/
@@ -77,12 +77,13 @@ proactive-loop-agent/
 │   └── cli.py                # argparse CLI: 17 verbs -- roster in 4.5
 ├── examples/
 │   ├── check_autonomy.py
+│   ├── check_dispatch.py
 │   ├── check_run.py
 │   ├── check_runs_summary.py
 │   ├── check_trace.py
 │   ├── fixture_workspace/    # fake user workspace (no git repo inside)
 │   └── scripted_responses.json
-└── tests/                    # behavior oracles: one test_iterNN_behavior.py per increment + contract modules
+└── tests/                    # behavior oracles: one test_iterNN_behavior.py per increment
 ```
 
 ## 3. Foundation contracts

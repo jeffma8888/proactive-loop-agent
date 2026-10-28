@@ -151,7 +151,7 @@ uv sync --locked # install the exact locked dependency set (pydantic + pytest, p
 make demo      # scan the fixture workspace and auto-dispatch the top goal
 make test      # run the full offline test suite
 make cov       # run the suite with a coverage report (term-missing)
-make typecheck # mypy-check the package + the graded consumers examples/check_run.py, examples/check_autonomy.py, examples/check_trace.py, examples/check_runs_summary.py (the "fully type-hinted" oracle; also in CI)
+make typecheck # mypy-check the package + the graded consumers examples/check_run.py, examples/check_autonomy.py, examples/check_trace.py, examples/check_runs_summary.py, examples/check_dispatch.py (the "fully type-hinted" oracle; also in CI)
 ```
 
 `make demo` runs the following, with stdout redirected into `.pla_runs/run.json`:

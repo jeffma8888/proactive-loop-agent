@@ -85,11 +85,11 @@ README = REPO / "README.md"
 WIDE = (
     "uv run mypy src/proactive_loop "
     "examples/check_run.py examples/check_autonomy.py examples/check_trace.py "
-    "examples/check_runs_summary.py"
+    "examples/check_runs_summary.py examples/check_dispatch.py"
 )
 
-#: The four GRADED example consumers the widening pulls into the oracle.
-GRADED_EXAMPLES = ("examples/check_run.py", "examples/check_autonomy.py", "examples/check_trace.py", "examples/check_runs_summary.py")
+#: The five GRADED example consumers the widening pulls into the oracle.
+GRADED_EXAMPLES = ("examples/check_run.py", "examples/check_autonomy.py", "examples/check_trace.py", "examples/check_runs_summary.py", "examples/check_dispatch.py")
 
 #: The example subtree that must stay OUT of the oracle: it exists to be
 #: imperfect (a directory-form ``mypy examples`` reports real errors, all inside

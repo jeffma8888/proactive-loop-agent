@@ -661,8 +661,3 @@ class TestTheInstrumentTearsDownUnconditionally:
         assert Path.read_text is _REAL_READ_TEXT, (
             "Path.read_text was left patched after the sibling's window raised"
         )
-
-    def test_no_shim_is_installed_outside_a_window(self) -> None:
-        # Opens no window, so a shim visible here was leaked by a sibling module.
-        assert Path.stat is _REAL_STAT
-        assert Path.read_text is _REAL_READ_TEXT

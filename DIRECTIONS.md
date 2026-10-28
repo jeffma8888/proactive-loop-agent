@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-530
+    lenses: unknown
+    - Candidate A1 -- `dispatch --dry-run` gains a graded consumer in `make demo` + CI
+    - Candidate A2 -- README documents `python -m proactive_loop` as an installation-free on-ramp
+    - Candidate A3 -- `policy --check-goal` gains its first gate consumer in `make check` + CI
+    - Candidate B1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition in `test_iter13_behavior.py`
+    - Candidate B2 -- Retire ROADMAP row #170 to the archive: self-declared "not worth an iteration" since iter-147
+    - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    winner: A1
+    ship: pending (not yet decided)
   iter-516
     lenses: unknown
     - Candidate A1 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`): the 18th collector and 2nd RELATIONAL one
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
     - Candidate B3 -- SPEC §4.1 `syntax_error.py` bullet omits the `_ITERDIR_CACHE` pyc optimization shipped in iter 513
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 0976447
   iter-515
     lenses: unknown
     - Candidate A1 -- SPEC §4.1 `syntax_error.py` bullet omits the `_ITERDIR_CACHE` shipped in iter 513
@@ -2429,4 +2439,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-240 scouted iterations
+241 scouted iterations
