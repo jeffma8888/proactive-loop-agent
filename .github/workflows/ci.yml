@@ -159,12 +159,17 @@ jobs:
       # via `pla run`; this step re-scans the SAME fixture into a second state dir and
       # `diff --fail-on-change` exits 5 on any added, removed or changed goal. Until this
       # step existed the flag had 2 README + 3 SPEC mentions and zero executable consumers.
-      # Byte-identical to the same two lines of `make check`, placed BEFORE the self-scan
-      # so that scan stays the final graded step.
+      # The second pair REPLAYS the demo's own `.pla_runs/snapshot.json` through
+      # `scan --from-snapshot` into `.pla_runs/replay`: it is mtime-immune, reproducing the
+      # slate from the recorded snapshot rather than the live tree, so it holds even when
+      # the re-walk above cannot. Byte-identical to the same four lines of `make check`,
+      # placed BEFORE the self-scan so that scan stays the final graded step.
       - name: Re-scan the fixture and assert the demo slate is unchanged
         run: |
           uv run pla scan --workspace examples/fixture_workspace --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan > /dev/null
           uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json --fail-on-change
+          uv run pla scan --workspace examples/fixture_workspace --from-snapshot .pla_runs/snapshot.json --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/replay > /dev/null
+          uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json --fail-on-change
 
       # The product dogfoods its own enforcement mode: `--fail-on-kind KIND`
       # exits 5 when a named signal kind is present, and the README sells that

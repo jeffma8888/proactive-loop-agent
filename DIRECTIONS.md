@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-535
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- Restore ROADMAP.md byte headroom: move the test-unreferenced Done-ledger lines to ROADMAP_ARCHIVE.md
+    - Candidate A2 -- Suite env-hermeticity: one autouse `tests/conftest.py` that strips every ambient `PLA_*` (ROADMAP #218)
+    - Candidate A3 -- `pla config` warns on stderr about unrecognised `PLA_*` names, with a did-you-mean
+    - Candidate B1 -- `make demo` + CI wire the proactive watch stream: `pla watch --max-scans 2 --interval 0 --out-dir` -> `pla trend --dir --json` graded by a new `examples/check_trend.py`
+    - Candidate B2 -- Replay-determinism gate: `make check` + CI replay the demo's own snapshot (`pla scan --from-snapshot .pla_runs/snapshot.json`) and `pla diff --fail-on-change` it against the demo slate
+    - Candidate B3 -- On-ramp: `scan --from-snapshot FILE` stops requiring an existing `--workspace` it does not walk
+    winner: B2
+    ship: pending (not yet decided)
   iter-534
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `dispatch`/`run --allow-tool NAME`: narrow the ACT sandbox for one dispatch (ROADMAP #212)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Out-of-range `PLA_*` env values leak pydantic's multi-line dump and name the field, not the env var
     - Candidate B3 -- `pla config` warns on unrecognised `PLA_*` names (typo guard with did-you-mean)
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 304686d
   iter-533
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- CI + Makefile type-check comments still say "the two example scripts" while the command names five
@@ -2479,4 +2489,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-245 scouted iterations
+246 scouted iterations

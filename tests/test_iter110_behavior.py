@@ -62,7 +62,7 @@ PYPROJECT = REPO / "pyproject.toml"
 FRESHNESS_PRE_STEP = "rm -rf .pla_runs"
 DEMO_STATE_DIR = ".pla_runs"
 
-# The ordered twelve commands of the CI graded gate (the first six unchanged from
+# The ordered fourteen commands of the CI graded gate (the first six unchanged from
 # iter-102; an armed `pla signals` self-scan added factory iter 128, and an armed
 # `pla verify --fail-on-unresolved` of the demo's own slate/snapshot pair added
 # factory iter 186 AHEAD of it, so the self-scan stays LAST).
@@ -113,6 +113,14 @@ CI_GATE_STEPS = (
     "--scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan",
     "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
     "--fail-on-change",
+    # The 13th and 14th entries (factory iter 327, ROADMAP #326) REPLAY the demo's own
+    # snapshot through `scan --from-snapshot` and diff that against the demo slate: the
+    # mtime-immune twin of the re-walk above. Same `run: |` block, same fragment rules.
+    "uv run pla scan --workspace examples/fixture_workspace --from-snapshot "
+    ".pla_runs/snapshot.json --provider scripted --scripted-responses "
+    "examples/scripted_responses.json --state-dir .pla_runs/replay",
+    "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json "
+    "--fail-on-change",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -135,9 +143,9 @@ ARTIFACT_ASSERTION_STEPS = CI_GATE_STEPS[4:6]
 PREEXISTING_TARGETS = ("setup", "test", "cov", "typecheck", "demo", "clean")
 
 # Graded `run:` steps ci.yml exposes today. Deliberately 10 while CI_GATE_STEPS
-# holds 12: two `run: |` blocks (the demo-artifact assertions; the fixture re-scan
-# + `diff --fail-on-change`) each carry two gate commands, so each is one graded
-# step and two gate commands.
+# holds 14: two `run: |` blocks carry several gate commands each (the demo-artifact
+# assertions: two; the fixture re-scan + snapshot replay, each with its own
+# `diff --fail-on-change`: four), yet each block is ONE graded step.
 EXPECTED_CI_RUN_STEPS = 10
 
 # Only these command words may appear in the `check` recipe: pure shell plus
@@ -659,6 +667,14 @@ def test_b8_never_executes_an_expensive_gate_step() -> None:
         "uv run pla scan --workspace examples/fixture_workspace --provider scripted "
         "--scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan",
         "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
+        "--fail-on-change",
+        # factory iter 327 (ROADMAP #326): the snapshot REPLAY + diff pair, appended to
+        # the same `run: |` block after the re-scan pair. Expensive for the same reason;
+        # byte-equal to the CI_GATE_STEPS entries above, same fragment split.
+        "uv run pla scan --workspace examples/fixture_workspace --from-snapshot "
+        ".pla_runs/snapshot.json --provider scripted --scripted-responses "
+        "examples/scripted_responses.json --state-dir .pla_runs/replay",
+        "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json "
         "--fail-on-change",
         "uv run pla signals --workspace . --fail-on-kind merge_conflict "
         "--fail-on-kind syntax_error --fail-on-kind secret_file "

@@ -35,6 +35,12 @@ from the re-scan -- exits 5 WITH the flag and 0 WITHOUT it, so exit 0 is not vac
 ISOLATION CONTRACT (honored). No file under ``src/`` was read; no engineer/reviewer notes;
 no ``git diff``. The recipe/ci.yml/tuple/constant expectations are pm.md's text.
 
+LATER EXTENSION (ROADMAP #326, foundry iter 327 tag): the same ``run: |`` block and the
+``check`` recipe gain a SNAPSHOT REPLAY pair -- ``scan --from-snapshot .pla_runs/snapshot.json``
+into ``.pla_runs/replay``, then ``diff --fail-on-change`` against the demo slate -- so the tuples
+hold 14 entries. ``_b10_`` executes it with fixture mtimes pinned by ``os.utime`` (never ambient),
+plus a negative control whose OLD side has one goal popped. Still ONE collected item.
+
 Offline and deterministic: the only children are the installed ``pla`` console script
 (``tests/test_iter158_behavior.py::_console_script``), every spawn carries ``timeout=``.
 """
@@ -43,9 +49,11 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Final
 
@@ -74,6 +82,20 @@ DIFF_LINE: Final = (
     "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
     "--fail-on-change"
 )
+#: ROADMAP #326: the snapshot replay pair, appended after DIFF_LINE on both surfaces.
+REPLAY_BARE: Final = (
+    "uv run pla scan --workspace examples/fixture_workspace --from-snapshot "
+    ".pla_runs/snapshot.json --provider scripted --scripted-responses "
+    "examples/scripted_responses.json --state-dir .pla_runs/replay"
+)
+REPLAY_LINE: Final = REPLAY_BARE + " > /dev/null"
+REPLAY_DIFF_LINE: Final = (
+    "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json "
+    "--fail-on-change"
+)
+#: Fixed fixture age for the executed proof: inside every collector's recency window,
+#: identical in a fresh clone and a stale worktree, so the proof never rides ambient mtimes.
+PINNED_AGE_SECONDS: Final = 3600
 COUNT_BUDGET_LINE: Final = (
     "uv run pla signals --workspace . --collector notes --collector ci_config "
     "--collector dependencies --collector test_posture --fail-over 9"
@@ -98,18 +120,20 @@ EXPECTED_CHECK_RECIPE: Final = (
     COUNT_BUDGET_LINE,
     RESCAN_LINE,
     DIFF_LINE,
+    REPLAY_LINE,
+    REPLAY_DIFF_LINE,
     SELF_SCAN_LINE,
 )
 #: Behavior 2/4: graded ``run:`` steps and gate-tuple size after this ship.
 EXPECTED_CI_RUN_STEPS: Final = 10
-EXPECTED_GATE_ENTRIES: Final = 12
+EXPECTED_GATE_ENTRIES: Final = 14
 RESCAN_INDEX: Final = 9  # after ``--fail-over 9`` (index 8), before the self-scan (last)
 #: Behavior 4: every step-count constant site, (module, name, value).
 CONSTANT_SITES: Final = (
     ("tests/test_iter102_behavior.py", "EXPECTED_CI_RUN_STEPS", 10),
     ("tests/test_iter110_behavior.py", "EXPECTED_CI_RUN_STEPS", 10),
     ("tests/test_iter128_behavior.py", "EXPECTED_CI_RUN_STEPS", 10),
-    ("tests/test_iter128_behavior.py", "EXPECTED_TOTAL_GATE_STEPS", 12),
+    ("tests/test_iter128_behavior.py", "EXPECTED_TOTAL_GATE_STEPS", 14),
     ("tests/test_iter186_behavior.py", "EXPECTED_RUN_STEPS", 10),
 )
 #: Behavior 6/8: README and ROADMAP records.
@@ -120,6 +144,10 @@ LEDGER_ROW: Final = (
     "determinism gate (foundry iter 327)"
 )
 PREVIOUS_ROW_PREFIX: Final = "- #305 "
+REPLAY_LEDGER_ROW: Final = (
+    "- #326 make check + CI replay the demo snapshot via scan --from-snapshot, "
+    "diff --fail-on-change vs demo slate (foundry iter 327)"
+)
 COLLECTED_ITEMS: Final = 1
 
 
@@ -139,12 +167,16 @@ def _b1_makefile_recipe() -> None:
     recipe = _check_recipe_lines()
     assert recipe == list(EXPECTED_CHECK_RECIPE), (
         "behavior 1: the `check` recipe must be the 11 pre-existing lines plus the "
-        f"re-scan and diff lines in the pinned slot, self-scan LAST; got {recipe}"
+        f"re-scan, diff, replay and replay-diff lines in the pinned slot, self-scan LAST; "
+        f"got {recipe}"
     )
     assert recipe.index(RESCAN_LINE) == recipe.index(COUNT_BUDGET_LINE) + 1
     assert recipe.index(DIFF_LINE) == recipe.index(RESCAN_LINE) + 1
-    assert recipe.index(SELF_SCAN_LINE) == recipe.index(DIFF_LINE) + 1 == len(recipe) - 1
+    assert recipe.index(REPLAY_LINE) == recipe.index(DIFF_LINE) + 1
+    assert recipe.index(REPLAY_DIFF_LINE) == recipe.index(REPLAY_LINE) + 1
+    assert recipe.index(SELF_SCAN_LINE) == recipe.index(REPLAY_DIFF_LINE) + 1 == len(recipe) - 1
     assert recipe.count(RESCAN_LINE) == recipe.count(DIFF_LINE) == 1
+    assert recipe.count(REPLAY_LINE) == recipe.count(REPLAY_DIFF_LINE) == 1
 
 
 def _b2_ci_yml_step() -> None:
@@ -158,12 +190,15 @@ def _b2_ci_yml_step() -> None:
     new_block = blocks[1]
     assert lines[new_block + 1].strip() == RESCAN_LINE, lines[new_block + 1]
     assert lines[new_block + 2].strip() == DIFF_LINE, lines[new_block + 2]
-    assert lines[new_block + 3].strip() == "", "behavior 2: the block holds exactly two lines"
+    assert lines[new_block + 3].strip() == REPLAY_LINE, lines[new_block + 3]
+    assert lines[new_block + 4].strip() == REPLAY_DIFF_LINE, lines[new_block + 4]
+    assert lines[new_block + 5].strip() == "", "behavior 2: the block holds exactly four lines"
     name_line = lines[new_block - 1].strip()
     assert name_line.startswith("- name:") and len(name_line) > len("- name: "), name_line
     # a short explanatory comment directly precedes the step (mirrors the artifact step)
     above = [ln.strip() for ln in lines[max(0, new_block - 12) : new_block - 1]]
     assert any(ln.startswith("#") and "fail-on-change" in ln for ln in above), above
+    assert any(ln.startswith("#") and "mtime-immune" in ln for ln in above), above
     # slot: after the ``--fail-over 9`` step and before the self-scan step
     budget_at = next(i for i, ln in enumerate(lines) if ln.strip() == "run: " + COUNT_BUDGET_LINE)
     scan_at = next(i for i, ln in enumerate(lines) if ln.strip() == "run: " + SELF_SCAN_LINE)
@@ -177,6 +212,8 @@ def _b3_gate_tuples() -> None:
         assert steps[RESCAN_INDEX - 1] == COUNT_BUDGET_LINE, f"{name}[8] is not --fail-over 9"
         assert steps[RESCAN_INDEX] == RESCAN_BARE, f"{name}[9] must be the bare re-scan"
         assert steps[RESCAN_INDEX + 1] == DIFF_LINE, f"{name}[10] must be the diff gate"
+        assert steps[RESCAN_INDEX + 2] == REPLAY_BARE, f"{name}[11] must be the bare replay"
+        assert steps[RESCAN_INDEX + 3] == REPLAY_DIFF_LINE, f"{name}[12] must be the replay diff"
         assert steps[-1] == SELF_SCAN_LINE, f"{name}: self-scan must stay LAST"
         assert not any(step.endswith("/dev/null") for step in steps), name
     assert GATE_102 == GATE_110, "behavior 3: the two drift guards must agree entry-for-entry"
@@ -207,6 +244,7 @@ def _b6_readme_paragraph() -> None:
     assert between.count("```bash\n" + RESCAN_BARE + "\n" + DIFF_LINE + "\n```") == 1, between
     assert between.strip().endswith("```"), "behavior 6: the bash block ends the paragraph"
     assert text.count(README_ANCHOR) == 1 and text.count("**Both graded gates also") == 1
+    assert "--from-snapshot" in between and "replay" in between, "ROADMAP #326 README sentence"
 
 
 def _b7_makefile_comment_words() -> None:
@@ -234,6 +272,8 @@ def _b8_roadmap_row() -> None:
     assert at in ledger, "behavior 8: #306 row is among the ledger rows"
     assert sum(1 for line in lines if "#306" in line) == 1, "behavior 8: #306 appears once"
     assert len(LEDGER_ROW) <= 120
+    assert lines.count(REPLAY_LEDGER_ROW) == 1, "ROADMAP #326: exactly one verbatim row"
+    assert lines[lines.index(REPLAY_LEDGER_ROW) - 1].startswith("- #325 "), "#326 after #325"
 
 
 def _b9_self_shape() -> None:
@@ -262,6 +302,12 @@ def _b5_gate_executes_exit_0_no_differences_and_the_negative_control_exits_5(
 ) -> None:
     shutil.copytree(FIXTURE, tmp_path / "examples" / "fixture_workspace")
     shutil.copy(SCRIPTED, tmp_path / "examples" / "scripted_responses.json")
+    # Pin every fixture mtime to a known age: the copy otherwise inherits ambient
+    # mtimes, which differ between this worktree and a fresh clone (the iter-278 trap).
+    stamp = time.time() - PINNED_AGE_SECONDS
+    for root, _dirs, files in os.walk(tmp_path / "examples"):
+        for name in files:
+            os.utime(Path(root) / name, (stamp, stamp))
     (tmp_path / ".pla_runs").mkdir()
     common = ("--provider", "scripted", "--scripted-responses", "examples/scripted_responses.json")
     demo = _pla(
@@ -295,6 +341,37 @@ def _b5_gate_executes_exit_0_no_differences_and_the_negative_control_exits_5(
     assert unarmed.returncode == 0, (unarmed.returncode, unarmed.stdout)
 
 
+def _b10_snapshot_replay_reproduces_the_demo_slate_and_its_control_exits_5(tmp_path: Path) -> None:
+    """ROADMAP #326, run in the tmp tree ``_b5_`` left (mtimes pinned, demo slate + snapshot)."""
+    common = ("--provider", "scripted", "--scripted-responses", "examples/scripted_responses.json")
+    replay = _pla(
+        "scan", "--workspace", "examples/fixture_workspace", "--from-snapshot",
+        ".pla_runs/snapshot.json", *common, "--state-dir", ".pla_runs/replay", cwd=tmp_path,
+    )
+    assert replay.returncode == 0, replay.stderr
+    replay_slate = tmp_path / ".pla_runs" / "replay" / "slate.json"
+    assert replay_slate.is_file()
+    diff = _pla(
+        "diff", "--old", ".pla_runs/slate.json", "--new", ".pla_runs/replay/slate.json",
+        "--fail-on-change", cwd=tmp_path,
+    )
+    assert diff.returncode == 0, (diff.stdout, diff.stderr)
+    assert diff.stdout.strip() == "(no differences)", diff.stdout
+    runs = _pla("runs", "--state-dir", ".pla_runs", cwd=tmp_path)
+    assert runs.returncode == 0 and "replay" not in runs.stdout, runs.stdout
+    # negative control: the OLD side is the demo slate with one goal popped -> added=1, exit 5
+    demo = json.loads((tmp_path / ".pla_runs" / "slate.json").read_text("utf-8"))
+    assert len(demo["goals"]) >= 2, demo
+    popped = tmp_path / ".pla_runs" / "replay" / "popped-demo.json"
+    popped.write_text(json.dumps({**demo, "goals": demo["goals"][1:]}), encoding="utf-8")
+    armed = _pla(
+        "diff", "--old", str(popped), "--new", ".pla_runs/replay/slate.json",
+        "--fail-on-change", cwd=tmp_path,
+    )
+    assert armed.returncode == 5, (armed.returncode, armed.stdout, armed.stderr)
+    assert "fail-on-change tripped" in armed.stderr and "added=1" in armed.stderr, armed.stderr
+
+
 def test_determinism_gate_holds_in_the_tree_and_executes_with_a_biting_negative_control(
     tmp_path: Path,
 ) -> None:
@@ -309,3 +386,4 @@ def test_determinism_gate_holds_in_the_tree_and_executes_with_a_biting_negative_
     _b8_roadmap_row()
     _b9_self_shape()
     _b5_gate_executes_exit_0_no_differences_and_the_negative_control_exits_5(tmp_path)
+    _b10_snapshot_replay_reproduces_the_demo_slate_and_its_control_exits_5(tmp_path)

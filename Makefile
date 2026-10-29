@@ -341,6 +341,12 @@ clean:
 # signals and be red for everyone. The fixture workspace holds nothing a gate writes.
 # A non-empty residual therefore means `--snapshot` and `--baseline` have stopped
 # agreeing on the six identity keys they share, which is a real contract break.
+#
+# WHY the slate gate runs TWICE -- a re-walk into `.pla_runs/rescan`, then a REPLAY of
+# the demo's own `.pla_runs/snapshot.json` via `scan --from-snapshot` into
+# `.pla_runs/replay`: the re-walk depends on the tree's state at that moment (several
+# collectors are mtime-driven), while the replay depends only on the recorded
+# perception, so it is mtime-immune and proves the slate reproduces from its evidence.
 check:
 	rm -rf .pla_runs
 	uv sync --locked
@@ -354,6 +360,8 @@ check:
 	uv run pla signals --workspace . --collector notes --collector ci_config --collector dependencies --collector test_posture --fail-over 9
 	uv run pla scan --workspace examples/fixture_workspace --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan > /dev/null
 	uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json --fail-on-change
+	uv run pla scan --workspace examples/fixture_workspace --from-snapshot .pla_runs/snapshot.json --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/replay > /dev/null
+	uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json --fail-on-change
 	uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
 
 # Run the suite under EVERY interpreter CI's matrix grades -- the SUITE half of the

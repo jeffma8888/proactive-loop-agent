@@ -108,6 +108,14 @@ CI_GATE_STEPS = (
     "--scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan",
     "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json "
     "--fail-on-change",
+    # The 13th and 14th entries (factory iter 327, ROADMAP #326) REPLAY the demo's own
+    # snapshot through `scan --from-snapshot` and diff that against the demo slate: the
+    # mtime-immune twin of the re-walk above. Same `run: |` block, same fragment rules.
+    "uv run pla scan --workspace examples/fixture_workspace --from-snapshot "
+    ".pla_runs/snapshot.json --provider scripted --scripted-responses "
+    "examples/scripted_responses.json --state-dir .pla_runs/replay",
+    "uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json "
+    "--fail-on-change",
     "uv run pla signals --workspace . --fail-on-kind merge_conflict "
     "--fail-on-kind syntax_error --fail-on-kind secret_file "
     "--fail-on-kind broken_link",
@@ -118,10 +126,10 @@ CI_GATE_STEPS = (
 # demo-artifact assertions, the armed source-citation verification, and the armed
 # signal count budget, and the armed signals self-scan. If a CI run-step is
 # added/removed, behavior 4 fails, forcing CI_GATE_STEPS + the `check` recipe to
-# be updated together. NOTE the count is 10 while CI_GATE_STEPS holds 12: two
-# `run: |` blocks -- the demo-artifact assertions, and the fixture re-scan +
-# `diff --fail-on-change` -- each hold two gate commands, so each is one graded
-# step and two gate commands.
+# be updated together. NOTE the count is 10 while CI_GATE_STEPS holds 14: two
+# `run: |` blocks hold several gate commands each -- the demo-artifact assertions
+# (two), and the fixture re-scan + snapshot replay, each with its own
+# `diff --fail-on-change` (four) -- yet each block is ONE graded step.
 EXPECTED_CI_RUN_STEPS = 10
 
 # Every pre-existing .PHONY target that must survive this additive edit

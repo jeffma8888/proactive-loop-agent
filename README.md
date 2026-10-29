@@ -244,7 +244,10 @@ over them could never fire, and a gate that cannot fire is worse than no gate.
 **Both graded gates also prove slate-level determinism.** After `make demo` writes
 `.pla_runs/slate.json`, `make check` and CI re-scan the same fixture into a second state dir
 and branch on `pla diff --fail-on-change`, which exits 5 on any added, removed or changed
-goal -- the first executable consumer of that flag outside the test suite. The gates
+goal -- the first executable consumer of that flag outside the test suite. `make check` and
+CI also replay the demo's own snapshot via `pla scan --from-snapshot .pla_runs/snapshot.json`
+into `.pla_runs/replay` and require the same unchanged slate, which is mtime-immune because it
+rebuilds the slate from the recorded evidence rather than the live tree. The gates
 discard the re-scan's stdout (`> /dev/null`); only the diff's exit code is graded:
 
 ```bash

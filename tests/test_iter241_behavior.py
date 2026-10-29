@@ -241,8 +241,9 @@ def _ci_run_step_count() -> int:
     ``test_iter102_behavior.py::test_b4`` uses ``re.findall(r"^\s*run:", text,
     re.MULTILINE)``, which counts the one ``run: |`` block as a single graded
     step even though it holds two gate commands. That is why
-    ``EXPECTED_CI_RUN_STEPS`` (10) is two less than ``len(CI_GATE_STEPS)`` (12)
-    since factory iter 327 added a second ``run: |`` pair (re-scan + diff).
+    ``EXPECTED_CI_RUN_STEPS`` (10) is four less than ``len(CI_GATE_STEPS)`` (14)
+    since factory iter 327 added a second ``run: |`` block (re-scan + diff, then
+    the snapshot replay + diff of ROADMAP #326).
     Re-deriving the count with a narrower rule that skips ``run: |`` reports 8
     and falsely accuses a correct workflow -- measured while writing this module.
     """

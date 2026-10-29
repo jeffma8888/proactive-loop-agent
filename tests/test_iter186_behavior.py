@@ -466,11 +466,12 @@ def test_b6b_the_new_step_is_expensive_and_never_executed_by_the_suite() -> None
         "the verify step must NOT be classified as a cheap artifact assertion; "
         f"expensive set is {expensive!r}"
     )
-    assert len(expensive) == 10, (
+    assert len(expensive) == 12, (
         f"the expensive set grew 5 -> 6 in THIS iteration, 6 -> 7 in factory "
         f"iter 254 (the armed count budget), 7 -> 8 in factory iter 264 (the "
         f"same-run `--baseline` round trip) and 8 -> 10 in factory iter 327 (the "
-        f"fixture re-scan + `diff --fail-on-change` pair), each a never-executed "
+        f"fixture re-scan + `diff --fail-on-change` pair), 10 -> 12 for the snapshot "
+        f"replay + diff pair (ROADMAP #326), each a never-executed "
         f"gate step; got "
         f"{len(expensive)}: {expensive!r}"
     )

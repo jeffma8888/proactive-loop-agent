@@ -97,10 +97,11 @@ GRADED_EXAMPLES = ("examples/check_run.py", "examples/check_autonomy.py", "examp
 UNGRADED_EXAMPLE_SUBTREE = "examples/fixture_workspace"
 
 #: The number of ENTRIES each gate-step tuple declares. Higher than
-#: ``EXPECTED_CI_RUN_STEPS`` by exactly two, because two ``run: |`` blocks (the
-#: demo-artifact assertions; the fixture re-scan + ``diff --fail-on-change``,
-#: factory iter 327) each hold two gate commands: one graded CI step apiece.
-EXPECTED_GATE_STEP_ENTRIES = 12
+#: ``EXPECTED_CI_RUN_STEPS`` by exactly four, because two ``run: |`` blocks hold
+#: several gate commands (the demo-artifact assertions: two; the fixture re-scan +
+#: snapshot replay, each with its own ``diff --fail-on-change``: four), one graded
+#: CI step apiece.
+EXPECTED_GATE_STEP_ENTRIES = 14
 
 #: The armed self-scan that must remain the LAST gate step.
 LAST_GATE_STEP_PREFIX = "uv run pla signals --workspace . --fail-on-kind"
