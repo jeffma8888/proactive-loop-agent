@@ -574,7 +574,11 @@ dimension, naming the used-of-bound count and the environment knob that raises i
 configuration, so a resume that raises the bound must ALSO re-supply `--provider` and
 `--scripted-responses` or it fails at the model boundary instead. Those lines go to
 stderr in both modes, so the `--json` document on stdout is unchanged, and a resume
-with headroom in both dimensions prints neither.
+with headroom in both dimensions prints neither. A run that already finished `done`
+is the opposite case, and resuming it is a true **no-op**: it makes 0 LLM calls, needs
+no provider configuration, leaves the checkpoint byte-identical, prints the one stderr
+line `note: run already done; nothing to resume`, and exits **0**. A blind re-invoke
+therefore cannot re-spend a finished goal's budget or re-run its ACT tools.
 
 `examples/check_run.py` is the committed *consumer* of that shared document, and it
 exists because a published contract nobody executes is a guess: the paragraphs above

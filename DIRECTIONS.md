@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-536
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `pla resume` on a run that is already `done` becomes a no-op (0 LLM calls, same document, exit 0), so a supervising script can re-invoke it blindly
+    - Candidate A2 -- `make demo` + CI wire the proactive watch stream: `pla watch --interval 0 --max-scans 2 --out-dir` -> `pla trend --dir --json`, graded by a new `examples/check_trend.py`
+    - Candidate A3 -- On-ramp: `scan --from-snapshot FILE` stops requiring an existing `--workspace` it never walks
+    - Candidate B1 -- one `remember_under_cap(memo, key, value, cap)` in `collectors/base.py` replaces the FIFO eviction rule hand-copied in FOUR collectors
+    - Candidate B2 -- the ACT sandbox's READ-side root resolution, open-coded 9 times in `loop/tools.py`, collapses onto two private helpers (the read twin of iter-259's write-side collapse)
+    - Candidate B3 -- `Settings` carries two single-field `+inf` validators where `RetryPolicy` already uses the general one-validator-many-fields rule; merge them
+    winner: A1
+    ship: pending (not yet decided)
   iter-535
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Restore ROADMAP.md byte headroom: move the test-unreferenced Done-ledger lines to ROADMAP_ARCHIVE.md
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Replay-determinism gate: `make check` + CI replay the demo's own snapshot (`pla scan --from-snapshot .pla_runs/snapshot.json`) and `pla diff --fail-on-change` it against the demo slate
     - Candidate B3 -- On-ramp: `scan --from-snapshot FILE` stops requiring an existing `--workspace` it does not walk
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 5ea8d67
   iter-534
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `dispatch`/`run --allow-tool NAME`: narrow the ACT sandbox for one dispatch (ROADMAP #212)
@@ -2489,4 +2499,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-246 scouted iterations
+247 scouted iterations

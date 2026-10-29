@@ -188,6 +188,22 @@ def _executing_run(root: Path, workspace: Path) -> tuple[dict, Path, Path]:
     return dispatched, run_dir, sd
 
 
+def _reopened(run_dir: Path) -> Path:
+    """Mark the setup run's ``done`` checkpoint ``budget_exhausted`` and return the dir.
+
+    Since iter 536 a resume of an already-``done`` run is a no-op that executes
+    nothing, so these fixtures -- which grade what a resume that RUNS publishes
+    (artifacts, the relocated summary, a silent stderr) -- hand it a stopped run,
+    the state a supervising script actually re-invokes ``resume`` on.
+    """
+    checkpoint = run_dir / "checkpoint.json"
+    state = json.loads(checkpoint.read_text())
+    assert state["status"] == "done", f"the setup run must finish done; got {state['status']}"
+    state["status"] = "budget_exhausted"
+    checkpoint.write_text(json.dumps(state))
+    return run_dir
+
+
 # ---------------------------------------------------------------------------
 # Module-scoped product invocations
 # ---------------------------------------------------------------------------
@@ -209,6 +225,7 @@ def json_resume(
     """
     root = tmp_path_factory.mktemp("i173_json")
     _, run_dir, sd = _executing_run(root, workspace)
+    _reopened(run_dir)
     proc = _run("resume", "--run-dir", str(run_dir), *_offline(sd), "--json", cwd=root)
     return proc, run_dir, sd
 
@@ -223,6 +240,7 @@ def plain_resume(
     """
     root = tmp_path_factory.mktemp("i173_plain")
     _, run_dir, sd = _executing_run(root, workspace)
+    _reopened(run_dir)
     proc = _run("resume", "--run-dir", str(run_dir), *_offline(sd), cwd=root)
     return proc, run_dir, sd
 

@@ -5945,6 +5945,11 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     termination check and stops at once, so the verb reports the dead end on
     stderr (see :func:`_render_spent_budget_notes`) instead of exiting ``0`` in
     silence with nothing advanced.
+
+    A checkpoint already at ``done`` is a no-op (0 LLM calls, no client, the
+    checkpoint left byte-identical) because a supervising script re-invokes this
+    verb blindly and ``GoalLoop`` would otherwise re-open a finished goal, re-spend
+    its budget and re-run its ACT tools.
     """
     run_dir = Path(args.run_dir)
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
@@ -5964,26 +5969,35 @@ def _cmd_resume(args: argparse.Namespace) -> int:
         Path(state.artifacts_dir) if state.artifacts_dir else run_dir / _ARTIFACTS_NAME
     )
 
-    # Diagnose a spent budget AFTER the fold that decides it and BEFORE the client
-    # exists, so the operator learns why nothing will happen even when reaching the
-    # model would itself fail (an unraisable bound and a missing provider are the two
-    # halves of the same dead end, and a `create_client` error would hide the first).
-    # It stays BELOW the missing-checkpoint return: that refusal owns exit 2 with an
-    # empty stdout, and a note about a run that does not exist would be noise.
-    for line in _render_spent_budget_notes(state, settings):
-        print(line, file=sys.stderr)
-
-    client = create_client(settings)
     tools = ToolRegistry(workspace_root=workspace_root, artifacts_dir=artifacts_dir)
-    loop = GoalLoop(client, settings, tools, checkpoint)
-    final = loop.run(state.goal, resume=state)
+    if state.status is RunStatus.DONE:
+        # A finished run is terminal, so there is nothing to continue: skip the
+        # spent-budget notes (no dead end to explain) and `create_client` (so no
+        # provider config is needed to do nothing), and report the loaded state.
+        print("note: run already done; nothing to resume", file=sys.stderr)
+        final = state
+    else:
+        # Diagnose a spent budget AFTER the fold that decides it and BEFORE the
+        # client exists, so the operator learns why nothing will happen even when
+        # reaching the model would itself fail (an unraisable bound and a missing
+        # provider are the two halves of the same dead end, and a `create_client`
+        # error would hide the first). It stays BELOW the missing-checkpoint
+        # return: that refusal owns exit 2 with an empty stdout, and a note about a
+        # run that does not exist would be noise.
+        for line in _render_spent_budget_notes(state, settings):
+            print(line, file=sys.stderr)
+        client = create_client(settings)
+        loop = GoalLoop(client, settings, tools, checkpoint)
+        final = loop.run(state.goal, resume=state)
 
     if args.json:
         # The SAME shape `dispatch --json` uses -- human summary to stderr, exactly
         # one document to stdout -- and deliberately NO `redirect_stdout`. `run --json`
         # needs one because it prints a slate table mid-body; `resume` does not,
         # because this handler's ONLY early return (the missing checkpoint above)
-        # already writes to stderr, which is what keeps stdout EMPTY on exit 2.
+        # already writes to stderr, which is what keeps stdout EMPTY on exit 2. The
+        # already-`done` no-op is NOT a return: it falls through to here so its
+        # document comes from the same single print as a resumed run's.
         #
         # The payload is a THIRD call site of the one shared builder rather than a
         # copied literal, so the recovery verb cannot grow a second dialect of the

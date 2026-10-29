@@ -580,12 +580,17 @@ def test_b4_order_is_iterations_then_llm_then_hint(
 def test_b5a_run_that_finished_inside_its_budget_is_silent(
     headroom_plain: subprocess.CompletedProcess[str], with_headroom: Fixture
 ) -> None:
-    """Headroom in BOTH dimensions: no note, no hint, still exit 0."""
+    """Headroom in BOTH dimensions: no spent-budget note, no hint, still exit 0.
+
+    The headroom fixture finished ``done``, so since iter 536 its resume is a no-op
+    whose ONE note is the already-done line -- never a spent-budget one."""
     assert headroom_plain.returncode == 0, (
         f"got {headroom_plain.returncode}\nstderr:\n{headroom_plain.stderr}"
     )
-    assert _prefixed(headroom_plain.stderr, _NOTE) == [], (
-        "a resume with headroom in both dimensions must print no note; "
+    assert _prefixed(headroom_plain.stderr, _NOTE) == [
+        "note: run already done; nothing to resume"
+    ], (
+        "a resume with headroom in both dimensions must print no spent-budget note; "
         f"stderr:\n{headroom_plain.stderr!r}"
     )
     assert _prefixed(headroom_plain.stderr, _HINT) == [], (

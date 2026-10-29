@@ -443,8 +443,11 @@ def test_behavior7_dispatch_summary_reports_retries_after_throttle(tmp_path, cap
     assert _reported_retries(out) >= 1, f"dispatch summary must report retries >= 1; got:\n{out}"
 
 
-def test_behavior7_resume_summary_reports_carried_retries(tmp_path, capsys):
-    """`pla resume` reports the retry count, carrying the prior value forward."""
+def test_behavior7_resume_summary_reports_carried_retries(tmp_path, capsys, monkeypatch):
+    """`pla resume` reports the retry count, carrying the prior value forward.
+
+    Iter 536 folds in the re-invoke a supervising script makes: resuming the
+    now-``done`` run again is a no-op that still carries the same count."""
     run_dir = tmp_path / "state" / "run-resume-me"
     artifacts = run_dir / "artifacts"
     artifacts.mkdir(parents=True)
@@ -483,6 +486,36 @@ def test_behavior7_resume_summary_reports_carried_retries(tmp_path, capsys):
     assert _reported_retries(out) == 2, (
         f"resume must report the carried-forward retry count (2); got:\n{out}"
     )
+
+    # Re-invoking `resume` on the now-DONE run is a no-op: no provider flags are
+    # needed, 0 LLM calls are made and the checkpoint keeps identical bytes.
+    for var in ("PLA_PROVIDER", "PLA_SCRIPTED_RESPONSES"):
+        monkeypatch.delenv(var, raising=False)
+    ckpt = run_dir / _CHECKPOINT_NAME
+    done = Checkpoint(ckpt).load()
+    assert done is not None and done.status is RunStatus.DONE
+    before = ckpt.read_bytes()
+    rc, out, err = _run(["resume", "--run-dir", str(run_dir)], capsys)
+    assert rc == 0, f"resume of a done run must exit 0 with no provider; stderr:\n{err}"
+    assert err.splitlines().count("note: run already done; nothing to resume") == 1, err
+    assert "PLA_MAX_" not in err and "hint:" not in err, err
+    assert "status     : done" in out and "artifacts  : (none)" in out, out
+    assert (
+        f"iterations : {done.iterations_used}    llm calls: {done.llm_calls_used}" in out
+    ), out
+    assert _reported_retries(out) == 2, out
+    assert ckpt.read_bytes() == before, "a no-op resume must not rewrite the checkpoint"
+
+    rc, out, err = _run(["resume", "--run-dir", str(run_dir), "--json"], capsys)
+    assert rc == 0, err
+    doc = json.loads(out)
+    assert doc["status"] == "done" and doc["artifacts"] == []
+    assert (doc["iterations_used"], doc["llm_calls_used"]) == (
+        done.iterations_used,
+        done.llm_calls_used,
+    )
+    assert "note: run already done; nothing to resume" in err.splitlines(), err
+    assert ckpt.read_bytes() == before
 
 
 # ===========================================================================
