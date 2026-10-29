@@ -251,6 +251,44 @@ def _function_count(path: Path) -> int:
     )
 
 
+#: Count-bearing phrases the type-oracle WHY comments carried while the command
+#: beneath them grew from two graded consumers to five (factory iters 494, 512,
+#: 530). A comment that counts the scripts goes stale on the next consumer, so the
+#: prose must stay count-free; these literals are the drift that already shipped.
+STALE_CI_COMMENT_LITERALS = ("the two examples/", "two example", "Both are named")
+STALE_MAKEFILE_COMMENT_LITERALS = (
+    "the two example",
+    "two example scripts",
+    "the two most-read",
+    "Both are named",
+)
+
+#: The CI step whose WHY comment block is checked for stale counts.
+CI_TYPE_STEP_NAME = "- name: Type-check the package and the graded examples (mypy, locked)"
+
+
+def _comment_block_above(path: Path, anchor: str) -> str:
+    """The contiguous ``#`` lines directly above the line that starts (after
+    indentation) with ``anchor`` -- the WHY prose a reader checks against it.
+
+    Fail-closed: the anchor must exist exactly once and the block must be
+    non-empty, so a renamed step or a deleted comment cannot pass vacuously.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    hits = [i for i, line in enumerate(lines) if line.lstrip().startswith(anchor)]
+    assert len(hits) == 1, (
+        f"{path.name} must carry exactly one line starting with {anchor!r}; "
+        f"found {len(hits)}"
+    )
+    block: list[str] = []
+    i = hits[0] - 1
+    while i >= 0 and lines[i].lstrip().startswith("#"):
+        block.insert(0, lines[i])
+        i -= 1
+    assert block, f"the comment block above {anchor!r} in {path.name} is empty"
+    return "\n".join(block)
+
+
 def _readme_halves() -> tuple[str, str]:
     """``(above, below)`` the human-owned marker."""
     text = README.read_text(encoding="utf-8")
@@ -273,6 +311,13 @@ def test_b1_typecheck_recipe_is_exactly_the_widened_command() -> None:
     assert steps == [WIDE], (
         f"the `typecheck:` recipe must run exactly one command, {WIDE!r} -- the "
         f"local half of the type oracle. Found: {steps}"
+    )
+    comment = _comment_block_above(MAKEFILE, "typecheck:")
+    stale = [lit for lit in STALE_MAKEFILE_COMMENT_LITERALS if lit in comment]
+    assert not stale, (
+        f"the WHY comment above `typecheck:` still counts the graded scripts "
+        f"({stale}) while the command beneath it names {len(GRADED_EXAMPLES)}; "
+        f"keep that prose count-free"
     )
 
 
@@ -322,6 +367,13 @@ def test_b3_ci_type_step_body_is_the_widened_command() -> None:
     assert oracle == [WIDE], (
         f"exactly one CI `run:` body must be the type oracle, and it must be "
         f"{WIDE!r} byte-identical to the `make check` step. Found: {oracle}"
+    )
+    comment = _comment_block_above(WORKFLOW, CI_TYPE_STEP_NAME)
+    stale = [lit for lit in STALE_CI_COMMENT_LITERALS if lit in comment]
+    assert not stale, (
+        f"the WHY comment above the CI type step still counts the graded "
+        f"scripts ({stale}) while the command beneath it names "
+        f"{len(GRADED_EXAMPLES)}; keep that prose count-free"
     )
 
 
@@ -415,6 +467,20 @@ def test_b6_both_graded_examples_are_named_in_the_oracle() -> None:
             f"`examples` directory instead would drag in "
             f"{UNGRADED_EXAMPLE_SUBTREE}, which exists to be imperfect"
         )
+    on_disk = tuple(
+        sorted(
+            p.relative_to(REPO).as_posix()
+            for p in (REPO / "examples").glob("check_*.py")
+        )
+    )
+    assert on_disk, (
+        "no examples/check_*.py found on disk -- the glob is broken or the "
+        "consumers moved, so the graded-set comparison would pass vacuously"
+    )
+    assert tuple(sorted(GRADED_EXAMPLES)) == on_disk, (
+        f"every examples/check_*.py consumer on disk must be in the type oracle: "
+        f"GRADED_EXAMPLES={sorted(GRADED_EXAMPLES)} vs on disk={list(on_disk)}"
+    )
 
 
 def test_b6_oracle_invocations_never_grade_a_directory() -> None:

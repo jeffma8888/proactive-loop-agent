@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-533
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- CI + Makefile type-check comments still say "the two example scripts" while the command names five
+    - Candidate A2 -- Done ledger is missing three shipped features (3 of the last 4 `feat:` commits)
+    - Candidate A3 -- `make demo`'s WHY block explains 2 of its 5 graded steps; the dispatch step's goal-id extraction has no rationale
+    - Candidate B1 -- `dispatch`/`run --allow-tool NAME`: narrow the ACT sandbox for one dispatch (ROADMAP #212)
+    - Candidate B2 -- Scan-time source grounding: report each goal's `sources` that match no perceived signal (ROADMAP #193)
+    - Candidate B3 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`): 18th collector, 2nd relational (ROADMAP #122)
+    winner: A1
+    ship: pending (not yet decided)
   iter-532
     lenses: unknown
     - Candidate B1 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- SPEC §4.1 `syntax_error.py` bullet omits the `_ITERDIR_CACHE` pyc optimization shipped in iter 513
     - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 090d7d3
   iter-531
     lenses: unknown
     - Candidate A1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition in `test_iter13_behavior.py`
@@ -2459,4 +2469,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-243 scouted iterations
+244 scouted iterations

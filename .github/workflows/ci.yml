@@ -64,8 +64,8 @@ jobs:
       # The README advertises the package as "fully type-hinted"; this step is
       # the permanent oracle for that claim -- the whole src/proactive_loop
       # package must type-check clean under the locked mypy on every push, and so
-      # must the two examples/ consumer scripts the steps below EXECUTE
-      # (`check_run.py`, `check_autonomy.py`). Both are named as explicit paths:
+      # must every graded `examples/check_*.py` consumer the steps below EXECUTE.
+      # Each one is named as an explicit file path, never the directory:
       # `examples/fixture_workspace` exists to be imperfect, so a directory-form
       # `mypy examples` would red this build for no defect. Byte-identical to the
       # same step of `make check`.
