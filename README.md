@@ -631,6 +631,18 @@ member re-grades every summary with no edit here:
 `pla runs --summary --json --state-dir DIR | python examples/check_runs_summary.py`.
 Standard library only: no network, no new dependency.
 
+`examples/check_dispatch.py` is the fifth committed consumer, and it grades
+a `pla dispatch --dry-run` preview: the text a user sees before committing to
+a real dispatch. It exits **0** when the preview contains every required
+marker the spec publishes (`[dry-run]`, `decision:`, `workspace root:`,
+`state dir:`, `run dir:`, `run it for real with:`, `pla dispatch`), **1**
+when the text is missing one or more of those markers, and **2** when stdin
+was empty or unreadable. The marker set is defined as `REQUIRED_MARKERS` in
+the script, never typed as a literal in each check, so adding a marker
+re-grades every preview with no edit elsewhere:
+`pla dispatch --dry-run --slate SLATE --goal-id ID | python examples/check_dispatch.py`.
+Standard library only: no network, no new dependency.
+
 ### What the state directory contains
 
 Every dispatched goal leaves an audit trail on disk, and `--state-dir` (default

@@ -116,7 +116,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #279 `run`/`dispatch` record the L1 budget in `meta.json`; `resume` runs under it, env first (foundry iter 297)
 - #280 The scripted-provider-without-a-script refusal prints a paste-ready `hint:` naming the bundled `examples/scripted_responses.json`; unconditional, no filesystem probe (foundry iter 299)
 - #281 One shared front-door guard owns the missing-`--workspace` rejection that scan/run/signals/watch hand-copied four times; message, exit 2 and guard order unchanged (foundry iter 300)
-- #271 `headroom_report` publishes the BINDING suite-size wall: `binding_at` + `binding_headroom` beside the slack figures, and three prose sites that claimed the gauge cannot disagree with the build corrected (foundry iter 301)
+- #271 `headroom_report` publishes `binding_at` + `binding_headroom`; three stale prose sites corrected (foundry iter 301)
 - #283 `verify`'s goals-less `--slate` refusal published in README/SPEC §4.5, exit code derived live (foundry iter 302)
 - #284 Registry/version freeze guard: 16 copies retired to 6, body-hash census ratchets (foundry iter 303)
 - #285 The lone worktree-keyed `src/` ban retires; a corpus ratchet keeps it out (foundry iter 304)
@@ -158,3 +158,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #320 `todos _scan_items` finditer rewrite: C-level finditer replaces 52k-line Python loop (foundry iter 327)
 - #321 README narrative paragraphs for check_trace.py and check_runs_summary.py (foundry iter 327)
 - #322 `runs --goal TITLE`: case-insensitive substring filter on goal title (foundry iter 327)
+- #323 README narrative paragraph for check_dispatch.py, the 5th graded consumer (foundry iter 327)

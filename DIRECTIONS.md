@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-532
+    lenses: unknown
+    - Candidate B1 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
+    - Candidate B2 -- `todos` skip digest for prefilter-rejected files (-10 ms, -3.5% of scan)
+    - Candidate B3 -- `notes` collector converts to the shared `dir_source` walk (ROADMAP row #210 batch 4 partial)
+    - Candidate B1 -- README missing narrative paragraph for `check_dispatch.py` (5th graded consumer)
+    - Candidate B2 -- SPEC §4.1 `syntax_error.py` bullet omits the `_ITERDIR_CACHE` pyc optimization shipped in iter 513
+    - Candidate B3 -- Rename `test_catalog_has_sixteen_entries` to match its body's `== 17` assertion (ROADMAP row #232)
+    winner: B1
+    ship: pending (not yet decided)
   iter-531
     lenses: unknown
     - Candidate A1 -- Consolidate the 11 byte-identical `_loop(tools)` helpers onto ONE imported definition in `test_iter13_behavior.py`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
     - Candidate B3 -- `_scan_items` lazy line-starts: build offset array only when finditer actually matches (dominated by B1)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED bec51e9
   iter-530
     lenses: unknown
     - Candidate A1 -- `dispatch --dry-run` gains a graded consumer in `make demo` + CI
@@ -2449,4 +2459,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-242 scouted iterations
+243 scouted iterations
