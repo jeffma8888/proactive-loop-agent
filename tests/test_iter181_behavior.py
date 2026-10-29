@@ -27,7 +27,9 @@ iteration's spec ("Expected Behaviors" in ``pm.md``), the repo's own ``tests/``
 conventions, and the product's OBSERVABLE output obtained by RUNNING it. **No
 file under ``src/`` was read, no ``git diff`` was inspected, and neither
 ``engineer.md`` nor ``reviewer.md`` was opened.** Fully offline and
-deterministic: no network, no API key, no subprocess.
+deterministic: no network, no API key, and no subprocess except ONE read-only
+``git ls-files`` that lists the equivalence corpus folded into behavior 4 in
+state-dir iteration 537 (tracked files are read there as DATA, never as spec).
 
 NO TIMING ASSERTIONS. The measured win (34% of the per-line loop) is recorded in
 the commit message, per row #129's own warning; nothing here asserts on a
@@ -43,6 +45,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Final
@@ -216,6 +219,51 @@ def test_b04_no_token_letter_has_a_lowercase_blind_spot() -> None:
         f"detect a blind spot at all; got {unsound!r}"
     )
     assert "i" not in _TOKEN_LETTERS
+
+    # Folded in state-dir iteration 537 (0 new items): the SAME closure is what
+    # lets ``_inline_tag_starts`` seed tag starts with ``str.find`` on the lowered
+    # text, so its equivalence with the IGNORECASE finditer it replaced is proven
+    # here, beside the soundness argument it rests on.
+    for text in _INLINE_EDGE_TEXTS:
+        _inline_starts_both_ways(text)
+    assert todos_mod._inline_tag_starts("f\u0131xme", "f\u0131xme".lower()) == [0]
+    assert len("F\u0130XME x".lower()) != len("F\u0130XME x"), "fallback arm unexercised"
+    corpus_starts = sum(len(_inline_starts_both_ways(t)) for t in _tracked_texts())
+    assert corpus_starts > 100, f"vacuous corpus: only {corpus_starts} inline-tag starts"
+
+
+# Edge texts for the ``_inline_tag_starts`` equivalence: word boundaries on both
+# sides, overlapping seeds (``xxxx``, ``TODOTODO``), the dotless-i FIXME seeded by
+# ``xme``, a non-ASCII word char before a tag, and U+0130 whose lowercase is TWO
+# code points (the fallback arm). Escapes keep this module ASCII.
+_INLINE_EDGE_TEXTS: Final[tuple[str, ...]] = (
+    "", "TODO", "todo", "aTODO", "a TODO b", "_TODO", "TODO_", "TODOTODO",
+    "todo todo", "xxx", "xxxx", "XXX: y", "me", "xme", "ixme", "FIXME", "fixme",
+    "f\u0131xme", "F\u0130XME x", "\u0130 TODO", "\u00e9TODO",
+    "# TODO: a\n  fixme b\nxxx\nxxxx todo-ok\n\tFIXME: c XXX\n- [ ] d todo\n",
+)
+
+
+def _inline_starts_both_ways(text: str) -> list[int]:
+    """Assert ``_inline_tag_starts`` equals the finditer starts; return them."""
+    fast = todos_mod._inline_tag_starts(text, text.lower())
+    slow = [m.start() for m in todos_mod._INLINE_TAG_FINDITER_RE.finditer(text)]
+    assert fast == slow, f"{text[:60]!r}: {fast[:10]} != {slow[:10]}"
+    return fast
+
+
+def _tracked_texts() -> list[str]:
+    """Decoded text of every tracked ``.py``/``.md``/``.ts``/``.js`` file -- the
+    real corpus the collector scans, listed by git so no ambient file counts."""
+    root = Path(__file__).resolve().parents[1]
+    listed = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True, timeout=60,
+    ).stdout.decode("utf-8").split("\0")
+    return [
+        (root / name).read_text(encoding="utf-8", errors="replace")
+        for name in listed
+        if name.endswith((".py", ".md", ".ts", ".js")) and (root / name).is_file()
+    ]
 
 
 # ----------------------------------------------------------------------------

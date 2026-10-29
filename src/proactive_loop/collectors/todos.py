@@ -93,6 +93,64 @@ _INLINE_TAG_FINDITER_RE = re.compile(
 _CHECKBOX_FINDITER_RE = re.compile(
     r"^[^\S\n]*[-*+][^\S\n]+\[[^\S\n]\]", re.MULTILINE,
 )
+
+# ``(token, back)`` seeds for ``_inline_tag_starts``: each prefilter token paired
+# with its offset INSIDE the tag it was cut from, so ``find(token) - back`` is the
+# column where that tag would start -- ``todo`` opens TODO, ``xme`` sits 2 into
+# FIXME, ``xxx`` opens XXX. Zipped (strictly) onto the tokens rather than
+# respelling them, so the seeds cannot drift from the prefilter they mirror.
+_INLINE_TAG_SEEDS: Final[tuple[tuple[str, int], ...]] = tuple(
+    zip(TODO_PREFILTER_TOKENS, (0, 2, 0), strict=True)
+)
+
+
+def _inline_tag_starts(text: str, lowered: str) -> list[int]:
+    """Return every ``_INLINE_TAG_FINDITER_RE.finditer(text)`` start, cheaply.
+
+    WHY: under re.IGNORECASE Python's ``re`` has no literal-prefix fast path, so
+    the finditer attempts a match at EVERY character of a text that merely
+    passed the prefilter -- the measured todos hotspot. ``str.find`` on the
+    already-lowered copy is a C-speed literal search, so it seeds a small
+    candidate set and the anchored regex only CONFIRMS each one.
+
+    Soundness (the result is exactly finditer's, same order, no duplicates):
+
+    - The seed tokens are ``TODO_PREFILTER_TOKENS``: ASCII and closed under
+      ``str.lower`` -- every character IGNORECASE lets match one of their
+      letters lowers to that letter (re-derived by test_iter181). So when
+      lowering keeps the length (each character then maps to exactly one), a
+      tag matched at ``p`` puts its token at ``p + back`` in *lowered*.
+    - candidate = ``find(token) - back``, with back 2 for ``xme``: U+0131
+      DOTLESS I matches `i` yet lowers to itself, so ``f\u0131xme`` is seeded
+      by its ``xme`` and never by a ``fixme`` that is not there. Every
+      occurrence is collected, overlapping ones included (``xxxx``), and a
+      negative candidate is skipped because no tag can start before column 0.
+    - ``match(text, pos)`` is not slicing: its ``\b`` still sees
+      ``text[pos - 1]``, so ``aTODO`` stays a non-match exactly as in finditer.
+      Candidates are confirmed in ascending order and any that starts inside
+      the previous match is skipped, mirroring finditer's non-overlap.
+    - When ``len(lowered) != len(text)`` (e.g. U+0130 lowers to two code
+      points) positions no longer line up, so this falls back to finditer.
+    """
+    if len(lowered) != len(text):
+        return [hit.start() for hit in _INLINE_TAG_FINDITER_RE.finditer(text)]
+    candidates: set[int] = set()
+    for token, back in _INLINE_TAG_SEEDS:
+        at = lowered.find(token)
+        while at != -1:
+            if at >= back:
+                candidates.add(at - back)
+            at = lowered.find(token, at + 1)
+    starts: list[int] = []
+    end = 0
+    for pos in sorted(candidates):
+        if pos < end:
+            continue
+        hit = _INLINE_TAG_FINDITER_RE.match(text, pos)
+        if hit is not None:
+            starts.append(pos)
+            end = hit.end()
+    return starts
 _SPLITLINES_TERMINATORS = "\r\n\x0b\x0c\x1c\x1d\x1e\x85  "
 
 _SCAN_EXTENSIONS: frozenset[str] = frozenset({".py", ".ts", ".js", ".md"})
@@ -301,8 +359,8 @@ def _scan_items(text: str) -> tuple[_TodoItem, ...]:
     checkbox_candidates: set[int] = set()
 
     if scan_inline:
-        for hit in _INLINE_TAG_FINDITER_RE.finditer(text):
-            inline_candidates.add(bisect.bisect_right(line_starts, hit.start()) - 1)
+        for start in _inline_tag_starts(text, lowered):
+            inline_candidates.add(bisect.bisect_right(line_starts, start) - 1)
 
     if scan_checkbox:
         for hit in _CHECKBOX_FINDITER_RE.finditer(text):

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-537
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- delete the 22 redundant default kwargs (`detail=""` x8, `timestamp=None` x14) from the collectors' `ContextSignal(...)` calls
+    - Candidate A2 -- one `content_digest(text)` in `collectors/base.py` replaces the 4-copy `_DIGEST_SIZE = 16` + blake2b rule
+    - Candidate A3 -- `_search_files` and `_find_files` share one `_resolve_dir_root(path)`; delete their word-for-word 8-line resolution block and 6-line rationale comment (narrowed from 536 B2)
+    - Candidate B1 -- todos inline-tag scan: find candidates with `str.find` on the already-lowered text, confirm each with `_INLINE_TAG_FINDITER_RE.match(text, pos)` -- 42.5 ms -> 11.7 ms (-31 ms, ~12% of the whole scan)
+    - Candidate B2 -- index each `__pycache__` listing once in `_pyc_says_ok`: set-membership before opening the CPython pyc, plus a stem -> names map instead of a linear `startswith` scan -- ~21.3 ms -> ~17.7 ms
+    - Candidate B3 -- overlap the `git_activity` + `working_tree` children in `cli._collect` (ROADMAP #302, re-measured)
+    winner: B1
+    ship: pending (not yet decided)
   iter-536
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla resume` on a run that is already `done` becomes a no-op (0 LLM calls, same document, exit 0), so a supervising script can re-invoke it blindly
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the ACT sandbox's READ-side root resolution, open-coded 9 times in `loop/tools.py`, collapses onto two private helpers (the read twin of iter-259's write-side collapse)
     - Candidate B3 -- `Settings` carries two single-field `+inf` validators where `RetryPolicy` already uses the general one-validator-many-fields rule; merge them
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 6d6b1e1
   iter-535
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- Restore ROADMAP.md byte headroom: move the test-unreferenced Done-ledger lines to ROADMAP_ARCHIVE.md
@@ -2499,4 +2509,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-247 scouted iterations
+248 scouted iterations
