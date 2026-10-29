@@ -263,11 +263,12 @@ def test_behavior13_cli_out_of_range_env_is_legible_fault(monkeypatch, tmp_path,
     assert "jitter_frac" in err, (
         f"the error should name the offending knob to be self-service, got: {err!r}"
     )
-    # NOTE (PM feedback): the spec's behavior 13 says the boundary prints "a
-    # single line". A pydantic ``ValidationError`` str is inherently multi-line,
-    # and iter-02's boundary emits ``str(exc)`` verbatim, so this input yields a
-    # 4-line message (incl. a pydantic.dev URL). Flattening it to one line would
-    # change the CLI boundary -- explicitly OUT OF SCOPE for iter-03 ("No change
-    # to ... any CLI verb's behavior"). We therefore assert the boundary's real,
-    # in-scope contract (exit 1 + leading ``error:`` line + no traceback) and log
-    # the single-line wording gap in tester.md / LEARNINGS for the PM.
+    # iter 534 closed the single-line gap iter-03 logged here: an env-sourced
+    # bounds failure is now ONE line naming the var, its raw value and the field,
+    # with none of pydantic's taxonomy, input echo or docs URL.
+    assert lines == [
+        "error: PLA_RETRY_JITTER_FRAC='2.0' is out of range for jitter_frac "
+        "(input should be less than or equal to 1)"
+    ], err
+    for leak in ("[type=", "input_value=", "errors.pydantic.dev", "validation error for"):
+        assert leak not in err, f"pydantic detail {leak!r} leaked: {err!r}"

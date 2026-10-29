@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-534
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `dispatch`/`run --allow-tool NAME`: narrow the ACT sandbox for one dispatch (ROADMAP #212)
+    - Candidate A2 -- Per-category auto-dispatch thresholds `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0` (ROADMAP #191)
+    - Candidate A3 -- `signals`/`scan --max-items N`: let the user raise collector perception depth (ROADMAP #182)
+    - Candidate B1 -- Make the suite env-hermetic: `tests/conftest.py` autouse fixture that strips every `PLA_*` var (ROADMAP #218, re-measured)
+    - Candidate B2 -- Out-of-range `PLA_*` env values leak pydantic's multi-line dump and name the field, not the env var
+    - Candidate B3 -- `pla config` warns on unrecognised `PLA_*` names (typo guard with did-you-mean)
+    winner: B2
+    ship: pending (not yet decided)
   iter-533
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- CI + Makefile type-check comments still say "the two example scripts" while the command names five
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- Scan-time source grounding: report each goal's `sources` that match no perceived signal (ROADMAP #193)
     - Candidate B3 -- `PythonVersionDriftCollector` (`kind="python_version_drift"`): 18th collector, 2nd relational (ROADMAP #122)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 80a07cb
   iter-532
     lenses: unknown
     - Candidate B1 -- Overlap `git_activity` + `working_tree` subprocess children in `cli._collect` (ROADMAP row #302)
@@ -2469,4 +2479,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-244 scouted iterations
+245 scouted iterations

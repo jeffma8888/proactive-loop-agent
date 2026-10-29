@@ -109,8 +109,25 @@ def test_behavior_06_default_unchanged() -> None:
 def test_behavior_07_from_env_negative_rejected(monkeypatch) -> None:
     _clear_env(monkeypatch)
     monkeypatch.setenv(_ENV_VAR, "-1")
-    with pytest.raises(ValidationError):
+    # iter 534: an env-sourced bounds failure is a one-line ValueError naming the
+    # var, its raw value and the field -- not pydantic's multi-line dump.
+    with pytest.raises(ValueError) as info:
         Settings.from_env()
+    exc = info.value
+    assert not isinstance(exc, ValidationError), type(exc)
+    assert str(exc) == (
+        f"{_ENV_VAR}='-1' is out of range for {_FIELD} "
+        "(input should be greater than or equal to 0)"
+    ), str(exc)
+    assert exc.__cause__ is None and exc.__suppress_context__ is True
+    # An explicit keyword override is the caller's value, never the env's: the
+    # original ValidationError propagates even when the env holds an in-range value.
+    monkeypatch.setenv(_ENV_VAR, "2.5")
+    with pytest.raises(ValidationError):
+        Settings.from_env(auto_dispatch_min_score=-1.0)
+    # Direct construction is untouched: only from_env maps the error.
+    with pytest.raises(ValidationError):
+        Settings(auto_dispatch_min_score=-1.0)
 
 
 # Behavior 8 --- a zero env override succeeds with value 0.0
@@ -174,6 +191,13 @@ def test_behavior_11_cli_negative_config_exits_one(tmp_path, capsys, monkeypatch
     assert err.strip() != "", "expected an error message on stderr"
     assert err.lstrip().startswith("error:"), f"stderr must begin with 'error:':\n{err}"
     assert _FIELD in err, f"stderr must name {_FIELD!r}:\n{err}"
+    # iter 534: exactly one line naming the env var, no pydantic vendor detail.
+    assert err.strip().splitlines() == [
+        f"error: {_ENV_VAR}='-1' is out of range for {_FIELD} "
+        "(input should be greater than or equal to 0)"
+    ], err
+    for leak in ("[type=", "input_value=", "errors.pydantic.dev", "validation error for"):
+        assert leak not in err, f"pydantic detail {leak!r} leaked:\n{err}"
 
     # No raw Python traceback leaks to the user (either stream).
     assert _TRACEBACK not in err, f"traceback leaked to stderr:\n{err}"

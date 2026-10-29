@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import math
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from .models import GoalCategory
 
@@ -83,9 +83,10 @@ def _coerce_env(suffix: str, value: str, coerce: Callable[[str], object]) -> obj
     the operator nothing about WHICH ``PLA_*`` var is wrong -- the first thing a
     public-repo user hits when tuning the headline L0 resilience knobs. We wrap ONLY
     the per-value ``int``/``float`` coercion so a typo fails with
-    ``PLA_<NAME> must be a valid <type>, got '<value>'``; pydantic range validation
-    on the constructed models is deliberately left unwrapped so its out-of-range /
-    negative ``ValidationError``s continue to flow through untouched.
+    ``PLA_<NAME> must be a valid <type>, got '<value>'``. Range validation is a
+    separate step: pydantic checks the bounds when ``from_env`` builds the models,
+    and ``_env_range_error`` then maps an env-sourced failure to its own one-line
+    message.
 
     A plain ``ValueError`` (not a subclass) is raised so it composes with iter-02's
     ``main()`` boundary (``except (LLMError, ValueError, OSError)``) and keeps exit
@@ -100,6 +101,37 @@ def _coerce_env(suffix: str, value: str, coerce: Callable[[str], object]) -> obj
         raise ValueError(
             f"{ENV_PREFIX}{suffix} must be a valid {typeword}, got {value!r}"
         ) from None
+
+
+def _env_range_error(
+    exc: ValidationError, sources: Mapping[str, str], environ: Mapping[str, str]
+) -> ValueError | None:
+    """Map an env-sourced pydantic bounds failure to one line naming the ``PLA_*`` var.
+
+    Why: the operator typed ``PLA_MAX_ITERATIONS=0``, not ``max_iterations``, and
+    pydantic's multi-line dump (``[type=...]`` taxonomy, ``input_value=`` echo, a
+    version-pinned docs URL) is the vendor detail the CLI hides everywhere else.
+    The field name stays in the message so the pydantic vocabulary still matches
+    the documented model.
+
+    ``sources`` maps each field that THIS env read supplied to its var suffix.
+    Only the FIRST error is reported, so the message is deterministic. ``None``
+    means that error is not about an env-supplied value (an explicit keyword
+    override, say), and the caller re-raises the original ``ValidationError``.
+    That way the message never blames an env var for a value it did not supply.
+    """
+    first = exc.errors()[0]
+    loc = first["loc"]
+    field = loc[0] if loc else None
+    if not isinstance(field, str) or field not in sources:
+        return None
+    suffix = sources[field]
+    raw = environ.get(ENV_PREFIX + suffix)
+    reason = str(first["msg"]).removeprefix("Value error, ")
+    reason = reason[:1].lower() + reason[1:]
+    return ValueError(
+        f"{ENV_PREFIX}{suffix}={raw!r} is out of range for {field} ({reason})"
+    )
 
 
 def _parse_sensitive_categories(value: str) -> set[GoalCategory] | None:
@@ -230,13 +262,23 @@ class Settings(BaseModel):
         A malformed numeric env var (e.g. ``PLA_MAX_ITERATIONS=abc``) fails fast
         with an actionable ``PLA_<NAME> must be a valid <integer|number>`` message
         naming the offending var and its expected type, instead of a cryptic
-        Python coercion error. Out-of-range values still surface via pydantic.
+        Python coercion error. An out-of-range env value (e.g.
+        ``PLA_MAX_ITERATIONS=0``) raises one single-line ``ValueError`` of the form
+        ``PLA_<NAME>='<raw>' is out of range for <field> (<reason>)``. An
+        out-of-range keyword override is the caller's own value, so its pydantic
+        ``ValidationError`` propagates unchanged.
         """
         env_values: dict[str, object] = {}
+        # Every suffix ``_get`` returned a value for. The error mapping below is
+        # derived from this record of real reads, not from a second hand list.
+        supplied: set[str] = set()
 
         def _get(name: str) -> str | None:
             value = os.environ.get(ENV_PREFIX + name)
-            return value if value not in (None, "") else None
+            if value in (None, ""):
+                return None
+            supplied.add(name)
+            return value
 
         if (v := _get("PROVIDER")) is not None:
             env_values["provider"] = v
@@ -273,11 +315,34 @@ class Settings(BaseModel):
         # .retry at all when at least one knob is provided -- so an environment
         # with no PLA_RETRY_* vars yields the unchanged default RetryPolicy.
         retry_overrides: dict[str, object] = {}
+        retry_sources: dict[str, str] = {}
         for suffix, field, coerce in _RETRY_ENV_VARS:
             if (v := _get(suffix)) is not None:
                 retry_overrides[field] = _coerce_env(suffix, v, coerce)
+                retry_sources[field] = suffix
         if retry_overrides:
-            env_values["retry"] = RetryPolicy(**retry_overrides)  # type: ignore[arg-type]
+            # Every value here came from the env, so any failure is env-sourced.
+            try:
+                env_values["retry"] = RetryPolicy(**retry_overrides)  # type: ignore[arg-type]
+            except ValidationError as exc:
+                if (err := _env_range_error(exc, retry_sources, os.environ)) is None:
+                    raise
+                raise err from None
 
-        env_values.update({k: v for k, v in overrides.items() if v is not None})
-        return cls(**env_values)  # type: ignore[arg-type]
+        explicit = {k: v for k, v in overrides.items() if v is not None}
+        env_values.update(explicit)
+        # field -> suffix for each top-level field whose value the env supplied.
+        # These fields read ``PLA_<FIELD.upper()>``. A field outside that pattern
+        # (``scripted_responses_path``) or replaced by an explicit override is left
+        # out, so its failure re-raises the original error and never blames a var.
+        env_sources = {
+            field: field.upper()
+            for field in env_values
+            if field not in explicit and field.upper() in supplied
+        }
+        try:
+            return cls(**env_values)  # type: ignore[arg-type]
+        except ValidationError as exc:
+            if (err := _env_range_error(exc, env_sources, os.environ)) is None:
+                raise
+            raise err from None
