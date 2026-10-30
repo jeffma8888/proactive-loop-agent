@@ -117,6 +117,24 @@ class ToolRegistry:
         """Return the relpaths (under artifacts_dir) written so far."""
         return list(self._artifacts)
 
+    def adopt_existing_artifacts(self) -> None:
+        """Track every regular file already under artifacts_dir, in sorted order.
+
+        A resumed run gets a FRESH registry, so without this its ``artifacts()``
+        lists only the files written in the resuming process -- a ``done`` no-op
+        would report ``[]`` for a run whose files are on disk (and counted by
+        ``pla runs``). Sorted POSIX relpaths keep the order deterministic; any
+        later write in this process still de-duplicates by membership.
+        """
+        found = sorted(
+            p.relative_to(self.artifacts_dir).as_posix()
+            for p in self.artifacts_dir.rglob("*")
+            if p.is_file()
+        )
+        for rel in found:
+            if rel not in self._artifacts:
+                self._artifacts.append(rel)
+
     @staticmethod
     def tool_names() -> tuple[str, ...]:
         """Return the canonical registered tool names, in dispatch order.

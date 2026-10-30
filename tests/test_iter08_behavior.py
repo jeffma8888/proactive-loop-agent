@@ -499,7 +499,7 @@ def test_behavior7_resume_summary_reports_carried_retries(tmp_path, capsys, monk
     assert rc == 0, f"resume of a done run must exit 0 with no provider; stderr:\n{err}"
     assert err.splitlines().count("note: run already done; nothing to resume") == 1, err
     assert "PLA_MAX_" not in err and "hint:" not in err, err
-    assert "status     : done" in out and "artifacts  : (none)" in out, out
+    assert "status     : done" in out and f"  - {artifacts / 'scaffold.md'}" in out, out
     assert (
         f"iterations : {done.iterations_used}    llm calls: {done.llm_calls_used}" in out
     ), out
@@ -509,7 +509,7 @@ def test_behavior7_resume_summary_reports_carried_retries(tmp_path, capsys, monk
     rc, out, err = _run(["resume", "--run-dir", str(run_dir), "--json"], capsys)
     assert rc == 0, err
     doc = json.loads(out)
-    assert doc["status"] == "done" and doc["artifacts"] == []
+    assert doc["status"] == "done" and doc["artifacts"] == [str(artifacts / "scaffold.md")]
     assert (doc["iterations_used"], doc["llm_calls_used"]) == (
         done.iterations_used,
         done.llm_calls_used,

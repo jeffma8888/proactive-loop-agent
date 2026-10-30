@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-541
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A -- a bounded `pla watch --max-scans N` whose N ticks ALL fail exits 1, not 0
+    - Candidate B -- `--scripted-responses` file faults name the flag and the file, not a raw errno
+    - Candidate C -- suite env-hermeticity: an autouse `tests/conftest.py` that strips ambient `PLA_*` vars (ROADMAP #218)
+    - Candidate B1 -- `resume` on a finished run reports `artifacts: []` even though its artifacts are on disk; publish what the run actually holds
+    - Candidate B2 -- `make demo` + CI give `resume --json` its first executable consumer: re-invoke the demo's own done run and grade it with the shipped `examples/check_run.py`
+    - Candidate B3 -- `pla scan` gives no way to reach `dispatch`: goal ids change on every scan and the table prints none, so add the paste-ready `pla dispatch ... --goal-id ID` lines `run` already prints, on STDERR
+    winner: B1
+    ship: pending (not yet decided)
   iter-540
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `trend --last N`: count persistence over only the newest N ticks of a watch stream, so the iter-539 gate can recover
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- a bounded `watch --max-scans N` whose N ticks ALL failed still exits 0 (re-proposal, new deterministic trigger and known cost map)
     - Candidate B3 -- `--scripted-responses` file faults leak a raw errno and never name the flag or file
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 378b3f0
   iter-539
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- `pla resume --help`, the README CLI-table row and SPEC's `resume` line all omit the iter-536 done-run no-op
@@ -2539,4 +2549,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-251 scouted iterations
+252 scouted iterations

@@ -5991,6 +5991,9 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     )
 
     tools = ToolRegistry(workspace_root=workspace_root, artifacts_dir=artifacts_dir)
+    # Report what the run HOLDS, not just what this process writes: `runs` counts
+    # the same files on disk, and the two machine surfaces must agree.
+    tools.adopt_existing_artifacts()
     if state.status is RunStatus.DONE:
         # A finished run is terminal, so there is nothing to continue: skip the
         # spent-budget notes (no dead end to explain) and `create_client` (so no
