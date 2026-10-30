@@ -521,20 +521,25 @@ def _live_surfaces(guard: ModuleType) -> dict[str, str]:
     return {"epilog": epilog, "docstring": docstring, "readme": readme}
 
 
-@pytest.mark.parametrize("surface", ["epilog", "docstring", "readme"])
 def test_b06_removing_any_producer_from_any_surface_fails_and_names_it(
-    guard: ModuleType, surface: str
+    guard: ModuleType,
 ) -> None:
     """Behavior 6: three surfaces, each damaged once per producer.
 
     The engineer's own guard proves the third gate; this widens it to EVERY
-    producer on EVERY surface, so no single flag is guarded by accident. The
-    producers are looped INSIDE one case per surface (foundry iter 539: a
-    per-producer parametrize grew the collected count with every new gate, and
-    the README floor's binding headroom cannot absorb that). Each failure still
-    names the dropped flag. The copy is damaged IN MEMORY -- no file is touched.
+    producer on EVERY surface, so no single flag is guarded by accident. Both the
+    producers and the surfaces are looped INSIDE one case (foundry iters 539 and
+    542: a parametrize grew the collected count, and the README floor's binding
+    headroom cannot absorb that). Each failure still names the surface and the
+    dropped flag. The copy is damaged IN MEMORY -- no file is touched.
     """
-    intact = _live_surfaces(guard)[surface]
+    surfaces = _live_surfaces(guard)
+    assert set(surfaces) == {"epilog", "docstring", "readme"}, sorted(surfaces)
+    for surface, intact in surfaces.items():
+        _assert_surface_damage_is_named(guard, surface, intact)
+
+
+def _assert_surface_damage_is_named(guard: ModuleType, surface: str, intact: str) -> None:
     guard._assert_surface_names_every_producer(surface, intact)
     for dropped in EXPECTED_PRODUCERS:
         assert dropped in intact, (

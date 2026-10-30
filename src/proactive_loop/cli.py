@@ -1733,7 +1733,8 @@ def build_parser() -> argparse.ArgumentParser:
             "file, no trailer. Missing parents are created; an existing "
             "non-directory at DIR (or on its path) is a usage error (exit 2) "
             "before the first scan. Only a tick whose scan completed writes a "
-            "file, so the stream feeds `pla diff --old ... --new ...` directly."
+            "file, so the stream feeds `pla diff --old ... --new ...` directly. "
+            "An existing stream in DIR is continued after its highest index."
         ),
     )
     p_watch.add_argument(
@@ -6850,6 +6851,15 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     client = create_client(settings)  # built once, reused every tick
 
     count = 0
+    # A restarted watcher CONTINUES an existing stream: numbering from 1 again
+    # would overwrite slate-001.json and leave the old run's last tick as the
+    # "newest" file `diff --dir` / `trend --dir` bind. The reader is reused so
+    # writer and reader agree on what counts as a tick.
+    base = 0
+    if out_dir is not None and out_dir.is_dir():
+        existing = _stream_slates(out_dir)
+        if existing:
+            base = _stream_slate_index(existing[-1].name) or 0
 
     use_json = args.json
 
@@ -6875,7 +6885,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
             # index can never run ahead of the ticks that actually produced one.
             # Same `slate written:` trailer wording `scan` prints, so the two
             # verbs cannot describe the same act differently.
-            target = out_dir / _stream_slate_name(count)
+            target = out_dir / _stream_slate_name(base + count)
             _write_slate(slate, target)
             print(
                 f"\nslate written: {target}",

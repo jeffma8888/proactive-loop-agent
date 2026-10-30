@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-542
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `watch --out-dir` on an existing stream dir continues the tick numbering instead of clobbering `slate-001.json`
+    - Candidate A2 -- `pla scan` prints the paste-ready `pla dispatch --slate ... --goal-id ID --yes` lines that `pla run` already prints (on STDERR)
+    - Candidate A3 -- CI publishes the demo slate as a GitHub job summary: `pla scan --from-snapshot ... --format markdown >> "$GITHUB_STEP_SUMMARY"`
+    - Candidate B1 -- one `remember_under_cap(memo, key, value, cap)` in `collectors/base.py` replaces the FIFO-eviction rule copied by hand into FOUR collectors
+    - Candidate B2 -- collapse cli.py's five hand-written argparse numeric `type=` validators onto one factory
+    - Candidate B3 -- the ACT sandbox's "first root where path is an existing dir" lookup, open-coded 3 times in `loop/tools.py`, becomes one `_resolve_dir(path)`
+    winner: A1
+    ship: pending (not yet decided)
   iter-541
     lenses: hardening/DX, integration-and-adoption
     - Candidate A -- a bounded `pla watch --max-scans N` whose N ticks ALL fail exits 1, not 0
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `make demo` + CI give `resume --json` its first executable consumer: re-invoke the demo's own done run and grade it with the shipped `examples/check_run.py`
     - Candidate B3 -- `pla scan` gives no way to reach `dispatch`: goal ids change on every scan and the table prints none, so add the paste-ready `pla dispatch ... --goal-id ID` lines `run` already prints, on STDERR
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED a41e489
   iter-540
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `trend --last N`: count persistence over only the newest N ticks of a watch stream, so the iter-539 gate can recover
@@ -2549,4 +2559,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-252 scouted iterations
+253 scouted iterations
