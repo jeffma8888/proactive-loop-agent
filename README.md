@@ -253,6 +253,8 @@ discard the re-scan's stdout (`> /dev/null`); only the diff's exit code is grade
 ```bash
 uv run pla scan --workspace examples/fixture_workspace --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/rescan
 uv run pla diff --old .pla_runs/slate.json --new .pla_runs/rescan/slate.json --fail-on-change
+uv run pla scan --workspace examples/fixture_workspace --from-snapshot .pla_runs/snapshot.json --provider scripted --scripted-responses examples/scripted_responses.json --state-dir .pla_runs/replay
+uv run pla diff --old .pla_runs/slate.json --new .pla_runs/replay/slate.json --fail-on-change
 ```
 
 Three more developer entry points exist, all opt-in rather than part of `make check`:

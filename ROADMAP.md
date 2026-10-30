@@ -114,7 +114,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #277 One `_OPENAI_SHAPED` table plus a shared factory replaces three `_create_*` bodies (foundry iter 295)
 - #278 One `_peek_file` owns the resolve-read-split half of `_head_file` / `_tail_file` (foundry iter 296)
 - #279 `run`/`dispatch` record the L1 budget in `meta.json`; `resume` runs under it, env first (foundry iter 297)
-- #280 The scripted-provider-without-a-script refusal prints a paste-ready `hint:` naming the bundled `examples/scripted_responses.json`; unconditional, no filesystem probe (foundry iter 299)
+- #280 Scripted provider sans script: refusal prints a `hint:` naming the bundled script (foundry iter 299)
 - #281 One shared guard owns the missing-`--workspace` rejection of scan/run/signals/watch (foundry iter 300)
 - #271 `headroom_report` publishes `binding_at` + `binding_headroom`; three stale prose sites corrected (foundry iter 301)
 - #283 `verify`'s goals-less `--slate` refusal published in README/SPEC §4.5, exit code derived live (foundry iter 302)
@@ -164,3 +164,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #326 make check + CI replay the demo snapshot via scan --from-snapshot, diff --fail-on-change vs demo slate (foundry iter 327)
 - #327 resume on an already-done run is a no-op: 0 LLM calls, checkpoint untouched, no provider needed (foundry iter 327)
 - #328 todos inline-tag scan: str.find seeds, regex .match confirms; ~31 ms/scan saved (foundry iter 327)
+- #329 README gate block shows the replay pair; drift-bound to make check (foundry iter 327)

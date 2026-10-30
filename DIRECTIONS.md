@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-538
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- broken_link: compute `_code_span_ranges(line)` lazily, only on lines where `_LINK_RE` actually matches
+    - Candidate A2 -- merge_conflict: run `_count_markers`' own `in` prefilter BEFORE the blake2b digest in `_memoized_count_markers`
+    - Candidate A3 -- syntax_error: index each `__pycache__` listing once (name set + stem -> names map) and test membership before opening any pyc
+    - Candidate B1 -- README's "only the diff's exit code is graded" code block omits the replay pair it describes (iter-535 drift)
+    - Candidate B2 -- README Configuration section never says what a bad `PLA_*` value does (iter-534 contract is undocumented)
+    - Candidate B3 -- `pla resume --help` and SPEC's `resume` line still say "load checkpoint, continue"; neither says a `done` run is a no-op (iter-536)
+    winner: B1
+    ship: pending (not yet decided)
   iter-537
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- delete the 22 redundant default kwargs (`detail=""` x8, `timestamp=None` x14) from the collectors' `ContextSignal(...)` calls
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- index each `__pycache__` listing once in `_pyc_says_ok`: set-membership before opening the CPython pyc, plus a stem -> names map instead of a linear `startswith` scan -- ~21.3 ms -> ~17.7 ms
     - Candidate B3 -- overlap the `git_activity` + `working_tree` children in `cli._collect` (ROADMAP #302, re-measured)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 49c8a4c
   iter-536
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla resume` on a run that is already `done` becomes a no-op (0 LLM calls, same document, exit 0), so a supervising script can re-invoke it blindly
@@ -2509,4 +2519,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-248 scouted iterations
+249 scouted iterations

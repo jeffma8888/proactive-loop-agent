@@ -241,7 +241,16 @@ def _b6_readme_paragraph() -> None:
     assert marker_at < para_at < anchor_at, "behavior 6: paragraph below marker, before anchor"
     between = text[para_at:anchor_at]
     assert "diff --fail-on-change" in between and re.search(r"exits? 5", between), between
-    assert between.count("```bash\n" + RESCAN_BARE + "\n" + DIFF_LINE + "\n```") == 1, between
+    block = [RESCAN_BARE, DIFF_LINE, REPLAY_BARE, REPLAY_DIFF_LINE]
+    assert between.count("```bash\n" + "\n".join(block) + "\n```") == 1, between
+    mk = MAKEFILE.read_text(encoding="utf-8").splitlines()
+    at = next(i for i, line in enumerate(mk) if line.startswith("check:"))
+    end = next((i for i in range(at + 1, len(mk)) if not mk[i].startswith("\t")), len(mk))
+    recipe = [line.strip() for line in mk[at + 1 : end]]  # check:'s own recipe only
+    gate = [line.removesuffix(" > /dev/null") for line in recipe
+            if line.startswith(("uv run pla scan", "uv run pla diff"))
+            and (".pla_runs/rescan" in line or ".pla_runs/replay" in line)]
+    assert gate == block, "README graded-gate block drifted from the Makefile check recipe"
     assert between.strip().endswith("```"), "behavior 6: the bash block ends the paragraph"
     assert text.count(README_ANCHOR) == 1 and text.count("**Both graded gates also") == 1
     assert "--from-snapshot" in between and "replay" in between, "ROADMAP #326 README sentence"
