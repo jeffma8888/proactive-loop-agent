@@ -550,8 +550,8 @@ def test_b08_portfolio_intro_keeps_its_three_carve_out_numbers() -> None:
 def test_b09_cli_has_exactly_four_literal_exit_5_routes() -> None:
     sites = _exit5_sites(CLI_SOURCE.read_text(encoding="utf-8"))
     total = sum(len(linenos) for linenos in sites.values())
-    assert total == 4, (
-        "src/proactive_loop/cli.py must hold exactly 4 literal exit-5 routes "
+    assert total == 5, (
+        "src/proactive_loop/cli.py must hold exactly 5 literal exit-5 routes "
         f"(found {total}: {sites}). RELEASE CONDITION: ANY NEW route to exit 5 "
         "may only be added once its meaning is named on ALL THREE published "
         "surfaces -- the 'exit codes:' epilog on `pla --help`, the code-5 "
@@ -562,9 +562,10 @@ def test_b09_cli_has_exactly_four_literal_exit_5_routes() -> None:
         "for `verify --fail-on-unresolved`, which widened all three surfaces in "
         "that same commit; the condition is stated generically so the ratchet "
         "does not need re-wording on the next one. Raised 3 -> 4 by foundry iter "
-        "319 for `diff --fail-on-change`, again widening all three surfaces."
+        "319 for `diff --fail-on-change`, again widening all three surfaces. "
+        "Raised 4 -> 5 by foundry iter 539 for `trend --fail-on-persist`."
     )
-    assert len(sites["return"]) == 4, (
+    assert len(sites["return"]) == 5, (
         f"expected every route to be a literal `return 5` statement; got {sites}"
     )
 
@@ -708,10 +709,11 @@ def test_b12_producer_set_is_derived_from_cli_source_and_is_not_hardcoded() -> N
     assert derived == (
         "--fail-on-change",
         "--fail-on-kind",
+        "--fail-on-persist",
         "--fail-on-unresolved",
         "--fail-over",
     ), (
-        "the shipped tree emits exactly four `gate: <flag> tripped` literals; a "
+        "the shipped tree emits exactly five `gate: <flag> tripped` literals; a "
         "change here means a gate was added or renamed, and every published "
         f"surface must name it in the same commit; got {derived!r}"
     )

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-539
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- `pla resume --help`, the README CLI-table row and SPEC's `resume` line all omit the iter-536 done-run no-op
+    - Candidate A2 -- README Configuration section never says what a bad `PLA_*` value does (iter-534 contract undocumented)
+    - Candidate A3 -- README's "`scan`, `run`, `dispatch`, `resume` and `watch` each require a provider" over-claims: two shipped paths need none
+    - Candidate B1 -- `trend --fail-on-persist N`: exit 5 when any goal has survived >= N ticks of a watch stream
+    - Candidate B2 -- `dispatch --rank N` (and `explain --rank N`): act on the goal the table just numbered
+    - Candidate B3 -- `run --max-goals N`: the sole autonomous verb dispatches the top N AUTO goals, not only the head (ROADMAP #192)
+    winner: B1
+    ship: pending (not yet decided)
   iter-538
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- broken_link: compute `_code_span_ranges(line)` lazily, only on lines where `_LINK_RE` actually matches
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- README Configuration section never says what a bad `PLA_*` value does (iter-534 contract is undocumented)
     - Candidate B3 -- `pla resume --help` and SPEC's `resume` line still say "load checkpoint, continue"; neither says a `done` run is a no-op (iter-536)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9d41a44
   iter-537
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- delete the 22 redundant default kwargs (`detail=""` x8, `timestamp=None` x14) from the collectors' `ContextSignal(...)` calls
@@ -2519,4 +2529,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-249 scouted iterations
+250 scouted iterations

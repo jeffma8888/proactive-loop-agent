@@ -527,8 +527,8 @@ def _code5_set_grew_since_head() -> bool:
 
 
 def test_b09_code5_entry_still_names_all_four_producers_on_all_surfaces() -> None:
-    assert len(CODE5_PRODUCERS) == 4, (
-        f"exit code 5's derived producer set must still be 4; got {CODE5_PRODUCERS!r}"
+    assert len(CODE5_PRODUCERS) == 5, (
+        f"exit code 5's derived producer set must be 5 (foundry iter 539 added --fail-on-persist); got {CODE5_PRODUCERS!r}"
     )
     doc = main.__doc__ or ""
     surfaces = {

@@ -593,7 +593,8 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
         "least one reported signal, --fail-over saw more reported signals "
         "than its budget, verify --fail-on-unresolved could not resolve a "
         "cited source against the snapshot, or diff --fail-on-change saw at "
-        "least one added, removed or changed goal. The command itself succeeded and "
+        "least one added, removed or changed goal, or trend --fail-on-persist "
+        "saw a goal persist across at least N ticks. The command itself succeeded and "
         "printed its normal output; the gate names itself on one line on "
         "stderr and stdout is unchanged.",
     ),
@@ -1850,6 +1851,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the trend as one JSON object instead of the human sections.",
     )
+    # The fifth exit-5 gate, the `diff --fail-on-change` shape: `trend` is the only
+    # verb that can SEE persistence, yet it always exited 0, so "this goal keeps
+    # coming back and nobody acts on it" was unbranchable without parsing --json.
+    # It gates on the per-title tick count the view already REPORTS (total ticks,
+    # gaps allowed), so stdout stays byte-identical with and without the flag.
+    p_trend.add_argument(
+        "--fail-on-persist",
+        type=_positive_int,
+        default=None,
+        metavar="N",
+        dest="fail_on_persist",
+        help=(
+            "Exit 5 instead of 0 when at least one goal title appears in >= N ticks "
+            "of the stream (the same total-ticks count the report prints, gaps "
+            "allowed; N >= 1, else exit 2). STDOUT is byte-identical with and "
+            "without this flag; the only added output is one 'gate: "
+            "fail-on-persist tripped -- goals=K threshold=N' line on STDERR."
+        ),
+    )
     p_trend.set_defaults(func=_cmd_trend)
 
     # `policy` prints the STANDING autonomy contract itself -- the product's
@@ -2054,8 +2074,9 @@ def main(argv: list[str] | None = None) -> int:
       result -- ``signals --fail-on-kind`` matched at least one reported signal,
       ``signals --fail-over`` saw more reported signals than its budget allows,
       ``verify --fail-on-unresolved`` could not resolve a cited source
-      against the snapshot, or ``diff --fail-on-change`` saw at least one
-      added, removed or changed goal. EVERY producer is named deliberately: the code is
+      against the snapshot, ``diff --fail-on-change`` saw at least one
+      added, removed or changed goal, or ``trend --fail-on-persist`` saw a goal
+      title persist across at least N ticks. EVERY producer is named deliberately: the code is
       the only thing a script sees, so a second route to it that the contract
       omits is an undocumented contract. Distinct from ``1`` (the tool itself failed) and from ``2``
       (nothing to act on / bad invocation) -- this is the *finding* channel a
@@ -7020,6 +7041,8 @@ def _cmd_trend(args: argparse.Namespace) -> int:
     legible ``error:`` line at exit ``1`` -- no bespoke catch, no traceback. ``--json``
     swaps the human sections for one machine-parseable object AFTER those guards, so it
     selects a rendering only and the exit-code contract is ``--json``-independent.
+    ``--fail-on-persist N`` is checked LAST, after the render, so stdout is identical
+    with and without it; it can only turn a ``0`` into a ``5``, never mask a refusal.
     """
     stream_dir = Path(args.dir)
     if not stream_dir.is_dir():
@@ -7058,6 +7081,15 @@ def _cmd_trend(args: argparse.Namespace) -> int:
         print(json.dumps(_trend_json_payload(result), indent=2))
     else:
         print(_render_trend(result))
+    if args.fail_on_persist is not None:
+        threshold = args.fail_on_persist
+        persisting = sum(1 for row in result["goals"] if row["ticks"] >= threshold)
+        if persisting:
+            print(
+                f"gate: fail-on-persist tripped -- goals={persisting} threshold={threshold}",
+                file=sys.stderr,
+            )
+            return 5
     return 0
 
 

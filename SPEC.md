@@ -922,15 +922,11 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     changed, announced after the render as one stderr line
     `gate: fail-on-change tripped -- added=A removed=R changed=C`, stdout untouched.
     Builds no `LLMClient`, runs no collector/subprocess, and writes no file.
-  - `pla trend --dir DIR [--json]` — read-only, LLM-free PERSISTENCE inspector over a
+  - `pla trend --dir DIR [--json] [--fail-on-persist N]` — read-only, LLM-free PERSISTENCE inspector over a
     whole `watch --out-dir` stream directory: for each goal title it reports the number
     of ticks the title appears in plus the FIRST and LAST tick index it was seen at,
-    ranked by persistence. It is the recurrence view `diff` structurally cannot give --
-    `diff --dir` binds exactly the two highest tick indexes, so a 20-tick stream was
-    never read deeper than its newest pair; `scan` answers "what is true now?" and
-    `diff` answers "what changed last tick?", while this answers "what has been true
-    ALL ALONG?", which is the line between synthesizer noise (a title seen once) and a
-    standing backlog (a title present at every tick). Goals are matched across ticks by
+    ranked by persistence (the recurrence view `diff --dir`'s newest pair cannot give).
+    Goals are matched across ticks by
     NORMALIZED TITLE (`title.strip().lower()` -- the synthesizer's own dedup key, NEVER
     the random per-scan `CandidateGoal.id`), and within ONE slate first-occurrence-wins
     on a duplicate title, so a single tick contributes at most one occurrence. A tick
@@ -961,7 +957,9 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     (both before any rendering, so the exit contract is `--json`-independent). Builds
     no `LLMClient`, runs no collector/subprocess, writes no file, and — unlike `diff`
     — builds no `settings` and never calls `gate()`, because persistence is a property
-    of the STREAM, not of the autonomy contract.
+    of the STREAM, not of the autonomy contract. `--fail-on-persist N` (N >= 1, else
+    exit 2) opts into gate code `5` when any title's `ticks >= N`, announced after the
+    render as one stderr line `gate: fail-on-persist tripped -- goals=K threshold=N`.
   - `pla policy [--json] [--check-goal JSON]` — read-only, LLM-free catalog of the
     STANDING autonomy contract itself: the product's headline safety mechanism, surfaced
     PROACTIVELY rather than only reactively through a gated `scan`/`explain` (both of
