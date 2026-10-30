@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-543
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- ROADMAP #163: fold `git_activity`'s inline gated child-repo walk into the one gated helper `working_tree` already owns
+    - Candidate A2 -- ROADMAP #165 residual: `notes.py` and `todos.py` drop their hand-rolled `str(relative_to)` try/except for the shipped `BaseCollector._relative`
+    - Candidate A3 -- One `_add_collector_flag(p, noun, extra="")` replaces the three hand-copied `--collector` argparse blocks on `scan`/`run`/`signals`
+    - Candidate B1 -- broken_link: compute `_code_span_ranges(line)` only on lines where `_LINK_RE` actually matches
+    - Candidate B2 -- one blake2b per distinct text per scan: `text_source` hands the content digest to todos / merge_conflict / broken_link / syntax_error instead of each re-encoding and re-hashing
+    - Candidate B3 -- syntax_error: the pytest-pyc lookup is O(stems x names) per scan; index each `__pycache__` listing by stem once
+    winner: B1
+    ship: pending (not yet decided)
   iter-542
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `watch --out-dir` on an existing stream dir continues the tick numbering instead of clobbering `slate-001.json`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- collapse cli.py's five hand-written argparse numeric `type=` validators onto one factory
     - Candidate B3 -- the ACT sandbox's "first root where path is an existing dir" lookup, open-coded 3 times in `loop/tools.py`, becomes one `_resolve_dir(path)`
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 42bd0a2
   iter-541
     lenses: hardening/DX, integration-and-adoption
     - Candidate A -- a bounded `pla watch --max-scans N` whose N ticks ALL fail exits 1, not 0
@@ -2559,4 +2569,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-253 scouted iterations
+254 scouted iterations
