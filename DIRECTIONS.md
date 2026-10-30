@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-540
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `trend --last N`: count persistence over only the newest N ticks of a watch stream, so the iter-539 gate can recover
+    - Candidate A2 -- `diff --fail-on-added`: exit 5 only when NEW goals appear, so fixing something does not red the build
+    - Candidate A3 -- `trace --latest`: trace the newest run under `--state-dir` without naming a random `run-<goal-id>` directory
+    - Candidate B1 -- `make demo` fails when run a second time: the `trace --run-dir .pla_runs/run-*/` glob expands to 2 args
+    - Candidate B2 -- a bounded `watch --max-scans N` whose N ticks ALL failed still exits 0 (re-proposal, new deterministic trigger and known cost map)
+    - Candidate B3 -- `--scripted-responses` file faults leak a raw errno and never name the flag or file
+    winner: B1
+    ship: pending (not yet decided)
   iter-539
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- `pla resume --help`, the README CLI-table row and SPEC's `resume` line all omit the iter-536 done-run no-op
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `dispatch --rank N` (and `explain --rank N`): act on the goal the table just numbered
     - Candidate B3 -- `run --max-goals N`: the sole autonomous verb dispatches the top N AUTO goals, not only the head (ROADMAP #192)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b3936c6
   iter-538
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- broken_link: compute `_code_span_ranges(line)` lazily, only on lines where `_LINK_RE` actually matches
@@ -2529,4 +2539,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-250 scouted iterations
+251 scouted iterations

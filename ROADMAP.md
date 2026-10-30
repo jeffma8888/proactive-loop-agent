@@ -100,7 +100,7 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #263 `EXPECTED_ADDOPTS` is defined once and imported, not re-spelled three times; the duplication-only cross-module literal guard is deleted, unblocking #257 (foundry iter 266)
 - #264 The published test floor rises 5,600 -> 5,700 at every carrier that pins it (foundry iter 269)
 - #265 The type oracle covers the two GRADED examples/ consumers: make typecheck + the CI step add check_run.py and check_autonomy.py (foundry iter 276)
-- #266 Bare `make` prints a help listing instead of running a network install: help is the default goal, bound to the .PHONY set by an oracle (foundry iter 277)
+- #266 Bare `make` prints help (the default goal), not a network install (foundry iter 277)
 - #267 Test floor rises 5,700 -> 5,800; the floor-carrier census reads the underscore spelling too (foundry iter 281)
 - #268 Position-keyed roadmap fixtures retire: content-anchor selection, max-id pin deleted (foundry iter 283)
 - #269 `run --max-iterations` / `--max-llm-calls`: the L1 loop budget becomes settable per invocation, reusing the shipped `_positive_int` parse-time validator (foundry iter 284)
@@ -166,3 +166,4 @@ A line records that a row SHIPPED, not that the archive holds its text (that hap
 - #328 todos inline-tag scan: str.find seeds, regex .match confirms; ~31 ms/scan saved (foundry iter 327)
 - #329 README gate block shows the replay pair; drift-bound to make check (foundry iter 327)
 - #330 `trend --fail-on-persist N`: exit 5 when a goal title persists >= N ticks (foundry iter 327)
+- #331 `make demo` re-runs green: trace reads run.json run_dir, not a glob (foundry iter 327)

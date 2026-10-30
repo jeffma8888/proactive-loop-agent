@@ -167,6 +167,9 @@ readme-headroom:
 # WHY `check_run.py` stays LAST: two shipped guards pin the consumer to the final
 # position of this recipe, and the run document is the demo's primary artifact.
 #
+# WHY `trace` reads `dispatched.run_dir` from run.json and not a `run-*` glob:
+# each re-run adds a run dir, so the glob grows to 2 args and `make demo` exits 2.
+#
 # WHY `uv run python` and not bare `python`: the consumer imports
 # `proactive_loop`, so it needs the project virtualenv.
 demo:
@@ -180,7 +183,7 @@ demo:
 		--json > .pla_runs/run.json
 	uv run pla explain --slate .pla_runs/slate.json --json > .pla_runs/explain.json
 	uv run python examples/check_autonomy.py < .pla_runs/explain.json
-	uv run pla trace --run-dir .pla_runs/run-*/ --json > .pla_runs/trace.json
+	uv run pla trace --run-dir "$$(uv run python -c "import json; print(json.load(open('.pla_runs/run.json'))['dispatched']['run_dir'])")" --json > .pla_runs/trace.json
 	uv run python examples/check_trace.py < .pla_runs/trace.json
 	uv run pla runs --summary --json --state-dir .pla_runs > .pla_runs/summary.json
 	uv run python examples/check_runs_summary.py < .pla_runs/summary.json
