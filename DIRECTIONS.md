@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-545
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- Re-land iter 544's README `watch --out-dir` correction, minus the unsanctioned ROADMAP char pin
+    - Candidate A2 -- README CLI-table flag census: document the 4 unlisted flags and add a `--help` vs README-row oracle
+    - Candidate A3 -- `resume`'s three short-form surfaces omit both shipped resume contracts (done-run no-op, iter-541 artifact adoption)
+    - Candidate B1 -- `trend --last N`: count persistence over only the newest N ticks of a watch stream, so `--fail-on-persist` can clear once a goal is fixed
+    - Candidate B2 -- `trace --latest`: trace the newest run under `--state-dir`, chosen by the persisted `RunState.created_at`, not by mtime or a glob
+    - Candidate B3 -- `diff --fail-on-added`: exit 5 only when the newer slate has goals the older lacks
+    winner: A1
+    ship: pending (not yet decided)
+  iter-544
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- one blake2b per distinct text per scan: `text_source` computes the content digest once and todos / merge_conflict / syntax_error / broken_link reuse it
+    - Candidate A2 -- syntax_error: index each `__pycache__` listing once (name set + stem -> names) instead of the O(stems x names) `startswith` scan in `_pyc_says_ok`
+    - Candidate A3 -- syntax_error pyc probe: read the 16-byte header via `os.open`/`os.read` and skip opening an interpreter pyc the cached listing says is absent
+    - Candidate B1 -- the README `watch --out-dir` section still says "two identical runs produce identical filenames", but since iter 542 a restarted watch continues after the stream's highest index
+    - Candidate B2 -- README CLI-table flag census: four shipped flags appear in no verb row, and no test ties a row to its verb's parser
+    - Candidate B3 -- `pla resume --help`, its README CLI-table row and SPEC.md:765 still describe resume before iter 536: no done-run no-op, no on-disk artifact adoption (iter 541)
+    winner: B1
+    ship: REVERTED
   iter-543
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- ROADMAP #163: fold `git_activity`'s inline gated child-repo walk into the one gated helper `working_tree` already owns
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one blake2b per distinct text per scan: `text_source` hands the content digest to todos / merge_conflict / broken_link / syntax_error instead of each re-encoding and re-hashing
     - Candidate B3 -- syntax_error: the pytest-pyc lookup is O(stems x names) per scan; index each `__pycache__` listing by stem once
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 078785c
   iter-542
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `watch --out-dir` on an existing stream dir continues the tick numbering instead of clobbering `slate-001.json`
@@ -2569,4 +2589,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-254 scouted iterations
+256 scouted iterations

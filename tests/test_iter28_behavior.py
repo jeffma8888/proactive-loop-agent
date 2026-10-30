@@ -243,9 +243,14 @@ def test_b07_demo_fixture_has_no_merge_conflict_signals(tmp_path, capsys) -> Non
 # ===========================================================================
 
 
-@pytest.mark.parametrize("skipdir", ["node_modules", ".venv", "__pycache__", ".git", "dist", "build"])
-def test_b08_skipped_dir_pruned(tmp_path: Path, capsys, skipdir: str) -> None:
-    _write(tmp_path / skipdir / "buried.py", BLOCK)
+_SKIPDIRS = ("node_modules", ".venv", "__pycache__", ".git", "dist", "build")
+
+
+def test_b08_skipped_dir_pruned(tmp_path: Path, capsys) -> None:
+    # One workspace holds a marked file under EVERY skip dir (folded from a
+    # 6-way parametrize to fund the suite-size budget); a leak names its dir.
+    for skipdir in _SKIPDIRS:
+        _write(tmp_path / skipdir / "buried.py", BLOCK)
     _write(tmp_path / "normal" / "ok.py", BLOCK)
 
     paths = {s["path"] for s in _signals_json(tmp_path, capsys)}

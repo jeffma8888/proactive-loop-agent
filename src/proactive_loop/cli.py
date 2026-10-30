@@ -6817,10 +6817,12 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     feed", but a stream had no producer -- ``scan --out`` defaults to ONE fixed
     path, so repeated scans clobber a single file and the user had to hand-roll two
     invocations. The index (not a timestamp) keeps the filenames DETERMINISTIC, so
-    two identical runs produce the same names and a test can assert them; for runs
-    up to 999 ticks lexicographic order is also chronological order. The write
-    happens AFTER the tick's table renders, so a tick that raised persists nothing
-    and the index advances with the TICK rather than with the write.
+    a run into a fresh DIR always produces the same names and a test can assert
+    them; a run into a DIR that already holds a stream continues after its highest
+    index instead of overwriting a tick. For runs up to 999 ticks lexicographic
+    order is also chronological order. The write happens AFTER the tick's table
+    renders, so a tick that raised persists nothing and the index advances with
+    the TICK rather than with the write.
 
     Bounded runs (``--max-scans N``) exist for tests and one-offs; the production
     case is ``--max-scans`` omitted (``None``) -> run forever, exited with Ctrl-C,
