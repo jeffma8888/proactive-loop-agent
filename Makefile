@@ -172,8 +172,17 @@ readme-headroom:
 #
 # WHY `uv run python` and not bare `python`: the consumer imports
 # `proactive_loop`, so it needs the project virtualenv.
+#
+# WHY the fixture's mtimes are stamped NOW before `pla run`: `recent_files`
+# weighs a file `1 - age/14d`, rounded to 4 dp (one step = 120.96 s), and
+# `weight` is one of the `--baseline` identity keys. A clone stamps the fixture
+# at checkout, so the snapshot read here and the round trip read seconds later
+# could fall either side of the 60.48 s edge and all five rows stopped matching
+# (CI run 41129475742, exit 5). Stamped here, both reads sit well inside the
+# weight-1.0 band. `touch` moves mtimes only, never content.
 demo:
 	mkdir -p .pla_runs
+	find examples/fixture_workspace -type f -exec touch {} +
 	uv run pla run \
 		--workspace examples/fixture_workspace \
 		--provider scripted \

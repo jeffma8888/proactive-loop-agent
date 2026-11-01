@@ -45,6 +45,7 @@ EXAMPLES: Final[Path] = REPO / "examples"
 #: The demo recipe's command heads, in order -- byte-for-byte the pre-fix sequence.
 EXPECTED_ORDER: Final[tuple[str, ...]] = (
     "mkdir -p .pla_runs",
+    "find examples/fixture_workspace",  # mtime stamp (foundry iter 547)
     "uv run pla run",
     "uv run pla explain",
     "uv run python examples/check_autonomy.py",

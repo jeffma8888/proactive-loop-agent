@@ -122,6 +122,10 @@ jobs:
       # identity keys. Proven in both directions: 0 residual here, and deleting one
       # signal from the baseline exits 5 naming count and budget.
       #
+      # WHY it cannot race the clock: `make demo` stamps the fixture's mtimes NOW
+      # before it snapshots, so both halves read the weight-1.0 band of the
+      # mtime-driven `recent_files` collector (see the Makefile's demo comment).
+      #
       # Byte-identical to the same step of `make check` (pinned by
       # tests/test_iter102_behavior.py + tests/test_iter110_behavior.py), and
       # placed BEFORE the self-scan so that scan stays the final graded step.

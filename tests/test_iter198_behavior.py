@@ -87,7 +87,7 @@ RUN_DOC: Final = ".pla_runs/run.json"
 MKDIR_STEP: Final = "mkdir -p .pla_runs"
 CONSUMER_STEP: Final = f"uv run python examples/check_run.py < {RUN_DOC}"
 RUN_STEP_PREFIX: Final = "uv run pla run"
-EXPECTED_DEMO_STEPS: Final = 11
+EXPECTED_DEMO_STEPS: Final = 12  # +1 fixture mtime stamp (foundry iter 547)
 
 # `make check`'s opening step -- the reason `mkdir -p` has to exist at all.
 FRESHNESS_PRESTEP: Final = "rm -rf .pla_runs"
@@ -246,14 +246,14 @@ def test_b1_demo_recipe_is_exactly_five_steps_in_the_specified_order() -> None:
     assert recipe[0] == MKDIR_STEP, (
         f"step (a) must be exactly {MKDIR_STEP!r}; got {recipe[0]!r}"
     )
-    assert recipe[1].startswith(RUN_STEP_PREFIX), (
-        f"step (b) must be the pre-existing `pla run` invocation; got {recipe[1]!r}"
+    assert recipe[2].startswith(RUN_STEP_PREFIX), (
+        f"step (b) must be the pre-existing `pla run` invocation; got {recipe[2]!r}"
     )
-    assert recipe[1].endswith(f"> {RUN_DOC}"), (
-        f"step (b) must redirect into {RUN_DOC}; got {recipe[1]!r}"
+    assert recipe[2].endswith(f"> {RUN_DOC}"), (
+        f"step (b) must redirect into {RUN_DOC}; got {recipe[2]!r}"
     )
-    assert recipe[1].count("--json") == 1, (
-        f"step (b) must carry EXACTLY one --json; got {recipe[1]!r}"
+    assert recipe[2].count("--json") == 1, (
+        f"step (b) must carry EXACTLY one --json; got {recipe[2]!r}"
     )
     assert recipe[-1] == CONSUMER_STEP, (
         f"the LAST step must be exactly {CONSUMER_STEP!r}; got {recipe[-1]!r}"
@@ -310,10 +310,10 @@ def test_b2b_the_redirect_is_a_single_truncating_gt_and_never_appends() -> None:
         "the demo recipe must never APPEND to the graded document -- an "
         f"accumulating {RUN_DOC} is not one JSON object; recipe is {recipe!r}"
     )
-    write_redirects = [tok for tok in recipe[1].split() if tok.startswith(">")]
+    write_redirects = [tok for tok in recipe[2].split() if tok.startswith(">")]
     assert write_redirects == [">"], (
         f"step (b) must carry exactly one truncating `>`; got {write_redirects!r} "
-        f"in {recipe[1]!r}"
+        f"in {recipe[2]!r}"
     )
     assert joined.count(f"> {RUN_DOC}") == 1, (
         f"exactly one step may write {RUN_DOC}; recipe is {recipe!r}"

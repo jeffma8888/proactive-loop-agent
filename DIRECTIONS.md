@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-547
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- The CI `--baseline` round-trip step is a clock race: re-stamp the fixture so both halves read the weight-1.0 plateau (fixes red run 41129475742)
+    - Candidate A2 -- ROADMAP #218 conftest half: an autouse `tests/conftest.py` strips ambient `PLA_*` vars, so one exported knob no longer reds a clean checkout
+    - Candidate A3 -- Make the "vacuous locally, live in CI" gap visible: the round-trip gate asserts its own non-vacuousness (`recent_file` > 0 on the produce side)
+    - Candidate B1 -- `signals --github`: print each REPORTED signal as a GitHub Actions workflow-command annotation, so CI's three live signal gates surface findings on the PR/commit view instead of only in a raw log
+    - Candidate B2 -- CI uploads `.pla_runs/` as a job artifact (`actions/upload-artifact@v4`, `if: always()`), so the demo's slate, snapshot and run checkpoint can be downloaded from every Actions run, including the red ones
+    - Candidate B3 -- `signals --baseline` names its near-misses: one stderr line when reported signals differ from a recorded entry ONLY in `weight`
+    winner: A1
+    ship: pending (not yet decided)
   iter-545
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- Re-land iter 544's README `watch --out-dir` correction, minus the unsanctioned ROADMAP char pin
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `trace --latest`: trace the newest run under `--state-dir`, chosen by the persisted `RunState.created_at`, not by mtime or a glob
     - Candidate B3 -- `diff --fail-on-added`: exit 5 only when the newer slate has goals the older lacks
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED d051b2e
   iter-544
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- one blake2b per distinct text per scan: `text_source` computes the content digest once and todos / merge_conflict / syntax_error / broken_link reuse it
@@ -2589,4 +2599,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-256 scouted iterations
+257 scouted iterations
