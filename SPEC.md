@@ -732,7 +732,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
   - `pla run --workspace W [--dry-run] [--collector NAME ...] [--exclude-path GLOB ...]
-    [--baseline FILE] [--max-iterations N] [--max-llm-calls N] [--max-seconds N]` — scan then auto-dispatch the top
+    [--baseline FILE] [--skip-done] [--max-iterations N] [--max-llm-calls N] [--max-seconds N]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
@@ -762,6 +762,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     would rewrite FILE with only the signals `--baseline` did not suppress, replacing the
     document with its own complement, so an aliased pair is an argparse usage error (exit 2)
     at PARSE time, before anything is collected or written.
+    `--skip-done` (opt-in) skips an AUTO goal whose normalized title has a `done` run,
+    printing `skipped (already done): TITLE -> RUN_ID`.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json] [--status STATUS] [--goal TITLE] [--summary] [--prune]` — read-only,
     LLM-free lister of past dispatched runs under `--state-dir`: one id-sorted row per

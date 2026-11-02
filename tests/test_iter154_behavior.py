@@ -192,14 +192,18 @@ def _helper_docs() -> dict[str, str | None]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("module_name", sorted(_EXPECTED_HELPER_MODULES))
-def test_b01_no_helper_docstring_claims_sibling_parity(module_name: str) -> None:
-    doc = _helper_docs()[module_name]
-    assert doc, f"{module_name}: {HELPER} must keep a docstring"
-    assert not _claims_sibling_parity(doc), (
-        f"{module_name}: {HELPER}.__doc__ still describes its walk by reference to a "
-        f"sibling (contains {_PARITY_TOKEN!r}): {_cleandoc(doc)!r}"
-    )
+def test_b01_no_helper_docstring_claims_sibling_parity() -> None:
+    # Folded from a 2-item parametrize into one in-function loop (foundry iter 551) to fund
+    # the ``make readme-headroom`` collected-item budget; every assertion is kept.
+    modules = sorted(_EXPECTED_HELPER_MODULES)
+    assert len(modules) == 2, modules
+    for module_name in modules:
+        doc = _helper_docs()[module_name]
+        assert doc, f"{module_name}: {HELPER} must keep a docstring"
+        assert not _claims_sibling_parity(doc), (
+            f"{module_name}: {HELPER}.__doc__ still describes its walk by reference to a "
+            f"sibling (contains {_PARITY_TOKEN!r}): {_cleandoc(doc)!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

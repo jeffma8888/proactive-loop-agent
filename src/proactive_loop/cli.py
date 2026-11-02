@@ -1168,6 +1168,27 @@ def build_parser() -> argparse.ArgumentParser:
             "Default (absent) hides nothing."
         ),
     )
+    # The L1 -> L2 feedback edge for the one verb that ACTS: without it `run` cannot see
+    # its own finished work, the synthesizer re-proposes a completed goal at the same
+    # rank, and a cron'd `pla run` re-spends its loop budget (and re-runs ACT tools) on
+    # it every tick. Opt-in (store_true, default False) so a bare `run` stays
+    # byte-identical. Placed AFTER --baseline so the rendered usage keeps
+    # "[--baseline FILE]" where the shipped oracles look for it. Its help names no other
+    # flag: sibling oracles grade `run --help` by the LAST occurrence of a flag name.
+    p_run.add_argument(
+        "--skip-done",
+        action="store_true",
+        default=False,
+        dest="skip_done",
+        help=(
+            "Do not auto-dispatch a goal whose title (compared stripped and "
+            "case-insensitively) already has a run with status 'done' under the state "
+            "dir; act on the next eligible auto-approved goal instead, or on none. Only "
+            "'done' suppresses -- a failed, budget-exhausted, running or pending run, "
+            "or an unreadable checkpoint, suppresses nothing. Each skip prints one "
+            "'skipped (already done): TITLE -> RUN_ID' line. Default off."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -3417,6 +3438,26 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
         "retries": state.retries if state is not None else 0,
         "parse_errors": state.parse_errors if state is not None else 0,
     }
+
+
+def _done_runs_by_title(state_dir: Path) -> dict[str, str]:
+    """Map normalized goal title -> ``run_id`` of a ``done`` run under *state_dir*.
+
+    The read side of ``run --skip-done``. Built on :func:`_run_row` -- the tolerant
+    reader ``runs`` already lists with -- so there is no second checkpoint parser: a
+    missing or corrupt checkpoint degrades to the ``(no checkpoint)`` status there and
+    therefore suppresses nothing here, and never raises. Only ``done`` counts, because
+    every other status is work that is NOT finished and should be retried. Keyed by
+    :func:`_normalize_title`, the synthesizer's own dedup key, so a re-proposal that
+    differs only in case or surrounding whitespace still matches. ``_iter_run_dirs``
+    sorts by name and the FIRST hit wins, so the reported run id is deterministic.
+    """
+    done: dict[str, str] = {}
+    for run_dir in _iter_run_dirs(state_dir):
+        row = _run_row(run_dir)
+        if row["status"] == RunStatus.DONE.value:
+            done.setdefault(_normalize_title(row["goal"]), row["run_id"])
+    return done
 
 
 def _select_prunable(
@@ -5877,9 +5918,19 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # an AUTO_DISPATCH goal with `top` already set matched neither branch.
         deferred: list[CandidateGoal] = []
         needs_approval: list[CandidateGoal] = []
+        # --skip-done: normalized title -> the `done` run that already finished it. Read
+        # only when the flag is set, so a flagless run touches no run dir. Empty dict when
+        # off, which makes the guard below a no-op and keeps the default path identical.
+        done_runs = _done_runs_by_title(settings.state_dir) if args.skip_done else {}
         for goal, decision in zip(ranked, decisions):
             if decision.decision == AutonomyDecision.AUTO_DISPATCH:
-                if top is None:
+                # A finished goal is neither the top pick nor deferred: it was already
+                # dispatched, so listing it as "not reached yet" would be false. Printed
+                # here, ABOVE the needs-approval block, for the ordering reason the
+                # deferred block's comment gives; under --json it lands on stderr.
+                if (prior := done_runs.get(_normalize_title(goal.title))) is not None:
+                    print(f"skipped (already done): {goal.title} -> {prior}")
+                elif top is None:
                     top = goal
                 else:
                     deferred.append(goal)
