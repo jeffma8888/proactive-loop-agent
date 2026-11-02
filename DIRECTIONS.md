@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-552
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `watch --dispatch`: the namesake proactive loop finally ACTS, auto-dispatching each tick's top not-yet-done AUTO_DISPATCH goal
+    - Candidate A2 -- `resume --all`: recover every unfinished run under `--state-dir` in one call, in persisted `created_at` order
+    - Candidate A3 -- `scan --skip-done`: the user-facing slate stops presenting finished goals as fresh `auto_dispatch` work (a VIEW annotation, not an input filter)
+    - Candidate B1 -- `runs` rejects a `--state-dir` that exists but is not a directory (exit 2), the same way `run`/`scan`/`dispatch` already do
+    - Candidate B2 -- the four slate-reading verbs say "slate file not found" for a path that EXISTS as a directory; name the real fault, from one helper
+    - Candidate B3 -- `--scripted-responses` load faults name the flag and the file (re-proposal; lost 2x, never refuted)
+    winner: B1
+    ship: pending (not yet decided)
   iter-551
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README's "`make demo` runs the following" shows 1 of the recipe's 13 commands; publish the whole ordered pipeline and bind it to the `demo:` recipe
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `run --skip-done`: never re-dispatch a goal that already has a `done` run under `--state-dir`; act on the next AUTO_DISPATCH goal instead
     - Candidate B3 -- `resume --all`: after a crash, recover every interrupted run under `--state-dir` in one verb, in persisted `created_at` order
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED e29f8ea
   iter-550
     lenses: performance-and-throughput
     - Candidate A1 -- Start the two git child processes when the scan begins, so they run alongside the in-process collectors instead of blocking in turn
@@ -2639,4 +2649,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-261 scouted iterations
+262 scouted iterations

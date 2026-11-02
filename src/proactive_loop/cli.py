@@ -3373,9 +3373,11 @@ def _render_spent_budget_notes(state: RunState, settings: Settings) -> list[str]
 def _iter_run_dirs(state_dir: Path) -> list[Path]:
     """Return *state_dir*'s ``run-*`` subdirs, sorted ascending by ``.name``.
 
-    A missing or non-directory *state_dir* yields ``[]`` so ``runs`` degrades to
-    a clean "no runs" line instead of raising -- the same tolerant posture the
-    rest of the run machinery already takes. Sorting by name (not mtime) makes
+    A missing or non-directory *state_dir* yields ``[]`` instead of raising --
+    the same tolerant posture the rest of the run machinery already takes. The
+    refusal of an existing non-directory lives in the CALLER (``_cmd_runs`` runs
+    ``_state_dir_guard``), so tolerant callers such as ``run --skip-done``'s
+    ``_done_runs_by_title`` keep this helper's ``[]`` contract. Sorting by name (not mtime) makes
     the listing deterministic: two invocations against an unchanged state dir
     produce byte-identical output.
     """
@@ -6140,9 +6142,12 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     dispatch/run/resume already persist, so a fresh clone can enumerate and
     inspect every past run with zero provider wiring. It also repairs resume's
     usability -- the run_id column is exactly the --run-dir value resume wants,
-    so discovering a run no longer means hand-hunting an opaque path. Always
-    exits 0: an absent or empty state dir is a legitimate "no runs" answer, not
-    a fault.
+    so discovering a run no longer means hand-hunting an opaque path. An absent
+    or empty state dir exits 0: it is a legitimate "no runs" answer, not a
+    fault. An EXISTING non-directory state dir exits 2 (``_state_dir_guard``,
+    the same line ``run`` prints): certifying "0 runs" for a clobbered or
+    mistyped path is a wrong answer a CI reader of ``--summary --json`` would
+    trust.
 
     Read-only EXCEPT on the one opted-in path: ``--prune --yes`` deletes the run
     dirs this same command would have listed (delegated to ``_prune_runs``).
@@ -6157,6 +6162,12 @@ def _cmd_runs(args: argparse.Namespace) -> int:
         print("error: --summary cannot be combined with --prune", file=sys.stderr)
         return 2
     settings = _settings(args)
+    # After the argv-shape refusal (so it still wins) and BEFORE --prune, so a
+    # file at the state path is refused rather than "pruned" as an empty dir.
+    msg = _state_dir_guard(settings.state_dir)
+    if msg is not None:
+        print(f"error: {msg}", file=sys.stderr)
+        return 2
     if args.prune:
         return _prune_runs(settings.state_dir, args)
     rows = [_run_row(d) for d in _iter_run_dirs(settings.state_dir)]
