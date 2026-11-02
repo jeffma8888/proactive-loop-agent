@@ -109,8 +109,10 @@ KINDS: Final[tuple[str, str]] = ("broken_link", "license")
 #: Moved 6 -> 7 when ``runs --summary`` landed (foundry iter 314): its one-object
 #: ``--json`` rendering routes through the seam rather than a 16th open-coded
 #: ``print(json.dumps(``, so ``EXPECTED_PRINT_JSON_DUMPS`` stays at 15.
+#: Moved 7 -> 12 when the ``runs``/``explain``/``verify``/``diff``/``trend`` tails
+#: joined the seam (foundry iter 548), so their one-document promise is structural.
 EMITTER: Final[str] = "_emit"
-EXPECTED_EMIT_CALL_SITES: Final[int] = 7
+EXPECTED_EMIT_CALL_SITES: Final[int] = 12
 
 #: Behavior 5.  The five renderers whose open-coded dispatch tail must be GONE.
 #: (``_render_explain`` is deliberately absent: HEAD had TWO explain tails -- the
@@ -122,19 +124,18 @@ CONSOLIDATED_RENDERERS: Final[frozenset[str]] = frozenset(
 )
 
 #: Behavior 6, "no collateral consolidation".  The dispatch tails that are OUT OF
-#: SCOPE and must therefore still be open-coded, one each.  ``prune``/``runs``/
-#: ``verify``/``diff``/``trend`` are not in five-line correspondence, and
-#: ``explain``'s own tail is the survivor described above.
-SURVIVING_RENDERERS: Final[frozenset[str]] = frozenset(
-    {"_render_prune", "_render_runs", "_render_explain", "_render_verify",
-     "_render_diff", "_render_trend"}
-)
+#: SCOPE and must therefore still be open-coded, one each.  ``prune`` is not in
+#: five-line correspondence.  ``runs``/``verify``/``diff``/``trend`` and the
+#: ``explain`` survivor described above left this set when they moved onto
+#: ``_emit`` (foundry iter 548), so ``_render_prune`` is the only tail left.
+SURVIVING_RENDERERS: Final[frozenset[str]] = frozenset({"_render_prune"})
 
 #: Behavior 6.  ``cli.py`` carried 21 ``print(json.dumps(`` occurrences at
 #: ``HEAD_BLOB_SHA``; exactly six become ``_emit`` calls, so 15 remain; +1 for
-#: ``watch --json`` (foundry iter 327).  A ratchet: a later iteration that
-#: consolidates more must move this number deliberately.
-EXPECTED_PRINT_JSON_DUMPS: Final[int] = 16
+#: ``watch --json`` (foundry iter 327); -5 when ``runs``/``explain``/``verify``/
+#: ``diff``/``trend`` moved onto ``_emit`` (foundry iter 548).  A ratchet: a later
+#: iteration that consolidates more must move this number deliberately.
+EXPECTED_PRINT_JSON_DUMPS: Final[int] = 11
 
 #: Behavior 6.  The three ``_cmd_run`` sites that write to ``result_stream``
 #: instead of stdout are NOT in correspondence and must be untouched, verbatim.
@@ -482,7 +483,7 @@ def test_b05b_emitter_has_exactly_six_call_sites() -> None:
     assert len(calls) == EXPECTED_EMIT_CALL_SITES, (
         f"`{EMITTER}` must be called at exactly {EXPECTED_EMIT_CALL_SITES} sites "
         f"(policy --check-goal, policy, config, tools, collectors, providers, "
-        f"runs --summary); found "
+        f"runs --summary, runs, explain, verify, diff, trend); found "
         f"{len(calls)} at lines {sorted(c.lineno for c in calls)}"
     )
 
@@ -558,11 +559,12 @@ def test_b06b_the_three_result_stream_sites_are_untouched() -> None:
 
 
 def test_b06c_the_out_of_scope_dispatch_tails_all_survive() -> None:
-    """Exactly the six out-of-scope tails remain open-coded -- one each, no more.
+    """Exactly the out-of-scope tails remain open-coded -- one each, no more.
 
     This is the other half of "no collateral consolidation": the change must not
-    have absorbed ``prune``/``runs``/``explain``/``verify``/``diff``/``trend``,
-    which are NOT in five-line correspondence with the six in scope.
+    have absorbed ``prune``, which is NOT in five-line correspondence with the six
+    in scope.  (``runs``/``explain``/``verify``/``diff``/``trend`` were absorbed
+    deliberately in foundry iter 548.)
     """
     census = _dispatch_tail_census(_cli_tree())
     renderers = sorted(renderer for _line, renderer in census)

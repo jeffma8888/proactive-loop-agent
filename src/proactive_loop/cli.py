@@ -6113,8 +6113,8 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     # rows so the default path (args.status is None) stays byte-identical, and a
     # degraded "(no checkpoint)" row -- whose marker matches no RunStatus value --
     # is naturally excluded by any filter. The filtered rows feed the SAME
-    # _render_runs / json.dumps paths, so the empty result reuses the existing
-    # "no runs" line (human) or "[]" (--json) verbatim.
+    # ``_emit`` call, so the empty result reuses the existing "no runs" line
+    # (human) or "[]" (--json) verbatim.
     if args.status is not None:
         rows = [r for r in rows if r["status"] == args.status]
     if args.goal is not None:
@@ -6130,11 +6130,8 @@ def _cmd_runs(args: argparse.Namespace) -> int:
             human=lambda: _render_runs_summary(summary),
         )
         return 0
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON array (empty -> []); no prose.
-        print(json.dumps(rows, indent=2))
-    else:
-        print(_render_runs(rows))
+    # --json is ONE array (empty -> ``[]``), the one-document rule `_emit` owns.
+    _emit(as_json=args.json, payload=lambda: rows, human=lambda: _render_runs(rows))
     return 0
 
 
@@ -6198,13 +6195,13 @@ def _cmd_explain(args: argparse.Namespace) -> int:
 
     settings = _settings(args)
     decision = gate(goal, settings)
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
-        # guards above (exit 2 / exit 1) already ran, so --json selects a rendering
-        # only and leaves the exit-code contract untouched.
-        print(json.dumps(_explain_json_payload(goal, decision, settings), indent=2))
-    else:
-        print(_render_explain(goal, decision, settings))
+    # Both guards above (exit 2 / exit 1) already ran, so --json selects a rendering
+    # only and leaves the exit-code contract untouched.
+    _emit(
+        as_json=args.json,
+        payload=lambda: _explain_json_payload(goal, decision, settings),
+        human=lambda: _render_explain(goal, decision, settings),
+    )
     return 0
 
 
@@ -6451,12 +6448,12 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     # about the snapshot first (exit 2), so no shipped snapshot-guard case changes shape.
     slate = _load_slate(slate_path)
     rows = _verify_slate(slate, identities)
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer, and no
-        # truncation note -- both guards above already ran.
-        print(json.dumps(_verify_json_payload(args.slate, args.snapshot, rows), indent=2))
-    else:
-        print(_render_verify(rows))
+    # No truncation note in --json: both guards above already ran.
+    _emit(
+        as_json=args.json,
+        payload=lambda: _verify_json_payload(args.slate, args.snapshot, rows),
+        human=lambda: _render_verify(rows),
+    )
     # THE GATE, LAST AND AFTER STDOUT ON PURPOSE. Every earlier return -- both exit-2
     # refusals -- has already fired, so this branch can only ever re-colour the
     # SUCCESSFUL `0`: a refusal keeps its own code and prints no `gate: ` line, without
@@ -6991,16 +6988,14 @@ def _cmd_diff(args: argparse.Namespace) -> int:
 
     settings = _settings(args)
     result = _compute_diff(old_slate, new_slate, settings)
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
-        # guards above (exit 2 / exit 1) already ran, so --json selects a rendering
-        # only and leaves the exit-code contract untouched. `old`/`new` echo the
-        # strings the selector block resolved: the raw arg strings in explicit mode
-        # (the raw-arg echo contract -- never the normalized Path, which drops a
-        # leading `./`), and the CHOSEN stream paths in `--dir` mode.
-        print(json.dumps(_diff_json_payload(old_echo, new_echo, result), indent=2))
-    else:
-        print(_render_diff(result))
+    # `old`/`new` echo the strings the selector block resolved: the raw arg strings
+    # in explicit mode (the raw-arg echo contract -- never the normalized Path, which
+    # drops a leading `./`), and the CHOSEN stream paths in `--dir` mode.
+    _emit(
+        as_json=args.json,
+        payload=lambda: _diff_json_payload(old_echo, new_echo, result),
+        human=lambda: _render_diff(result),
+    )
     # THE GATE, LAST AND AFTER STDOUT ON PURPOSE (the `verify --fail-on-unresolved`
     # shape): every exit-2 refusal and the exit-1 `_load_slate` path have already
     # fired, so this branch can only ever re-colour the SUCCESSFUL `0`, and placing
@@ -7090,12 +7085,12 @@ def _cmd_trend(args: argparse.Namespace) -> int:
         if (index := _stream_slate_index(path.name)) is not None
     ]
     result = _compute_trend(ticks)
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer. Both
-        # guards above already ran, so --json is a rendering choice only.
-        print(json.dumps(_trend_json_payload(result), indent=2))
-    else:
-        print(_render_trend(result))
+    # Both guards above already ran, so --json is a rendering choice only.
+    _emit(
+        as_json=args.json,
+        payload=lambda: _trend_json_payload(result),
+        human=lambda: _render_trend(result),
+    )
     if args.fail_on_persist is not None:
         threshold = args.fail_on_persist
         persisting = sum(1 for row in result["goals"] if row["ticks"] >= threshold)

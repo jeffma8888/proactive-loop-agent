@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-548
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `make demo` grades `resume --json` of its own finished run with the shipped `examples/check_run.py` (re-proposal of iter-541 B2; its prerequisite has since shipped)
+    - Candidate A2 -- `verify --json` gets its first consumer, so CI's armed citation gate can no longer pass VACUOUSLY on a slate that cites nothing
+    - Candidate A3 -- the default-provider "offline, no API key" on-ramp is never exercised by the graded gate: every demo/CI invocation passes `--provider scripted` explicitly
+    - Candidate B1 -- Route the five remaining hand-rolled `--json`/human tails (runs, explain, verify, diff, trend) through the shipped `_emit` seam
+    - Candidate B2 -- One `remember_under_cap(memo, key, value, cap)` in `collectors/base.py` replaces the FIFO eviction rule copied into four collectors (re-proposal)
+    - Candidate B3 -- One `_trip_gate(line) -> int` owns the five exit-5 gate tails (verify, signals x2, diff, trend) and their four restated "STDERR, one line, no `error:` prefix" comments
+    winner: B1
+    ship: pending (not yet decided)
   iter-547
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- The CI `--baseline` round-trip step is a clock race: re-stamp the fixture so both halves read the weight-1.0 plateau (fixes red run 41129475742)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- CI uploads `.pla_runs/` as a job artifact (`actions/upload-artifact@v4`, `if: always()`), so the demo's slate, snapshot and run checkpoint can be downloaded from every Actions run, including the red ones
     - Candidate B3 -- `signals --baseline` names its near-misses: one stderr line when reported signals differ from a recorded entry ONLY in `weight`
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 39f6b15
   iter-545
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- Re-land iter 544's README `watch --out-dir` correction, minus the unsanctioned ROADMAP char pin
@@ -2599,4 +2609,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-257 scouted iterations
+258 scouted iterations
