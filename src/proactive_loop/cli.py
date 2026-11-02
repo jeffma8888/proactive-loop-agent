@@ -6855,6 +6855,26 @@ def _cmd_signals(args: argparse.Namespace) -> int:
     return 0
 
 
+class _SlatePersistError(OSError):
+    """A ``watch --out-dir`` slate write that raised ``OSError`` after a successful scan.
+
+    WHY a private type rather than the bare ``OSError``: ``run_periodic``'s ``on_error``
+    hook sees every exception a tick raises, and a scan can raise ``OSError`` too (a
+    collector reading the workspace). Only the write site knows the fault is about the
+    stream directory, so it tags the error here and ``_on_scan_error`` re-raises exactly
+    this type instead of riding on. WHY it still SUBCLASSES ``OSError``: it then reaches
+    ``main()``'s existing operational-fault boundary (``error: <msg>``, exit 1), so the
+    watch adds no new exit-1 route to document. ``str()`` names the FINAL slate path,
+    not the ``.tmp`` sibling the errno came from, because that is the path the user
+    asked for.
+    """
+
+    def __init__(self, target: Path, cause: OSError) -> None:
+        reason = cause.strerror or str(cause)
+        super().__init__(f"cannot write --out-dir slate: {target}: {reason}")
+        self.target = target
+
+
 def _cmd_watch(args: argparse.Namespace) -> int:
     """watch: re-run the scan pipeline every --interval seconds (proactive loop).
 
@@ -6894,6 +6914,13 @@ def _cmd_watch(args: argparse.Namespace) -> int:
     non-retryable model fault) is caught by ``run_periodic``'s ``on_error`` hook,
     logged to stderr as ``scan <n> failed: <exc>``, and the watch continues to the
     next tick -- a transient outage on one scan never kills the long-lived watcher.
+    The one exception is a tick whose scan SUCCEEDED but whose ``--out-dir`` slate
+    write raised ``OSError`` (a read-only ``DIR``, a full disk): that fault is not
+    transient -- it repeats on every tick, spends provider budget on each, and a
+    bounded watch would still exit 0 having persisted nothing. It is wrapped in
+    :class:`_SlatePersistError`, re-raised by ``_on_scan_error`` out of ``run_periodic``,
+    and reaches ``main()``'s boundary: exit 1 and one ``error: cannot write --out-dir
+    slate:`` line -- the same exit ``scan --out`` gives for the same fault.
     """
     # Shared front-door guard, FIRST: no scripted response spent, no --interval dependency.
     if (workspace := _checked_workspace(args.workspace)) is None:
@@ -6947,7 +6974,12 @@ def _cmd_watch(args: argparse.Namespace) -> int:
             # Same `slate written:` trailer wording `scan` prints, so the two
             # verbs cannot describe the same act differently.
             target = out_dir / _stream_slate_name(base + count)
-            _write_slate(slate, target)
+            try:
+                _write_slate(slate, target)
+            except OSError as exc:
+                # Tagged so _on_scan_error can tell a persist fault (fatal: it
+                # recurs every tick) from a scan fault (transient: ride on).
+                raise _SlatePersistError(target, exc) from exc
             print(
                 f"\nslate written: {target}",
                 file=sys.stderr if use_json else sys.stdout,
@@ -6959,8 +6991,14 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         # long-lived watcher. Log it and let run_periodic continue to the next tick.
         # NOT the `error:` prefix (reserved for the fatal exit-1 boundary in
         # main()); a failed scan is transient, so this is a plain per-tick note.
+        # A persist fault is NOT transient, so it is re-raised out of run_periodic.
+        if isinstance(exc, _SlatePersistError):
+            raise exc
         print(f"scan {scan_number} failed: {exc}", file=sys.stderr)
 
+    # A _SlatePersistError re-raised by _on_scan_error escapes run_periodic and is
+    # reported by main()'s operational-fault boundary (it IS an OSError): one
+    # `error:` line, exit 1, the same route `scan --out` takes for the same fault.
     run_periodic(
         scan_once, args.interval, iterations=args.max_scans, on_error=_on_scan_error
     )

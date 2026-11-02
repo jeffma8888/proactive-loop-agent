@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-553
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `runs` aborts the WHOLE listing (exit 1) when one run dir is unreadable, breaking `_run_row`'s own "one bad run must never abort the listing" contract
+    - Candidate A2 -- `watch --out-dir` into an unwritable dir burns every tick, labels each write fault "scan N failed", persists nothing, and exits 0
+    - Candidate A3 -- `--help`'s exit-code contract says a malformed input file exits 1, but the three signal-document flags exit 2; make the published table true and pin it with an input-flag x fault matrix
+    - Candidate A1 -- `run --json` publishes the goals `--skip-done` skipped, so a script can tell "already done" from "nothing to do"
+    - Candidate A2 -- the graded gate (make demo + CI) exercises `run --skip-done` for the first time
+    - Candidate A3 -- the `skipped (already done)` line names a run the user cannot paste; add the paste-ready `pla trace --run-dir` next step
+    winner: A2
+    ship: pending (not yet decided)
   iter-552
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `watch --dispatch`: the namesake proactive loop finally ACTS, auto-dispatching each tick's top not-yet-done AUTO_DISPATCH goal
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the four slate-reading verbs say "slate file not found" for a path that EXISTS as a directory; name the real fault, from one helper
     - Candidate B3 -- `--scripted-responses` load faults name the flag and the file (re-proposal; lost 2x, never refuted)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 01b0164
   iter-551
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README's "`make demo` runs the following" shows 1 of the recipe's 13 commands; publish the whole ordered pipeline and bind it to the `demo:` recipe
@@ -2649,4 +2659,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-262 scouted iterations
+263 scouted iterations

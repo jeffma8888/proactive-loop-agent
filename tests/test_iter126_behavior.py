@@ -401,15 +401,18 @@ def test_eb6_empty_no_run_dirs(tmp_path):
         assert _snapshot(sd) == before, "an empty prune must delete nothing"
 
 
-@pytest.mark.parametrize("extra", [[], ["--yes"]])
-def test_eb6_empty_state_dir_missing(tmp_path, extra):
-    missing = tmp_path / "nope"
+def test_eb6_empty_state_dir_missing(tmp_path):
+    # Folded from a 2-item parametrize to one item (factory iter 553 funds its oracle).
+    extras: list[list[str]] = [[], ["--yes"]]
+    assert len(extras) == 2
+    for extra in extras:
+        missing = tmp_path / "nope"
 
-    code, out, err = _run(["runs", "--state-dir", str(missing), "--prune", *extra])
+        code, out, err = _run(["runs", "--state-dir", str(missing), "--prune", *extra])
 
-    assert code == 0, f"a missing state dir must exit 0; got {code}; stderr:\n{err}"
-    assert out.splitlines() == [_EMPTY_LINE], f"expected the empty line; got:\n{out!r}"
-    assert not missing.exists(), "prune must not CREATE the state dir"
+        assert code == 0, f"a missing state dir {extra} must exit 0; got {code}; stderr:\n{err}"
+        assert out.splitlines() == [_EMPTY_LINE], f"expected the empty line; got:\n{out!r}"
+        assert not missing.exists(), f"prune {extra} must not CREATE the state dir"
 
 
 @pytest.mark.parametrize("extra", [[], ["--yes"]])
