@@ -179,7 +179,7 @@ MIN_INDEX_ROWS = 19
 #: pyc skip, bound two-sided to `_pyc_says_ok`), again with no index retirement, so 91 -> 92
 #: and the bullets hold.
 EXPECTED_ARCHIVE_BULLETS = 88
-EXPECTED_LEDGER_ROWS = 127  # +1 for row #338 (foundry iter 549)
+EXPECTED_LEDGER_ROWS = 128  # +1 for row #339 (foundry iter 550)
 LEDGER_NUMBER = "285"
 SHIP_TAG = "foundry iter 304"
 MAX_LEDGER_ROW_CHARS = 120

@@ -223,6 +223,25 @@ makes it the one caller that qualifies by construction. The gate steps that
 precede it (`test -f .pla_runs/slate.json`, `ls .pla_runs/run-*/artifacts/*.md`)
 only assert those files EXIST; this is the step that reads what they say.
 
+**The build also ratchets the fixture against itself, and scans its own tree.** Both
+graded gates -- `make check` locally and `.github/workflows/ci.yml` on every push -- run
+two more `signals` gates after `verify`:
+
+```bash
+uv run pla signals --workspace examples/fixture_workspace --baseline .pla_runs/snapshot.json --fail-over 0
+uv run pla signals --workspace . --fail-on-kind merge_conflict --fail-on-kind syntax_error --fail-on-kind secret_file --fail-on-kind broken_link
+```
+
+The first re-perceives the fixture with the demo's own snapshot as its `--baseline`, so
+every signal recorded there is hidden and `--fail-over 0` exits **5** if even one live
+signal is missing from that same-run snapshot -- the first executable consumer of
+`--baseline`. It cannot race the clock: `recent_files` weight is mtime-driven and a
+baseline entry keys on weight, so `make demo` first stamps every fixture file to now
+(`find examples/fixture_workspace -type f -exec touch {} +`, which moves mtimes only,
+never content). The second is the self-scan: it exits **5** if this repository ever
+contains a merge-conflict marker, a Python syntax error, a committed secret file or a
+broken relative Markdown link -- the four kinds that are zero here today.
+
 **And the build budgets what it cannot forbid.** `--fail-on-kind` can only arm a
 kind that is *zero* here, so the kinds that are merely supposed to stay small are
 beyond its reach. Both graded gates therefore also run a count budget:

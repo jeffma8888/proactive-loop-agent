@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-550
+    lenses: performance-and-throughput
+    - Candidate A1 -- Start the two git child processes when the scan begins, so they run alongside the in-process collectors instead of blocking in turn
+    - Candidate A2 -- Run the suite's live `--collect-only` census once per pytest worker, not 14 times
+    - Candidate A3 -- Cut CLI cold start for verbs that never scan (`--help`, `diff`, `verify`, `trace`, `runs`, `kinds`)
+    - Candidate A -- The README's graded-gate tour shows 6 of the 8 `pla` gate commands; the `--baseline` round trip and the `--fail-on-kind` self-scan appear nowhere
+    - Candidate B -- "`make demo` runs the following" shows one command, but the recipe has been 2 steps before it since iter 547 (the fixture mtime stamp is undocumented)
+    - Candidate C -- README CLI-table flag census, re-proposed: 4 shipped flags are still in no verb row (re-measured at HEAD)
+    winner: A1
+    ship: pending (not yet decided)
   iter-549
     lenses: simplification-and-deletion
     - Candidate A1 -- Route the last four plain `--json`/human tails (trace, signals --summary, signals listing, explain all-goals) through `_emit`, and fold the two signals tails into ONE call
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2: one content digest per distinct text per scan, handed out by `text_source` (re-proposal: iter-543 B2, iter-544 A1)
     - Candidate B3: syntax_error's pyc probe consults the cached `__pycache__` listing before opening, and indexes pytest pycs by stem (re-proposal of iter-543 B3 and iter-544 A2+A3, with a measured, smaller payoff)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED a4e620c
   iter-548
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `make demo` grades `resume --json` of its own finished run with the shipped `examples/check_run.py` (re-proposal of iter-541 B2; its prerequisite has since shipped)
@@ -2619,4 +2629,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-259 scouted iterations
+260 scouted iterations
