@@ -176,21 +176,25 @@ def test_b01_large_file_default_sourced_from_constant() -> None:
 # ===========================================================================
 
 
-@pytest.mark.parametrize(("cls", "_mod", "name"), CAPPED, ids=[c[2] for c in CAPPED])
-def test_b02_max_read_bytes_field_default(cls, _mod, name: str) -> None:
-    fields = {f.name: f for f in dataclasses.fields(cls)}
-    assert "max_read_bytes" in fields, (
-        f"{cls.__name__} must expose a max_read_bytes dataclass field; "
-        f"got fields {sorted(fields)}"
-    )
-    field = fields["max_read_bytes"]
-    assert field.default == LARGE_FILE_MIN_BYTES, (
-        f"{cls.__name__}.max_read_bytes default must equal LARGE_FILE_MIN_BYTES "
-        f"({LARGE_FILE_MIN_BYTES}); got {field.default!r}"
-    )
-    assert field.type in ("int", int), (
-        f"{cls.__name__}.max_read_bytes must be annotated int; got {field.type!r}"
-    )
+# foundry iter 549: folded from a 3-way parametrize into an in-function loop
+# (3 -> 1 collected items) to fund tests/test_iter298_behavior.py under the
+# binding_headroom=6 wall; every assert message still names its collector.
+def test_b02_max_read_bytes_field_default() -> None:
+    assert len(CAPPED) == 3, f"expected three capped collectors, got {CAPPED!r}"
+    for cls, _mod, _name in CAPPED:
+        fields = {f.name: f for f in dataclasses.fields(cls)}
+        assert "max_read_bytes" in fields, (
+            f"{cls.__name__} must expose a max_read_bytes dataclass field; "
+            f"got fields {sorted(fields)}"
+        )
+        field = fields["max_read_bytes"]
+        assert field.default == LARGE_FILE_MIN_BYTES, (
+            f"{cls.__name__}.max_read_bytes default must equal LARGE_FILE_MIN_BYTES "
+            f"({LARGE_FILE_MIN_BYTES}); got {field.default!r}"
+        )
+        assert field.type in ("int", int), (
+            f"{cls.__name__}.max_read_bytes must be annotated int; got {field.type!r}"
+        )
 
 
 @pytest.mark.parametrize(("cls", "_mod", "name"), CAPPED, ids=[c[2] for c in CAPPED])

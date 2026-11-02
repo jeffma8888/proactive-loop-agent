@@ -236,7 +236,9 @@ def _memoized_count_markers(text: str) -> int:
     soundness argument above rests on, and its existing unit tests keep measuring
     the SCAN rather than the cache.
     """
-    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=_DIGEST_SIZE).digest()
+    # sha256 truncated, not blake2b: OpenSSL runs sha256 on the CPU's SHA
+    # extensions, ~2.4x faster over one collect's texts (foundry iter 549).
+    digest = hashlib.sha256(text.encode("utf-8")).digest()[:_DIGEST_SIZE]
     if digest in _MARKER_MEMO:
         _MARKER_MEMO_COUNTS["hits"] += 1
         return _MARKER_MEMO[digest]

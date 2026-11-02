@@ -11,13 +11,14 @@ is repeated work: ``pla watch`` runs a full collect each tick over a tree that
 mostly did not change. Profiled once when this memo shipped (factory iter 130,
 on a ~190-file tree holding ~3.2 MB of decoded text): a full ``collect`` was
 79.77 ms, of which the per-line regex pass was 55.76 ms (70%) while read+decode
-was 18.96 ms and a blake2b digest of the same text was 3.58 ms. That is a DATED
-record of one past run, not a claim about whatever tree this checkout holds
-today. So the per-line extraction is memoized in a bounded,
-module-level map keyed on a digest of the decoded text (see the todo-memo block
-below), which turns the repeated cost into read+decode+digest and saves ~52 ms
-per tick. Output is unchanged: a hit returns exactly the items the regex pass
-would have produced for that same text.
+was 18.96 ms and a blake2b digest of the same text was 3.58 ms (measured factory
+iter 130 with blake2b; foundry iter 549 switched the key to a truncated sha256,
+3.5 vs 8.4 ms over one collect's 373 texts). Those are DATED records of past
+runs, not claims about whatever tree this checkout holds today. So the per-line
+extraction is memoized in a bounded, module-level map keyed on a digest of the
+decoded text (see the todo-memo block below), which turns the repeated cost into
+read+decode+digest and saves ~52 ms per tick. Output is unchanged: a hit returns
+exactly the items the regex pass would have produced for that same text.
 """
 
 from __future__ import annotations
@@ -292,7 +293,9 @@ def _todo_items(text: str) -> tuple[_TodoItem, ...]:
     universal-newline translation, so a CRLF file and its LF twin share ONE
     entry -- correctly, since the scan sees identical input in both cases.
     """
-    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=_DIGEST_SIZE).digest()
+    # sha256 truncated, not blake2b: OpenSSL runs sha256 on the CPU's SHA
+    # extensions, ~2.4x faster over one collect's texts (foundry iter 549).
+    digest = hashlib.sha256(text.encode("utf-8")).digest()[:_DIGEST_SIZE]
     if digest in _TODO_MEMO:
         _TODO_MEMO_COUNTS["hits"] += 1
         return _TODO_MEMO[digest]

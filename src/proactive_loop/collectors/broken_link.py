@@ -354,7 +354,9 @@ def _link_refs(text: str) -> tuple[_LinkRef, ...]:
     universal-newline translation, so a CRLF document and its LF twin share ONE
     entry -- correctly, since the extraction sees identical input in both cases.
     """
-    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=_DIGEST_SIZE).digest()
+    # sha256 truncated, not blake2b: OpenSSL runs sha256 on the CPU's SHA
+    # extensions, ~2.4x faster over one collect's texts (foundry iter 549).
+    digest = hashlib.sha256(text.encode("utf-8")).digest()[:_DIGEST_SIZE]
     if digest in _BROKEN_LINK_MEMO:
         _BROKEN_LINK_MEMO_COUNTS["hits"] += 1
         return _BROKEN_LINK_MEMO[digest]

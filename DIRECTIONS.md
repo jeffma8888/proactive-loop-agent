@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-549
+    lenses: simplification-and-deletion
+    - Candidate A1 -- Route the last four plain `--json`/human tails (trace, signals --summary, signals listing, explain all-goals) through `_emit`, and fold the two signals tails into ONE call
+    - Candidate A2 -- One `_report_run(goal, dispatched, *, as_json)` owns the "human summary, or summary-to-stderr + one document" ending of `dispatch` and `resume`, and the single-caller `_dispatch_goal` wrapper is deleted
+    - Candidate A3 -- `scan` and `run` share one `--snapshot` output-target pre-check instead of two copy-pasted guard blocks
+    - Candidate B1: memo digests use `hashlib.sha256` (hardware-accelerated) instead of `hashlib.blake2b`, truncated to the same 16 bytes
+    - Candidate B2: one content digest per distinct text per scan, handed out by `text_source` (re-proposal: iter-543 B2, iter-544 A1)
+    - Candidate B3: syntax_error's pyc probe consults the cached `__pycache__` listing before opening, and indexes pytest pycs by stem (re-proposal of iter-543 B3 and iter-544 A2+A3, with a measured, smaller payoff)
+    winner: B1
+    ship: pending (not yet decided)
   iter-548
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `make demo` grades `resume --json` of its own finished run with the shipped `examples/check_run.py` (re-proposal of iter-541 B2; its prerequisite has since shipped)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- One `remember_under_cap(memo, key, value, cap)` in `collectors/base.py` replaces the FIFO eviction rule copied into four collectors (re-proposal)
     - Candidate B3 -- One `_trip_gate(line) -> int` owns the five exit-5 gate tails (verify, signals x2, diff, trend) and their four restated "STDERR, one line, no `error:` prefix" comments
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED bc68061
   iter-547
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- The CI `--baseline` round-trip step is a clock race: re-stamp the fixture so both halves read the weight-1.0 plateau (fixes red run 41129475742)
@@ -2609,4 +2619,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-258 scouted iterations
+259 scouted iterations
