@@ -565,7 +565,8 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
         1,
         "operational fault, or a gate that could not be proven -- a "
         "foreseeable operator or environment error (an unknown --provider, a "
-        "missing or malformed input file, or a model-boundary failure once the "
+        "malformed slate or checkpoint.json, a missing or malformed "
+        "--scripted-responses script, or a model-boundary failure once the "
         "retry budget is spent), or a collector owning a kind armed with "
         "--fail-on-kind degraded mid-scan, so that gate fails closed rather "
         "than certifying a green result it cannot prove. Reported as one "
@@ -574,8 +575,12 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
     (
         2,
         "nothing to act on, or the invocation was wrong -- a path you passed "
-        "does not exist, a --run-dir holds no checkpoint.json, or argparse "
-        "rejected an unknown flag or an invalid value.",
+        "does not exist or is the wrong kind of path (a --slate or --baseline "
+        "that is missing or not a regular file, an --out that is a "
+        "directory, a --state-dir or --out-dir that is not a directory), a "
+        "malformed --baseline or --snapshot document (not valid "
+        "JSON or not one JSON object), a --run-dir holds no checkpoint.json, or "
+        "argparse rejected an unknown flag or an invalid value.",
     ),
     (
         3,
@@ -2081,14 +2086,18 @@ def main(argv: list[str] | None = None) -> int:
 
     * ``0`` -- success.
     * ``1`` -- operational fault, or a gate that could not be proven: a
-      foreseeable operator/environment error (bad ``--provider``,
-      missing/malformed input file, or a model-boundary failure once the retry
-      budget is spent), or a collector owning a kind armed with
+      foreseeable operator/environment error (bad ``--provider``, a malformed
+      slate or ``checkpoint.json``, a missing/malformed ``--scripted-responses``
+      script, or a model-boundary failure once the retry budget is spent), or a
+      collector owning a kind armed with
       ``signals --fail-on-kind`` degraded mid-scan, so that gate fails closed
       rather than certifying a green result it cannot prove -- a crashed
       collector cannot tell absent from never-looked. Reported as one
       ``error: ...`` line on stderr, never a raw traceback.
-    * ``2`` -- not-found / no-checkpoint (a handler returned it explicitly).
+    * ``2`` -- nothing to act on / bad invocation: a path that does not exist
+      or is the wrong kind (``--slate``, ``--baseline``), a malformed
+      ``--baseline``/``--snapshot`` document, a ``--run-dir`` with no
+      ``checkpoint.json``, or an argparse usage error.
     * ``3`` -- BLOCKED by the autonomy contract.
     * ``4`` -- needs-approval (re-run with ``--yes``).
     * ``5`` -- a requested gate tripped on a finding: the command ran fine and

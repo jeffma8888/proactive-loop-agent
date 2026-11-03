@@ -58,6 +58,7 @@ import pytest
 
 from proactive_loop.cli import main
 from tests import test_readme_and_ci_contract as guard
+from tests.test_iter229_behavior import _code2_row_grew_with_its_contract
 
 REPO = Path(__file__).resolve().parents[1]
 README = REPO / "README.md"
@@ -384,6 +385,10 @@ def test_b06_the_table_rows_are_byte_identical_to_head() -> None:
     )
     for (code, live), (_, head) in zip(live_rows, head_rows, strict=True):
         if live == head:
+            continue
+        # Row 2 may GROW only in the commit that corrects code 2's own contract
+        # text (foundry iter 556); the helper documents the exact condition.
+        if code == 2 and _code2_row_grew_with_its_contract(head, live):
             continue
         # The one row that legitimately moves after this iteration: 5 is the gate
         # row, and ``tests/test_iter152_behavior.py::test_b09`` makes naming a NEW

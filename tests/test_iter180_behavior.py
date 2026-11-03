@@ -484,34 +484,37 @@ def test_b06_gated_json_run_still_announces_the_gate_on_stderr(
 # ==========================================================================
 
 
-@pytest.mark.parametrize(
-    ("case", "payload"),
-    [
-        ("malformed", "{not json"),
-        ("schema_invalid", json.dumps({"hello": "world"})),
-    ],
+_BROKEN_SNAPSHOTS = (
+    ("malformed", "{not json"),
+    ("schema_invalid", json.dumps({"hello": "world"})),
 )
+
+
 def test_b07_a_broken_snapshot_refuses_at_exit_two_even_with_the_gate_armed(
-    pairs: dict[str, Path], tmp_path: Path, case: str, payload: str
+    pairs: dict[str, Path], tmp_path: Path
 ) -> None:
-    broken = tmp_path / f"{case}.json"
-    broken.write_text(payload, encoding="utf-8")
-    proc = _run(
-        "verify", "--slate", str(pairs["slate"]), "--snapshot", str(broken), FLAG,
-        cwd=pairs["root"],
-    )
-    assert proc.returncode == REFUSAL_EXIT, (
-        f"a {case} snapshot must keep refusing at exit {REFUSAL_EXIT}: the gate "
-        "reports on a verification that RAN, and must never repaint a refusal as "
-        f"a finding; got {proc.returncode}; stderr={proc.stderr!r}"
-    )
-    lines = _stderr_lines(proc.stderr)
-    assert len(lines) == 1 and lines[0].startswith(ERROR_PREFIX), (
-        f"the refusal keeps its single `error: ` line; got {lines}"
-    )
-    assert GATE_PREFIX not in proc.stderr, (
-        "a refusal must print NO gate line -- there was no verification to gate"
-    )
+    # Folded from a 2-item parametrize into one item (factory iter 556, readme headroom);
+    # the guard keeps both cases from silently disappearing.
+    assert len(_BROKEN_SNAPSHOTS) == 2
+    for case, payload in _BROKEN_SNAPSHOTS:
+        broken = tmp_path / f"{case}.json"
+        broken.write_text(payload, encoding="utf-8")
+        proc = _run(
+            "verify", "--slate", str(pairs["slate"]), "--snapshot", str(broken), FLAG,
+            cwd=pairs["root"],
+        )
+        assert proc.returncode == REFUSAL_EXIT, (
+            f"a {case} snapshot must keep refusing at exit {REFUSAL_EXIT}: the gate "
+            "reports on a verification that RAN, and must never repaint a refusal as "
+            f"a finding; got {proc.returncode}; stderr={proc.stderr!r}"
+        )
+        lines = _stderr_lines(proc.stderr)
+        assert len(lines) == 1 and lines[0].startswith(ERROR_PREFIX), (
+            f"the refusal keeps its single `error: ` line; got {lines}"
+        )
+        assert GATE_PREFIX not in proc.stderr, (
+            "a refusal must print NO gate line -- there was no verification to gate"
+        )
 
 
 def test_b07_a_missing_slate_refuses_at_exit_two_even_with_the_gate_armed(

@@ -526,6 +526,38 @@ def _code5_set_grew_since_head() -> bool:
     return set(head) < set(CODE5_PRODUCERS)
 
 
+def _exit_code_meaning(source_text: str, code: int) -> str:
+    """The ``_EXIT_CODES`` meaning for *code*, read from source via ``ast``.
+
+    Parsed rather than imported so the HEAD blob and the worktree are read the
+    same way; an absent constant reads as ``""``.
+    """
+    for node in ast.parse(source_text).body:
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "_EXIT_CODES"
+            and node.value is not None
+        ):
+            return dict(ast.literal_eval(node.value)).get(code, "")
+    return ""
+
+
+def _code2_row_grew_with_its_contract(head_row: str, live_row: str) -> bool:
+    """True only when README row 2 GREW in the commit that corrects code 2's contract.
+
+    Foundry iter 556 found the code-2 epilog omitting measured exit-2 faults
+    (a malformed ``--baseline``/``--snapshot`` document) and corrected it on all
+    three surfaces. The README row may follow ONLY additively -- HEAD's prose
+    survives verbatim as a prefix -- and only while ``_EXIT_CODES[2]`` itself
+    differs from HEAD, so a drive-by rewrite of the row still fails.
+    """
+    head_meaning = _exit_code_meaning(_head_blob("src/proactive_loop/cli.py"), 2)
+    live_meaning = _exit_code_meaning(CLI_SOURCE.read_text(encoding="utf-8"), 2)
+    grew = live_row.startswith(head_row) and len(live_row) > len(head_row)
+    return bool(head_meaning) and head_meaning != live_meaning and grew
+
+
 def test_b09_code5_entry_still_names_all_four_producers_on_all_surfaces() -> None:
     assert len(CODE5_PRODUCERS) == 5, (
         f"exit code 5's derived producer set must be 5 (foundry iter 539 added --fail-on-persist); got {CODE5_PRODUCERS!r}"
@@ -552,6 +584,10 @@ def test_b09_readme_rows_for_codes_0_and_2_to_5_are_unchanged() -> None:
     assert committed, "HEAD's README publishes no exit-code table to compare against"
     for code in (0, 2, 3, 4, 5):
         if worktree.get(code) == committed.get(code):
+            continue
+        if code == 2 and _code2_row_grew_with_its_contract(
+            committed.get(2, ""), worktree.get(2, "")
+        ):
             continue
         assert code == 5 and _code5_set_grew_since_head(), (
             f"README exit-code row {code} changed -- this module's iteration edited "

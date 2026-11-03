@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-556
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json` through one lean `_run_status_goal(run_dir)`, not the full `_run_row` (re-proposal of iter-555 B-slate A1, now prototyped)
+    - Candidate A2 -- `runs --status/--goal` filters on the lean `(status, goal)` first and builds full `_run_row`s only for the matches
+    - Candidate A3 -- todos and test_posture compute the relative dir ONCE per `dir_source.walk` directory, not `Path.relative_to(root)` once per file
+    - Candidate B1 -- `pla --help`'s exit-codes block and `main()`'s docstring contradict the code on input-file faults, and the README table omits the malformed-signal-document case (re-proposal of iter-553 A3; it lost once and was never refuted)
+    - Candidate B2 -- SPEC.md's verb entries omit 6 shipped flags, and the `pla watch` entry asserts two things the code stopped doing
+    - Candidate B3 -- the README env-var tables publish no accepted range for 8 of 9 numeric `PLA_*` knobs, though out-of-range fails every verb with exit 1
+    winner: B1
+    ship: pending (not yet decided)
   iter-555
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Delete `_reject_non_finite` and the three `+inf` field validators; pydantic's `Field(allow_inf_nan=False)` enforces the same rule
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate A2 -- Start the two git child processes when the scan begins, so they run alongside the in-process collectors (re-proposal of iter-550 A1, re-measured)
     - Candidate A3 -- The suite's live `--collect-only` census runs once per pytest worker instead of 14 times (re-proposal of iter-550 A2, re-measured)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 19f14a5
   iter-554
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run --skip-done --json` publishes what it skipped, and the human tail stops saying "no auto-dispatchable goal" when there was one
@@ -2679,4 +2689,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-265 scouted iterations
+266 scouted iterations
