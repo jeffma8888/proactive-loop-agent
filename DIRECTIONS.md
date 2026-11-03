@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-555
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- Delete `_reject_non_finite` and the three `+inf` field validators; pydantic's `Field(allow_inf_nan=False)` enforces the same rule
+    - Candidate A2 -- `_compute_diff` builds `added` and `removed` with one local `_row(goal)` instead of two identical 10-line loops
+    - Candidate A3 -- One `_add_collector_flag(p, noun, verb, extra="")` replaces the three hand-copied `--collector` argparse blocks on `scan`/`run`/`signals`, deleting their stale comments
+    - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json` per run dir, not the full `_run_row` (meta.json plus an artifacts `rglob`)
+    - Candidate A2 -- Start the two git child processes when the scan begins, so they run alongside the in-process collectors (re-proposal of iter-550 A1, re-measured)
+    - Candidate A3 -- The suite's live `--collect-only` census runs once per pytest worker instead of 14 times (re-proposal of iter-550 A2, re-measured)
+    winner: A1
+    ship: pending (not yet decided)
   iter-554
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run --skip-done --json` publishes what it skipped, and the human tail stops saying "no auto-dispatchable goal" when there was one
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `_compute_diff` builds its `added` and `removed` rows with one `_diff_row(goal)` instead of two identical 9-line loops
     - Candidate B3 -- one `_add_collector_flag(p, noun, extra="")` replaces the three hand-copied `--collector` argparse blocks on `scan`/`run`/`signals`, deleting their stale comments
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 5e68c1d
   iter-553
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `runs` aborts the WHOLE listing (exit 1) when one run dir is unreadable, breaking `_run_row`'s own "one bad run must never abort the listing" contract
@@ -2669,4 +2679,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-264 scouted iterations
+265 scouted iterations

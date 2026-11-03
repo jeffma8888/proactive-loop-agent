@@ -12,12 +12,11 @@ whole system runs offline.
 
 from __future__ import annotations
 
-import math
 import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError
 
 from .models import GoalCategory
 
@@ -45,32 +44,6 @@ _RETRY_ENV_VARS: tuple[tuple[str, str, Callable[[str], object]], ...] = (
 )
 
 DEFAULT_SENSITIVE = frozenset({GoalCategory.HEALTH_ADMIN, GoalCategory.FINANCE_LEGAL})
-
-
-def _reject_non_finite(v: float) -> float:
-    """Reject a non-finite float (``inf``/``-inf``/``nan``) on an upward-unbounded knob.
-
-    Why: the ``Field(ge=...)`` bounds only fence the LOWER end, so ``+inf`` slips
-    through today (``inf >= 0.0`` is ``True``) with two live harms. On
-    ``auto_dispatch_min_score`` it silently DISABLES the headline autonomous path --
-    every finite goal score is ``< inf``, so the gate never resolves AUTO_DISPATCH,
-    yet ``pla run`` still scans, finds nothing to run, and exits ``0`` reporting
-    success. On a ``RetryPolicy`` backoff knob it breaks the resilience layer with
-    its own config: ``resilience._backoff_delay`` computes ``min(raw, inf) == inf``,
-    so a single throttle retry calls ``sleep(inf)`` and an unattended run hangs
-    forever. This is the ``+inf`` mirror of SPEC section 3's existing negative-threshold
-    guard -- a finite value keeps the setting numerically usable.
-
-    A PLAIN ``ValueError`` (not a subclass) is raised so pydantic wraps it into a
-    ``ValidationError`` (itself a ``ValueError``) that names the offending field, and
-    ``main()``'s existing ``except (LLMError, ValueError, OSError)`` boundary maps it
-    to one ``error:`` line + exit 1 with no CLI code change. No upper bound is added:
-    a large FINITE threshold merely approves less and a large finite backoff merely
-    waits longer -- both safe.
-    """
-    if not math.isfinite(v):
-        raise ValueError(f"must be a finite number, got {v}")
-    return v
 
 
 def _coerce_env(suffix: str, value: str, coerce: Callable[[str], object]) -> object:
@@ -187,18 +160,15 @@ class RetryPolicy(BaseModel):
     """
 
     max_attempts: int = Field(default=5, ge=1)
-    base_backoff_sec: float = Field(default=1.0, ge=0.0)
-    backoff_factor: float = Field(default=2.0, ge=1.0)
-    max_backoff_sec: float = Field(default=60.0, ge=0.0)
+    # ``allow_inf_nan=False`` because a lower-only ``ge`` bound lets ``+inf`` through
+    # (``inf >= 0.0``): ``resilience._backoff_delay`` would compute ``min(raw, inf)``
+    # and a single throttle retry would ``sleep(inf)``, hanging an unattended run.
+    # No upper bound: a large FINITE backoff merely waits longer. ``jitter_frac``
+    # needs no flag -- its ``le=1.0`` already rejects every non-finite value.
+    base_backoff_sec: float = Field(default=1.0, ge=0.0, allow_inf_nan=False)
+    backoff_factor: float = Field(default=2.0, ge=1.0, allow_inf_nan=False)
+    max_backoff_sec: float = Field(default=60.0, ge=0.0, allow_inf_nan=False)
     jitter_frac: float = Field(default=0.1, ge=0.0, le=1.0)
-
-    # mode="after" so the ``ge`` bounds run first: ``-inf``/``nan`` are caught by the
-    # range constraint, leaving only ``+inf`` for this guard to reject. ``jitter_frac``
-    # is deliberately excluded -- its ``le=1.0`` already rejects every non-finite value.
-    @field_validator("base_backoff_sec", "backoff_factor", "max_backoff_sec", mode="after")
-    @classmethod
-    def _finite_backoff(cls, v: float) -> float:
-        return _reject_non_finite(v)
 
 
 class Settings(BaseModel):
@@ -215,8 +185,10 @@ class Settings(BaseModel):
     # approval -- the single worst misconfiguration for a gate-sensitive-work
     # agent. Bound it ``ge=0.0`` (NOT ``gt``) because ``0.0`` is a legitimate,
     # deliberate "auto-dispatch every scored goal" setting; no upper bound
-    # because a large threshold just approves less, which is safe.
-    auto_dispatch_min_score: float = Field(default=4.0, ge=0.0)
+    # because a large threshold just approves less, which is safe. ``+inf``
+    # slips past ``ge`` and would silently DISABLE the gate (no finite score
+    # reaches it) while ``pla run`` still exits 0, so ``allow_inf_nan=False``.
+    auto_dispatch_min_score: float = Field(default=4.0, ge=0.0, allow_inf_nan=False)
     sensitive_categories: set[GoalCategory] = Field(
         default_factory=lambda: set(DEFAULT_SENSITIVE)
     )
@@ -233,24 +205,11 @@ class Settings(BaseModel):
     # monotonic clock reading is meaningless in another process, so a resumed run
     # gets a fresh ceiling for its own leg. Checked before each PLAN, so an
     # in-flight iteration always finishes (the ceiling is soft by one iteration,
-    # exactly like the two counters).
-    max_seconds: float | None = Field(default=None, gt=0.0)
+    # exactly like the two counters). ``+inf`` would mean "no ceiling" -- what
+    # ``None`` already says honestly -- so ``allow_inf_nan=False`` refuses that
+    # second spelling.
+    max_seconds: float | None = Field(default=None, gt=0.0, allow_inf_nan=False)
     retry: RetryPolicy = Field(default_factory=RetryPolicy)
-
-    # mode="after" so the ``ge=0.0`` bound runs first (rejecting ``-inf``/``nan``),
-    # leaving only ``+inf`` -- the mirror of the negative-threshold guard above.
-    @field_validator("auto_dispatch_min_score", mode="after")
-    @classmethod
-    def _finite_threshold(cls, v: float) -> float:
-        return _reject_non_finite(v)
-
-    # ``gt=0.0`` already rejects ``-inf``/``nan``; ``+inf`` would pass and mean
-    # "no ceiling" -- the same thing ``None`` says honestly -- so refuse it like
-    # the three ``RetryPolicy`` backoff floats rather than accept a second spelling.
-    @field_validator("max_seconds", mode="after")
-    @classmethod
-    def _finite_ceiling(cls, v: float | None) -> float | None:
-        return v if v is None else _reject_non_finite(v)
 
     @classmethod
     def from_env(cls, **overrides: object) -> "Settings":

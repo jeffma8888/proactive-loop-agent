@@ -249,7 +249,7 @@ def _positive_float(raw: str) -> float:
     raise ``ValueError`` (argparse's usage error); ``<= 0`` is rejected because a
     ceiling nothing can satisfy is a misconfiguration; ``inf``/``nan`` are rejected
     HERE because ``float("inf")`` parses cleanly and would otherwise reach the
-    model's ``_finite_ceiling`` validator and surface as the pydantic dump
+    model's ``allow_inf_nan=False`` field bound and surface as the pydantic dump
     ``main()`` closes everywhere else (see ``--max-iterations`` below).
     """
     value = float(raw)

@@ -41,7 +41,6 @@ nothing leaks across tests.
 from __future__ import annotations
 
 import importlib.metadata as importlib_metadata
-import math
 
 import pytest
 
@@ -232,10 +231,3 @@ def test_behavior_07_pydantic_remains_sole_runtime_third_party_dep() -> None:
     names = {r.split(";")[0].split("[")[0].split()[0].split(">=")[0].split("==")[0].strip().lower()
              for r in runtime}
     assert names == {"pydantic"}, f"unexpected runtime dependencies: {sorted(names)} (raw={runtime})"
-
-
-def test_behavior_07_math_is_finite_available() -> None:
-    # ``math`` is stdlib; guarding non-finite values must not pull in a new dep.
-    assert math.isfinite(1.0) is True
-    assert math.isfinite(INF) is False
-    assert math.isfinite(NAN) is False
