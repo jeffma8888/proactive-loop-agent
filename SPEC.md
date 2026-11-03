@@ -732,22 +732,21 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.
   - `pla run --workspace W [--dry-run] [--collector NAME ...] [--exclude-path GLOB ...]
-    [--baseline FILE] [--skip-done] [--max-iterations N] [--max-llm-calls N] [--max-seconds N]` — scan then auto-dispatch the top
+    [--baseline FILE] [--skip-done] [--decline FILE] [--max-iterations N] [--max-llm-calls N] [--max-seconds N]` — scan then auto-dispatch the top
     AUTO_DISPATCH goal (approval-gated goals are listed but never auto-run). Same
     `--workspace` guard as `scan`: a missing/non-directory path ->
     `error: workspace not found: <path>` on stderr + exit 2 (no slate written, no
-    run dir created). `--dry-run` (optional, default off) is the preview twin: it runs the
-    identical scan+gate+render+write path (the slate IS written) but instead of dispatching
-    prints the single goal it WOULD auto-dispatch plus a paste-ready `pla dispatch` command
-    and returns 0 -- no GoalLoop, no run dir, no loop iteration spent (the one synthesize
-    LLM call still occurs; "dry" means no plan/act/check loop, not zero LLM calls).
+    run dir created). `--dry-run` is the preview twin: it runs the identical
+    scan+gate+render+write path (the slate IS written) but instead of dispatching prints the
+    single goal it WOULD auto-dispatch plus a paste-ready `pla dispatch` command and returns
+    0 -- no GoalLoop, no run dir, no loop iteration spent (the synthesize LLM call still
+    occurs).
     `--collector NAME` is the same repeatable UPSTREAM allowlist `scan`/`signals` carry --
-    see `scan`'s entry for the registry-derived accepted values, the parse-time refusal of
-    an unknown name, and the byte-identical default. Because `run` ACTS on what it
-    perceived, it is the one verb that also REPORTS the narrowing, on exactly one line --
+    see `scan`'s entry for the registry-derived accepted values and the parse-time refusal
+    of an unknown name. Because `run` ACTS on what it perceived, it is the one verb that also REPORTS the narrowing, on exactly one line --
     `perception narrowed to N of M collectors: <names>`, names sorted so the line is
     deterministic, N distinct names given, M the live registry size. Printed once, above the
-    `--snapshot` write and above the `--dry-run` return so both inherit it; under `--json`
+    `--snapshot` write and the `--dry-run` return so both inherit it; under `--json`
     it joins the human progress on stderr, leaving stdout one JSON document whose key set is
     unchanged.
     `--max-iterations N` / `--max-llm-calls N` bound THIS run's L1 budget, overriding
@@ -755,8 +754,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     default (8 / 24) stands. A non-positive or non-integer value is an argparse usage
     error (exit 2) at PARSE time, before any client, collector or run dir exists.
     `--max-seconds N` adds the wall-clock dimension (overriding `PLA_MAX_SECONDS`; absent =
-    no ceiling): checked before each PLAN via an injectable monotonic clock, so the
-    iteration in flight finishes; per invocation, never persisted to `meta.json`. A
+    no ceiling): checked before each PLAN, so the iteration in flight finishes; per invocation, never persisted to `meta.json`. A
     non-positive or non-finite value is the same exit-2 usage error at PARSE time.
     `--baseline FILE` and `--snapshot FILE` may not resolve to the SAME path: `--snapshot`
     would rewrite FILE with only the signals `--baseline` did not suppress, replacing the
@@ -764,6 +762,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     at PARSE time, before anything is collected or written.
     `--skip-done` (opt-in) skips an AUTO goal whose normalized title has a `done` run
     (`skipped (already done): TITLE -> RUN_ID`); an all-skip tail says so.
+    `--decline FILE` never auto-dispatches a normalized title in FILE, one per line
+    (`skipped (declined): TITLE`); a missing FILE exits 2.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json] [--status STATUS] [--goal TITLE] [--summary] [--prune]` — read-only,
     LLM-free lister of past dispatched runs under `--state-dir`: one id-sorted row per

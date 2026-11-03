@@ -1194,6 +1194,28 @@ def build_parser() -> argparse.ArgumentParser:
             "'skipped (already done): TITLE -> RUN_ID' line. Default off."
         ),
     )
+    # The user's "I looked at this goal and do not want it" -- the third autonomy answer
+    # beside sensitive_categories ("always ask") and --skip-done ("never re-run what is
+    # done"). Filtered at SELECTION, never at synthesis, so the slate still records every
+    # goal that was perceived and each decline stays visible on every run via its skip
+    # line. Placed AFTER --skip-done so the rendered usage keeps "[--skip-done]" where the
+    # shipped oracles look for it; its help names no other flag for the same
+    # last-occurrence reason as the entry above.
+    p_run.add_argument(
+        "--decline",
+        default=None,
+        metavar="FILE",
+        dest="decline",
+        help=(
+            "Never auto-dispatch a goal whose title is listed in FILE, one title per line, "
+            "compared stripped and case-insensitively; blank lines and lines starting "
+            "with '#' are ignored. Act on the next eligible auto-approved goal instead, "
+            "or on none. Each skip prints one 'skipped (declined): TITLE' line; the slate "
+            "itself is still written unfiltered. A missing FILE, or one that is not a "
+            "regular file, is a usage error (exit 2) reported before anything is "
+            "collected. Default (absent) declines nothing."
+        ),
+    )
     p_run.set_defaults(func=_cmd_run)
 
     p_resume = sub.add_parser(
@@ -3469,6 +3491,28 @@ def _done_runs_by_title(state_dir: Path) -> dict[str, str]:
         if row["status"] == RunStatus.DONE.value:
             done.setdefault(_normalize_title(row["goal"]), row["run_id"])
     return done
+
+
+def _load_declined_titles(path: Path) -> frozenset[str]:
+    """Read ``run --decline FILE`` into a set of :func:`_normalize_title` keys.
+
+    WHY the same key as :func:`_done_runs_by_title`: a decline must survive the
+    synthesizer re-proposing the goal with different case or padding, exactly as a
+    ``done`` match does, so both selection-time filters share one normalization. Blank
+    lines and ``#`` comments are dropped so the file can be hand-annotated.
+
+    Raises ``ValueError`` (carrying the full user-facing message) instead of degrading
+    to "decline nothing": a typo'd path must never buy the unattended dispatch the user
+    meant to refuse, so it fails CLOSED like ``--baseline`` does.
+    """
+    if not path.is_file():
+        raise ValueError(f"decline file not found or not a regular file: {path}")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValueError(f"decline file unreadable: {path} ({exc})") from exc
+    titles = (line.strip() for line in text.splitlines())
+    return frozenset(_normalize_title(t) for t in titles if t and not t.startswith("#"))
 
 
 def _select_prunable(
@@ -5792,6 +5836,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
             except ValueError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 2
+        # --decline is read at the same fail-fast point and for the same reason: an
+        # unloadable file is a usage error, so nothing is collected or written.
+        declined: frozenset[str] = frozenset()
+        if args.decline is not None:
+            try:
+                declined = _load_declined_titles(Path(args.decline))
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
         client = create_client(settings)
 
         # --collector is a repeatable allowlist (argparse action="append" -> a list or
@@ -5937,13 +5990,21 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # nothing-to-run tail can say WHY nothing ran: "no auto-dispatchable goal" is
         # false when there was one and it was skipped as already done.
         skipped = 0
+        # How many of `skipped` were --decline hits: it alone selects the third tail.
+        declined_hits = 0
         for goal, decision in zip(ranked, decisions):
             if decision.decision == AutonomyDecision.AUTO_DISPATCH:
-                # A finished goal is neither the top pick nor deferred: it was already
-                # dispatched, so listing it as "not reached yet" would be false. Printed
-                # here, ABOVE the needs-approval block, for the ordering reason the
-                # deferred block's comment gives; under --json it lands on stderr.
-                if (prior := done_runs.get(_normalize_title(goal.title))) is not None:
+                # A declined or finished goal is neither the top pick nor deferred:
+                # listing it as "not reached yet" would be false. Printed here, ABOVE the
+                # needs-approval block, for the ordering reason the deferred block's
+                # comment gives; under --json it lands on stderr. The decline is checked
+                # FIRST so a goal both declined and done is reported (and counted) once,
+                # under the user's explicit choice.
+                if _normalize_title(goal.title) in declined:
+                    print(f"skipped (declined): {goal.title}")
+                    skipped += 1
+                    declined_hits += 1
+                elif (prior := done_runs.get(_normalize_title(goal.title))) is not None:
                     print(f"skipped (already done): {goal.title} -> {prior}")
                     skipped += 1
                 elif top is None:
@@ -5975,7 +6036,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if top is None:
             # The genuine-empty wording is kept byte-identical: test_iter62/213 read the
             # needs-approval block up to it as a terminator.
-            if skipped:
+            if declined_hits:
+                print(
+                    "\nevery auto-dispatchable goal in this slate was declined or already "
+                    f"done ({skipped} skipped); nothing to run."
+                )
+            elif skipped:
                 print(
                     "\nevery auto-dispatchable goal in this slate already has a done run "
                     f"({skipped} skipped); nothing to run."

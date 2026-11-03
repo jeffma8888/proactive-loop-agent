@@ -509,29 +509,35 @@ def test_b04c_rejection_happens_before_any_state_dir_or_provider_exists(
 # ===========================================================================
 
 
-@pytest.mark.parametrize("budget", [1, 2])
 def test_b05a_max_iterations_bounds_a_real_dispatched_loop(
-    budget: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # Folded from a 2-item parametrize (foundry iter 557, readme-headroom budget): each
+    # budget gets its own tmp subdir so the two cases share no workspace or state.
     for var in BUDGET_FLAGS.values():
         monkeypatch.delenv(var, raising=False)
-    ws = _workspace(tmp_path)
-    script = _never_done_script(tmp_path)
+    budgets = [1, 2]
+    assert len(budgets) == 2
+    for budget in budgets:
+        root = tmp_path / f"b{budget}"
+        root.mkdir()
+        ws = _workspace(root)
+        script = _never_done_script(root)
 
-    rc = main(_run_argv(ws, script, tmp_path / f"state-{budget}", "--json", "--max-iterations", str(budget)))
-    payload = _one_json_object(capsys.readouterr().out, f"--max-iterations {budget}")
+        rc = main(_run_argv(ws, script, root / f"state-{budget}", "--json", "--max-iterations", str(budget)))
+        payload = _one_json_object(capsys.readouterr().out, f"--max-iterations {budget}")
 
-    assert rc == 0, f"a budget-exhausted run still exits 0, got {rc}"
-    dispatched = payload.get("dispatched")
-    assert isinstance(dispatched, dict), (
-        f"the run must have auto-dispatched a goal; payload keys {sorted(payload)}"
-    )
-    assert dispatched["iterations_used"] == budget, (
-        f"--max-iterations {budget} must spend exactly {budget} iteration(s); got {dispatched}"
-    )
-    assert dispatched["status"] == "budget_exhausted", (
-        f"a CHECK that never reports done must end in budget_exhausted; got {dispatched['status']!r}"
-    )
+        assert rc == 0, f"a budget-exhausted run still exits 0, got {rc}"
+        dispatched = payload.get("dispatched")
+        assert isinstance(dispatched, dict), (
+            f"the run must have auto-dispatched a goal; payload keys {sorted(payload)}"
+        )
+        assert dispatched["iterations_used"] == budget, (
+            f"--max-iterations {budget} must spend exactly {budget} iteration(s); got {dispatched}"
+        )
+        assert dispatched["status"] == "budget_exhausted", (
+            f"a CHECK that never reports done must end in budget_exhausted; got {dispatched['status']!r}"
+        )
 
 
 def test_b05b_max_llm_calls_bounds_the_same_run_independently(

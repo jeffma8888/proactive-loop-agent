@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-557
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- README exit-code row 2 still prints the inverted `--out ... is not a directory` clause that iter 556's review fixed only in `_EXIT_CODES[2]`
+    - Candidate A2 -- SPEC.md's `pla watch` entry asserts three things the code stopped doing (narrowed re-proposal of iter-556 B2)
+    - Candidate A3 -- the README env-var table publishes an accepted range for 1 of 15 `PLA_*` rows, though out-of-range is fatal (exit 1) on every verb (re-proposal of iter-556 B3)
+    - Candidate B1 -- `run --decline FILE`: a user-curated, newline-delimited list of goal titles that `run` never auto-dispatches (the selection-time half of ROADMAP #194, unblocked by #340's precedent)
+    - Candidate B2 -- `watch --dispatch`: each tick auto-dispatches its top not-yet-done AUTO_DISPATCH goal, implying `--skip-done` (re-proposal of iter-551 B1 / iter-552 A1)
+    - Candidate B3 -- `run`/`dispatch --allow-tool NAME` (repeatable): narrow one dispatch's ACT sandbox, persisted so `resume` keeps it (ROADMAP #212)
+    winner: B1
+    ship: pending (not yet decided)
   iter-556
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json` through one lean `_run_status_goal(run_dir)`, not the full `_run_row` (re-proposal of iter-555 B-slate A1, now prototyped)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- SPEC.md's verb entries omit 6 shipped flags, and the `pla watch` entry asserts two things the code stopped doing
     - Candidate B3 -- the README env-var tables publish no accepted range for 8 of 9 numeric `PLA_*` knobs, though out-of-range fails every verb with exit 1
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b6ef0d1
   iter-555
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- Delete `_reject_non_finite` and the three `+inf` field validators; pydantic's `Field(allow_inf_nan=False)` enforces the same rule
@@ -2689,4 +2699,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-266 scouted iterations
+267 scouted iterations
