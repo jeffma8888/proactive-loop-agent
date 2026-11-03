@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-554
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `run --skip-done --json` publishes what it skipped, and the human tail stops saying "no auto-dispatchable goal" when there was one
+    - Candidate A2 -- the graded gate (`make demo` + CI) runs `run --skip-done` a second time and grades the skip, so the iter-551 flag gets its first executable consumer
+    - Candidate A3 -- put the `watch --out-dir` -> `diff --dir` -> `trend --dir` stream arc inside the graded gate (re-proposal; what is different now)
+    - Candidate B1 -- delete `_reject_non_finite` and all three `+inf` field validators; pydantic's own `allow_inf_nan=False` enforces the same rule
+    - Candidate B2 -- `_compute_diff` builds its `added` and `removed` rows with one `_diff_row(goal)` instead of two identical 9-line loops
+    - Candidate B3 -- one `_add_collector_flag(p, noun, extra="")` replaces the three hand-copied `--collector` argparse blocks on `scan`/`run`/`signals`, deleting their stale comments
+    winner: A1
+    ship: pending (not yet decided)
   iter-553
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `runs` aborts the WHOLE listing (exit 1) when one run dir is unreadable, breaking `_run_row`'s own "one bad run must never abort the listing" contract
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate A2 -- the graded gate (make demo + CI) exercises `run --skip-done` for the first time
     - Candidate A3 -- the `skipped (already done)` line names a run the user cannot paste; add the paste-ready `pla trace --run-dir` next step
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 035e4fb
   iter-552
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `watch --dispatch`: the namesake proactive loop finally ACTS, auto-dispatching each tick's top not-yet-done AUTO_DISPATCH goal
@@ -2659,4 +2669,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-263 scouted iterations
+264 scouted iterations

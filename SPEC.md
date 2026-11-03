@@ -762,8 +762,8 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     would rewrite FILE with only the signals `--baseline` did not suppress, replacing the
     document with its own complement, so an aliased pair is an argparse usage error (exit 2)
     at PARSE time, before anything is collected or written.
-    `--skip-done` (opt-in) skips an AUTO goal whose normalized title has a `done` run,
-    printing `skipped (already done): TITLE -> RUN_ID`.
+    `--skip-done` (opt-in) skips an AUTO goal whose normalized title has a `done` run
+    (`skipped (already done): TITLE -> RUN_ID`); an all-skip tail says so.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
   - `pla runs [--json] [--status STATUS] [--goal TITLE] [--summary] [--prune]` — read-only,
     LLM-free lister of past dispatched runs under `--state-dir`: one id-sorted row per

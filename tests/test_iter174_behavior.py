@@ -279,8 +279,15 @@ def test_b4_non_success_status_exits_one_and_names_the_status(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("shape", ["explicit-null", "key-absent"])
-def test_b5_nothing_dispatched_exits_one_and_says_so(shape: str) -> None:
+def test_b5_nothing_dispatched_exits_one_and_says_so() -> None:
+    # Folded from a 2-item parametrize (foundry iter 554) to fund the iter-554 oracle.
+    shapes = ("explicit-null", "key-absent")
+    assert len(shapes) == 2
+    for shape in shapes:
+        _b5_nothing_dispatched_case(shape)
+
+
+def _b5_nothing_dispatched_case(shape: str) -> None:
     payload: dict[str, object] = {
         "goal_count": 2,
         "needs_approval": True,

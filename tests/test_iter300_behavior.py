@@ -38,6 +38,8 @@ TOP: Final = "Draft a learning plan and project scaffold for the agentic-loop pr
 SECOND: Final = "Write an eval checklist for the agentic-loop harness"
 SKIP_PREFIX: Final = "skipped (already done): "
 NOTHING: Final = "no auto-dispatchable goal in this slate; nothing to run."
+#: Deliberate contract change (foundry iter 554): an all-skipped tail names the skip.
+ALL_SKIPPED: Final = "every auto-dispatchable goal in this slate already has a done run ({n} skipped); nothing to run."
 JSON_KEYS: Final = frozenset(
     {"workspace_root", "slate_path", "goal_count", "needs_approval", "top_goal", "dispatched", "deferred"}
 )
@@ -150,7 +152,7 @@ def _b1_b4_b8_default_first_run_skip_json_and_dry_run(
     assert rc == 0
     assert _run_dirs(s2) == dirs, "a skipped goal must not create a run dir"
     assert _skip_lines(out) == [f"{SKIP_PREFIX}{TOP} -> {done_id}"], out
-    assert NOTHING in out
+    assert ALL_SKIPPED.format(n=1) in out and NOTHING not in out
     assert (s2 / "slate.json").is_file(), "the slate is still written on a skip"
 
     # B4: --json stays one 7-key document; the skip line moves to stderr.
@@ -169,7 +171,7 @@ def _b1_b4_b8_default_first_run_skip_json_and_dry_run(
     rc, out, _err = _run(capsys, ws, s2, FLAG, "--dry-run")
     assert rc == 0
     assert _skip_lines(out) == [f"{SKIP_PREFIX}{TOP} -> {done_id}"], out
-    assert NOTHING in out
+    assert ALL_SKIPPED.format(n=1) in out and NOTHING not in out
     assert _run_dirs(s2) == dirs
 
     # B1 (stdout identity): flagless output is unaffected by the flag's existence -- two
@@ -251,7 +253,7 @@ def _b5_b6_b7_only_done_suppresses_normalized_match_and_next_auto_goal(
     assert rc == 0
     skips = _skip_lines(out)
     assert [s.split(" -> ")[0] for s in skips] == [f"{SKIP_PREFIX}{TOP}", f"{SKIP_PREFIX}{SECOND}"]
-    assert NOTHING in out and len(_run_dirs(state)) == 2
+    assert ALL_SKIPPED.format(n=2) in out and NOTHING not in out and len(_run_dirs(state)) == 2
 
 
 def _b9_skip_done_is_in_run_help_and_the_readme_run_row(capsys: pytest.CaptureFixture[str]) -> None:

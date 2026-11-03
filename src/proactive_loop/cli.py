@@ -5924,6 +5924,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # only when the flag is set, so a flagless run touches no run dir. Empty dict when
         # off, which makes the guard below a no-op and keeps the default path identical.
         done_runs = _done_runs_by_title(settings.state_dir) if args.skip_done else {}
+        # How many AUTO goals the guard below skipped. Counted in the same pass so the
+        # nothing-to-run tail can say WHY nothing ran: "no auto-dispatchable goal" is
+        # false when there was one and it was skipped as already done.
+        skipped = 0
         for goal, decision in zip(ranked, decisions):
             if decision.decision == AutonomyDecision.AUTO_DISPATCH:
                 # A finished goal is neither the top pick nor deferred: it was already
@@ -5932,6 +5936,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 # deferred block's comment gives; under --json it lands on stderr.
                 if (prior := done_runs.get(_normalize_title(goal.title))) is not None:
                     print(f"skipped (already done): {goal.title} -> {prior}")
+                    skipped += 1
                 elif top is None:
                     top = goal
                 else:
@@ -5959,7 +5964,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 )
 
         if top is None:
-            print("\nno auto-dispatchable goal in this slate; nothing to run.")
+            # The genuine-empty wording is kept byte-identical: test_iter62/213 read the
+            # needs-approval block up to it as a terminator.
+            if skipped:
+                print(
+                    "\nevery auto-dispatchable goal in this slate already has a done run "
+                    f"({skipped} skipped); nothing to run."
+                )
+            else:
+                print("\nno auto-dispatchable goal in this slate; nothing to run.")
             if args.json:
                 # `deferred` is provably `[]` on this path -- the single pass above
                 # appends only once `top is not None` -- but it is passed rather than
