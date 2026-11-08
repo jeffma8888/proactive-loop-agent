@@ -429,19 +429,20 @@ def test_b13b_writes_no_file_and_succeeds_under_a_hostile_provider(tmp_path: Pat
 # ==========================================================================
 # Behavior 14 -- a corrupt or schema-invalid slate: one error: line, exit 1.
 # ==========================================================================
-@pytest.mark.parametrize(
-    ("label", "payload"),
-    [("malformed_json", "{ this is not json"), ("schema_invalid", '{"goals": [{"title": 5}]}')],
-)
-def test_b14_corrupt_slate_is_one_error_line_at_exit_1(
-    tmp_path: Path, label: str, payload: str
-) -> None:
-    out_dir = _write_stream(tmp_path / f"stream-{label}", {1: [_goal("Fine")]})
-    (out_dir / "slate-002.json").write_text(payload, encoding="utf-8")
-    proc = _run("trend", "--dir", str(out_dir), cwd=tmp_path)
-    assert proc.returncode == 1, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
-    assert len(_error_lines(proc.stderr)) == 1, f"stderr:\n{proc.stderr}"
-    assert "Traceback" not in proc.stderr, f"never a traceback; stderr:\n{proc.stderr}"
+# Folded from a 2-item parametrize into one item in factory iter 558 (suite-size
+# headroom: binding_headroom=6); both payloads are still checked, in order.
+_B14_CASES = (("malformed_json", "{ this is not json"), ("schema_invalid", '{"goals": [{"title": 5}]}'))
+
+
+def test_b14_corrupt_slate_is_one_error_line_at_exit_1(tmp_path: Path) -> None:
+    assert len(_B14_CASES) == 2, "both corrupt-slate payloads must stay covered"
+    for label, payload in _B14_CASES:
+        out_dir = _write_stream(tmp_path / f"stream-{label}", {1: [_goal("Fine")]})
+        (out_dir / "slate-002.json").write_text(payload, encoding="utf-8")
+        proc = _run("trend", "--dir", str(out_dir), cwd=tmp_path)
+        assert proc.returncode == 1, f"[{label}] stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+        assert len(_error_lines(proc.stderr)) == 1, f"[{label}] stderr:\n{proc.stderr}"
+        assert "Traceback" not in proc.stderr, f"[{label}] never a traceback; stderr:\n{proc.stderr}"
 
 
 # ==========================================================================

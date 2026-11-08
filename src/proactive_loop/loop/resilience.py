@@ -117,7 +117,7 @@ class Checkpoint:
         if not self.path.is_file():
             return None
         try:
-            return RunState.from_json(self.path.read_text())
+            return RunState.from_json(self.path.read_text(encoding="utf-8"))
         except ValidationError as exc:
             raise ValueError(
                 sanitize_validation_error("checkpoint", self.path, exc)

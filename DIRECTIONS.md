@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-558
+    lenses: new-capability
+    - Candidate A1 -- `trace --latest`: trace the newest run under `--state-dir`, chosen by the persisted `RunState.created_at` (re-proposal of iter-545 B2)
+    - Candidate A2 -- `trend --last N`: count persistence over only the newest N ticks of a watch stream, so `--fail-on-persist` can clear (re-proposal of iter-545 B1)
+    - Candidate A3 -- `run`/`dispatch --allow-tool NAME` (repeatable): narrow one dispatch's ACT sandbox, persisted so `resume` keeps it (ROADMAP #212; re-proposal of iter-557 B3)
+    - Candidate B1 -- Persisted state is read and written in the LOCALE encoding: a slate made under a UTF-8 locale crashes `explain` under the C locale (exit 1)
+    - Candidate B2 -- `run --decline FILE` fails OPEN on a UTF-8 BOM: the first declined title is silently dispatched
+    - Candidate B3 -- `run --decline` silently ignores an entry that matches no goal, so a one-letter typo in a title also buys the dispatch
+    winner: B1
+    ship: pending (not yet decided)
   iter-557
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README exit-code row 2 still prints the inverted `--out ... is not a directory` clause that iter 556's review fixed only in `_EXIT_CODES[2]`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `watch --dispatch`: each tick auto-dispatches its top not-yet-done AUTO_DISPATCH goal, implying `--skip-done` (re-proposal of iter-551 B1 / iter-552 A1)
     - Candidate B3 -- `run`/`dispatch --allow-tool NAME` (repeatable): narrow one dispatch's ACT sandbox, persisted so `resume` keeps it (ROADMAP #212)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 5889b68
   iter-556
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json` through one lean `_run_status_goal(run_dir)`, not the full `_run_row` (re-proposal of iter-555 B-slate A1, now prototyped)
@@ -2699,4 +2709,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-267 scouted iterations
+268 scouted iterations

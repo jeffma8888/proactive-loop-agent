@@ -113,7 +113,7 @@ class ScriptedLLMClient:
         ``KeyError``/``AttributeError`` traceback on a first-run config typo.
         """
         p = Path(path)
-        data = json.loads(p.read_text())
+        data = json.loads(p.read_text(encoding="utf-8"))
         if isinstance(data, dict):
             # A dict MUST carry the entries under "responses". WHY not `data["responses"]`:
             # a bare subscript on a keyless dict raises `KeyError`, which is OUTSIDE

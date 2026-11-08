@@ -241,7 +241,8 @@ def atomic_write_text(path: Path, text: str) -> None:
     ensure_dir(path.parent)
     tmp = path.with_name(path.name + ".tmp")
     try:
-        tmp.write_text(text)
+        # Explicit UTF-8, never the locale codec: state bytes must not depend on LANG.
+        tmp.write_text(text, encoding="utf-8")
         os.replace(tmp, path)
     finally:
         try:

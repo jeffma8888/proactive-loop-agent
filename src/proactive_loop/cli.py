@@ -2248,7 +2248,7 @@ def _load_slate(path: Path) -> GoalSlate:
     so the two can never disagree about what the file said, and a read-only verb pays
     for the file once.
     """
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     _reject_goals_less_slate(path, text)
     try:
         return GoalSlate.model_validate_json(text)
@@ -3280,7 +3280,7 @@ def _read_meta(run_dir: Path) -> dict[str, Any]:
         # deliberately: mypy infers ``dict[str, Any]`` for the joined branches,
         # whereas a bare ``return json.loads(...)`` returns ``Any`` and trips
         # ``no-any-return`` -- and this package uses no ``cast`` anywhere.
-        return json.loads(path.read_text()) if path.is_file() else {}
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
     except ValueError as exc:
         raise ValueError(f"invalid run metadata file '{path}': {exc}") from None
 
@@ -3918,7 +3918,7 @@ def _load_signal_document(
     if not path.is_file():
         raise ValueError(f"{label} file not found or not a regular file: {path}")
     try:
-        raw = path.read_text()
+        raw = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         # A ValueError subclass, so it would surface anyway -- re-raised only to
         # attach the path the vendor message omits.
