@@ -3503,12 +3503,13 @@ def _load_declined_titles(path: Path) -> frozenset[str]:
 
     Raises ``ValueError`` (carrying the full user-facing message) instead of degrading
     to "decline nothing": a typo'd path must never buy the unattended dispatch the user
-    meant to refuse, so it fails CLOSED like ``--baseline`` does.
+    meant to refuse, so it fails CLOSED like ``--baseline`` does. Decoded as
+    ``utf-8-sig`` so an editor's leading BOM cannot void the first decline.
     """
     if not path.is_file():
         raise ValueError(f"decline file not found or not a regular file: {path}")
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError) as exc:
         raise ValueError(f"decline file unreadable: {path} ({exc})") from exc
     titles = (line.strip() for line in text.splitlines())

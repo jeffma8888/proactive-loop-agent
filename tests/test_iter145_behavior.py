@@ -273,10 +273,12 @@ def test_b05_a_rejected_budget_scans_nothing(ws: Path, budget: str) -> None:
     assert "collector timings" not in err
 
 
-@pytest.mark.parametrize("budget", ["-1", "abc"])
-def test_b05_a_rejected_budget_emits_no_json_document(ws: Path, budget: str) -> None:
-    code, out, _err = _signals(ws, "--json", "--fail-over", budget)
-    assert (code, out) == (2, "")
+def test_b05_a_rejected_budget_emits_no_json_document(ws: Path) -> None:
+    budgets = ["-1", "abc"]
+    assert len(budgets) == 2
+    for budget in budgets:
+        code, out, _err = _signals(ws, "--json", "--fail-over", budget)
+        assert (code, out) == (2, ""), budget
 
 
 def test_b06_zero_is_accepted_where_a_negative_is_not(ws: Path) -> None:

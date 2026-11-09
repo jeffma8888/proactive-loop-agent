@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-561
+    lenses: simplification-and-deletion
+    - Candidate A1 -- one `_bounded_number` validator factory replaces the five hand-copied argparse `type=` validators (`_positive_int`, `_positive_float`, `_non_negative_int`, `_non_negative_float`, `_finite_float`)
+    - Candidate A2 -- `signals`: select once in `_cmd_signals`, and derive the human `--summary` table from `_signals_summary_payload` instead of recounting
+    - Candidate A3 -- one `_add_collector_flag` helper replaces the three hand-copied `--collector` argparse blocks (scan/run/signals) and deletes their false comments (re-proposal of iter-555 A3 / iter-560 B1)
+    - Candidate B1 -- the live `--collect-only` suite census runs once per pytest worker, not once per oracle (re-proposal of iter-550 A2 / iter-555 A3, now measured at durations=0)
+    - Candidate B2 -- `pla` verbs that never scan stop importing the collector package at startup
+    - Candidate B3 -- the error-path arms of the two longest single tests call `cli.main()` in-process instead of spawning `pla`
+    winner: R1
+    ship: pending (not yet decided)
   iter-560
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- commit a `.python-version` (`3.12`) so a fresh clone's README quickstart (`uv sync --locked` -> `uv run pytest`) runs on a CI-graded interpreter
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops (re-proposal of iter-555 A2)
     - Candidate B3 -- one `_report_run(goal, dispatched, *, as_json)` owns the "human summary, or summary-to-stderr plus one document" ending of `dispatch` and `resume`, and the single-caller `_dispatch_goal` wrapper is deleted (re-proposal of iter-549 A2)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 49eeb5a
   iter-559
     lenses: hardening/DX, integration-and-adoption
     - Candidate B1 -- the agent's own file tools (loop/tools.py) read and write UTF-8, so a C-locale run no longer fails every non-ASCII tool step
@@ -2729,4 +2739,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-270 scouted iterations
+271 scouted iterations
