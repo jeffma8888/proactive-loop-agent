@@ -728,7 +728,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `--from-snapshot FILE` replays the signals a `--snapshot` document recorded instead of
     collecting (synthesis stays a live LLM call; the document's `workspace_root` is kept and
     `--exclude-path` still applies); with `--collector`, or on a malformed file, exit 2.
-  - `pla dispatch --slate slate.json --goal-id ID [--yes]` — re-gate; NEEDS_APPROVAL
+  - `pla dispatch --slate slate.json --goal-id ID|--title T [--yes]` — re-gate; NEEDS_APPROVAL
     requires `--yes`; BLOCKED refuses; run GoalLoop; print summary (status,
     iteration/llm-call budget use, and the run's retry count and parse-error
     count, rendered inline as `retries: {R}    parse errors: {P}`) + artifact paths.

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-563
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- the exit-code-2 contract (`_EXIT_CODES[2]`, `main` docstring, README row 2) omits `run --decline FILE`'s exit 2; grow all three surfaces and pin them with a flag x fault oracle (re-proposal of iter-562 B1)
+    - Candidate A2 -- README's one surviving `path:LINE` locator (`src/proactive_loop/cli.py:617`) now lands on `_exit_code_epilog`, not the path-namespace code; re-cite it by symbol and extend the ROADMAP-only line-locator ban to README
+    - Candidate A3 -- ROADMAP #194 (`scan --suppress FILE`) is still QUEUED behind a design question that `run --decline` (#346/#349) already answered; rewrite the row SHORTER and record the settled reasoning (re-proposal of iter-562 B2)
+    - Candidate B1 -- `dispatch --title TITLE`: dispatch a slate goal by its normalized title instead of the per-scan random `--goal-id`
+    - Candidate B2 -- `scan --decline FILE`: hide user-declined titles from the printed slate (VIEW filter, written slate stays complete) with a `declined: N hidden` trailer -- re-proposal of ROADMAP #194, now unblocked
+    - Candidate B3 -- `trend --decline FILE`: declined titles stop counting toward `--fail-on-persist`, so a CI persistence gate can clear on a consciously accepted goal
+    winner: B1
+    ship: pending (not yet decided)
   iter-562
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json`, not the full `_run_row`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- ROADMAP #194 is still QUEUED behind a "BLOCKING DESIGN QUESTION" that iter 557 already answered, and it claims "nothing in `src/` implements suppression"
     - Candidate B3 -- README/SPEC `run --decline` and `--skip-done` prose omits two shipped facts: the file is read as UTF-8 with a BOM stripped, and skips appear only on stderr (`--json` cannot tell "declined" from "nothing to dispatch")
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 19dfbbf
   iter-561
     lenses: simplification-and-deletion
     - Candidate A1 -- one `_bounded_number` validator factory replaces the five hand-copied argparse `type=` validators (`_positive_int`, `_positive_float`, `_non_negative_int`, `_non_negative_float`, `_finite_float`)
@@ -2749,4 +2759,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-272 scouted iterations
+273 scouted iterations

@@ -451,16 +451,25 @@ def _signals(workspace: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, 
     return rc, capsys.readouterr().out
 
 
-@pytest.mark.parametrize("plant_broken", [False, True], ids=["clean_tree", "broken_tree"])
 def test_b09_two_signals_invocations_produce_identical_stdout(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
-    plant_broken: bool,
 ) -> None:
+    # Folded from a 2-item ``plant_broken`` parametrize (clean_tree / broken_tree) to keep the
+    # collected-item count flat (foundry iter 563); each case gets its own tmp subdir.
     for name in [k for k in list(os.environ) if k.startswith("PLA_")]:
         monkeypatch.delenv(name, raising=False)
 
+    cases = [False, True]
+    assert len(cases) == 2
+    for plant_broken in cases:
+        root = tmp_path / ("broken_tree" if plant_broken else "clean_tree")
+        root.mkdir()
+        _check_two_signals(root, capsys, plant_broken)
+
+
+def _check_two_signals(tmp_path: Path, capsys: pytest.CaptureFixture[str], plant_broken: bool) -> None:
     _distinct_tree(tmp_path, 3)
     rel = "pkg/broken.py"
     if plant_broken:

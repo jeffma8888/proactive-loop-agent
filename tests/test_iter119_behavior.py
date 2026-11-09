@@ -90,7 +90,7 @@ OWN_REPO_HEADING = "### Try it on your own repo"
 # one of them; anything else is a test FAILURE, never a silent default.
 WORKSPACE_SATISFIABLE = frozenset({"--workspace"})
 PRIOR_RUN_ARTIFACT = frozenset(
-    {"--slate", "--snapshot", "--goal-id", "--run-dir", "--old", "--new", "--dir"}
+    {"--slate", "--snapshot", "--goal-id", "--title", "--run-dir", "--old", "--new", "--dir"}
 )
 
 # Options a verb REFUSES to run without but that argparse cannot mark
@@ -104,6 +104,7 @@ PRIOR_RUN_ARTIFACT = frozenset(
 # behavior 3b proves the merge is load-bearing rather than decorative.
 HANDLER_ENFORCED_REQUIRED: dict[str, frozenset[str]] = {
     "diff": frozenset({"--old", "--new", "--dir"}),
+    "dispatch": frozenset({"--goal-id", "--title"}),
 }
 
 # Spec behaviors 3-5: assertions ON the derivation, not the source of truth.
@@ -111,7 +112,7 @@ EXPECTED_REQUIRED_OPTIONS: dict[str, frozenset[str]] = {
     "collectors": frozenset(),
     "config": frozenset(),
     "diff": frozenset({"--old", "--new", "--dir"}),  # handler-enforced, see above
-    "dispatch": frozenset({"--slate", "--goal-id"}),
+    "dispatch": frozenset({"--slate", "--goal-id", "--title"}),
     "explain": frozenset({"--slate"}),
     "policy": frozenset(),
     "providers": frozenset(),

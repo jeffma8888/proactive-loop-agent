@@ -897,7 +897,21 @@ def build_parser() -> argparse.ArgumentParser:
         "dispatch", parents=[globals_], help="Dispatch one goal from a saved slate."
     )
     p_dispatch.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
-    p_dispatch.add_argument("--goal-id", required=True, help="Id of the goal to dispatch.")
+    p_dispatch.add_argument(
+        "--goal-id",
+        default=None,
+        help="Id of the goal to dispatch (exactly one of --goal-id or --title is required).",
+    )
+    p_dispatch.add_argument(
+        "--title",
+        default=None,
+        help=(
+            "Title of the goal to dispatch, instead of --goal-id (exclusive with it). "
+            "Normalized exact title match: both sides are compared strip().lower(), "
+            "never as a prefix, substring or fuzzy guess; if two goals share a "
+            "normalized title the first one in the slate wins."
+        ),
+    )
     p_dispatch.add_argument(
         "--yes",
         action="store_true",
@@ -5705,6 +5719,13 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     first, exit 2 -- because a preview has no run to fill that document's nine
     guaranteed keys; :func:`build_parser` records why that refusal lives here rather
     than in an argparse exclusive group.
+
+    ``--title`` selects the goal by its normalized title instead of the per-scan random
+    ``--goal-id``, because the title is the identity every other verb (``diff``,
+    ``trend``, ``runs --goal``, ``--skip-done``, ``--decline``) already keys on. The match
+    is EXACT after :func:`_normalize_title` and never fuzzy: this is the approval path, so
+    approving by name must never become approving by guess. Exactly one selector is
+    enforced here, not by an argparse group, for the same reason as ``--dry-run``/``--json``.
     """
     # Exactly one output mode. Refused FIRST -- before the slate is even looked for --
     # because this is a fault in the ARGV SHAPE rather than in the request: it is
@@ -5713,6 +5734,11 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     # property every `--json` consumer of this verb already relies on.
     if args.dry_run and args.json:
         print("error: --dry-run cannot be combined with --json", file=sys.stderr)
+        return 2
+    # Exactly one goal selector -- also an ARGV-SHAPE fault, so it is refused before
+    # any filesystem probe, for the same reason as the output-mode check above.
+    if (args.goal_id is None) == (args.title is None):
+        print("error: dispatch needs exactly one of --goal-id or --title", file=sys.stderr)
         return 2
 
     slate_path = Path(args.slate)
@@ -5734,10 +5760,16 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         print(f"error: {msg}", file=sys.stderr)
         return 2
 
-    goal = slate.get(args.goal_id)
-    if goal is None:
-        print(f"error: goal id {args.goal_id!r} not found in slate", file=sys.stderr)
-        return 2
+    if args.title is not None:
+        goal = _index_by_title(slate).get(_normalize_title(args.title))
+        if goal is None:
+            print(f"error: goal title {args.title!r} not found in slate", file=sys.stderr)
+            return 2
+    else:
+        goal = slate.get(args.goal_id)
+        if goal is None:
+            print(f"error: goal id {args.goal_id!r} not found in slate", file=sys.stderr)
+            return 2
 
     decision = gate(goal, settings)
     if decision.decision == AutonomyDecision.BLOCKED:
