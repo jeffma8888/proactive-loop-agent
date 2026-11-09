@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-560
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- commit a `.python-version` (`3.12`) so a fresh clone's README quickstart (`uv sync --locked` -> `uv run pytest`) runs on a CI-graded interpreter
+    - Candidate A2 -- `run --json` publishes a `skipped` list (`[{title, reason: "declined"|"done", run_id?}]`), so a script can tell "I declined it" from "nothing to do" (re-proposal of iter-559 C1 / iter-553 A1)
+    - Candidate A3 -- the graded gate (`make demo` + CI) runs `run --decline FILE --dry-run` against a checked-in decline file and grades the skip, giving iter 557's fail-closed flag its first executable consumer (re-proposal of iter-559 C2)
+    - Candidate B1 -- one `_add_collector_flag(parser, *, verb_noun, extra="", default_noun)` replaces the three hand-copied `--collector` argparse blocks on scan/run/signals, and deletes their two now-false comments (re-proposal of iter-555 A3)
+    - Candidate B2 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops (re-proposal of iter-555 A2)
+    - Candidate B3 -- one `_report_run(goal, dispatched, *, as_json)` owns the "human summary, or summary-to-stderr plus one document" ending of `dispatch` and `resume`, and the single-caller `_dispatch_goal` wrapper is deleted (re-proposal of iter-549 A2)
+    winner: A1
+    ship: pending (not yet decided)
+  iter-559
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate B1 -- the agent's own file tools (loop/tools.py) read and write UTF-8, so a C-locale run no longer fails every non-ASCII tool step
+    - Candidate B2 -- `run --decline FILE` strips a UTF-8 BOM, so a Notepad-saved decline list no longer fails OPEN on its first title
+    - Candidate B3 -- `run --decline` warns on stderr about each decline line that matches no goal in the slate (typo / stale-title DX)
+    - Candidate C1 -- `run --json` publishes a `skipped` list (`[{id, title, reason: "declined"|"done", run_id}]`), so a script can tell "I declined it" from "there was nothing to do"
+    - Candidate C2 -- the graded gate (`make demo` + CI) runs `run --decline --dry-run` against a checked-in decline file and grades the skip, giving iter 557's fail-closed flag its first executable consumer
+    - Candidate C3 -- `PLA_DECLINE_FILE` env default for `run --decline` (shown by `pla config`), so a scheduler adopts one standing decline list without re-passing the path on every invocation
+    winner: B2
+    ship: REVERTED
   iter-558
     lenses: new-capability
     - Candidate A1 -- `trace --latest`: trace the newest run under `--state-dir`, chosen by the persisted `RunState.created_at` (re-proposal of iter-545 B2)
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `run --decline FILE` fails OPEN on a UTF-8 BOM: the first declined title is silently dispatched
     - Candidate B3 -- `run --decline` silently ignores an entry that matches no goal, so a one-letter typo in a title also buys the dispatch
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 33572c2
   iter-557
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README exit-code row 2 still prints the inverted `--out ... is not a directory` clause that iter 556's review fixed only in `_EXIT_CODES[2]`
@@ -2709,4 +2729,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-268 scouted iterations
+270 scouted iterations

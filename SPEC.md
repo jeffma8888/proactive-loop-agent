@@ -43,13 +43,14 @@ proactive-loop-agent/
 ├── README.md
 ├── LICENSE                   # MIT
 ├── SPEC.md                   # this file
-├── SPEC_ARCHIVE.md           # settled contract prose relocated out of SPEC.md
+├── SPEC_ARCHIVE.md           # settled prose moved out of SPEC.md
 ├── ROADMAP.md
 ├── ROADMAP_ARCHIVE.md
 ├── DIRECTIONS.md
 ├── .github/workflows/ci.yml  # CI: 3.12 + 3.13 matrix
 ├── hooks/pre-commit
 ├── .gitignore
+├── .python-version           # fresh-clone default: 3.12
 ├── src/proactive_loop/
 │   ├── __init__.py           # package metadata + __version__ (single source of truth)
 │   ├── __main__.py
@@ -247,7 +248,7 @@ class Collector(Protocol):
   capped at `max_items`. A `.git` that is a *file* (worktree/submodule
   pointer) is skipped, not followed. Never raises → `[]`. Reports facts only
   (which interrupted state, in which repo dir); the synthesizer judges whether
-  to propose finishing or aborting the operation. (Additive collector, exactly
+  to propose finishing or aborting the operation. (Additive collector
   like iters 09/11/16 — a new `kind` flows into synthesis via `by_kind()` with
   zero synthesizer change, so no version bump.)
 - `git_stash.py: GitStashCollector(name="git_stash", max_items=30)` —
@@ -270,8 +271,8 @@ class Collector(Protocol):
   `errors="replace"` so non-UTF-8 bytes degrade gracefully. Output is sorted
   by `summary` ascending and the signal count is capped at `max_items`. Never
   raises -> `[]`. Reports facts only (count + messages); the synthesizer judges
-  whether to propose reviewing or dropping a stale stash. (Additive collector,
-  exactly like iters 09/11/16/28/37/42 — a new `kind` flows into synthesis via
+  whether to propose reviewing or dropping a stale stash. (Additive collector
+  like iters 09/11/16/28/37/42 — a new `kind` flows into synthesis via
   `by_kind()` with zero synthesizer change, so no version bump.)
 - `test_posture.py: TestPostureCollector(name="test_posture", max_items=20)` —
   walk `root` via `dir_source` and emit one `kind="test_posture"` signal per top-level project
@@ -283,7 +284,7 @@ class Collector(Protocol):
   with ` (untested)` appended iff `T == 0`; weight `0.7` untested else `0.4`.
   Stdlib-only (`os`/`pathlib`), never raises → `[]`. Reports the raw `(src,
   test)` counts only; the synthesizer judges whether to propose adding tests.
-  (Additive collector, exactly like iters 09/11 — no version bump.)
+  (Additive collector like iters 09/11 — no version bump.)
 - `merge_conflict.py: MergeConflictCollector(name="merge_conflict", max_items=30, max_read_bytes=5_000_000)` —
   committed-conflict-marker companion to `git_state` (which reads `.git/MERGE_HEAD`
   for an *in-progress* merge — that marker vanishes at `git commit` while the
@@ -304,7 +305,7 @@ class Collector(Protocol):
   types); output sorted by relpath ascending and capped at `max_items`. Pure
   stdlib (`os`/`pathlib`), never raises → `[]`. Reports facts only (which file,
   how many markers); the synthesizer judges whether to propose resolving them.
-  (Additive collector, exactly like iters 09/11/16/20 — a new `kind` flows into
+  (Additive collector like iters 09/11/16/20 — a new `kind` flows into
   synthesis via `by_kind()` with zero synthesizer change, so no version bump.)
 - `large_file.py: LargeFileCollector(name="large_file", max_items=20, min_bytes=5_000_000)` — repo-hygiene companion to the other filesystem
   collectors: an oversized file in a workspace (a stray build artifact, an
@@ -333,7 +334,7 @@ class Collector(Protocol):
   no git/.gitignore/git-lfs awareness), so it structurally cannot raise on
   binary/non-UTF-8 bytes. Pure stdlib (`os`/`pathlib`), never raises → `[]`.
   Reports facts only (which file, how large); the synthesizer judges whether to
-  propose gitignoring/removing/LFS-tracking it. (Additive collector, exactly
+  propose gitignoring/removing/LFS-tracking it. (Additive collector
   like iters 09/11/16/20/28 — a new `kind` flows into synthesis via `by_kind()`
   with zero synthesizer change, so no version bump.)
 - `secret_file.py: SecretFileCollector(name="secret_file", max_items=20)` — security-hygiene companion to `large_file`/`merge_conflict`: a secret-shaped
@@ -359,7 +360,7 @@ class Collector(Protocol):
   secret VALUE can never appear in a signal — only the filename can. Pure
   stdlib (`os`/`pathlib`), never raises → `[]`. Reports facts only (which
   file); the synthesizer judges whether to propose gitignoring/removing it.
-  (Additive collector, exactly like iters 09/11/16/20/28/41 — a new `kind`
+  (Additive collector like iters 09/11/16/20/28/41 — a new `kind`
   flows into synthesis via `by_kind()` with zero synthesizer change, so no
   version bump.)
 - `ci_config.py: CiConfigCollector(name="ci_config", max_items=30)` —
@@ -383,8 +384,8 @@ class Collector(Protocol):
   `path=str(root)` (the workspace root, not a file), `timestamp=None`. Per-project
   / monorepo CI granularity and any CI-file CONTENT inspection are Out of Scope.
   Pure stdlib (`os`/`pathlib`), never raises → `[]`. Reports facts only; the
-  synthesizer judges whether to propose wiring up CI. (Additive collector,
-  exactly like iters 09/11/16/20/28/37/42/53 — a new `kind` flows into synthesis
+  synthesizer judges whether to propose wiring up CI. (Additive collector
+  like iters 09/11/16/20/28/37/42/53 — a new `kind` flows into synthesis
   via `by_kind()` with zero synthesizer change, so no version bump.)
 - `lockfile_drift.py: LockfileDriftCollector(name="lockfile_drift", max_items=30)` —
   the first *relational* collector: it PAIRS each dependency manifest with its
@@ -403,7 +404,7 @@ class Collector(Protocol):
   or lockfile CONTENT** (no hash/version comparison), so it cannot raise on binary
   bytes and no file contents can leak into a signal. Pure stdlib (`os`/`pathlib`),
   never raises → `[]`. Reports facts only; the synthesizer judges whether to propose
-  regenerating the lock. (Additive collector, exactly like iters 09/11/16/20/28/37/42/53/63
+  regenerating the lock. (Additive collector like iters 09/11/16/20/28/37/42/53/63
   — a new `kind` flows into synthesis via `by_kind()` with zero synthesizer change, so
   no version bump.)
 - `syntax_error.py: SyntaxErrorCollector(name="syntax_error", max_items=30, max_read_bytes=5_000_000)` — the first
@@ -431,7 +432,7 @@ class Collector(Protocol):
   signal. Output sorted by relpath ascending and capped at `max_items`. Pure stdlib
   (`os`/`pathlib`/`struct`/`importlib.util`/builtin `compile`), never raises → `[]`. Reports
   facts only (which file, which line); the synthesizer judges whether to propose fixing
-  it. (Additive collector, exactly like iters 09/11/16/20/28/37/42/53/63/70 — a new `kind`
+  it. (Additive collector like iters 09/11/16/20/28/37/42/53/63/70 — a new `kind`
   flows into synthesis via `by_kind()` with zero synthesizer change, so no version bump.)
 - `license.py: LicenseCollector(name="license", max_items=30)` — root-anchored
   open-source-hygiene gap: at most ONE `kind="license"` signal (`summary="no license

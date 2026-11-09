@@ -415,20 +415,23 @@ def test_eb6_empty_state_dir_missing(tmp_path):
         assert not missing.exists(), f"prune {extra} must not CREATE the state dir"
 
 
-@pytest.mark.parametrize("extra", [[], ["--yes"]])
-def test_eb6_empty_status_matches_nothing(tmp_path, extra):
-    sd = tmp_path / "state"
-    _persist_run(sd / "run-a", status=RunStatus.DONE, extra_files=True)
-    before = _snapshot(sd)
+def test_eb6_empty_status_matches_nothing(tmp_path):
+    # Folded from a 2-item parametrize (foundry iter 560, readme-headroom budget).
+    extras: list[list[str]] = [[], ["--yes"]]
+    assert len(extras) == 2
     unmatched = next(s for s in _STATUSES if s != RunStatus.DONE.value)
+    for i, extra in enumerate(extras):
+        sd = tmp_path / f"case{i}" / "state"
+        _persist_run(sd / "run-a", status=RunStatus.DONE, extra_files=True)
+        before = _snapshot(sd)
 
-    code, out, err = _run(
-        ["runs", "--state-dir", str(sd), "--prune", "--status", unmatched, *extra]
-    )
+        code, out, err = _run(
+            ["runs", "--state-dir", str(sd), "--prune", "--status", unmatched, *extra]
+        )
 
-    assert code == 0, f"a no-match --status prune must exit 0; got {code}; stderr:\n{err}"
-    assert out.splitlines() == [_EMPTY_LINE], f"expected the empty line; got:\n{out!r}"
-    assert _snapshot(sd) == before, "a no-match prune must delete nothing"
+        assert code == 0, f"no-match prune {extra} must exit 0; got {code}; stderr:\n{err}"
+        assert out.splitlines() == [_EMPTY_LINE], f"expected the empty line; got:\n{out!r}"
+        assert _snapshot(sd) == before, f"a no-match prune {extra} must delete nothing"
 
 
 # ===========================================================================

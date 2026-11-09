@@ -8,9 +8,10 @@ build; and a two-sided drift guard pinning the target's leg set to ``ci.yml``'s
 Feature under test (``pm.md``): CI's ``test`` job is a ``fail-fast: false`` matrix over
 two interpreters, so it grades its six run-steps TWICE -- twelve run-steps -- while
 ``make check`` runs them ONCE, under whichever interpreter ``uv`` last left in
-``.venv``. There is no ``.python-version`` in the repo, so which leg runs locally is an
-accident rather than a choice, and the gap already cost a reverted iteration (a failure
-reproducible only on the newer interpreter reached CI unseen). ``check-matrix`` closes
+``.venv``. There was no ``.python-version`` then (ROADMAP #348 later pinned 3.12), so
+which leg ran locally was an accident rather than a choice, and the gap already cost a
+reverted iteration (a failure reproducible only on the newer interpreter reached CI
+unseen). ``check-matrix`` closes
 the leg-varying half -- the suite -- and the drift guard below makes the duplicated leg
 list safe: adding a leg to CI alone, or to the Makefile alone, goes RED.
 

@@ -222,9 +222,10 @@ clean:
 # WHAT `check` IS NOT: everything CI grades. CI's `test` job is a
 # `fail-fast: false` matrix over python-version ["3.12", "3.13"], so it grades
 # those ten steps TWICE -- twenty run-steps -- while `make check` runs them ONCE,
-# under whichever interpreter uv last left in `.venv`. There is no
-# `.python-version` in this repo, so which leg runs locally is an accident
-# rather than a choice, and the gap is not hypothetical: a failure reproducible
+# under whichever interpreter uv last left in `.venv`. `.python-version` pins
+# 3.12, the lowest matrix leg, as the fresh-clone default (CI's setup-uv
+# `python-version:` overrides it per leg), so the 3.13 leg never runs locally
+# unless asked for, and the gap is not hypothetical: a failure reproducible
 # only on the newer interpreter has already reached CI unseen. `make check-matrix`
 # (below) runs the SUITE under both matrix interpreters, which is the leg-varying
 # half of that gap; the second leg's demo, demo-artifact assertions, count budget,
