@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-562
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json`, not the full `_run_row`
+    - Candidate A2 -- `_count_artifacts` counts with one `os.walk`/`scandir` pass instead of `Path.rglob("*") + is_file()`
+    - Candidate A3 -- `make demo` stops paying for 12 `uv run` re-resolves on a 1.8 s graded gate step
+    - Candidate B1 -- the exit-code-2 contract (epilog, `main` docstring, README row 2) omits `run --decline FILE`'s exit 2, and README row 2 still has the `--out` case backwards
+    - Candidate B2 -- ROADMAP #194 is still QUEUED behind a "BLOCKING DESIGN QUESTION" that iter 557 already answered, and it claims "nothing in `src/` implements suppression"
+    - Candidate B3 -- README/SPEC `run --decline` and `--skip-done` prose omits two shipped facts: the file is read as UTF-8 with a BOM stripped, and skips appear only on stderr (`--json` cannot tell "declined" from "nothing to dispatch")
+    winner: A1
+    ship: pending (not yet decided)
   iter-561
     lenses: simplification-and-deletion
     - Candidate A1 -- one `_bounded_number` validator factory replaces the five hand-copied argparse `type=` validators (`_positive_int`, `_positive_float`, `_non_negative_int`, `_non_negative_float`, `_finite_float`)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla` verbs that never scan stop importing the collector package at startup
     - Candidate B3 -- the error-path arms of the two longest single tests call `cli.main()` in-process instead of spawning `pla`
     winner: R1
-    ship: pending (not yet decided)
+    ship: PUSHED a05b830
   iter-560
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- commit a `.python-version` (`3.12`) so a fresh clone's README quickstart (`uv sync --locked` -> `uv run pytest`) runs on a CI-graded interpreter
@@ -2739,4 +2749,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-271 scouted iterations
+272 scouted iterations

@@ -3428,6 +3428,35 @@ def _count_artifacts(run_dir: Path) -> int:
     return sum(1 for p in artifacts_dir.rglob("*") if p.is_file())
 
 
+def _load_run_state(run_dir: Path) -> RunState | None:
+    """Load *run_dir*'s ``checkpoint.json`` tolerantly; ``None`` when missing or corrupt.
+
+    The ONE checkpoint reader behind ``runs``, ``run --skip-done`` and ``runs --prune``,
+    so every surface agrees on what a run's status and goal are. ``ValueError`` /
+    ``OSError`` degrade to ``None`` rather than raise: one truncated checkpoint must
+    never abort a listing or a selection over the whole state dir.
+    """
+    try:
+        return Checkpoint(run_dir / _CHECKPOINT_NAME).load()
+    except (ValueError, OSError):
+        return None
+
+
+def _run_status_goal(run_dir: Path) -> tuple[str, str]:
+    """Return ``(status, goal title)`` for *run_dir* from its checkpoint alone.
+
+    WHY a narrower reader than :func:`_run_row`: the selection paths (``run
+    --skip-done``, ``runs --prune --status/--goal``) decide on these two fields only,
+    so skipping ``meta.json`` and the ``artifacts/`` walk keeps their cost to one
+    checkpoint read per run as history grows. A missing or corrupt checkpoint yields
+    the same ``(no checkpoint)`` marker and empty goal ``_run_row`` reports.
+    """
+    state = _load_run_state(run_dir)
+    if state is None:
+        return _NO_CHECKPOINT, ""
+    return state.status.value, state.goal.title
+
+
 def _run_row(run_dir: Path) -> dict[str, Any]:
     """Summarize one run dir into a plain, JSON-serializable row.
 
@@ -3439,10 +3468,7 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
     ``RunStatus.DONE`` repr. ``run_id`` is the dir name (``run-<goal_id>``) -- the
     exact value a person feeds ``resume --run-dir``, which is the point of listing.
     """
-    try:
-        state = Checkpoint(run_dir / _CHECKPOINT_NAME).load()
-    except (ValueError, OSError):
-        state = None  # corrupt/truncated checkpoint -> degrade, never crash the listing
+    state = _load_run_state(run_dir)  # corrupt/truncated -> None, never crash the listing
     try:
         meta = _read_meta(run_dir)
     except (ValueError, OSError):
@@ -3476,10 +3502,11 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
 def _done_runs_by_title(state_dir: Path) -> dict[str, str]:
     """Map normalized goal title -> ``run_id`` of a ``done`` run under *state_dir*.
 
-    The read side of ``run --skip-done``. Built on :func:`_run_row` -- the tolerant
-    reader ``runs`` already lists with -- so there is no second checkpoint parser: a
-    missing or corrupt checkpoint degrades to the ``(no checkpoint)`` status there and
-    therefore suppresses nothing here, and never raises. Only ``done`` counts, because
+    The read side of ``run --skip-done``. Built on :func:`_run_status_goal`, which shares
+    :func:`_load_run_state` with the ``runs`` listing, so there is no second checkpoint
+    parser and no ``meta.json`` or artifact walk: a missing or corrupt checkpoint
+    degrades to the ``(no checkpoint)`` status and therefore suppresses nothing here,
+    and never raises. Only ``done`` counts, because
     every other status is work that is NOT finished and should be retried. Keyed by
     :func:`_normalize_title`, the synthesizer's own dedup key, so a re-proposal that
     differs only in case or surrounding whitespace still matches. ``_iter_run_dirs``
@@ -3487,9 +3514,9 @@ def _done_runs_by_title(state_dir: Path) -> dict[str, str]:
     """
     done: dict[str, str] = {}
     for run_dir in _iter_run_dirs(state_dir):
-        row = _run_row(run_dir)
-        if row["status"] == RunStatus.DONE.value:
-            done.setdefault(_normalize_title(row["goal"]), row["run_id"])
+        status, goal = _run_status_goal(run_dir)
+        if status == RunStatus.DONE.value:
+            done.setdefault(_normalize_title(goal), run_dir.name)
     return done
 
 
@@ -3530,13 +3557,14 @@ def _select_prunable(
       construction a DIRECT ``run-*`` child of *state_dir* -- never a nested
       ``state_dir/other/run-x``, never a plain file named ``run-x``, never a
       sibling of *state_dir*, and never a path built by string concatenation.
-    * ``status`` reuses ``_run_row``'s persisted status, i.e. the exact value the
-      listing prints, so prune can never select a run ``runs --status`` would not
-      show. A degraded ``(no checkpoint)`` row matches no ``RunStatus`` value and
+    * ``status`` reads :func:`_run_status_goal`, the same checkpoint loader the
+      listing's ``_run_row`` uses, i.e. the exact value the listing prints, so prune
+      can never select a run ``runs --status`` would not show. A degraded ``(no checkpoint)`` row matches no ``RunStatus`` value and
       is therefore excluded by any filter and included when none is given --
       inherited from the listing, not re-implemented.
-    * ``goal`` reuses ``_run_row``'s persisted goal title (case-insensitive
-      substring), so prune can never select a run ``runs --goal`` would not show.
+    * ``goal`` reads the same persisted goal title (case-insensitive substring), so
+      prune can never select a run ``runs --goal`` would not show. Each candidate's
+      checkpoint is read ONCE for both filters, never meta or artifacts.
     * Symlinks are REFUSED, not followed: ``_iter_run_dirs`` filters on
       ``is_dir()``, which follows links, so a symlinked ``run-evil`` IS listed
       today. ``shutil.rmtree`` on a symlink raises ``OSError``, and swallowing
@@ -3550,13 +3578,17 @@ def _select_prunable(
     the report and the deletion order deterministic across invocations.
     """
     candidates = _iter_run_dirs(state_dir)
-    if status is not None:
-        candidates = [d for d in candidates if _run_row(d)["status"] == status]
-    if goal is not None:
-        goal_lower = goal.casefold()
-        candidates = [
-            d for d in candidates if goal_lower in _run_row(d)["goal"].casefold()
-        ]
+    if status is not None or goal is not None:
+        goal_lower = goal.casefold() if goal is not None else None
+        kept: list[Path] = []
+        for d in candidates:
+            run_status, run_goal = _run_status_goal(d)
+            if status is not None and run_status != status:
+                continue
+            if goal_lower is not None and goal_lower not in run_goal.casefold():
+                continue
+            kept.append(d)
+        candidates = kept
     selected: list[Path] = []
     refused: list[str] = []
     for candidate in candidates:

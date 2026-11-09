@@ -265,12 +265,14 @@ def test_b05_b06_a_rejected_budget_exits_two_with_empty_stdout(
     assert _gate_lines(err) == []
 
 
-@pytest.mark.parametrize("budget", ["-1", "abc"])
-def test_b05_a_rejected_budget_scans_nothing(ws: Path, budget: str) -> None:
+def test_b05_a_rejected_budget_scans_nothing(ws: Path) -> None:
     """The observable proof: no collector-timings trailer, so no collection ran."""
-    code, out, err = _signals(ws, "--timings", "--fail-over", budget)
-    assert (code, out) == (2, "")
-    assert "collector timings" not in err
+    budgets = ["-1", "abc"]
+    assert len(budgets) == 2
+    for budget in budgets:
+        code, out, err = _signals(ws, "--timings", "--fail-over", budget)
+        assert (code, out) == (2, ""), budget
+        assert "collector timings" not in err, budget
 
 
 def test_b05_a_rejected_budget_emits_no_json_document(ws: Path) -> None:
