@@ -235,11 +235,14 @@ def test_b03_the_workspace_directory_itself_is_spelled_dot(ws: Path) -> None:
 # ======================================================================================
 # Behavior 4 -- a trailing ":LINE" suffix survives normalization.
 # ======================================================================================
-@pytest.mark.parametrize("spelling", ["ABSOLUTE", "."])
-def test_b04_a_trailing_line_suffix_survives_normalization(ws: Path, spelling: str) -> None:
-    given = str(ws) if spelling == "ABSOLUTE" else spelling
-    todos = [str(r["path"]) for r in _records(ws, given) if r["kind"] == "todo"]
-    assert todos == ["sub/pkg/mod.py:2"], todos
+def test_b04_a_trailing_line_suffix_survives_normalization(ws: Path) -> None:
+    # Folded from a 2-item ``spelling`` parametrize (factory iter 564 funds its oracle net-zero).
+    spellings = ("ABSOLUTE", ".")
+    assert len(spellings) == 2
+    for spelling in spellings:
+        given = str(ws) if spelling == "ABSOLUTE" else spelling
+        todos = [str(r["path"]) for r in _records(ws, given) if r["kind"] == "todo"]
+        assert todos == ["sub/pkg/mod.py:2"], f"[{spelling}] {todos}"
 
 
 # ======================================================================================

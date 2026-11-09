@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-564
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `explain --title TITLE`: audit one slate goal by normalized title, the read-only sibling of `dispatch --title`
+    - Candidate A2 -- `trend --title TITLE`: narrow the persistence report and its `--fail-on-persist` gate to one named goal
+    - Candidate A3 -- `scan --decline FILE`: hide user-declined titles from the printed slate (VIEW filter; the written slate stays complete) with a `declined: N hidden` trailer -- re-proposal of iter-563 B2 / ROADMAP #194
+    - Candidate B1 -- An undecodable slate or checkpoint prints a bare `'utf-8' codec can't decode ...` line that names neither the file nor its kind
+    - Candidate B2 -- A UTF-8 BOM makes every JSON input fail, and slate/checkpoint report it as a "validation error" even though the JSON is valid
+    - Candidate B3 -- `runs` labels a corrupt checkpoint `(no checkpoint)`, so neither the table nor `runs --json` can tell "file missing" from "file present but unreadable"
+    winner: B1
+    ship: pending (not yet decided)
   iter-563
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- the exit-code-2 contract (`_EXIT_CODES[2]`, `main` docstring, README row 2) omits `run --decline FILE`'s exit 2; grow all three surfaces and pin them with a flag x fault oracle (re-proposal of iter-562 B1)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `scan --decline FILE`: hide user-declined titles from the printed slate (VIEW filter, written slate stays complete) with a `declined: N hidden` trailer -- re-proposal of ROADMAP #194, now unblocked
     - Candidate B3 -- `trend --decline FILE`: declined titles stop counting toward `--fail-on-persist`, so a CI persistence gate can clear on a consciously accepted goal
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED f76505d
   iter-562
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- `run --skip-done` and `runs --prune` filters read only `checkpoint.json`, not the full `_run_row`
@@ -2759,4 +2769,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-273 scouted iterations
+274 scouted iterations

@@ -113,11 +113,22 @@ class Checkpoint:
         URL, or the raw ``input_value=`` echo of the checkpoint bytes). An ABSENT
         file still returns ``None`` (unchanged), and ``_run_row`` still catches the
         resulting ``ValueError`` to degrade a bad run to ``(no checkpoint)``.
+        Undecodable (non-UTF-8) bytes raise the same ``ValueError`` kind, naming
+        the file and the first bad byte offset that the bare codec message omits.
         """
         if not self.path.is_file():
             return None
         try:
-            return RunState.from_json(self.path.read_text(encoding="utf-8"))
+            raw = self.path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            # Still a ValueError, so _run_row's degrade to (no checkpoint) holds;
+            # re-raised only to name the file the codec message omits.
+            raise ValueError(
+                f"invalid checkpoint file '{self.path}': not valid UTF-8 text"
+                f" at byte {exc.start}"
+            ) from None
+        try:
+            return RunState.from_json(raw)
         except ValidationError as exc:
             raise ValueError(
                 sanitize_validation_error("checkpoint", self.path, exc)

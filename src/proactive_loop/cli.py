@@ -2262,7 +2262,14 @@ def _load_slate(path: Path) -> GoalSlate:
     so the two can never disagree about what the file said, and a read-only verb pays
     for the file once.
     """
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        # A ValueError subclass, so it reached main() anyway -- re-raised only to
+        # name the file the codec message omits (diff --old/--new reads two).
+        raise ValueError(
+            f"invalid slate file '{path}': not valid UTF-8 text at byte {exc.start}"
+        ) from None
     _reject_goals_less_slate(path, text)
     try:
         return GoalSlate.model_validate_json(text)
