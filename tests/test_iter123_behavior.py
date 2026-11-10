@@ -285,23 +285,25 @@ def test_b03_non_stream_entries_are_ignored(tmp_path, capsys):
 # ===========================================================================
 
 
-@pytest.mark.parametrize("keep", [0, 1])
-def test_b04_too_few_stream_slates_is_a_usage_error(tmp_path, capsys, keep):
+def test_b04_too_few_stream_slates_is_a_usage_error(tmp_path, capsys):
+    # Both counts (0 and 1 stream slates) run in ONE item: a former 2-case parametrize
+    # folded into a loop to fund test_iter313's oracle at a net-zero collected count.
     src = _stream(tmp_path, ["one", "two"], capsys)
-    d = tmp_path / f"thin-{keep}"
-    mapping = {f"slate-{i:03d}.json": f"slate-{i:03d}.json" for i in range(1, keep + 1)}
-    _reindex(src, mapping, d)
-    (d / "notes.txt").write_text("not a slate\n", encoding="utf-8")
+    for keep in (0, 1):
+        d = tmp_path / f"thin-{keep}"
+        mapping = {f"slate-{i:03d}.json": f"slate-{i:03d}.json" for i in range(1, keep + 1)}
+        _reindex(src, mapping, d)
+        (d / "notes.txt").write_text("not a slate\n", encoding="utf-8")
 
-    rc, out, err = _run(["diff", "--dir", str(d)], capsys)
+        rc, out, err = _run(["diff", "--dir", str(d)], capsys)
 
-    line = _assert_single_usage_error(rc, out, err)
-    assert str(d) in line, f"the error must name the directory: {line!r}"
-    low = line.lower()
-    assert "slate" in low, f"the error must mention slates: {line!r}"
-    assert "two" in low or "2" in line, (
-        f"the error must state that at least two are required: {line!r}"
-    )
+        line = _assert_single_usage_error(rc, out, err)
+        assert str(d) in line, f"keep={keep}: the error must name the directory: {line!r}"
+        low = line.lower()
+        assert "slate" in low, f"keep={keep}: the error must mention slates: {line!r}"
+        assert "two" in low or "2" in line, (
+            f"keep={keep}: the error must state that at least two are required: {line!r}"
+        )
 
 
 # ===========================================================================

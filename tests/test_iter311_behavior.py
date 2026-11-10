@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import time
 from pathlib import Path
@@ -92,13 +93,15 @@ def _b1_b2_b3_title_resolves_exactly_like_goal_id_normalized_and_first_wins(
     title, gid = str(auto["title"]), str(auto["id"])
     assert auto["category"] == "learning", auto
 
-    # B1: byte-identical to --goal-id, keeping the run-<id> dir and the --goal-id paste form.
+    # B1: byte-identical to --goal-id, keeping the run-<id> dir; since iter 565 the paste
+    # form selects by the (unique) shell-quoted title.
     by_id = _dispatch(capsys, slate, sd, "--goal-id", gid, "--dry-run")
     assert by_id[0] == 0, by_id
     by_title = _dispatch(capsys, slate, sd, "--title", title, "--dry-run")
     assert by_title == by_id
     assert f"run-{gid}" in by_title[1]
-    assert f"--goal-id {gid}" in by_title[1]
+    assert f"--title {shlex.quote(title)}" in by_title[1]
+    assert f"--goal-id {gid}" not in by_title[1]
 
     # B2: outer whitespace + other case still matches exactly the same goal.
     assert _dispatch(capsys, slate, sd, "--title", f"  {title.upper()} ", "--dry-run") == by_id

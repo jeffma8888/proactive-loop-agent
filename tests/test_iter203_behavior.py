@@ -48,6 +48,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -305,8 +306,10 @@ def test_b03_auto_dispatch_preview_reports_every_published_field(
     assert f"--slate {env.slate_path}" in paste, (
         f"the paste-ready command must carry this slate; got {paste!r}"
     )
-    assert f"--goal-id {env.auto}" in paste, (
-        f"the paste-ready command must carry this goal id; got {paste!r}"
+    # iter 565: the hint selects by the rescan-stable, shell-quoted (unique) title.
+    title_arg = f"--title {shlex.quote('Draft the linear-foot rate note')}"
+    assert title_arg in paste and "--goal-id" not in paste, (
+        f"the paste-ready command must select this goal by its title; got {paste!r}"
     )
     assert "--dry-run" not in paste, (
         f"the paste-ready command is the REAL run, so it must not re-preview; got {paste!r}"

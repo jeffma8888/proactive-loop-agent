@@ -312,7 +312,8 @@ def test_b02_pasted_command_runs_from_a_foreign_directory(
 
     argv = shlex.split(cmds[0])
     assert argv[0] == "pla", cmds[0]
-    goal_id = argv[argv.index("--goal-id") + 1]
+    # iter 565: the hint selects by title; the preview header must name that goal.
+    title = argv[argv.index("--title") + 1]
 
     foreign = tmp_path / "foreign"
     foreign.mkdir()
@@ -327,7 +328,8 @@ def test_b02_pasted_command_runs_from_a_foreign_directory(
         f"the printed command must run from a foreign cwd: rc={rc2}\n"
         f"cmd={cmds[0]}\nstdout={out2}\nstderr={err2}"
     )
-    assert f"[dry-run] would dispatch goal {goal_id}" in out2, out2
+    header = [ln for ln in out2.splitlines() if ln.startswith("[dry-run] would dispatch goal ")]
+    assert len(header) == 1 and header[0].endswith(f": {title}"), out2
 
 
 def test_b03_two_sided_control_the_relative_spelling_fails_from_that_cwd(

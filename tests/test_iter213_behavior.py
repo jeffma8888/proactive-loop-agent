@@ -353,9 +353,11 @@ def test_b02_each_skipped_goal_has_a_paste_ready_dispatch_command(
         argv = shlex.split(cmd)
         assert argv[:2] == ["pla", "dispatch"], cmd
         assert "--slate" in argv and argv[argv.index("--slate") + 1] == str(slate_path), cmd
-        assert "--goal-id" in argv and argv[argv.index("--goal-id") + 1] == ids[title], (
-            f"command for {title!r} must carry its own id {ids[title]}; got {cmd}"
+        # iter 565: each hint selects by its own rescan-stable (unique) title, not the id.
+        assert "--title" in argv and argv[argv.index("--title") + 1] == title, (
+            f"command for {title!r} must carry its own title; got {cmd}"
         )
+        assert "--goal-id" not in argv and ids[title] not in cmd, cmd
 
 
 def test_b02b_printed_command_actually_dispatches_that_goal(

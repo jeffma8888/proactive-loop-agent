@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-565
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- a bad `--scripted-responses` file names its path (the one JSON flag iter 564's B1 fix missed)
+    - Candidate A2 -- a slate/checkpoint that is not JSON (or not an object) says so, instead of a bare "1 validation error"
+    - Candidate A3 -- `runs` stops labelling a present-but-corrupt checkpoint `(no checkpoint)`
+    - Candidate B1 -- paste-ready `pla dispatch` hints print `--title '<title>'` (stable across rescans) instead of the random `--goal-id` that a rescan kills
+    - Candidate B2 -- the graded gate dispatches by `--title` across a rescan, so `dispatch --title` gets its first executable consumer
+    - Candidate B3 -- `scan`'s human output ends with one paste-ready `next:` dispatch line for its top goal, so the read-only verb has a route to action
+    winner: B1
+    ship: pending (not yet decided)
   iter-564
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `explain --title TITLE`: audit one slate goal by normalized title, the read-only sibling of `dispatch --title`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- A UTF-8 BOM makes every JSON input fail, and slate/checkpoint report it as a "validation error" even though the JSON is valid
     - Candidate B3 -- `runs` labels a corrupt checkpoint `(no checkpoint)`, so neither the table nor `runs --json` can tell "file missing" from "file present but unreadable"
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED b743f37
   iter-563
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- the exit-code-2 contract (`_EXIT_CODES[2]`, `main` docstring, README row 2) omits `run --decline FILE`'s exit 2; grow all three surfaces and pin them with a flag x fault oracle (re-proposal of iter-562 B1)
@@ -2769,4 +2779,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-274 scouted iterations
+275 scouted iterations

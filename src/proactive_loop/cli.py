@@ -32,6 +32,7 @@ import logging
 import math
 import os
 import re
+import shlex
 import shutil
 import sys
 import textwrap
@@ -5394,12 +5395,29 @@ def _pasteable_slate_arg(slate_path: Path) -> str:
     return str(slate_path.absolute())
 
 
+def _dispatch_selector(goal: CandidateGoal, slate: GoalSlate) -> str:
+    """The goal selector a paste-ready ``pla dispatch`` hint prints for *goal*.
+
+    ``--title`` is preferred because it survives a rescan: ``CandidateGoal.id`` is a
+    random per-scan ``default_factory``, so a ``--goal-id`` hint copied before the next
+    ``scan``/``run``/``watch`` tick rewrites ``slate.json`` exits 2. The title is used ONLY
+    when its :func:`_normalize_title` key is unique in *slate*: ``dispatch --title``
+    selects the FIRST match, so on a duplicate it could approve a different goal than
+    the hint named -- there the exact ``--goal-id`` is printed instead.
+    """
+    key = _normalize_title(goal.title)
+    if sum(1 for g in slate.goals if _normalize_title(g.title) == key) == 1:
+        return f"--title {shlex.quote(goal.title)}"
+    return f"--goal-id {goal.id}"
+
+
 def _render_dispatch_preview(
     goal: CandidateGoal,
     decision: DispatchDecision,
     workspace_root: Path,
     settings: Settings,
     slate_path: Path,
+    slate: GoalSlate,
 ) -> str:
     """The ``dispatch --dry-run`` preview: what a real dispatch WOULD do, as text.
 
@@ -5423,7 +5441,10 @@ def _render_dispatch_preview(
     NEEDS_APPROVAL / BLOCKED), not the lowercase enum VALUE the JSON documents carry.
     """
     run_dir = settings.state_dir / f"run-{goal.id}"
-    command = f"pla dispatch --slate {_pasteable_slate_arg(slate_path)} --goal-id {goal.id}"
+    command = (
+        f"pla dispatch --slate {_pasteable_slate_arg(slate_path)} "
+        f"{_dispatch_selector(goal, slate)}"
+    )
     if decision.decision == AutonomyDecision.NEEDS_APPROVAL:
         command += " --yes"
     return "\n".join(
@@ -5440,7 +5461,7 @@ def _render_dispatch_preview(
 
 
 def _render_deferred_dispatches(
-    goals: Sequence[CandidateGoal], slate_path: Path
+    goals: Sequence[CandidateGoal], slate_path: Path, slate: GoalSlate
 ) -> str:
     """The auto-approved goals ``run`` did NOT dispatch, each with a paste-ready command.
 
@@ -5475,7 +5496,7 @@ def _render_deferred_dispatches(
     ]
     for goal in goals:
         lines.append(f"  - {goal.title}")
-        lines.append(f"      pla dispatch --slate {slate_arg} --goal-id {goal.id}")
+        lines.append(f"      pla dispatch --slate {slate_arg} {_dispatch_selector(goal, slate)}")
     return "\n".join(lines)
 
 
@@ -5805,7 +5826,11 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     # ``create_client`` CALL inside each ``_cmd_*`` handler, and ``dispatch`` still
     # needs one for the dispatch it actually performs.
     if args.dry_run:
-        print(_render_dispatch_preview(goal, decision, workspace_root, settings, slate_path))
+        print(
+            _render_dispatch_preview(
+                goal, decision, workspace_root, settings, slate_path, slate
+            )
+        )
         return 0
 
     client = create_client(settings)
@@ -6095,14 +6120,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # return, so the preview reports what the act it previews would report -- and
         # keeps the block out of `--json` stdout, since the whole body is redirected.
         if deferred:
-            print(_render_deferred_dispatches(deferred, slate_path))
+            print(_render_deferred_dispatches(deferred, slate_path, slate))
 
         if needs_approval:
             print(f"\n{len(needs_approval)} goal(s) need approval and were NOT auto-run:")
             for goal in needs_approval:
                 print(
                     f"  - {goal.title}\n"
-                    f"      pla dispatch --slate {slate_arg} --goal-id {goal.id} --yes"
+                    f"      pla dispatch --slate {slate_arg} "
+                    f"{_dispatch_selector(goal, slate)} --yes"
                 )
 
         if top is None:
@@ -6139,7 +6165,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # loop iteration -- the core safety property this flag exists to provide.
         if args.dry_run:
             print(f"\n[dry-run] would auto-dispatch top goal: {top.title}")
-            print(f"  pla dispatch --slate {slate_arg} --goal-id {top.id}")
+            print(f"  pla dispatch --slate {slate_arg} {_dispatch_selector(top, slate)}")
             if args.json:
                 # `top_goal` names the goal a real run WOULD dispatch while
                 # `dispatched` stays null: the preview reports its INTENT, never a

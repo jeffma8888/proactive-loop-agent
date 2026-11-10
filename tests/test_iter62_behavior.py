@@ -22,6 +22,7 @@ keys, driven by the bundled ``scripted`` provider + demo fixtures.
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 
 import pytest
@@ -201,11 +202,12 @@ def test_b04_dry_run_prints_paste_ready_dispatch_command(tmp_path, capsys, monke
     assert rc == 0
     top = _top_auto_goal(slate)
     slate_path = str(state_dir / "slate.json")
-    needed = ["pla dispatch", "--slate", slate_path, "--goal-id", top.id]
+    # iter 565: the hint selects by the rescan-stable, shell-quoted title (unique here).
+    needed = ["pla dispatch", "--slate", slate_path, f"--title {shlex.quote(top.title)}"]
     matches = [ln for ln in out.splitlines() if all(s in ln for s in needed)]
     assert matches, (
         "dry-run must print one paste-ready command line containing all of "
-        f"{needed!r} (with the TOP goal's id, disambiguating it from the "
+        f"{needed!r} (with the TOP goal's title, disambiguating it from the "
         f"needs-approval --yes lines); got:\n{out}"
     )
 
