@@ -224,6 +224,43 @@ def _configure_logging(level: int) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _collector_name(raw: str) -> str:
+    """``type=`` validator for ``--collector``: accept only a LIVE collector name.
+
+    WHY a validator and not ``choices=``: CPython gh-117766 (3.12.8+ / 3.13.1+) stopped
+    quoting the ``choose from`` list argparse prints for ``choices=``, so the product's
+    own usage error changed with the interpreter PATCH -- the public CI matrix resolves
+    the latest patch and went red on the 3.12.7 wording. This raises the 3.12.7 bytes
+    itself, so the message is identical on every interpreter. The names are read from
+    ``all_collectors()`` at call time (never a hardcoded literal), so the allowlist
+    cannot drift from the registry.
+    """
+    names = sorted(c.name for c in all_collectors())
+    if raw not in names:
+        listed = ", ".join(map(repr, names))
+        raise argparse.ArgumentTypeError(f"invalid choice: {raw!r} (choose from {listed})")
+    return raw
+
+
+def _add_collector_flag(parser: argparse.ArgumentParser, *, help: str) -> None:
+    """Register the repeatable ``--collector NAME`` allowlist on scan, run and signals.
+
+    One definition so the three verbs cannot drift. Repeatable (``action="append"``);
+    absent (default ``None``) means all collectors, so a bare verb is byte-identical to
+    no flag. An unknown name is a PARSE-time usage error (exit 2): no client built, no
+    collector run, nothing written. ``watch`` deliberately does not carry it.
+    """
+    parser.add_argument(
+        "--collector",
+        action="append",
+        default=None,
+        type=_collector_name,
+        dest="collector",
+        metavar="NAME",
+        help=help,
+    )
+
+
 def _positive_int(raw: str) -> int:
     """argparse ``type=`` validator: parse a STRICTLY-positive integer.
 
@@ -781,22 +818,8 @@ def build_parser() -> argparse.ArgumentParser:
             "(exit 2). Default (absent) shows all goals."
         ),
     )
-    # An UPSTREAM allowlist on WHICH collectors feed synthesis -- the perception
-    # INPUT knob, complementing --top/--format (which shape the OUTPUT view only).
-    # Repeatable (action="append"); absent (default None) = all collectors, so a
-    # bare scan is byte-identical to no flag. choices are derived from the LIVE
-    # registry via all_collectors() (NOT a hardcoded literal) so the allowlist can
-    # never drift from the collector set; an unknown name is a PARSE-time usage
-    # error (exit 2) naming the bad choice and listing valid ones -- no client
-    # built, no collection run, no slate written -- mirroring the --format/--top
-    # fail-fast discipline. scan-only (run/signals/watch are unchanged).
-    p_scan.add_argument(
-        "--collector",
-        action="append",
-        default=None,
-        choices=sorted(c.name for c in all_collectors()),
-        dest="collector",
-        metavar="NAME",
+    _add_collector_flag(
+        p_scan,
         help=(
             "Restrict synthesis to only the named collector(s); repeatable "
             "(--collector todos --collector git_state). Accepted values are the "
@@ -1065,25 +1088,8 @@ def build_parser() -> argparse.ArgumentParser:
             "verify --slate ... --snapshot FILE`. Default (absent) writes nothing."
         ),
     )
-    # The perception-INPUT allowlist `scan` and `signals` already carry, on the one
-    # verb that ACTS on what it perceived. WHY it matters more here than on either of
-    # those: `run` scans AND auto-dispatches in one shot, so a mis-scoped perception
-    # causes an unattended L1 execution rather than a merely wrong report -- and until
-    # now `run` was the ONLY verb whose perception could not be narrowed at all, so a
-    # user who armed --collector on `scan` and then reached for `run` silently lost the
-    # scoping. Repeatable (action="append"); absent (default None) = all collectors, so
-    # a bare `run` stays byte-identical. choices are derived from the LIVE registry via
-    # all_collectors() -- the SAME expression p_scan uses, NOT a hardcoded literal -- so
-    # the allowlist can never drift from the collector set, and an unknown name is a
-    # PARSE-time usage error (exit 2) naming the bad choice: no client built, no
-    # collector run, no slate, no run dir and no snapshot written. `watch` is unchanged.
-    p_run.add_argument(
-        "--collector",
-        action="append",
-        default=None,
-        choices=sorted(c.name for c in all_collectors()),
-        dest="collector",
-        metavar="NAME",
+    _add_collector_flag(
+        p_run,
         help=(
             "Restrict perception to only the named collector(s); repeatable "
             "(--collector todos --collector git_state). Accepted values are the "
@@ -1487,22 +1493,8 @@ def build_parser() -> argparse.ArgumentParser:
             "non-numeric value is also an argparse usage error (exit 2)."
         ),
     )
-    # An UPSTREAM allowlist on WHICH collectors are inspected -- the perception
-    # INPUT knob, complementing --kind/--min-weight (which narrow the OUTPUT view).
-    # Repeatable (action="append"); absent (default None) = all collectors, so a
-    # bare `signals` is byte-identical to no flag. choices are derived from the LIVE
-    # registry via all_collectors() (NOT a hardcoded literal) so the allowlist can
-    # never drift from the collector set; an unknown name is a PARSE-time usage
-    # error (exit 2) naming the bad choice and listing valid ones -- no collection
-    # runs. Verbatim structure of the scan --collector arg (row #71); this extends
-    # the same knob to the perception inspector. run/watch still reject it.
-    p_signals.add_argument(
-        "--collector",
-        action="append",
-        default=None,
-        choices=sorted(c.name for c in all_collectors()),
-        dest="collector",
-        metavar="NAME",
+    _add_collector_flag(
+        p_signals,
         help=(
             "Restrict inspection to only the named collector(s); repeatable "
             "(--collector todos --collector git_state). Accepted values are the "

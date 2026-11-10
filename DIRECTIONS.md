@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-566
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- (CI pin, integrity first) the red public build is ENVIRONMENTAL: argparse on newer CPython patches prints `--collector` choices unquoted
+    - Candidate A2 -- `explain --title TITLE`: audit a goal by the same name every paste hint now prints (re-proposal of iter-564 A1)
+    - Candidate A3 -- paste hints print `--title=<quoted>` so a dash-leading title round-trips (iter-565 reviewer NIT)
+    - Candidate B1 -- (pinned: red public build) one `_add_collector_flag` helper with a stable-message `_collector_name` validator replaces the three hand-copied `--collector` blocks and greens CI with no oracle edits
+    - Candidate B2 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops
+    - Candidate B3 -- one `_bounded_number(kind, *, lo, inclusive, finite)` validator factory replaces `_positive_int`, `_positive_float`, `_non_negative_int`, `_non_negative_float`, `_finite_float`
+    winner: B1
+    ship: pending (not yet decided)
   iter-565
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- a bad `--scripted-responses` file names its path (the one JSON flag iter 564's B1 fix missed)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the graded gate dispatches by `--title` across a rescan, so `dispatch --title` gets its first executable consumer
     - Candidate B3 -- `scan`'s human output ends with one paste-ready `next:` dispatch line for its top goal, so the read-only verb has a route to action
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9b6ee86
   iter-564
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `explain --title TITLE`: audit one slate goal by normalized title, the read-only sibling of `dispatch --title`
@@ -2779,4 +2789,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-275 scouted iterations
+276 scouted iterations

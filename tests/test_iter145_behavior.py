@@ -217,14 +217,14 @@ def test_b02_the_whole_stdout_view_is_still_rendered_on_a_trip(
 # ======================================================================================
 # Behavior 3 -- no trip, no line, exit 0
 # ======================================================================================
-@pytest.mark.parametrize("extra", [(), ("--json",), ("--summary",), ("--timings",)])
-def test_b03_an_untripped_gate_is_silent(
-    ws: Path, total: int, extra: tuple[str, ...]
-) -> None:
-    code, _out, err = _signals(ws, *extra, "--fail-over", str(total))
-    assert code == 0
-    assert _gate_lines(err) == []
-    assert "fail-over" not in err
+def test_b03_an_untripped_gate_is_silent(ws: Path, total: int) -> None:
+    # One item looping over the four output modes (was a 4-case parametrize): the same
+    # assertions per mode, folded to keep the suite's collected-item headroom (iter 566).
+    for extra in [(), ("--json",), ("--summary",), ("--timings",)]:
+        code, _out, err = _signals(ws, *extra, "--fail-over", str(total))
+        assert code == 0, extra
+        assert _gate_lines(err) == [], extra
+        assert "fail-over" not in err, extra
 
 
 # ======================================================================================
