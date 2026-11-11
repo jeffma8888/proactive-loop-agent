@@ -742,8 +742,7 @@ def test_b10_readme_edit_is_below_the_human_owned_marker() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("phrase", ("prunes ADDITIONALLY", "genuinely differs"))
-def test_b11_the_false_rationale_is_gone_from_dir_source(phrase: str) -> None:
+def test_b11_the_false_rationale_is_gone_from_dir_source() -> None:
     """Spec behavior 11: neither phrase survives in ``collectors/dir_source.py``.
 
     WHY the domain is ONE FILE and not the package: an earlier draft banned both
@@ -755,11 +754,16 @@ def test_b11_the_false_rationale_is_gone_from_dir_source(phrase: str) -> None:
     rationale that this test exists to retire was written in ``dir_source.py``,
     so ``dir_source.py`` is the correct and only scope.
     """
+    # Folded from a 2-item ``phrase`` parametrize (factory iter 318 funds its oracle net-zero).
     path = COLLECTORS_DIR / "dir_source.py"
-    assert phrase not in path.read_text(encoding="utf-8"), (
-        f"the retired rationale {phrase!r} still appears in "
-        f"{path.relative_to(REPO_ROOT)}"
-    )
+    text = path.read_text(encoding="utf-8")
+    phrases = ("prunes ADDITIONALLY", "genuinely differs")
+    assert len(phrases) == 2
+    for phrase in phrases:
+        assert phrase not in text, (
+            f"the retired rationale {phrase!r} still appears in "
+            f"{path.relative_to(REPO_ROOT)}"
+        )
 
 
 def test_b11_dir_source_records_the_real_reason_filesystem_is_not_a_caller() -> None:

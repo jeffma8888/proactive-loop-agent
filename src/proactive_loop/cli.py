@@ -36,6 +36,7 @@ import shlex
 import shutil
 import sys
 import textwrap
+import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timezone
@@ -352,6 +353,12 @@ def _non_negative_float(raw: str) -> float:
     zero interval is a supported test-drive knob, not a degenerate input. This is
     ORTHOGONAL to the non-finite rejection above: rejecting ``nan``/``inf`` does
     not touch the ``0``-is-legal rule -- ``0.0`` is finite and ``>= 0.0``.
+
+    WHY an upper bound of ``threading.TIMEOUT_MAX`` (~9.2e9 s): a FINITE value
+    past the platform sleep limit (e.g. ``1e10``) passed both checks above, then
+    ``time.sleep`` raised ``OverflowError`` AFTER scan #1 rendered -- the same
+    side-effect leak the finite check closed. It runs LAST, so ``inf`` is still
+    reported as non-finite rather than too large.
     """
     value = float(raw)
     if not math.isfinite(value):
@@ -359,6 +366,10 @@ def _non_negative_float(raw: str) -> float:
     if value < 0.0:
         raise argparse.ArgumentTypeError(
             f"must be a non-negative number (>= 0), got {value}"
+        )
+    if value > threading.TIMEOUT_MAX:
+        raise argparse.ArgumentTypeError(
+            f"must be at most {int(threading.TIMEOUT_MAX)} seconds, got {value}"
         )
     return value
 
@@ -1784,8 +1795,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=3600.0,
         help=(
             "Seconds to wait between scans (default 3600). Non-negative (>= 0; 0 is "
-            "legal for offline test-drives); a negative or non-numeric value is a "
-            "usage error (exit 2)."
+            "legal for offline test-drives; at most ~9.2e9, the platform sleep "
+            "limit); a negative, too-large or non-numeric value is a usage error "
+            "(exit 2)."
         ),
     )
     p_watch.add_argument(

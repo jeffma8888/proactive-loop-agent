@@ -408,7 +408,8 @@ re-runs the scan pipeline every `--interval` seconds (default 3600) and re-print
 the ranked, gated slate as your context changes, running until interrupted with
 Ctrl-C unless `--max-scans N` bounds it. Both knobs are guarded at parse time
 like `--top`: `--interval` must be a finite non-negative number (`>= 0`; `0` is legal so offline
-runs need no real wait) and `--max-scans` must be a positive integer, so a bad
+runs need no real wait; at most ~9.2e9 seconds, the platform sleep limit) and
+`--max-scans` must be a positive integer, so a bad
 value fails fast with an exit-2 usage error before any scan runs. By default it
 is a live monitor — unlike `scan` it writes no slate file and prints no
 `slate written:` trailer unless you opt in with `--out-dir DIR`. A single failed

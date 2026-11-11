@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-570
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `trace --goal TITLE`: open the newest run of a named goal without knowing its run-dir path
+    - Candidate A2 -- `explain --title TITLE`: audit a gate decision by the same name every paste hint prints
+    - Candidate A3 -- `runs --newer-than DAYS`: the recent-activity window that `--older-than` cannot express
+    - Candidate B1 -- `watch --interval` above ~9.2e9 s crashes with a raw OverflowError traceback after scan #1 has already run
+    - Candidate B2 -- the retry backoff raises OverflowError mid-run on a large `PLA_RETRY_BACKOFF_FACTOR`, and the config comment claiming "a large FINITE backoff merely waits longer" is false
+    - Candidate B3 -- give iter 569's `runs --older-than` overflow fix the regression oracle it shipped without
+    winner: B1
+    ship: pending (not yet decided)
   iter-569
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README gets a short "Input files and encoding" reference section (UTF-8 regardless of locale; BOM stripped only by `run --decline`; non-UTF-8 slate exits 1, unreadable decline file exits 2), pinned by a source-derived oracle
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `explain --title TITLE`: audit one gate decision by the rescan-stable title, the selector `dispatch` gained in iter 563
     - Candidate B3 -- `scan --category CAT` (repeatable): a VIEW filter that prints only goals in the named categories, so a user can look at exactly the axis the safety gate keys on
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 66a4237
   iter-568
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- the three `pla signals` oracle modules call `cli.main()` in-process instead of spawning the console script per assertion
@@ -2819,4 +2829,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-279 scouted iterations
+280 scouted iterations
