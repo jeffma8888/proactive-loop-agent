@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-569
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- README gets a short "Input files and encoding" reference section (UTF-8 regardless of locale; BOM stripped only by `run --decline`; non-UTF-8 slate exits 1, unreadable decline file exits 2), pinned by a source-derived oracle
+    - Candidate A2 -- the documented `check_dispatch.py` recipe teaches `--goal-id ID` (README.md:678, examples/check_dispatch.py:8) while every CLI paste hint now prints the rescan-stable `--title`; re-key both recipes and pin "doc recipes use the selector the CLI hints print"
+    - Candidate A3 -- ROADMAP row #122 states two premises that are no longer true; rewrite it SHORTER and add an ordinal drift check
+    - Candidate B1 -- `runs --older-than DAYS`: an age-based retention filter keyed on the persisted `RunState.created_at`, composing with `--status`/`--goal`/`--summary`/`--prune`
+    - Candidate B2 -- `explain --title TITLE`: audit one gate decision by the rescan-stable title, the selector `dispatch` gained in iter 563
+    - Candidate B3 -- `scan --category CAT` (repeatable): a VIEW filter that prints only goals in the named categories, so a user can look at exactly the axis the safety gate keys on
+    winner: B1
+    ship: pending (not yet decided)
   iter-568
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- the three `pla signals` oracle modules call `cli.main()` in-process instead of spawning the console script per assertion
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate A2 -- the exit-code-2 contract is wrong in two places and short in two more: README row 2 still says "`--out` ... is not a directory" (the code exits 2 when `--out` IS a directory), and neither README row 2 nor `pla --help`'s epilog lists `run --decline FILE` or `dispatch --title` misses
     - Candidate A3 -- the documented `check_dispatch.py` recipe (README.md:678, examples/check_dispatch.py:8) still teaches `--goal-id ID`, while iter 565 made every CLI paste hint print the rescan-stable `--title`; re-key the two recipes and pin "doc recipes use the same selector the CLI hints print"
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED b9e74b5
   iter-567
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- dispatch and resume share one `_report_dispatched(goal, dispatched, *, as_json)` ending, and the single-caller `_dispatch_goal` wrapper is deleted
@@ -2809,4 +2819,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-278 scouted iterations
+279 scouted iterations

@@ -249,15 +249,18 @@ def test_b04_a_trailing_line_suffix_survives_normalization(ws: Path) -> None:
 # Behavior 5 -- `path is None` stays None.
 # ======================================================================================
 @_requires_git
-@pytest.mark.parametrize("spelling", ["ABSOLUTE", "."])
-def test_b05_a_signal_published_with_no_path_keeps_path_none(stashed_ws: Path, spelling: str) -> None:
-    given = str(stashed_ws) if spelling == "ABSOLUTE" else spelling
-    records = _records(stashed_ws, given)
-    nopath = [r for r in records if str(r["kind"]) == "git_stash"]
-    assert nopath, f"fixture precondition: a stash entry must emit git_stash; got {_pairs(records)}"
-    assert [r["path"] for r in nopath] == [None] * len(nopath), (
-        f"a no-path signal was rewritten: {_pairs(nopath)}"
-    )
+def test_b05_a_signal_published_with_no_path_keeps_path_none(stashed_ws: Path) -> None:
+    # Folded from a 2-item ``spelling`` parametrize (factory iter 317 funds its oracle net-zero).
+    spellings = ("ABSOLUTE", ".")
+    assert len(spellings) == 2
+    for spelling in spellings:
+        given = str(stashed_ws) if spelling == "ABSOLUTE" else spelling
+        records = _records(stashed_ws, given)
+        nopath = [r for r in records if str(r["kind"]) == "git_stash"]
+        assert nopath, f"[{spelling}] fixture precondition: a stash entry must emit git_stash; got {_pairs(records)}"
+        assert [r["path"] for r in nopath] == [None] * len(nopath), (
+            f"[{spelling}] a no-path signal was rewritten: {_pairs(nopath)}"
+        )
 
 
 # ======================================================================================

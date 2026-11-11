@@ -106,7 +106,7 @@ OWNED_PAIRS: tuple[tuple[str, str], ...] = tuple(
 #: the wall-clock ceiling (`--max-seconds`); 42 since `scan --from-snapshot` (the
 #: foundry iter 270 re-land). A live flag the contract does not
 #: name is what behavior 2 catches, so this literal only has to track the roster.
-EXPECTED_FLAG_COUNT = 46  # +1 dispatch --title (foundry iter 563)
+EXPECTED_FLAG_COUNT = 47  # +1 runs --older-than (foundry iter 569)
 EXPECTED_VERB_COUNT = 17
 EXPECTED_COLLECTOR_COUNT = 17
 

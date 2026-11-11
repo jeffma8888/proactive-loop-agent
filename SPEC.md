@@ -766,7 +766,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `--decline FILE` never auto-dispatches a normalized title in FILE, one per line
     (`skipped (declined): TITLE`); a missing FILE exits 2.
   - `pla resume --run-dir DIR` — load checkpoint, continue.
-  - `pla runs [--json] [--status STATUS] [--goal TITLE] [--summary] [--prune]` — read-only,
+  - `pla runs [--json] [--status STATUS] [--goal TITLE] [--older-than DAYS] [--summary] [--prune]` — read-only,
     LLM-free lister of past dispatched runs under `--state-dir`: one id-sorted row per
     `run-<goal_id>/` (run id, status, iterations, artifact count, goal title, workspace, plus
     the persisted retries and parse-error counters); a run dir with no loadable checkpoint

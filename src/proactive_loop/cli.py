@@ -38,6 +38,7 @@ import sys
 import textwrap
 import time
 from collections.abc import Callable, Iterable, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -1332,6 +1333,22 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Narrow the listing to runs whose persisted goal title contains "
             "TITLE (case-insensitive substring match). Composes with --status, "
+            "--json, --summary, --prune."
+        ),
+    )
+    # Age-based retention (the axis `--prune` lacked): reads the persisted
+    # RunState.created_at, so it needs no new state. A run that cannot be dated
+    # (missing/corrupt checkpoint) is EXCLUDED, so a prune never deletes it.
+    p_runs.add_argument(
+        "--older-than",
+        default=None,
+        dest="older_than",
+        type=_positive_float,
+        metavar="DAYS",
+        help=(
+            "Narrow the listing to runs whose checkpoint created_at is more than "
+            "DAYS days ago (a positive number; fractions allowed). A run without "
+            "a readable checkpoint is excluded. Composes with --status, --goal, "
             "--json, --summary, --prune."
         ),
     )
@@ -3474,6 +3491,24 @@ def _run_status_goal(run_dir: Path) -> tuple[str, str]:
     return state.status.value, state.goal.title
 
 
+def _run_older_than(run_dir: Path, days: float, now: datetime) -> bool:
+    """True when *run_dir*'s checkpoint ``created_at`` is MORE than *days* before *now*.
+
+    Fails closed: a missing or corrupt checkpoint has no age, so it returns False
+    and ``runs --older-than`` (listing and ``--prune``) never selects it. A naive
+    ``created_at`` (hand-edited checkpoint) is read as UTC rather than raising.
+    """
+    state = _load_run_state(run_dir)
+    if state is None:
+        return False
+    created = state.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    # Float seconds, not timedelta(days=...): that raises OverflowError past
+    # 999,999,999 days, a value _positive_float admits.
+    return (now - created).total_seconds() > days * 86_400.0
+
+
 def _run_row(run_dir: Path) -> dict[str, Any]:
     """Summarize one run dir into a plain, JSON-serializable row.
 
@@ -3564,6 +3599,7 @@ def _select_prunable(
     state_dir: Path,
     status: str | None,
     goal: str | None = None,
+    older_than: float | None = None,
 ) -> tuple[list[Path], list[str]]:
     """Split *state_dir*'s run dirs into (deletable paths, refused names).
 
@@ -3606,6 +3642,10 @@ def _select_prunable(
                 continue
             kept.append(d)
         candidates = kept
+    if older_than is not None:
+        # Same predicate as the listing, with one clock read per selection.
+        now = datetime.now(timezone.utc)
+        candidates = [d for d in candidates if _run_older_than(d, older_than, now)]
     selected: list[Path] = []
     refused: list[str] = []
     for candidate in candidates:
@@ -6274,7 +6314,7 @@ def _prune_runs(state_dir: Path, args: argparse.Namespace) -> int:
     matches no run, and a refused symlink are all legitimate answers, and the
     verb introduces no new exit code.
     """
-    selected, refused = _select_prunable(state_dir, args.status, args.goal)
+    selected, refused = _select_prunable(state_dir, args.status, args.goal, args.older_than)
     # A refusal is a stderr TRAILER-style warning (the `signals --timings`
     # convention): it must survive --json, because suppressing "I declined to
     # touch this" in machine mode is exactly when a human would want to see it,
@@ -6344,7 +6384,11 @@ def _cmd_runs(args: argparse.Namespace) -> int:
         return 2
     if args.prune:
         return _prune_runs(settings.state_dir, args)
-    rows = [_run_row(d) for d in _iter_run_dirs(settings.state_dir)]
+    run_dirs = _iter_run_dirs(settings.state_dir)
+    if args.older_than is not None:
+        now = datetime.now(timezone.utc)
+        run_dirs = [d for d in run_dirs if _run_older_than(d, args.older_than, now)]
+    rows = [_run_row(d) for d in run_dirs]
     # Optional post-mapping status filter (ROADMAP #98). Applied AFTER building
     # rows so the default path (args.status is None) stays byte-identical, and a
     # degraded "(no checkpoint)" row -- whose marker matches no RunStatus value --
