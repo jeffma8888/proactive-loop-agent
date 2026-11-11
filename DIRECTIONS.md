@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-568
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- the three `pla signals` oracle modules call `cli.main()` in-process instead of spawning the console script per assertion
+    - Candidate A2 -- `todos` computes a relpath only for files that actually contain a TODO (and test_posture once per directory)
+    - Candidate A3 -- one per-scan stat memo in the existing scan scope, ending the 5.2x `Path.stat` fan-out
+    - Candidate A1 -- README has zero words on input encoding, though three of the last ten iterations (558, 561, 564) shipped an encoding contract; add one short "Input files and encoding" reference section below the marker, with a source-derived oracle
+    - Candidate A2 -- the exit-code-2 contract is wrong in two places and short in two more: README row 2 still says "`--out` ... is not a directory" (the code exits 2 when `--out` IS a directory), and neither README row 2 nor `pla --help`'s epilog lists `run --decline FILE` or `dispatch --title` misses
+    - Candidate A3 -- the documented `check_dispatch.py` recipe (README.md:678, examples/check_dispatch.py:8) still teaches `--goal-id ID`, while iter 565 made every CLI paste hint print the rescan-stable `--title`; re-key the two recipes and pin "doc recipes use the same selector the CLI hints print"
+    winner: A2
+    ship: pending (not yet decided)
   iter-567
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- dispatch and resume share one `_report_dispatched(goal, dispatched, *, as_json)` ending, and the single-caller `_dispatch_goal` wrapper is deleted
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla` verbs that never scan stop importing the collector package (re-proposal of iter-561 B2, now with a verb census)
     - Candidate B3 -- `pla` skips pydantic's site-packages entry-point plugin scan, making startup ~6% faster and validation independent of whatever happens to be installed
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED d41bc2a
   iter-566
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- (CI pin, integrity first) the red public build is ENVIRONMENTAL: argparse on newer CPython patches prints `--collector` choices unquoted
@@ -2799,4 +2809,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-277 scouted iterations
+278 scouted iterations

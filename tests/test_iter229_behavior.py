@@ -27,9 +27,11 @@ import ast
 import contextlib
 import inspect
 import io
+import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -543,6 +545,11 @@ def _exit_code_meaning(source_text: str, code: int) -> str:
     return ""
 
 
+# The widest single span of HEAD's README row-2 prose that one contract-correcting
+# commit may replace (foundry iter 568 replaced 57 characters).
+_CODE2_MAX_REPLACED_CHARS: Final = 120
+
+
 def _code2_row_grew_with_its_contract(head_row: str, live_row: str) -> bool:
     """True only when README row 2 GREW in the commit that corrects code 2's contract.
 
@@ -551,10 +558,18 @@ def _code2_row_grew_with_its_contract(head_row: str, live_row: str) -> bool:
     three surfaces. The README row may follow ONLY additively -- HEAD's prose
     survives verbatim as a prefix -- and only while ``_EXIT_CODES[2]`` itself
     differs from HEAD, so a drive-by rewrite of the row still fails.
+
+    Foundry iter 568 corrected a FALSE clause mid-row (``--out`` exits 2 when it
+    IS a directory), which no append can fix. So the row may also replace ONE
+    contiguous span of at most ``_CODE2_MAX_REPLACED_CHARS`` HEAD characters,
+    keeping everything before and after it verbatim, but it must still grow.
     """
     head_meaning = _exit_code_meaning(_head_blob("src/proactive_loop/cli.py"), 2)
     live_meaning = _exit_code_meaning(CLI_SOURCE.read_text(encoding="utf-8"), 2)
-    grew = live_row.startswith(head_row) and len(live_row) > len(head_row)
+    prefix = len(os.path.commonprefix([head_row, live_row]))
+    suffix = len(os.path.commonprefix([head_row[prefix:][::-1], live_row[prefix:][::-1]]))
+    replaced = len(head_row) - prefix - suffix
+    grew = len(live_row) > len(head_row) and replaced <= _CODE2_MAX_REPLACED_CHARS
     return bool(head_meaning) and head_meaning != live_meaning and grew
 
 

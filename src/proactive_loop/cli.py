@@ -615,10 +615,12 @@ _EXIT_CODES: tuple[tuple[int, str], ...] = (
         "nothing to act on, or the invocation was wrong -- a path you passed "
         "does not exist or is the wrong kind of path (a --slate or --baseline "
         "that is missing or not a regular file, an --out that is a "
-        "directory, a --state-dir or --out-dir that is not a directory), a "
-        "malformed --baseline or --snapshot document (not valid "
-        "JSON or not one JSON object), a --run-dir holds no checkpoint.json, or "
-        "argparse rejected an unknown flag or an invalid value.",
+        "directory, a --state-dir or --out-dir that is not a directory, a run "
+        "--decline file that cannot be read), a malformed --baseline or "
+        "--snapshot document (not valid JSON or not one JSON object), a "
+        "--run-dir holds no checkpoint.json, a --goal-id or --title matches no "
+        "goal in the slate, or argparse rejected an unknown flag or an invalid "
+        "value.",
     ),
     (
         3,
@@ -2126,7 +2128,8 @@ def main(argv: list[str] | None = None) -> int:
     * ``2`` -- nothing to act on / bad invocation: a path that does not exist
       or is the wrong kind (``--slate``, ``--baseline``), a malformed
       ``--baseline``/``--snapshot`` document, a ``--run-dir`` with no
-      ``checkpoint.json``, or an argparse usage error.
+      ``checkpoint.json``, a ``--goal-id``/``--title`` that matches no goal,
+      an unreadable ``run --decline`` file, or an argparse usage error.
     * ``3`` -- BLOCKED by the autonomy contract.
     * ``4`` -- needs-approval (re-run with ``--yes``).
     * ``5`` -- a requested gate tripped on a finding: the command ran fine and
