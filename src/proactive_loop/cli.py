@@ -5501,13 +5501,13 @@ def _execute_goal(
     contract are enforced upstream (in the verb handlers); this helper only runs
     what it is handed.
 
-    WHY this is split out of :func:`_dispatch_goal`: a finished run holds three facts
+    WHY execution is split from rendering: a finished run holds three facts
     a caller may need as DATA rather than as text -- the terminal ``RunState``, the
     run directory it was checkpointed into, and the ``ToolRegistry`` that knows which
-    artifacts were written. ``run --json`` reports them; the ``dispatch`` verb only
-    prints them. Executing here and rendering in the wrapper means both callers drive
-    the IDENTICAL loop code, so the machine-readable result can never drift from what
-    the human summary says about the same run.
+    artifacts were written. ``run --json`` reports them; ``dispatch`` hands them to
+    :func:`_report_dispatched`. Executing here and rendering elsewhere means both
+    callers drive the IDENTICAL loop code, so the machine-readable result can never
+    drift from what the human summary says about the same run.
     """
     run_dir = settings.state_dir / f"run-{goal.id}"
     artifacts_dir = run_dir / _ARTIFACTS_NAME
@@ -5520,16 +5520,30 @@ def _execute_goal(
     return loop.run(goal), run_dir, tools
 
 
-def _dispatch_goal(
-    goal: CandidateGoal, workspace_root: Path, settings: Settings, client: LLMClient
+def _report_dispatched(
+    goal: CandidateGoal,
+    dispatched: tuple[RunState, Path, ToolRegistry],
+    *,
+    as_json: bool,
 ) -> int:
-    """Execute a gated goal, then print the human run summary (the `dispatch` path).
+    """Print a finished run the one way ``dispatch`` and ``resume`` both publish it.
 
-    A thin printing wrapper over :func:`_execute_goal`, kept so the stdout of the
-    ``dispatch`` verb stays exactly what it has always been.
+    Under ``--json`` the human summary goes to STDERR and stdout carries exactly one
+    :func:`_dispatched_json_payload` document; otherwise the summary goes to stdout.
+
+    WHY one ending for two verbs: ``dispatch`` (approval) and ``resume`` (recovery)
+    report the SAME finished-run fact set, and two hand-kept copies of this
+    stdout/stderr split are how one CLI grows two dialects of one report. Neither
+    caller uses ``redirect_stdout``: every earlier return in both handlers already
+    writes to stderr, which is what keeps stdout EMPTY on their error exits.
     """
-    state, run_dir, tools = _execute_goal(goal, workspace_root, settings, client)
-    print(_render_run_summary(goal, state, run_dir, tools))
+    state, run_dir, tools = dispatched
+    summary = _render_run_summary(goal, state, run_dir, tools)
+    if as_json:
+        print(summary, file=sys.stderr)
+        print(json.dumps(_dispatched_json_payload(dispatched), indent=2))
+    else:
+        print(summary)
     # DONE and BUDGET_EXHAUSTED are both valid loop terminations, not CLI faults.
     return 0
 
@@ -5826,23 +5840,13 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         return 0
 
     client = create_client(settings)
-    if args.json:
-        # The gate has already allowed this goal, so the ONLY remaining output is
-        # the finished run. Executing through `_execute_goal` (rather than the
-        # printing wrapper) is what lets the human summary move to STDERR while
-        # stdout carries exactly one document -- and it is the SAME execution the
-        # default path drives, so the reported facts cannot diverge from the
-        # printed ones. No `redirect_stdout` is needed here (unlike `run --json`,
-        # which prints a slate table mid-body): every earlier return in this
-        # handler already writes to stderr, which is what keeps stdout EMPTY on
-        # exits 2, 3 and 4.
-        dispatched = _execute_goal(goal, workspace_root, settings, client)
-        state, run_dir, tools = dispatched
-        print(_render_run_summary(goal, state, run_dir, tools), file=sys.stderr)
-        print(json.dumps(_dispatched_json_payload(dispatched), indent=2))
-        # DONE and BUDGET_EXHAUSTED are both valid loop terminations, not CLI faults.
-        return 0
-    return _dispatch_goal(goal, workspace_root, settings, client)
+    # The gate has already allowed this goal, so the ONLY remaining output is the
+    # finished run: ONE execution, then the ending `resume` shares. No
+    # `redirect_stdout` is needed (unlike `run --json`, which prints a slate table
+    # mid-body): every earlier return in this handler already writes to stderr,
+    # which is what keeps stdout EMPTY on exits 2, 3 and 4.
+    dispatched = _execute_goal(goal, workspace_root, settings, client)
+    return _report_dispatched(goal, dispatched, as_json=args.json)
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -6246,25 +6250,14 @@ def _cmd_resume(args: argparse.Namespace) -> int:
         loop = GoalLoop(client, settings, tools, checkpoint)
         final = loop.run(state.goal, resume=state)
 
-    if args.json:
-        # The SAME shape `dispatch --json` uses -- human summary to stderr, exactly
-        # one document to stdout -- and deliberately NO `redirect_stdout`. `run --json`
-        # needs one because it prints a slate table mid-body; `resume` does not,
-        # because this handler's ONLY early return (the missing checkpoint above)
-        # already writes to stderr, which is what keeps stdout EMPTY on exit 2. The
-        # already-`done` no-op is NOT a return: it falls through to here so its
-        # document comes from the same single print as a resumed run's.
-        #
-        # The payload is a THIRD call site of the one shared builder rather than a
-        # copied literal, so the recovery verb cannot grow a second dialect of the
-        # dispatched document: its key set is equal to `dispatch --json`'s by
-        # construction, not by two lists being kept in step.
-        print(_render_run_summary(state.goal, final, run_dir, tools), file=sys.stderr)
-        print(json.dumps(_dispatched_json_payload((final, run_dir, tools)), indent=2))
-        return 0
-
-    print(_render_run_summary(state.goal, final, run_dir, tools))
-    return 0
+    # The SAME ending `dispatch` uses, so the recovery verb cannot grow a second
+    # dialect of the dispatched report: with or without `--json` its stdout/stderr
+    # split equals `dispatch`'s by construction, not by two copies kept in step.
+    # This handler's ONLY early return (the missing checkpoint above) writes to
+    # stderr, which keeps stdout EMPTY on exit 2. The already-`done` no-op is NOT a
+    # return: it falls through to here so its report comes from the same ending as
+    # a resumed run's.
+    return _report_dispatched(state.goal, (final, run_dir, tools), as_json=args.json)
 
 
 def _prune_runs(state_dir: Path, args: argparse.Namespace) -> int:

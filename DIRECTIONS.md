@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-567
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- dispatch and resume share one `_report_dispatched(goal, dispatched, *, as_json)` ending, and the single-caller `_dispatch_goal` wrapper is deleted
+    - Candidate A2 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops
+    - Candidate A3 -- the five numeric argparse validators become thin named wrappers over one `_bounded_number(raw, kind, *, lo, strict, finite)` rule, deleting the repeated parse-time-contract prose
+    - Candidate B1 -- the 14 mypy gate probes share one warm per-worker typeshed cache instead of 14 cold `--cache-dir`s
+    - Candidate B2 -- `pla` verbs that never scan stop importing the collector package (re-proposal of iter-561 B2, now with a verb census)
+    - Candidate B3 -- `pla` skips pydantic's site-packages entry-point plugin scan, making startup ~6% faster and validation independent of whatever happens to be installed
+    winner: A1
+    ship: pending (not yet decided)
   iter-566
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- (CI pin, integrity first) the red public build is ENVIRONMENTAL: argparse on newer CPython patches prints `--collector` choices unquoted
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops
     - Candidate B3 -- one `_bounded_number(kind, *, lo, inclusive, finite)` validator factory replaces `_positive_int`, `_positive_float`, `_non_negative_int`, `_non_negative_float`, `_finite_float`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED ff41c6d
   iter-565
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- a bad `--scripted-responses` file names its path (the one JSON flag iter 564's B1 fix missed)
@@ -2789,4 +2799,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-276 scouted iterations
+277 scouted iterations
