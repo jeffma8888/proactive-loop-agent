@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-573
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- `_list_files`, `_search_files` and `_find_files` resolve their sandbox directory through one `_resolve_dir_root(path)` helper
+    - Candidate A2 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)`
+    - Candidate A3 -- one `ToolRegistry._record_artifact(rel)` replaces the 5 hand-copied `if rel not in self._artifacts: self._artifacts.append(rel)` blocks
+    - Candidate B1 -- `runs --status/--goal` filter on the checkpoint BEFORE building the full row (meta.json read + artifacts walk)
+    - Candidate B2 -- `_count_artifacts` counts with one `os.scandir` recursion instead of `Path.rglob("*") + is_file()` (re-proposal of iter-562 A2, which lost to its sibling 562 A1 and not on merit)
+    - Candidate B3 -- `runs --older-than` loads each matching checkpoint ONCE, not twice (filter plus row)
+    winner: A1
+    ship: pending (not yet decided)
   iter-572
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `runs --json` rows publish `created_at` (the field `runs --older-than` selects by)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one shared FIFO `remember`/`stats`/`clear` helper replaces the 4 hand-copied digest-memo bodies (todos, merge_conflict, syntax_error, broken_link)
     - Candidate B3 -- `_cmd_run`'s three hand-copied `_run_json_payload(...)` + `print(..., file=result_stream)` endings collapse into one local reporter
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 09ead4c
   iter-571
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- the retry backoff raises OverflowError mid-run even at the DEFAULT factor, because float `**` raises before the `min(raw, max)` cap runs
@@ -2849,4 +2859,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-282 scouted iterations
+283 scouted iterations

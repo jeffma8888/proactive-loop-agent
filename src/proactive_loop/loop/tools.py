@@ -552,12 +552,30 @@ class ToolRegistry:
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
+        resolved = self._resolve_dir_root(path)
+        if resolved is None:
+            return f"error: directory not found: {path!r}"
+        names = sorted(p.name for p in resolved[0].iterdir())
+        return "\n".join(names) if names else "(empty)"
+
+    def _resolve_dir_root(self, path: str) -> tuple[Path, Path] | None:
+        """Return ``(directory, root)`` for *path*, or ``None`` when not found.
+
+        The ONE sandbox directory resolver shared by list_files, search_files
+        and find_files: workspace_root FIRST, then artifacts_dir, and only the
+        first root under which *path* is an existing directory wins (no
+        cross-root merging). The directory is returned together with the root
+        it was found under so callers' escape guard ``_within(full, root)``
+        narrows both from ONE Optional -- no invisible "assigned in the same
+        loop iteration" coupling between two separate Optionals. A security
+        guard must be self-evidently correct to reader and checker, which is
+        why it exists here exactly once rather than hand-copied per tool.
+        """
         for root in (self.workspace_root, self.artifacts_dir):
             candidate = root / path
             if self._within(candidate, root) and candidate.is_dir():
-                names = sorted(p.name for p in candidate.iterdir())
-                return "\n".join(names) if names else "(empty)"
-        return f"error: directory not found: {path!r}"
+                return (candidate, root)
+        return None
 
     def _search_files(self, args: dict[str, Any]) -> str:
         """Grep-like, read-only substring search over a sandbox directory.
@@ -586,17 +604,7 @@ class ToolRegistry:
         # primary discovery target is the read-only workspace. Only the first
         # root under which *path* is an existing directory is searched (no
         # cross-root merging, mirroring list_files).
-        # Derive both roots from ONE Optional so the None-guard narrows BOTH
-        # together: the escape guard ``_within(full, base_root)`` below must not
-        # rely on an invisible "search_root and base_root were assigned in the
-        # same loop iteration" coupling between two separate Optionals -- a
-        # security guard must be self-evidently correct to reader and checker.
-        resolved: tuple[Path, Path] | None = None  # (search_root, base_root)
-        for root in (self.workspace_root, self.artifacts_dir):
-            candidate = root / path
-            if self._within(candidate, root) and candidate.is_dir():
-                resolved = (candidate, root)
-                break
+        resolved = self._resolve_dir_root(path)  # (search_root, base_root)
         if resolved is None:
             return f"error: directory not found: {path!r}"
         search_root, base_root = resolved
@@ -681,17 +689,7 @@ class ToolRegistry:
         # Resolve against workspace_root FIRST, then artifacts_dir -- identical
         # precedence to _list_files/_search_files. Only the first root under
         # which *path* is an existing directory is walked (no cross-root merge).
-        # Derive both roots from ONE Optional so the None-guard narrows BOTH
-        # together: the escape guard ``_within(full, base_root)`` below must not
-        # rely on an invisible "search_root and base_root were assigned in the
-        # same loop iteration" coupling between two separate Optionals -- a
-        # security guard must be self-evidently correct to reader and checker.
-        resolved: tuple[Path, Path] | None = None  # (search_root, base_root)
-        for root in (self.workspace_root, self.artifacts_dir):
-            candidate = root / path
-            if self._within(candidate, root) and candidate.is_dir():
-                resolved = (candidate, root)
-                break
+        resolved = self._resolve_dir_root(path)  # (search_root, base_root)
         if resolved is None:
             return f"error: directory not found: {path!r}"
         search_root, base_root = resolved
