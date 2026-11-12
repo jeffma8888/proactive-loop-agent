@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-576
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `explain --title TITLE`: audit one gate decision by the rescan-stable name every paste hint prints
+    - Candidate A2 -- `trace --goal TITLE`: open the newest run of a named goal without knowing its run-dir path
+    - Candidate A3 -- `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0`: per-category auto-dispatch thresholds (ROADMAP #191)
+    - Candidate B1 -- the retry backoff saturates at `max_backoff_sec` instead of raising OverflowError when `base * factor ** (attempt-1)` overflows a float
+    - Candidate B2 -- `PLA_RETRY_*_BACKOFF_SEC` above `threading.TIMEOUT_MAX` is rejected at config load, mirroring iter 570's `watch --interval` bound
+    - Candidate B3 -- `trace`/`resume --run-dir <a FILE>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
+    winner: B1
+    ship: pending (not yet decided)
   iter-575
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README's `-v`/`-vv` paragraph makes three false claims; fix it README-only and pin it to the real `_LOG` emit sites
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0` sets per-category auto-dispatch thresholds (ROADMAP #191)
     - Candidate B3 -- `runs --newer-than DAYS` adds the recent-activity window that `--older-than` cannot express
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 530a66d
   iter-574
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- `_count_artifacts` counts with one `os.scandir` recursion instead of `Path.rglob("*") + is_file()`
@@ -2879,4 +2889,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-285 scouted iterations
+286 scouted iterations

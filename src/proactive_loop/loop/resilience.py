@@ -9,6 +9,7 @@ where it stopped).
 
 from __future__ import annotations
 
+import math
 import random
 import time
 from pathlib import Path
@@ -35,8 +36,20 @@ def _backoff_delay(policy: RetryPolicy, attempt: int) -> float:
     jitter: it spreads many clients' retries so they don't wake in lockstep and
     re-throttle the provider (thundering herd). WHY jitter is skipped when
     ``jitter_frac == 0``: it keeps the delay fully deterministic for tests.
+
+    WHY the ``OverflowError`` guard: the cap must bound the *computation*, not
+    just the result. ``factor ** (attempt-1)`` overflows a float (default policy
+    at attempt 1100; ``factor=1e300`` at attempt 3), and an uncaught error here
+    would crash the very retry layer meant to keep an unattended run alive. An
+    overflowing power is treated as unbounded, so the delay saturates at
+    ``max`` -- except when ``base == 0``, where the true product is ``0`` (and
+    ``0 * inf`` would be NaN), so it stays ``0``.
     """
-    raw = policy.base_backoff_sec * (policy.backoff_factor ** (attempt - 1))
+    try:
+        growth = policy.backoff_factor ** (attempt - 1)
+    except OverflowError:
+        growth = math.inf
+    raw = 0.0 if policy.base_backoff_sec == 0.0 else policy.base_backoff_sec * growth
     capped = min(raw, policy.max_backoff_sec)
     if policy.jitter_frac <= 0.0:
         return capped
