@@ -35,6 +35,7 @@ _SUMMARY_KEYS = {"runs", "by_status", "iterations", "artifacts", "retries", "par
 _SUM_FIELDS = ("iterations", "artifacts", "retries", "parse_errors")
 _ROW_KEYS = {
     "run_id", "status", "goal", "iterations", "artifacts", "workspace", "retries", "parse_errors",
+    "created_at",
 }
 # Non-zero counters planted on the fabricated ``failed`` run so a summary that
 # silently dropped the resilience counters (or the second run) cannot pass.

@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-572
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `runs --json` rows publish `created_at` (the field `runs --older-than` selects by)
+    - Candidate A2 -- `make demo` grades the `watch` -> `trend` stream with an `examples/check_trend.py` consumer
+    - Candidate A3 -- the graded `make demo` dispatch step selects by `--title`, not a scraped `--goal-id`
+    - Candidate B1 -- route the last 5 open-coded read-only `--json` tails (signals x2, signals --summary, trace, explain --all, runs --prune) through the shipped `_emit` seam
+    - Candidate B2 -- one shared FIFO `remember`/`stats`/`clear` helper replaces the 4 hand-copied digest-memo bodies (todos, merge_conflict, syntax_error, broken_link)
+    - Candidate B3 -- `_cmd_run`'s three hand-copied `_run_json_payload(...)` + `print(..., file=result_stream)` endings collapse into one local reporter
+    winner: A1
+    ship: pending (not yet decided)
+  iter-571
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- the retry backoff raises OverflowError mid-run even at the DEFAULT factor, because float `**` raises before the `min(raw, max)` cap runs
+    - Candidate A2 -- `PLA_RETRY_MAX_BACKOFF_SEC` above `threading.TIMEOUT_MAX` makes the first throttle retry's `sleep(delay)` raise OverflowError
+    - Candidate A3 -- one regression oracle sweeping every numeric `PLA_*` knob at `1e9/1e10/1e300` through the real CLI
+    - Candidate B1 -- `runs --json` rows publish `created_at`, the field iter 569's `--older-than` filters on
+    - Candidate B2 -- dispatch/run/resume human summary ends with a paste-ready `next: pla trace --run-dir <dir>`
+    - Candidate B3 -- the graded gate's `make demo` dispatch step selects by `--title`, not a scraped `--goal-id`
+    winner: A1
+    ship: unknown
   iter-570
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `trace --goal TITLE`: open the newest run of a named goal without knowing its run-dir path
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the retry backoff raises OverflowError mid-run on a large `PLA_RETRY_BACKOFF_FACTOR`, and the config comment claiming "a large FINITE backoff merely waits longer" is false
     - Candidate B3 -- give iter 569's `runs --older-than` overflow fix the regression oracle it shipped without
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 9d7ae72
   iter-569
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README gets a short "Input files and encoding" reference section (UTF-8 regardless of locale; BOM stripped only by `run --decline`; non-UTF-8 slate exits 1, unreadable decline file exits 2), pinned by a source-derived oracle
@@ -2829,4 +2849,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-280 scouted iterations
+282 scouted iterations

@@ -61,6 +61,7 @@ _EXPECTED_ROW_KEYS = {
     "workspace",
     "retries",
     "parse_errors",
+    "created_at",
 }
 
 

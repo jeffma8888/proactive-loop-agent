@@ -3560,6 +3560,11 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
         # runs --json test asserts ``issubset``, not an exact key set).
         "retries": state.retries if state is not None else 0,
         "parse_errors": state.parse_errors if state is not None else 0,
+        # Publish the exact field ``runs --older-than`` selects (and ``--prune --yes``
+        # deletes) by, so a retention script can see WHY a run was selected. A
+        # degraded row has no readable timestamp, so it is JSON ``null`` -- never a
+        # fabricated "now" that would make an unreadable run look fresh.
+        "created_at": state.created_at.isoformat() if state is not None else None,
     }
 
 
