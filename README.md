@@ -463,11 +463,13 @@ via `PLA_*` environment variables). Run `pla --version` to print the installed
 version (sourced from `proactive_loop.__version__`).
 
 Add `-v` (or `-vv`) after any subcommand to raise runtime log verbosity on
-stderr: `-v` shows INFO, `-vv` shows DEBUG. This surfaces the L0 retry/backoff
+stderr: `-v` sets the INFO level and `-vv` the DEBUG level (no DEBUG emit sites
+ship yet, so `-vv` prints what `-v` does). This surfaces the L0 retry/backoff
 self-healing as it happens (each recovered retry logs an `L0 retry N ...` line
-from the executor) instead of only in the post-run summary. Logs go to stderr
-only, so machine-readable output stays pipe-clean (`pla runs -v --json | jq`
-still works). The default (no `-v`) is silent and attaches no handler.
+from `loop/executor.py` or `scout/synthesizer.py`) instead of only in the
+post-run summary. Logs go to stderr only, so machine-readable output stays
+pipe-clean (`pla runs -v --json | jq` still works). The default (no `-v`)
+attaches no handler and prints only WARNING-level degradation lines to stderr.
 
 `scan` and `run` validate `--workspace`: a missing or non-directory path fails
 fast with `error: workspace not found: <path>` on stderr and exit code 2, rather
