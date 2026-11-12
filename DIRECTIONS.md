@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-574
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- `_count_artifacts` counts with one `os.scandir` recursion instead of `Path.rglob("*") + is_file()`
+    - Candidate A2 -- `runs` loads each checkpoint ONCE and applies `--status`/`--goal`/`--older-than` BEFORE building the full row
+    - Candidate A3 -- `runs --summary` stops reading `meta.json`, the one field it never aggregates
+    - Candidate A -- the `-v`/`-vv` verbosity prose makes three false claims; correct it and pin it to the real `_LOG` emit sites
+    - Candidate B -- SPEC §4.5's `runs` entry lists `--older-than DAYS` in its signature but never says what it does, and its row-field list omits `created_at`
+    - Candidate C -- cli.py's module-docstring "Layout" block says `meta.json` holds "workspace_root + artifacts_dir"; it holds four keys, including the budget `resume` re-applies
+    winner: A1
+    ship: pending (not yet decided)
   iter-573
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- `_list_files`, `_search_files` and `_find_files` resolve their sandbox directory through one `_resolve_dir_root(path)` helper
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `_count_artifacts` counts with one `os.scandir` recursion instead of `Path.rglob("*") + is_file()` (re-proposal of iter-562 A2, which lost to its sibling 562 A1 and not on merit)
     - Candidate B3 -- `runs --older-than` loads each matching checkpoint ONCE, not twice (filter plus row)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED a23427b
   iter-572
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `runs --json` rows publish `created_at` (the field `runs --older-than` selects by)
@@ -2859,4 +2869,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-283 scouted iterations
+284 scouted iterations

@@ -3467,11 +3467,38 @@ def _iter_run_dirs(state_dir: Path) -> list[Path]:
 
 
 def _count_artifacts(run_dir: Path) -> int:
-    """Count regular files under *run_dir*'s ``artifacts/`` (recursive); 0 if absent."""
+    """Count regular files under *run_dir*'s ``artifacts/``; 0 if absent or not a dir.
+
+    Recursive; file symlinks count, dir symlinks are not followed, broken symlinks do
+    not count -- the exact semantics the former ``rglob("*") + is_file()`` walk had.
+    WHY ``os.scandir``: ``runs`` calls this once per run, and ``rglob`` paid one extra
+    ``stat`` per entry on top of the directory read. ``DirEntry`` answers ``is_dir`` /
+    ``is_file`` from the cached ``d_type`` for non-symlinks, which made this the
+    single largest cost of a large ``runs`` listing.
+    """
     artifacts_dir = run_dir / _ARTIFACTS_NAME
     if not artifacts_dir.is_dir():
         return 0
-    return sum(1 for p in artifacts_dir.rglob("*") if p.is_file())
+    return _count_files_in(str(artifacts_dir))
+
+
+def _count_files_in(directory: str) -> int:
+    """Recursively count regular files under *directory* via ``os.scandir``.
+
+    WHY ``OSError`` degrades to 0 per directory: an unreadable or vanished subtree must
+    not abort the whole ``runs`` listing, mirroring how ``rglob`` silently skipped it.
+    """
+    count = 0
+    try:
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_dir(follow_symlinks=False):
+                    count += _count_files_in(entry.path)
+                elif entry.is_file():
+                    count += 1
+    except OSError:
+        return count
+    return count
 
 
 def _load_run_state(run_dir: Path) -> RunState | None:
