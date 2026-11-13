@@ -114,8 +114,78 @@ def _b3_helper(tools: ToolRegistry, ws: Path, art: Path) -> None:
         assert tools._resolve_dir_root(miss) is None, miss
 
 
+def _iter578_record_artifact(base: Path) -> None:
+    """Foundry iter 578 oracle (folded here: oracle budget was 0 collected items).
+
+    ``ToolRegistry._record_artifact(rel)`` is the ONE owner of the artifact list's
+    order-preserving-set rule; every mutating tool's observable return string and
+    the resulting ``artifacts()`` order are unchanged. Black-box per the iter-578
+    spec Expected Behaviors 1-7 (B2 is a spec-stated text census).
+    """
+    text = TOOLS_PY.read_text(encoding="utf-8")
+    # B2: one append site, inside _record_artifact; two removals stay open-coded.
+    assert text.count("self._artifacts.append(") == 1, text.count("self._artifacts.append(")
+    at = text.index("def _record_artifact(")
+    nxt = text.find("\n    def ", at + 1)
+    assert "self._artifacts.append(" in (text[at:] if nxt == -1 else text[at:nxt])
+    assert text.count("self._artifacts.remove(") == 2, text.count("self._artifacts.remove(")
+    assert "mirrors write_file's dedupe" not in text
+
+    def fresh(name: str) -> tuple[ToolRegistry, Path]:
+        ws, art = base / name / "ws", base / name / "art"
+        ws.mkdir(parents=True)
+        art.mkdir(parents=True)
+        return ToolRegistry(workspace_root=ws, artifacts_dir=art), art
+
+    # B1: the helper dedupes in first-seen order, returns None, touches no disk.
+    t1, art1 = fresh("b1")
+    assert [t1._record_artifact(r) for r in ("a.txt", "b.txt", "a.txt")] == [None] * 3
+    assert t1.artifacts() == ["a.txt", "b.txt"]
+    assert list(art1.iterdir()) == []
+    # B3/B4: write twice, append to tracked + new; return strings unchanged.
+    t3, art3 = fresh("b3")
+    w = {"path": "x.txt", "content": "hello"}
+    assert [str(t3.execute("write_file", w)) for _ in "12"] == [
+        "wrote 5 chars to artifacts/x.txt"] * 2
+    assert t3.artifacts() == ["x.txt"]
+    assert str(t3.execute("append_file", {"path": "x.txt", "content": "!!"})) == (
+        "appended 2 chars to artifacts/x.txt")
+    assert str(t3.execute("append_file", {"path": "y.txt", "content": "abc"})) == (
+        "appended 3 chars to artifacts/y.txt")
+    assert t3.artifacts() == ["x.txt", "y.txt"]
+    # B5: tracked move drops src, records dst at the end; untracked move only appends.
+    t5, art5 = fresh("b5")
+    for rel in ("a.txt", "b.txt"):
+        t5.execute("write_file", {"path": rel, "content": rel})
+    assert str(t5.execute("move_file", {"src": "a.txt", "dst": "c.txt"})) == (
+        "moved artifacts/a.txt -> artifacts/c.txt")
+    assert t5.artifacts() == ["b.txt", "c.txt"]
+    (art5 / "loose.txt").write_text("loose")
+    t5.execute("move_file", {"src": "loose.txt", "dst": "d.txt"})
+    assert t5.artifacts() == ["b.txt", "c.txt", "d.txt"]
+    # B6: replace on tracked keeps count 1; on untracked on-disk file appends once.
+    t6, art6 = fresh("b6")
+    t6.execute("write_file", {"path": "r.txt", "content": "aa"})
+    assert str(t6.execute("replace_in_file", {"path": "r.txt", "old": "a", "new": "b"})) == (
+        "replaced 2 occurrence(s) in artifacts/r.txt")
+    (art6 / "u.txt").write_text("zz")
+    assert str(t6.execute("replace_in_file", {"path": "u.txt", "old": "z", "new": "q"})) == (
+        "replaced 2 occurrence(s) in artifacts/u.txt")
+    t6.execute("replace_in_file", {"path": "u.txt", "old": "q", "new": "z"})
+    assert t6.artifacts() == ["r.txt", "u.txt"]
+    # B7: adopt keeps tracked first, adds the rest in sorted POSIX order, idempotent.
+    t7, art7 = fresh("b7")
+    t7.execute("write_file", {"path": "b.txt", "content": "b"})
+    (art7 / "a").mkdir()
+    (art7 / "a" / "c.txt").write_text("c")
+    for _ in "12":
+        t7.adopt_existing_artifacts()
+        assert t7.artifacts() == ["b.txt", "a/c.txt"]
+
+
 def test_iter320_resolve_dir_root_contract(tmp_path: Path) -> None:
     _b1_b2_structure()
+    _iter578_record_artifact(tmp_path / "iter578")
     ws, art, out = _fixture(tmp_path)
     tools = ToolRegistry(workspace_root=ws, artifacts_dir=art)
     _b3_helper(tools, ws, art)

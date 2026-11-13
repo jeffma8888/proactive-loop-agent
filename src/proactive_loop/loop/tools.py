@@ -132,8 +132,12 @@ class ToolRegistry:
             if p.is_file()
         )
         for rel in found:
-            if rel not in self._artifacts:
-                self._artifacts.append(rel)
+            self._record_artifact(rel)
+
+    def _record_artifact(self, rel: str) -> None:
+        """Track *rel* once, first-seen order: ONE owner of the no-duplicates rule."""
+        if rel not in self._artifacts:
+            self._artifacts.append(rel)
 
     @staticmethod
     def tool_names() -> tuple[str, ...]:
@@ -168,8 +172,7 @@ class ToolRegistry:
         ensure_dir(target.parent)
         target.write_text(content)
         rel = str(target.relative_to(self.artifacts_dir))
-        if rel not in self._artifacts:
-            self._artifacts.append(rel)
+        self._record_artifact(rel)
         return f"wrote {len(content)} chars to artifacts/{rel}"
 
     def _append_file(self, args: dict[str, Any]) -> str:
@@ -198,8 +201,7 @@ class ToolRegistry:
         with target.open("a") as f:
             f.write(content)
         rel = str(target.relative_to(self.artifacts_dir))
-        if rel not in self._artifacts:
-            self._artifacts.append(rel)
+        self._record_artifact(rel)
         return f"appended {len(content)} chars to artifacts/{rel}"
 
     def _remove_file(self, args: dict[str, Any]) -> str:
@@ -307,12 +309,12 @@ class ToolRegistry:
         os.replace(src_target, dst_target)
         src_rel = str(src_target.relative_to(self.artifacts_dir))
         dst_rel = str(dst_target.relative_to(self.artifacts_dir))
-        # Drop src IF tracked (untracked on-disk src still moves cleanly), then
-        # append dst if not already present -- mirrors write_file's dedupe.
+        # Drop src FIRST, IF tracked (an untracked on-disk src still moves
+        # cleanly), THEN record dst -- so a move never leaves the old name
+        # behind and dst lands once, at the end of the list.
         if src_rel in self._artifacts:
             self._artifacts.remove(src_rel)
-        if dst_rel not in self._artifacts:
-            self._artifacts.append(dst_rel)
+        self._record_artifact(dst_rel)
         return f"moved artifacts/{src_rel} -> artifacts/{dst_rel}"
 
     def _read_file(self, args: dict[str, Any]) -> str:
@@ -975,8 +977,7 @@ class ToolRegistry:
         # substitutes ALL non-overlapping occurrences; str.count matched that
         # exact count above.
         target.write_text(content.replace(old, new))
-        if rel not in self._artifacts:
-            self._artifacts.append(rel)
+        self._record_artifact(rel)
         return f"replaced {count} occurrence(s) in artifacts/{rel}"
 
     # --- sandbox helpers ------------------------------------------------

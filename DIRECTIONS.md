@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-578
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `run`/`dispatch`/`resume --json` `dispatched` object publishes `title`, and `make demo`'s dispatch step consumes it with `--title` instead of a scraped `--goal-id`
+    - Candidate A2 -- the human `run`/`dispatch`/`resume` summary ends with a paste-ready `next: pla trace --run-dir '<dir>'`
+    - Candidate A3 -- `make demo` grades the iter-577 `runs --json` `run_dir` key by feeding it to `trace`
+    - Candidate B1 -- route the 4 remaining open-coded read-only `--json` tails (explain whole-slate, trace, signals --summary, signals) through the shipped `_emit` seam
+    - Candidate B2 -- one `ToolRegistry._record_artifact(rel)` replaces the 5 hand-copied `if rel not in self._artifacts: self._artifacts.append(rel)` blocks in loop/tools.py
+    - Candidate B3 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops
+    winner: B2
+    ship: pending (not yet decided)
   iter-577
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `trace`/`resume --run-dir <not a directory>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `run`/`dispatch`/`resume --json` `dispatched` object publishes `title`, the rescan-stable selector every paste hint prints
     - Candidate B3 -- the human `dispatch`/`run`/`resume` summary ends with a paste-ready `next: pla trace --run-dir '<dir>'`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 78a4ef8
   iter-576
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `explain --title TITLE`: audit one gate decision by the rescan-stable name every paste hint prints
@@ -2899,4 +2909,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-287 scouted iterations
+288 scouted iterations
