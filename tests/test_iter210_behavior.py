@@ -221,7 +221,54 @@ def test_b04_control_a_complete_roster_passes_the_rule() -> None:
 # ==========================================================================
 # Behavior 5 -- the reader is pointed at the two authoritative surfaces.
 # ==========================================================================
+def _iter581_layout_matches_write_meta(source: str) -> None:
+    """foundry iter 581: the docstring's Layout tree agrees with ``_write_meta``.
+
+    Takes the SOURCE text (so the same helper can be aimed at
+    ``git show HEAD:src/proactive_loop/cli.py`` as a red control) and derives the
+    ``meta.json`` key set by actually writing one under a temp dir, so a fifth key
+    added to the payload reds this until the docstring names it too.
+    """
+    import json
+    import tempfile
+
+    from proactive_loop.cli import _write_meta
+    from proactive_loop.config import Settings
+
+    raw = ast.get_docstring(ast.parse(source)) or ""
+    lines = raw.splitlines()
+    assert all(len(line) <= 88 for line in lines), [ln for ln in lines if len(ln) > 88]
+    collapsed = " ".join(raw.split())
+    start, end = collapsed.find("meta.json"), collapsed.find("checkpoint.json")
+    assert 0 <= start < end, f"Layout must list meta.json before checkpoint.json:\n{raw}"
+    meta_block = collapsed[start:end]
+    with tempfile.TemporaryDirectory() as tmp:
+        run_dir = Path(tmp) / "run-g1"
+        _write_meta(run_dir, Path(tmp) / "ws", run_dir / "artifacts", settings=Settings())
+        payload = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
+    assert len(payload) == 4, sorted(payload)
+    for key in ("workspace_root", "artifacts_dir", "max_iterations", "max_llm_calls"):
+        assert key in payload, sorted(payload)
+    for key in payload:
+        assert key in meta_block, f"meta.json block must name {key!r}: {meta_block!r}"
+    slate_lines = [ln for ln in lines if "slate.json" in ln]
+    assert slate_lines, raw
+    for ln in slate_lines:
+        assert "ranked" not in ln and "storage order" in ln, ln
+    assert "What the state directory contains" in collapsed, raw
+    for needle, comment in (
+        ("run-<goal_id>/", None),
+        ("checkpoint.json", "atomic RunState snapshot after every step"),
+        ("artifacts/", "everything the loop's write_file tool produced"),
+    ):
+        hits = [ln for ln in lines if needle in ln]
+        assert hits, f"Layout tree lost {needle!r}"
+        if comment is not None:
+            assert any(comment in ln for ln in hits), (needle, hits)
+
+
 def test_b05_module_docstring_points_at_help_and_spec_section() -> None:
+    _iter581_layout_matches_write_meta(CLI_SOURCE.read_text(encoding="utf-8"))
     doc = _module_doc()
     for pointer in ("pla --help", "4.5"):
         assert pointer in doc, (

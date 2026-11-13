@@ -9,12 +9,14 @@ verb's contract -- and owns the two things a library must not: argument parsing
 and where run artifacts land on disk. Keeping that policy here (never inside the
 loop) means the autonomy contract has exactly one enforcement point per verb.
 
-Layout of a dispatched run under ``state_dir``::
+Layout of a dispatched run under ``state_dir`` (README "What the state
+directory contains" documents each file)::
 
     <state_dir>/
-      slate.json                 # last scan's ranked slate (scan / run)
+      slate.json                 # last scan's slate, in storage order (scan / run)
       run-<goal_id>/
-        meta.json                # workspace_root + artifacts_dir, for `resume`
+        meta.json                # workspace_root, artifacts_dir, max_iterations,
+                                 # max_llm_calls -- what `resume` re-applies
         checkpoint.json          # atomic RunState snapshot after every step
         artifacts/               # everything the loop's write_file tool produced
 """

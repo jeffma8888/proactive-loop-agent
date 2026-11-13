@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-581
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- `pla signals --help`: five "composes with" clauses leave out `--exclude-path` and `--baseline`, though both narrow the same selection
+    - Candidate A2 -- the cli.py module-docstring "Layout" block contradicts the README's state-dir table twice; make it agree and pin it to `_write_meta`
+    - Candidate A3 -- README `runs` row: `--status` "composes with `--json`" understates it now that the help text was fixed in 580, so README and `--help` disagree
+    - Candidate B1 -- `pla runs --limit N`: list only the N newest runs that survive the filters
+    - Candidate B2 -- `pla trace --latest`: trace the newest run without naming its directory
+    - Candidate B3 -- `pla watch --collector NAME` (repeatable): scope the repeating verb's perception
+    winner: A2
+    ship: pending (not yet decided)
   iter-580
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- todos + test_posture stop calling `Path.relative_to` once per FILE (784 calls/scan -> ~10 + one per directory)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- cli.py's module-docstring "Layout" block says `meta.json` holds "workspace_root + artifacts_dir"; `_write_meta` writes four keys, and "ranked slate" is wrong too
     - Candidate B3 -- SPEC §4.5's `runs` entry lists `--older-than DAYS` in its signature but never defines it, and its row-field list omits both `created_at` and `run_dir`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 8ef3eee
   iter-579
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one `_ranked_pairs(slate, decisions, top)` helper replaces the 5 hand-copied "zip ranked + slice to top" blocks in the scan renderers
@@ -2929,4 +2939,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-290 scouted iterations
+291 scouted iterations
