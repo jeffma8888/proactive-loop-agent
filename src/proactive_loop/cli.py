@@ -1291,7 +1291,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=sorted(s.value for s in RunStatus),
         help=(
             "Narrow the listing to runs whose persisted status equals STATUS "
-            "(one of the RunStatus values). Composes with --json, --prune."
+            "(one of the RunStatus values). Composes with --goal, --older-than, "
+            "--json, --summary, --prune."
         ),
     )
     # The product's first retention operation (ROADMAP #123), and its first
@@ -1305,8 +1306,9 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Delete the selected run dirs instead of listing them. DRY RUN BY "
             "DEFAULT: without --yes it reports what it WOULD remove, deletes "
-            "nothing, and exits 0. Selection is the listing's own -- --status "
-            "narrows it identically -- and composes with --json."
+            "nothing, and exits 0. Selection is the listing's own -- --status, "
+            "--goal and --older-than narrow it identically -- and composes with "
+            "--json."
         ),
     )
     # Same "opt in to the consequential action" idiom as `dispatch --yes`, and
@@ -1319,21 +1321,22 @@ def build_parser() -> argparse.ArgumentParser:
     # The AGGREGATE twin of the listing, mirroring `signals --summary`: the two
     # persisted resilience counters (retries, parse_errors) are readable only per
     # row, so "how throttle- or garbage-pressured was this fleet?" needed `--json`
-    # piped through jq. --summary collapses the SAME selected rows (--status
-    # narrows it identically) to one count + per-status histogram + four sums; it
-    # never changes WHICH runs are selected, only how they are rendered. Refused
-    # with --prune inside _cmd_runs (exit 2): a summary of a deletion has no
-    # meaning, and an argparse exclusive group would hide the reason.
+    # piped through jq. --summary collapses the SAME selected rows (--status,
+    # --goal and --older-than narrow it identically) to one count + per-status
+    # histogram + four sums; it never changes WHICH runs are selected, only how
+    # they are rendered. Refused with --prune inside _cmd_runs (exit 2): a summary
+    # of a deletion has no meaning, and an argparse exclusive group would hide
+    # the reason.
     p_runs.add_argument(
         "--summary",
         action="store_true",
         help=(
             "Print one aggregate of the selected runs instead of the per-run "
             "listing: run count, per-status histogram, and summed iterations/"
-            "artifacts/retries/parse_errors. Composes with --status (same "
-            "selection). With --json emits one {runs, by_status, iterations, "
-            "artifacts, retries, parse_errors} object; otherwise two human lines. "
-            "Cannot be combined with --prune (exit 2)."
+            "artifacts/retries/parse_errors. Composes with --status, --goal, "
+            "--older-than (same selection). With --json emits one {runs, "
+            "by_status, iterations, artifacts, retries, parse_errors} object; "
+            "otherwise two human lines. Cannot be combined with --prune (exit 2)."
         ),
     )
     p_runs.add_argument(

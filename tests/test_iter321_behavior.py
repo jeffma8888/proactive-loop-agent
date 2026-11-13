@@ -177,6 +177,44 @@ def _iter579_filter_first(
         assert list(row) == list(by_id[name]) and row == by_id[name], (name, row)
 
 
+_ITER580_RUNS_OPTIONS: Final = frozenset(
+    {
+        "--goal", "--help", "--json", "--older-than", "--provider", "--prune",
+        "--scripted-responses", "--state-dir", "--status", "--summary", "--verbose",
+        "--yes", "-h", "-v",
+    }
+)
+
+
+def _iter580_runs_help_composes(capsys: pytest.CaptureFixture[str]) -> None:
+    """iter 580: every runs filter's help names the flags it composes with (row #367)."""
+    import argparse
+
+    parser = cli.build_parser()
+    sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    runs = sub.choices["runs"]
+    helps = {o: " ".join(str(a.help or "").split()) for a in runs._actions for o in a.option_strings}
+    # B6 (part): the option-string set is unchanged from HEAD f9270d6.
+    assert frozenset(helps) == _ITER580_RUNS_OPTIONS, sorted(helps)
+    needs = {
+        "--status": ("--goal", "--older-than", "--json", "--summary", "--prune"),  # B1
+        "--goal": ("--status", "--json", "--summary", "--prune"),  # B2
+        "--older-than": ("--status", "--goal", "--json", "--summary", "--prune"),  # B3
+        "--prune": ("--status", "--goal", "--older-than"),  # B4
+        "--summary": ("--status", "--goal", "--older-than", "--prune", "exit 2"),  # B5
+    }
+    for flag, names in needs.items():
+        missing = [n for n in names if n not in helps[flag]]
+        assert not missing, f"help of {flag} omits {missing}: {helps[flag]!r}"
+    # B6: rendered --help exits 0 and shows the metavars.
+    capsys.readouterr()
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["runs", "--help"])
+    assert exc.value.code in (0, None)
+    out = capsys.readouterr().out
+    assert "--older-than DAYS" in out and "--goal TITLE" in out, out
+
+
 def test_b01_to_b05_count_artifacts_scandir_semantics_and_runs_e2e(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -246,3 +284,6 @@ def test_b01_to_b05_count_artifacts_scandir_semantics_and_runs_e2e(
 
     # iter 579: filter-first runs listing over a private subtree.
     _iter579_filter_first(tmp_path / "iter579", sd, capsys, monkeypatch)
+
+    # iter 580: runs --help composes-with lists (help text only).
+    _iter580_runs_help_composes(capsys)

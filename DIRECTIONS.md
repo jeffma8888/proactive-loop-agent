@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-580
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- todos + test_posture stop calling `Path.relative_to` once per FILE (784 calls/scan -> ~10 + one per directory)
+    - Candidate A2 -- ROADMAP #302: start the two git children concurrently instead of waiting on them in series
+    - Candidate A3 -- todos `_scan_items`: build `line_starts` with `itertools.accumulate` and `rstrip` only the candidate lines
+    - Candidate B1 -- `pla runs --help` understates what composes with what in 3 of its 5 selection help strings; correct them and derive the check from the parser
+    - Candidate B2 -- cli.py's module-docstring "Layout" block says `meta.json` holds "workspace_root + artifacts_dir"; `_write_meta` writes four keys, and "ranked slate" is wrong too
+    - Candidate B3 -- SPEC §4.5's `runs` entry lists `--older-than DAYS` in its signature but never defines it, and its row-field list omits both `created_at` and `run_dir`
+    winner: B1
+    ship: pending (not yet decided)
   iter-579
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one `_ranked_pairs(slate, decisions, top)` helper replaces the 5 hand-copied "zip ranked + slice to top" blocks in the scan renderers
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `runs --summary` stops reading `meta.json`, the one per-run read its aggregate never uses
     - Candidate B3 -- non-scan verbs (`runs`/`trace`/`explain`/`resume`/`dispatch`) stop importing the 17 collector modules at CLI startup
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED f9270d6
   iter-578
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run`/`dispatch`/`resume --json` `dispatched` object publishes `title`, and `make demo`'s dispatch step consumes it with `--title` instead of a scraped `--goal-id`
@@ -2919,4 +2929,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-289 scouted iterations
+290 scouted iterations
