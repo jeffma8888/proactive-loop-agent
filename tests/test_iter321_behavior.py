@@ -79,6 +79,104 @@ def _walk_count(art: Path) -> int:
     )
 
 
+def _iter579_filter_first(
+    root: Path, sd_src: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """iter 579: ``runs`` filters on ONE checkpoint load, before meta/walk (row #366)."""
+    from datetime import datetime, timedelta, timezone
+
+    src = next(p for p in sd_src.iterdir() if (p / "checkpoint.json").is_file())
+    sd = root / "state"
+    sd.mkdir(parents=True)
+    base = json.loads((src / "checkpoint.json").read_text(encoding="utf-8"))
+    specs = {
+        "run-a1": ("done", "Alpha plan", "2020-01-01T00:00:00Z"),
+        "run-b2": ("running", "Bravo build", "2020-02-01T00:00:00Z"),
+        "run-c3": None,  # degraded: no checkpoint.json
+        "run-d4": "corrupt",
+        "run-e5": ("done", "Charlie notes", "2020-03-01T00:00:00"),  # naive; corrupt meta
+    }
+    for name, spec in specs.items():
+        d = sd / name
+        shutil.copytree(src, d)
+        cp = d / "checkpoint.json"
+        if spec is None:
+            cp.unlink()
+        elif spec == "corrupt":
+            cp.write_text("{not json", encoding="utf-8")
+        else:
+            status, title, created = spec
+            doc = json.loads(json.dumps(base))
+            doc.update(status=status, created_at=created)
+            doc["goal"]["title"] = title
+            cp.write_text(json.dumps(doc), encoding="utf-8")
+        assert any((d / "artifacts").iterdir()), f"vacuous fixture: {name} has no artifacts"
+    (sd / "run-e5" / "meta.json").write_text("{broken", encoding="utf-8")
+    n = len(specs)
+    healthy = {"run-a1", "run-b2", "run-e5"}
+
+    counts: dict[str, int] = {}
+    for fname in ("_load_run_state", "_read_meta", "_count_artifacts"):
+        real = getattr(cli, fname)
+
+        def _wrap(*a: object, _r: object = real, _n: str = fname, **k: object) -> object:
+            counts[_n] = counts.get(_n, 0) + 1
+            return _r(*a, **k)  # type: ignore[operator]
+
+        monkeypatch.setattr(cli, fname, _wrap)
+
+    def _runs(*extra: str) -> tuple[int, str, tuple[int, int, int]]:
+        counts.clear()
+        capsys.readouterr()
+        rc = cli.main(["runs", "--state-dir", str(sd), *extra])
+        out = capsys.readouterr().out
+        c = (counts.get("_load_run_state", 0), counts.get("_read_meta", 0),
+             counts.get("_count_artifacts", 0))
+        return rc, out, c
+
+    # B2: full listing -> N loads, N meta reads, N walks, N rows.
+    rc, out, c = _runs("--json")
+    assert rc == 0 and c == (n, n, n), c
+    full = json.loads(out)
+    assert [r["run_id"] for r in full] == sorted(specs)
+    # B3/B4: 0-match filters load each checkpoint once and never read meta / walk.
+    for argv in (("--json", "--status", "failed"), ("--json", "--goal", "zzz")):
+        rc, out, c = _runs(*argv)
+        assert (rc, out, c) == (0, "[]\n", (n, 0, 0)), (argv, rc, out, c)
+    # B5: all-healthy --older-than: N loads (not 2N), meta/walk == rows printed.
+    rc, out, c = _runs("--json", "--older-than", "1e-9")
+    rows = json.loads(out)
+    assert rc == 0 and {r["run_id"] for r in rows} == healthy
+    assert c == (n, len(rows), len(rows)), c
+    rc, out, c = _runs("--json", "--older-than", "1e6")
+    assert (rc, out, c) == (0, "[]\n", (n, 0, 0)), (rc, out, c)
+    # B6/B7: --status done -> only done rows, costs follow survivors; never degraded.
+    rc, out, c = _runs("--json", "--status", "done")
+    rows = json.loads(out)
+    assert {r["run_id"] for r in rows} == {"run-a1", "run-e5"}
+    assert all(r["status"] == "done" for r in rows) and c == (n, 2, 2), c
+    assert [r for r in full if r["run_id"] in {"run-a1", "run-e5"}] == rows
+    # B7: --goal "" keeps the degraded rows, exactly like the unfiltered listing.
+    rc, out, c = _runs("--json", "--goal", "")
+    assert rc == 0 and json.loads(out) == full and c == (n, n, n), c
+    rc, out, c = _runs("--json", "--goal", "brav")
+    assert [r["run_id"] for r in json.loads(out)] == ["run-b2"] and c == (n, 1, 1), c
+    rc, out, c = _runs("--summary", "--json", "--status", "done")
+    assert rc == 0 and json.loads(out)["runs"] == 2 and c[0] == n, (out, c)
+    # B8: the one-argument helpers keep their contract.
+    now = datetime.now(timezone.utc)
+    assert cli._run_older_than(sd / "run-a1", 1.0, now) is True
+    assert cli._run_older_than(sd / "run-a1", 1e6, now) is False
+    assert cli._run_older_than(sd / "run-c3", 1e-9, now) is False
+    assert cli._run_older_than(sd / "run-e5", 1.0, now) is True
+    young = datetime(2020, 3, 1, tzinfo=timezone.utc) + timedelta(hours=1)
+    assert cli._run_older_than(sd / "run-e5", 1.0, young) is False
+    by_id = {r["run_id"]: r for r in full}
+    for name in ("run-a1", "run-c3"):
+        row = cli._run_row(sd / name)
+        assert list(row) == list(by_id[name]) and row == by_id[name], (name, row)
+
+
 def test_b01_to_b05_count_artifacts_scandir_semantics_and_runs_e2e(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -145,3 +243,6 @@ def test_b01_to_b05_count_artifacts_scandir_semantics_and_runs_e2e(
     assert cli.main(["runs", "--state-dir", str(sd), "--summary", "--json"]) == 0
     summary = json.loads(capsys.readouterr().out)
     assert summary["artifacts"] == expected
+
+    # iter 579: filter-first runs listing over a private subtree.
+    _iter579_filter_first(tmp_path / "iter579", sd, capsys, monkeypatch)

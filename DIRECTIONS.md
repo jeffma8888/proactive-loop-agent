@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-579
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- one `_ranked_pairs(slate, decisions, top)` helper replaces the 5 hand-copied "zip ranked + slice to top" blocks in the scan renderers
+    - Candidate A2 -- `scan` and `run` share one `--snapshot` output-target pre-check instead of two copy-pasted guard blocks
+    - Candidate A3 -- route `explain`'s whole-slate tail and `trace`'s tail through the shipped `_emit` seam (narrowed from 578 B1's 4 sites to 2)
+    - Candidate B1 -- `runs` loads each checkpoint ONCE and applies `--status`/`--goal`/`--older-than` to it BEFORE paying meta.json + the artifacts walk
+    - Candidate B2 -- `runs --summary` stops reading `meta.json`, the one per-run read its aggregate never uses
+    - Candidate B3 -- non-scan verbs (`runs`/`trace`/`explain`/`resume`/`dispatch`) stop importing the 17 collector modules at CLI startup
+    winner: B1
+    ship: pending (not yet decided)
   iter-578
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `run`/`dispatch`/`resume --json` `dispatched` object publishes `title`, and `make demo`'s dispatch step consumes it with `--title` instead of a scraped `--goal-id`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one `ToolRegistry._record_artifact(rel)` replaces the 5 hand-copied `if rel not in self._artifacts: self._artifacts.append(rel)` blocks in loop/tools.py
     - Candidate B3 -- `_compute_diff` builds `added` and `removed` through one local `_side_row(goal)` instead of two identical 10-line loops
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED f48b49e
   iter-577
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `trace`/`resume --run-dir <not a directory>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
@@ -2909,4 +2919,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-288 scouted iterations
+289 scouted iterations

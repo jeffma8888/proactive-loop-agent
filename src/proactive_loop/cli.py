@@ -3537,7 +3537,16 @@ def _run_older_than(run_dir: Path, days: float, now: datetime) -> bool:
     and ``runs --older-than`` (listing and ``--prune``) never selects it. A naive
     ``created_at`` (hand-edited checkpoint) is read as UTC rather than raising.
     """
-    state = _load_run_state(run_dir)
+    return _state_older_than(_load_run_state(run_dir), days, now)
+
+
+def _state_older_than(state: RunState | None, days: float, now: datetime) -> bool:
+    """The age arithmetic of :func:`_run_older_than`, on an already-loaded *state*.
+
+    WHY split out: the ``runs`` listing loads each checkpoint once and decides every
+    filter from that one state, so it needs the age test without a second read.
+    ``None`` (missing or corrupt checkpoint) fails closed to False, as above.
+    """
     if state is None:
         return False
     created = state.created_at
@@ -3548,7 +3557,21 @@ def _run_older_than(run_dir: Path, days: float, now: datetime) -> bool:
     return (now - created).total_seconds() > days * 86_400.0
 
 
-def _run_row(run_dir: Path) -> dict[str, Any]:
+class _Unloaded:
+    """Type of :data:`_UNLOADED`, the "checkpoint not read yet" default of ``_run_row``.
+
+    WHY not ``None``: ``None`` already means "missing or corrupt checkpoint" (a
+    degraded row), so a caller that preloaded a ``None`` state must not trigger a
+    second read; a distinct sentinel keeps both meanings apart.
+    """
+
+
+_UNLOADED = _Unloaded()
+
+
+def _run_row(
+    run_dir: Path, *, state: RunState | None | _Unloaded = _UNLOADED
+) -> dict[str, Any]:
     """Summarize one run dir into a plain, JSON-serializable row.
 
     Tolerant by construction: a run dir whose ``checkpoint.json`` is missing OR
@@ -3560,8 +3583,12 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
     exact value a person feeds ``resume --run-dir``, which is the point of listing.
     ``run_dir`` is that dir as the path string a script hands to ``trace``/``resume
     --run-dir`` without rebuilding it from whichever state dir ``runs`` resolved.
+    A preloaded *state* (``None`` included) is used as-is, so the ``runs`` listing
+    that already filtered on it never reads the checkpoint twice.
     """
-    state = _load_run_state(run_dir)  # corrupt/truncated -> None, never crash the listing
+    if isinstance(state, _Unloaded):
+        # corrupt/truncated -> None, never crash the listing
+        state = _load_run_state(run_dir)
     try:
         meta = _read_meta(run_dir)
     except (ValueError, OSError):
@@ -6433,22 +6460,27 @@ def _cmd_runs(args: argparse.Namespace) -> int:
         return 2
     if args.prune:
         return _prune_runs(settings.state_dir, args)
-    run_dirs = _iter_run_dirs(settings.state_dir)
-    if args.older_than is not None:
-        now = datetime.now(timezone.utc)
-        run_dirs = [d for d in run_dirs if _run_older_than(d, args.older_than, now)]
-    rows = [_run_row(d) for d in run_dirs]
-    # Optional post-mapping status filter (ROADMAP #98). Applied AFTER building
-    # rows so the default path (args.status is None) stays byte-identical, and a
-    # degraded "(no checkpoint)" row -- whose marker matches no RunStatus value --
-    # is naturally excluded by any filter. The filtered rows feed the SAME
-    # ``_emit`` call, so the empty result reuses the existing "no runs" line
-    # (human) or "[]" (--json) verbatim.
-    if args.status is not None:
-        rows = [r for r in rows if r["status"] == args.status]
-    if args.goal is not None:
-        goal_lower = args.goal.casefold()
-        rows = [r for r in rows if goal_lower in r["goal"].casefold()]
+    # Filters (--older-than, --status ROADMAP #98, --goal) run on each dir's ONE
+    # loaded checkpoint BEFORE any row is built, so a selective filter never pays
+    # meta.json or the artifacts/ walk for a run it drops. A degraded "(no
+    # checkpoint)" state has no age and a marker no RunStatus value matches, so
+    # --older-than / --status exclude it; its goal is "", so only --goal "" keeps
+    # it. The surviving rows feed the SAME ``_emit`` call, so the empty result
+    # reuses the "no runs" line (human) or "[]" (--json) verbatim.
+    now = datetime.now(timezone.utc) if args.older_than is not None else None
+    goal_lower = args.goal.casefold() if args.goal is not None else None
+    rows: list[dict[str, Any]] = []
+    for d in _iter_run_dirs(settings.state_dir):
+        state = _load_run_state(d)
+        if now is not None and not _state_older_than(state, args.older_than, now):
+            continue
+        status = state.status.value if state is not None else _NO_CHECKPOINT
+        if args.status is not None and status != args.status:
+            continue
+        goal = state.goal.title if state is not None else ""
+        if goal_lower is not None and goal_lower not in goal.casefold():
+            continue
+        rows.append(_run_row(d, state=state))
     if args.summary:
         # Aggregate over the SAME filtered rows the listing would print, so the
         # summary and `runs --json` agree by construction. --json -> ONE object.
