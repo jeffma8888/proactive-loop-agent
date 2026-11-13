@@ -3558,6 +3558,8 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
     loaded status is emitted as ``state.status.value`` (e.g. ``done``), never the
     ``RunStatus.DONE`` repr. ``run_id`` is the dir name (``run-<goal_id>``) -- the
     exact value a person feeds ``resume --run-dir``, which is the point of listing.
+    ``run_dir`` is that dir as the path string a script hands to ``trace``/``resume
+    --run-dir`` without rebuilding it from whichever state dir ``runs`` resolved.
     """
     state = _load_run_state(run_dir)  # corrupt/truncated -> None, never crash the listing
     try:
@@ -3572,6 +3574,9 @@ def _run_row(run_dir: Path) -> dict[str, Any]:
         status, goal, iterations = _NO_CHECKPOINT, "", 0
     return {
         "run_id": run_dir.name,
+        # The PATH trace/resume --run-dir take (state_dir / name, never resolved), so a
+        # script pipes a row straight into the acting verb, mirroring run --json.
+        "run_dir": str(run_dir),
         "status": status,
         "goal": goal,
         "iterations": iterations,

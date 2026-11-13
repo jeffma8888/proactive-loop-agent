@@ -62,6 +62,7 @@ _EXPECTED_ROW_KEYS = {
     "retries",
     "parse_errors",
     "created_at",
+    "run_dir",
 }
 
 

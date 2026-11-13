@@ -38,7 +38,7 @@ MARKER: Final = "PORTFOLIO INTRO \u2014 human-owned"
 CHECKPOINT: Final = "checkpoint.json"
 ROW_KEYS: Final = {
     "run_id", "status", "goal", "iterations", "artifacts", "workspace", "retries",
-    "parse_errors", "created_at",
+    "parse_errors", "created_at", "run_dir",
 }
 SUMMARY_KEYS: Final = {"runs", "by_status", "iterations", "artifacts", "retries", "parse_errors"}
 NOW: Final = datetime.now(UTC).replace(microsecond=0)
@@ -166,8 +166,53 @@ def _b8_readme() -> None:
     assert "ISO-8601" in clause and "--older-than" in clause and "null" in clause, clause
 
 
+def _b9_run_dir(
+    capsys: pytest.CaptureFixture[str], sd: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Iter 577: every row carries `run_dir` == str(Path(D) / run_id), D unresolved."""
+    rows = {row["run_id"]: row for row in _rows(capsys, sd)}
+    for run_id, row in rows.items():
+        assert row["run_dir"] == str(Path(str(sd)) / run_id), (run_id, row)
+        assert Path(row["run_dir"]).is_absolute(), row
+    healthy = rows["run-old"]["run_dir"]
+    assert (Path(healthy) / CHECKPOINT).is_file(), healthy
+    rc, out, err = _run(capsys, "trace", "--run-dir", healthy)
+    assert rc == 0, (rc, out, err)
+    for extra in (("--status", "failed"), ("--goal", "archival"), ("--older-than", "7")):
+        picked = _rows(capsys, sd, *extra)
+        assert picked, extra
+        assert all(r["run_dir"] == str(sd / r["run_id"]) for r in picked), (extra, picked)
+    monkeypatch.chdir(sd.parent)
+    rel = {row["run_id"]: row["run_dir"] for row in _rows(capsys, Path(sd.name))}
+    assert rel == {i: f"{sd.name}/{i}" for i in rows}, rel
+    monkeypatch.setenv("PLA_STATE_DIR", sd.name)
+    rc, out, err = _run(capsys, "runs", "--json")
+    assert rc == 0, (rc, out, err)
+    assert {r["run_id"]: r["run_dir"] for r in json.loads(out)} == rel, out
+    monkeypatch.setenv("PLA_STATE_DIR", str(sd))
+    rc, out, err = _run(capsys, "runs", "--json")
+    assert rc == 0, (rc, out, err)
+    assert {r["run_id"]: r["run_dir"] for r in json.loads(out)} == {
+        i: r["run_dir"] for i, r in rows.items()
+    }, out
+    fresh = sd.parent / "fresh"
+    rc, out, err = _run(
+        capsys, "run", "--workspace", str(REPO / "examples" / "fixture_workspace"),
+        "--provider", "scripted",
+        "--scripted-responses", str(REPO / "examples" / "scripted_responses.json"),
+        "--state-dir", str(fresh), "--json",
+    )
+    assert rc == 0, (rc, out, err)
+    dispatched = json.loads(out)["dispatched"]["run_dir"]
+    listed = [r["run_dir"] for r in _rows(capsys, fresh)]
+    assert listed == [dispatched], (listed, dispatched)
+    row = [ln for ln in README.read_text(encoding="utf-8").split(MARKER, 1)[1].splitlines()
+           if ln.startswith("| `runs`")][0]
+    assert "`run_dir`, the path `trace`/`resume --run-dir` take" in " ".join(row.split()), row
+
+
 def test_runs_json_rows_carry_created_at(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Behaviors 1-8: `runs --json` rows publish `created_at` (ISO-8601 or null),
     with an exact 9-key row, unchanged composition, human table and summary,
@@ -179,3 +224,4 @@ def test_runs_json_rows_carry_created_at(
     _b6_summary(capsys, sd)
     _b7_determinism(capsys, sd)
     _b8_readme()
+    _b9_run_dir(capsys, sd, monkeypatch)

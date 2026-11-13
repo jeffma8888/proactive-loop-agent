@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-577
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `trace`/`resume --run-dir <not a directory>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
+    - Candidate A2 -- `PLA_RETRY_MAX_BACKOFF_SEC` above `threading.TIMEOUT_MAX` is rejected at config load instead of crashing at the first throttle retry
+    - Candidate A3 -- `watch --state-dir` is accepted but inert: `watch --state-dir <a FILE>` exits 0 while every persisting verb exits 2
+    - Candidate B1 -- `runs --json` rows publish `run_dir`, the exact path `trace --run-dir` / `resume --run-dir` take
+    - Candidate B2 -- `run`/`dispatch`/`resume --json` `dispatched` object publishes `title`, the rescan-stable selector every paste hint prints
+    - Candidate B3 -- the human `dispatch`/`run`/`resume` summary ends with a paste-ready `next: pla trace --run-dir '<dir>'`
+    winner: B1
+    ship: pending (not yet decided)
   iter-576
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `explain --title TITLE`: audit one gate decision by the rescan-stable name every paste hint prints
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `PLA_RETRY_*_BACKOFF_SEC` above `threading.TIMEOUT_MAX` is rejected at config load, mirroring iter 570's `watch --interval` bound
     - Candidate B3 -- `trace`/`resume --run-dir <a FILE>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED a1a1ada
   iter-575
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README's `-v`/`-vv` paragraph makes three false claims; fix it README-only and pin it to the real `_LOG` emit sites
@@ -2889,4 +2899,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-286 scouted iterations
+287 scouted iterations
