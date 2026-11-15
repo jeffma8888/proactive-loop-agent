@@ -6471,11 +6471,16 @@ def _cmd_runs(args: argparse.Namespace) -> int:
     # checkpoint)" state has no age and a marker no RunStatus value matches, so
     # --older-than / --status exclude it; its goal is "", so only --goal "" keeps
     # it. The surviving rows feed the SAME ``_emit`` call, so the empty result
-    # reuses the "no runs" line (human) or "[]" (--json) verbatim.
+    # reuses the "no runs" line (human) or "[]" (--json) verbatim on stdout. That
+    # line is false when the filters hid existing runs (a --goal typo would read
+    # as an empty history), so the listing path then adds ONE stderr note with
+    # the count -- stderr, so pinned stdout and the --json document stay intact.
     now = datetime.now(timezone.utc) if args.older_than is not None else None
     goal_lower = args.goal.casefold() if args.goal is not None else None
     rows: list[dict[str, Any]] = []
+    seen = 0
     for d in _iter_run_dirs(settings.state_dir):
+        seen += 1
         state = _load_run_state(d)
         if now is not None and not _state_older_than(state, args.older_than, now):
             continue
@@ -6498,6 +6503,12 @@ def _cmd_runs(args: argparse.Namespace) -> int:
         return 0
     # --json is ONE array (empty -> ``[]``), the one-document rule `_emit` owns.
     _emit(as_json=args.json, payload=lambda: rows, human=lambda: _render_runs(rows))
+    if not rows and seen:
+        # Unfiltered, every dir yields a row, so this fires only when filters hid runs.
+        print(
+            f"note: {seen} run(s) under the state dir; none matched the filters",
+            file=sys.stderr,
+        )
     return 0
 
 

@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-583
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `runs` filtered down to zero rows says so on stderr, instead of only "no runs found under the state dir."
+    - Candidate A2 -- `scheduler.run_periodic` rejects an unsleepable `interval_sec` BEFORE the first scan
+    - Candidate A3 -- `runs --state-dir <absent path>` names the path it looked in
+    - Candidate B1 -- the `dispatched` JSON object of `run`/`dispatch`/`resume --json` publishes `title`, and `make demo`'s dispatch step consumes it via `--title` instead of a scraped `--goal-id`
+    - Candidate B2 -- `dispatch --dry-run --json`: the approval preview gets a machine-readable form, matching `run --dry-run --json`
+    - Candidate B3 -- a `dispatch --json` refusal (exit 3 BLOCKED / exit 4 NEEDS_APPROVAL) puts one JSON object on stdout instead of 0 bytes
+    winner: A1
+    ship: pending (not yet decided)
   iter-582
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `dispatch --max-iterations N` / `--max-llm-calls N` / `--max-seconds N`: the approval verb gets the per-run budget that `run` already has
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `trace`/`resume --run-dir <a STATE dir>` adds one paste-ready `hint:` naming the newest run dir inside it
     - Candidate B3 -- `trace`/`resume --run-dir <a FILE>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED fa9d6fe
   iter-581
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- `pla signals --help`: five "composes with" clauses leave out `--exclude-path` and `--baseline`, though both narrow the same selection
@@ -2949,4 +2959,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-292 scouted iterations
+293 scouted iterations

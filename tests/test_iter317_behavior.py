@@ -159,6 +159,60 @@ def _b10_docs(capsys: pytest.CaptureFixture[str]) -> None:
     assert "[--older-than DAYS]" in usage, usage
 
 
+def _iter583_filtered_note(capsys: pytest.CaptureFixture[str], root: Path) -> None:
+    """Iter 583: filters that hide every existing run add ONE stderr note; stdout stays as at HEAD."""
+    sd = root / "state"
+    _write(sd, "run-a", "alpha goal", None)
+    _write(sd, "run-b", "beta goal", None)
+    rc, out, err = _run(capsys, "runs", "--json", "--state-dir", str(sd))
+    assert rc == 0 and err == "", (rc, out, err)
+    k = len(json.loads(out))
+    assert k == 2, out
+    note = f"note: {k} run(s) under the state dir; none matched the filters\n"
+    misses = (
+        ["--status", "failed"],  # B1
+        ["--goal", "zzz-no-such-goal"],  # B2
+        ["--older-than", "30"],  # B2: both runs are fresh
+        ["--older-than", "30", "--status", "failed"],  # B3: one note, not one per filter
+        ["--goal", "zzz-no-such-goal", "--status", "failed"],  # B3
+    )
+    for argv in misses:
+        rc, out, err = _run(capsys, "runs", *argv, "--state-dir", str(sd))
+        assert (rc, out, err) == (0, EMPTY + "\n", note), (argv, rc, out, err)
+        rc, out, err = _run(capsys, "runs", *argv, "--json", "--state-dir", str(sd))  # B4
+        assert rc == 0 and json.loads(out) == [] and out.strip() == "[]", (argv, rc, out)
+        assert err == note, (argv, err)
+        # B9: deterministic -- the identical invocation is byte-identical on both streams.
+        assert _run(capsys, "runs", *argv, "--json", "--state-dir", str(sd)) == (rc, out, err), argv
+    # B5: a filter that matches leaves stderr empty in both modes.
+    rc, out, err = _run(capsys, "runs", "--goal", "ALPHA", "--state-dir", str(sd))
+    assert rc == 0 and err == "" and "run-a" in out and "run-b" not in out, (rc, out, err)
+    rc, out, err = _run(capsys, "runs", "--goal", "alpha", "--json", "--state-dir", str(sd))
+    assert rc == 0 and err == "" and _ids(json.loads(out)) == ["run-a"], (rc, out, err)
+    rc, out, err = _run(capsys, "runs", "--state-dir", str(sd))
+    assert rc == 0 and err == "" and "run-a" in out and "run-b" in out, (rc, out, err)
+    # B6: empty existing dir and absent dir, unfiltered and filtered -- never a note.
+    empty = root / "empty"
+    empty.mkdir()
+    for target in (empty, root / "absent"):
+        for extra in ([], ["--goal", "zzz-no-such-goal"]):
+            rc, out, err = _run(capsys, "runs", *extra, "--state-dir", str(target))
+            assert (rc, out, err) == (0, EMPTY + "\n", ""), (target, extra, rc, out, err)
+            rc, out, err = _run(capsys, "runs", *extra, "--json", "--state-dir", str(target))
+            assert rc == 0 and json.loads(out) == [] and err == "", (target, extra, out, err)
+    # B7: --summary never notes, even when the filters hide every run.
+    for mode in ([], ["--json"]):
+        rc, out, err = _run(capsys, "runs", "--summary", "--status", "failed", *mode, "--state-dir", str(sd))
+        assert rc == 0 and err == "", (mode, rc, out, err)
+    rc, out, _ = _run(capsys, "runs", "--summary", "--goal", "zzz-no-such-goal", "--json", "--state-dir", str(sd))
+    assert json.loads(out)["runs"] == 0, out
+    # B8: --prune never notes, dry run or --json, matched or not; nothing is deleted.
+    for extra in ([], ["--json"]):
+        rc, out, err = _run(capsys, "runs", "--prune", "--goal", "zzz-no-such-goal", *extra, "--state-dir", str(sd))
+        assert rc == 0 and "none matched" not in err and "note:" not in err, (extra, rc, out, err)
+    assert sorted(p.name for p in sd.iterdir()) == ["run-a", "run-b"]
+
+
 def test_runs_older_than_filters_by_checkpoint_age(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -174,3 +228,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     _b8_validation(capsys, sd)
     _b10_docs(capsys)
     _b7_prune_yes(capsys, sd)  # destructive: last
+    _iter583_filtered_note(capsys, tmp_path / "iter583")
