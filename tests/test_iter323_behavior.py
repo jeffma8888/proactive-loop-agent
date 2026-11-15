@@ -11,6 +11,8 @@ saturates at the cap instead of raising ``OverflowError`` out of the retry layer
 5. jitter (``0.5``) still applies on the saturated branch: finite, in ``[30, 90]``;
 6. end to end, ``with_retry`` survives 1100 throttles at ``max_attempts=1101`` with an
    injected sleep recorder: returns ``"ok"``, 1100 sleeps all ``<= 60``, last ``== 60``.
+7. (iter 582) delays saturate at ``threading.TIMEOUT_MAX`` after jitter: a 1e300 cap
+   yields a delay the platform accepts, so the first throttle retry cannot overflow.
 
 ISOLATION: written from the spec (pm.md) and the public ``RetryPolicy``/``with_retry``
 API only; no src reading. Offline, no git, no mtime, no real sleep. ONE collected item,
@@ -19,14 +21,74 @@ because ``make readme-headroom`` read binding_headroom=7 against the pin of 6.
 
 from __future__ import annotations
 
+import inspect
 import math
+import threading
 
 from proactive_loop.config import RetryPolicy
 from proactive_loop.llm.client import LLMThrottleError
 from proactive_loop.loop.resilience import _backoff_delay, with_retry
 
 
+def _iter582_sleepable_saturation() -> None:
+    """iter 582: every delay saturates at threading.TIMEOUT_MAX, after jitter."""
+    limit = threading.TIMEOUT_MAX
+
+    def accepted(d: float) -> bool:
+        # no-wait validator: raises OverflowError exactly where time.sleep(d) would
+        return threading.Lock().acquire(True, d)
+
+    # B1. jitter off, 1e300 cap -> exactly TIMEOUT_MAX, a float, no exception
+    p1 = RetryPolicy(jitter_frac=0.0, base_backoff_sec=1e300, max_backoff_sec=1e300)
+    d1 = _backoff_delay(p1, 1)
+    assert isinstance(d1, float) and d1 == limit, d1
+    # B2. jitter on: the bound holds AFTER jitter (9.0e9 * 1.1 > TIMEOUT_MAX)
+    p2 = RetryPolicy(jitter_frac=0.1, base_backoff_sec=9.0e9, max_backoff_sec=9.0e9)
+    d2s = [_backoff_delay(p2, 1) for _ in range(50)]
+    assert all(math.isfinite(d) and d <= limit for d in d2s), max(d2s)
+    # B3. every returned delay is sleepable on this platform
+    for d in [d1, *d2s]:
+        assert accepted(d) is True, d
+    # B5. end to end: two throttles then "ok", both recorded delays == TIMEOUT_MAX
+    calls = {"n": 0}
+
+    def fn() -> str:
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise LLMThrottleError("throttled")
+        return "ok"
+
+    rec: list[float] = []
+
+    def sleep(d: float) -> None:
+        assert accepted(d)
+        rec.append(d)
+
+    policy = RetryPolicy(
+        max_attempts=3, jitter_frac=0.0, base_backoff_sec=1e300, max_backoff_sec=1e300
+    )
+    assert with_retry(fn, policy, sleep=sleep) == "ok"
+    assert rec == [limit, limit], rec
+    # B6. config acceptance unchanged: no new rejection path
+    assert RetryPolicy(max_backoff_sec=1e300).max_backoff_sec == 1e300
+    assert RetryPolicy(base_backoff_sec=1e300).base_backoff_sec == 1e300
+    # B7. the false comment is gone and both texts name the limit
+    lines = inspect.getsource(RetryPolicy).splitlines()
+    i = next(n for n, ln in enumerate(lines) if ln.strip().startswith("base_backoff_sec"))
+    j = i
+    while j > 0 and lines[j - 1].strip().startswith("#"):
+        j -= 1
+    block = "\n".join(lines[j:i])
+    assert block, "no comment block above base_backoff_sec"
+    assert "merely waits longer" not in block and "TIMEOUT_MAX" in block, block
+    assert "merely waits longer" not in "\n".join(lines)
+    assert "TIMEOUT_MAX" in (_backoff_delay.__doc__ or "")
+
+
 def test_backoff_saturates_at_cap_instead_of_overflowing() -> None:
+    # 7. (iter 582) saturation at the platform's sleepable maximum
+    _iter582_sleepable_saturation()
+
     # 1. default policy overflows the raw power at attempt 1100 -> saturate at 60.0
     d1 = _backoff_delay(RetryPolicy(jitter_frac=0.0), 1100)
     assert d1 == 60.0 and isinstance(d1, float)

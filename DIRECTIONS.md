@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-582
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `dispatch --max-iterations N` / `--max-llm-calls N` / `--max-seconds N`: the approval verb gets the per-run budget that `run` already has
+    - Candidate A2 -- `explain --decision auto_dispatch|needs_approval|blocked`: the whole-slate audit answers "which goals would act on their own?" directly
+    - Candidate A3 -- `runs --newer-than DAYS`: the recent-activity window `--older-than` cannot express
+    - Candidate B1 -- the retry delay saturates at `threading.TIMEOUT_MAX` inside `_backoff_delay`, so a valid `PLA_RETRY_MAX_BACKOFF_SEC` can no longer crash the first throttle retry
+    - Candidate B2 -- `trace`/`resume --run-dir <a STATE dir>` adds one paste-ready `hint:` naming the newest run dir inside it
+    - Candidate B3 -- `trace`/`resume --run-dir <a FILE>` says `--run-dir is not a directory: <path>` instead of the misleading `no checkpoint found in <path>`
+    winner: B1
+    ship: pending (not yet decided)
   iter-581
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- `pla signals --help`: five "composes with" clauses leave out `--exclude-path` and `--baseline`, though both narrow the same selection
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla trace --latest`: trace the newest run without naming its directory
     - Candidate B3 -- `pla watch --collector NAME` (repeatable): scope the repeating verb's perception
     winner: A2
-    ship: pending (not yet decided)
+    ship: PUSHED 9a99594
   iter-580
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- todos + test_posture stop calling `Path.relative_to` once per FILE (784 calls/scan -> ~10 + one per directory)
@@ -2939,4 +2949,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-291 scouted iterations
+292 scouted iterations

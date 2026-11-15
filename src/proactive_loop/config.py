@@ -163,8 +163,10 @@ class RetryPolicy(BaseModel):
     # ``allow_inf_nan=False`` because a lower-only ``ge`` bound lets ``+inf`` through
     # (``inf >= 0.0``): ``resilience._backoff_delay`` would compute ``min(raw, inf)``
     # and a single throttle retry would ``sleep(inf)``, hanging an unattended run.
-    # No upper bound: a large FINITE backoff merely waits longer. ``jitter_frac``
-    # needs no flag -- its ``le=1.0`` already rejects every non-finite value.
+    # No upper bound: a huge FINITE backoff is accepted and ``_backoff_delay``
+    # saturates the delay at ``threading.TIMEOUT_MAX`` (the most ``time.sleep``
+    # takes without OverflowError). ``jitter_frac`` needs no flag -- its
+    # ``le=1.0`` already rejects every non-finite value.
     base_backoff_sec: float = Field(default=1.0, ge=0.0, allow_inf_nan=False)
     backoff_factor: float = Field(default=2.0, ge=1.0, allow_inf_nan=False)
     max_backoff_sec: float = Field(default=60.0, ge=0.0, allow_inf_nan=False)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import random
+import threading
 import time
 from pathlib import Path
 from typing import Callable, TypeVar
@@ -44,6 +45,11 @@ def _backoff_delay(policy: RetryPolicy, attempt: int) -> float:
     overflowing power is treated as unbounded, so the delay saturates at
     ``max`` -- except when ``base == 0``, where the true product is ``0`` (and
     ``0 * inf`` would be NaN), so it stays ``0``.
+
+    WHY the final ``threading.TIMEOUT_MAX`` bound, applied AFTER jitter: a
+    finite but huge delay (``max_backoff_sec=1e300`` validates) makes
+    ``time.sleep`` raise ``OverflowError`` (platform ``time_t``), and jitter can
+    push an in-range cap past the limit, so only the returned value is bounded.
     """
     try:
         growth = policy.backoff_factor ** (attempt - 1)
@@ -52,8 +58,9 @@ def _backoff_delay(policy: RetryPolicy, attempt: int) -> float:
     raw = 0.0 if policy.base_backoff_sec == 0.0 else policy.base_backoff_sec * growth
     capped = min(raw, policy.max_backoff_sec)
     if policy.jitter_frac <= 0.0:
-        return capped
-    return capped * (1.0 + random.uniform(-policy.jitter_frac, policy.jitter_frac))
+        return min(capped, threading.TIMEOUT_MAX)
+    jittered = capped * (1.0 + random.uniform(-policy.jitter_frac, policy.jitter_frac))
+    return min(jittered, threading.TIMEOUT_MAX)
 
 
 def with_retry(
