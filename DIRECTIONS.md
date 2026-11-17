@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-584
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `pla explain` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` and `run` just wrote by default
+    - Candidate A2 -- `explain --slate -` reads the slate from stdin, so `pla scan --json | pla explain --slate -` works without a temp file
+    - Candidate A3 -- `dispatch --dry-run --json`: the approval preview gets a machine-readable form (re-proposal of iter-583 B2)
+    - Candidate B1 -- route the last 4 open-coded `--json` stdout tails (explain whole-slate, trace, signals --summary, signals) through the shipped `_emit` seam
+    - Candidate B2 -- `diff`'s added/removed symmetry owned once: one `_side_row(goal)` in `_compute_diff` and one `_side_lines(rows)` in `_render_diff`
+    - Candidate B3 -- one `_slate_missing(path)` owner for the 5 hand-copied `error: slate file not found: <path>` guards
+    winner: A1
+    ship: pending (not yet decided)
   iter-583
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `runs` filtered down to zero rows says so on stderr, instead of only "no runs found under the state dir."
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `dispatch --dry-run --json`: the approval preview gets a machine-readable form, matching `run --dry-run --json`
     - Candidate B3 -- a `dispatch --json` refusal (exit 3 BLOCKED / exit 4 NEEDS_APPROVAL) puts one JSON object on stdout instead of 0 bytes
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 2f88e70
   iter-582
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `dispatch --max-iterations N` / `--max-llm-calls N` / `--max-seconds N`: the approval verb gets the per-run budget that `run` already has
@@ -2959,4 +2969,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-293 scouted iterations
+294 scouted iterations

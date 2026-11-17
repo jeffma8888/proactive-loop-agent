@@ -213,6 +213,72 @@ def _iter583_filtered_note(capsys: pytest.CaptureFixture[str], root: Path) -> No
     assert sorted(p.name for p in sd.iterdir()) == ["run-a", "run-b"]
 
 
+def _iter584_explain_default_slate(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, root: Path
+) -> None:
+    """iter 584: ``explain`` without ``--slate`` audits ``<state_dir>/slate.json``."""
+    from proactive_loop.models import CandidateGoal, GoalSlate
+
+    def run(argv: list[str]) -> tuple[int, str, str]:
+        capsys.readouterr()
+        rc = cli.main(argv)
+        cap = capsys.readouterr()
+        return rc, cap.out, cap.err
+
+    d = root / "sd"
+    d.mkdir(parents=True)
+    goal = CandidateGoal(
+        title="Learn RAG evaluation", rationale="study eval before the interview",
+        category="learning", impact=5.0, urgency=4.0, confidence=0.9,
+        effort_weight=1.0, appropriate_now=True, sources=["file:notes.md"],
+        suggested_first_steps=["read the paper"],
+    )
+    slate = d / "slate.json"
+    slate.write_text(GoalSlate(workspace_root=str(root), goals=[goal]).model_dump_json())
+    gid = GoalSlate.model_validate_json(slate.read_text()).ranked()[0].id
+    base = ["explain", "--state-dir", str(d)]
+    # B1 + B2: default == explicit, for plain / --goal-id / --json / both
+    for extra in ([], ["--goal-id", gid], ["--json"], ["--goal-id", gid, "--json"]):
+        got = run(base + extra)
+        want = run(base + ["--slate", str(slate)] + extra)
+        assert got == want, (extra, got, want)
+        assert got[0] == 0 and got[1].strip(), (extra, got)
+    # B4: PLA_STATE_DIR alone selects the default slate
+    monkeypatch.setenv("PLA_STATE_DIR", str(d))
+    try:
+        assert run(["explain"]) == run(base + ["--slate", str(slate)])
+    finally:
+        monkeypatch.delenv("PLA_STATE_DIR", raising=False)
+    # B3: absent default -> rc 2 naming the resolved path, no usage, no traceback
+    empty = root / "empty"
+    empty.mkdir()
+    rc, out, err = run(["explain", "--state-dir", str(empty)])
+    assert rc == 2 and out == "", (rc, out, err)
+    assert f"error: slate file not found: {empty / 'slate.json'}" in err, err
+    assert "usage:" not in err and "Traceback" not in err, err
+    # B5: explicit --slate wins; a missing explicit path names P
+    missing = root / "nope.json"
+    rc, out, err = run(base + ["--slate", str(missing)])
+    assert rc == 2 and out == "" and f"slate file not found: {missing}" in err, err
+    # B6: help shows --slate optional and names the default
+    with pytest.raises(SystemExit) as ex:
+        run(["explain", "--help"])
+    assert ex.value.code == 0
+    helptext = capsys.readouterr().out
+    usage = " ".join(helptext.split("\n\n")[0].split())
+    assert "[--slate" in usage, usage
+    flat = " ".join(helptext.split())
+    assert "slate.json" in flat and "state_dir" in flat.replace("state-dir", "state_dir"), flat
+    # B7: dispatch / verify still require --slate (argparse usage error)
+    for verb in ("dispatch", "verify"):
+        capsys.readouterr()
+        with pytest.raises(SystemExit) as ex:
+            cli.main([verb, "--state-dir", str(d)])
+        assert ex.value.code == 2, verb
+        verr = capsys.readouterr().err
+        assert "usage:" in verr and "--slate" in verr, (verb, verr)
+
+
 def test_runs_older_than_filters_by_checkpoint_age(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -229,3 +295,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     _b10_docs(capsys)
     _b7_prune_yes(capsys, sd)  # destructive: last
     _iter583_filtered_note(capsys, tmp_path / "iter583")
+    _iter584_explain_default_slate(capsys, monkeypatch, tmp_path / "iter584")

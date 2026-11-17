@@ -147,15 +147,20 @@ def test_behavior1c_missing_goal_id_reaches_handler_not_argparse(tmp_path, capsy
     assert _TRACEBACK not in err, f"handler guard must not traceback; got:\n{err}"
 
 
-def test_behavior1d_missing_slate_is_argparse_usage_error(capsys):
-    with pytest.raises(SystemExit) as excinfo:
-        main(["explain", "--goal-id", "x"])
-    assert excinfo.value.code not in (0, None), (
-        f"missing --slate must be a nonzero usage error, got {excinfo.value.code!r}"
-    )
+def test_behavior1d_omitted_slate_defaults_to_state_dir_slate(tmp_path, monkeypatch, capsys):
+    # Migrated in factory iter 584: --slate is now OPTIONAL and defaults to
+    # <state_dir>/slate.json. The state dir is pinned to tmp_path (and PLA_STATE_DIR
+    # cleared) so the default never resolves against the ambient cwd `.pla_runs`.
+    monkeypatch.delenv("PLA_STATE_DIR", raising=False)
+    state = tmp_path / "state"
+    rc = main(["explain", "--state-dir", str(state), "--goal-id", "x"])
+    assert rc == 2, f"absent default slate must hit the exit-2 handler guard, got {rc}"
     err = capsys.readouterr().err
-    assert "usage:" in err, f"missing --slate must print usage to stderr; got:\n{err}"
-    assert _TRACEBACK not in err, f"argparse error must not traceback; got:\n{err}"
+    assert f"error: slate file not found: {state / 'slate.json'}" in err, (
+        f"must name the RESOLVED default path; got:\n{err}"
+    )
+    assert "usage:" not in err, f"omitted --slate must NOT be a usage error; got:\n{err}"
+    assert _TRACEBACK not in err, f"handler guard must not traceback; got:\n{err}"
 
 
 # ---------------------------------------------------------------------------

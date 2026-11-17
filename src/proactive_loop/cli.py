@@ -1375,14 +1375,20 @@ def build_parser() -> argparse.ArgumentParser:
     # builds no LLMClient) and prints a full, LLM-free gate-decision audit. WITH
     # `--goal-id` it audits ONE goal; OMIT `--goal-id` and it audits the WHOLE slate
     # in ranked order (one block per goal / a JSON array), so a script or CI can
-    # answer the slate-level safety question in one call. Only `--slate` is required;
-    # `--goal-id` is optional (there is still no implicit "explain the top goal").
+    # answer the slate-level safety question in one call. Nothing is required:
+    # `--slate` defaults to `<state_dir>/slate.json` -- the file `scan`/`run` write by
+    # default -- so `pla scan` then `pla explain` works with no paths, and `--goal-id`
+    # is optional (there is still no implicit "explain the top goal").
     p_explain = sub.add_parser(
         "explain",
         parents=[globals_],
         help="Audit gate decisions from a saved slate: one goal (--goal-id) or the whole slate (read-only, LLM-free).",
     )
-    p_explain.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
+    p_explain.add_argument(
+        "--slate",
+        default=None,
+        help="Path to a slate JSON from `scan` (default <state_dir>/slate.json).",
+    )
     p_explain.add_argument(
         "--goal-id",
         required=False,
@@ -6541,8 +6547,17 @@ def _cmd_explain(args: argparse.Namespace) -> int:
     both scopes. ``--json`` is applied AFTER the exit-2/exit-1 guards, so it selects
     a rendering only and leaves the exit-code contract untouched -- like
     ``runs``/``trace``/``signals``.
+
+    ``--slate`` is optional and defaults to ``<state_dir>/slate.json`` -- the SAME
+    path ``scan``/``run`` write when given no ``--out`` -- because explain is the
+    natural second command after ``scan``. The default resolves through the same
+    ``_settings`` fold (``--state-dir`` > ``PLA_STATE_DIR`` > built-in), and a
+    missing file hits the same exit-2 guard naming the RESOLVED path, so an absent
+    default reads as legibly as an absent explicit ``--slate``.
     """
-    slate_path = Path(args.slate)
+    slate_path = (
+        Path(args.slate) if args.slate else _settings(args).state_dir / _SLATE_NAME
+    )
     if not slate_path.is_file():
         print(f"error: slate file not found: {slate_path}", file=sys.stderr)
         return 2

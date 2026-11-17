@@ -406,19 +406,23 @@ def test_behavior7_schema_invalid_slate_no_goal_id_exits_1_sanitized(tmp_path, c
     assert _TRACEBACK not in err, f"schema-invalid slate must NOT traceback; got:\n{err!r}"
 
 
-def test_behavior7_missing_slate_flag_is_still_argparse_usage_error(capsys):
-    # --slate remains REQUIRED: `explain` with no --slate (with or without
-    # --goal-id) is still an argparse usage error (nonzero, usage: on stderr).
+def test_behavior7_missing_slate_flag_defaults_to_state_dir_slate(tmp_path, monkeypatch, capsys):
+    # Migrated in factory iter 584: --slate is now OPTIONAL and defaults to
+    # <state_dir>/slate.json, so `explain` with no --slate (with or without
+    # --goal-id) reaches the handler's exit-2 not-found guard naming the resolved
+    # path instead of an argparse usage error. The state dir is pinned to tmp_path
+    # and PLA_STATE_DIR cleared, so the default never reads the cwd `.pla_runs`.
+    monkeypatch.delenv("PLA_STATE_DIR", raising=False)
+    state = tmp_path / "state"
+    expected = f"error: slate file not found: {state / 'slate.json'}"
     for argv in (["explain"], ["explain", "--goal-id", "x"]):
-        with pytest.raises(SystemExit) as excinfo:
-            main(argv)
-        assert excinfo.value.code not in (0, None), (
-            f"missing --slate ({argv}) must be a nonzero usage error, got {excinfo.value.code!r}"
-        )
-        err = capsys.readouterr().err
-        assert "usage:" in err, f"missing --slate ({argv}) must print usage; got:\n{err!r}"
-        assert "--slate" in err, f"usage error must name the required --slate; got:\n{err!r}"
-        assert _TRACEBACK not in err, f"argparse error must not traceback; got:\n{err!r}"
+        rc = main([*argv, "--state-dir", str(state)])
+        assert rc == 2, f"absent default slate ({argv}) must exit 2, got {rc}"
+        out, err = capsys.readouterr()
+        assert out == "", f"nothing must be printed to stdout ({argv}); got:\n{out!r}"
+        assert expected in err, f"must name the resolved default ({argv}); got:\n{err!r}"
+        assert "usage:" not in err, f"must NOT be a usage error ({argv}); got:\n{err!r}"
+        assert _TRACEBACK not in err, f"handler guard must not traceback; got:\n{err!r}"
 
 
 # ===========================================================================
@@ -426,11 +430,14 @@ def test_behavior7_missing_slate_flag_is_still_argparse_usage_error(capsys):
 # ===========================================================================
 
 
-def test_explain_help_documents_optional_goal_id_and_still_required_slate(capsys):
+def test_explain_help_documents_optional_goal_id_and_optional_slate(capsys):
     with pytest.raises(SystemExit) as excinfo:
         main(["explain", "--help"])
     assert excinfo.value.code == 0, "`pla explain --help` must exit 0"
     out = capsys.readouterr().out
     assert "--slate" in out and "--goal-id" in out, f"help must document both options; got:\n{out}"
-    # --goal-id renders as OPTIONAL (bracketed) in the usage line; --slate does not.
+    # Both render as OPTIONAL (bracketed) in the usage line: since factory iter 584
+    # --slate defaults to <state_dir>/slate.json, and the help names that default.
     assert "[--goal-id" in out, f"help usage must show --goal-id as optional; got:\n{out}"
+    assert "[--slate" in out, f"help usage must show --slate as optional; got:\n{out}"
+    assert "slate.json" in out, f"help must name the <state_dir>/slate.json default; got:\n{out}"

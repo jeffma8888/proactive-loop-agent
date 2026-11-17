@@ -105,6 +105,11 @@ PRIOR_RUN_ARTIFACT = frozenset(
 HANDLER_ENFORCED_REQUIRED: dict[str, frozenset[str]] = {
     "diff": frozenset({"--old", "--new", "--dir"}),
     "dispatch": frozenset({"--goal-id", "--title"}),
+    # Since factory iter 584 `explain --slate` defaults to <state_dir>/slate.json,
+    # so argparse no longer marks it required -- but on a fresh checkout that file
+    # does not exist and `_cmd_explain` exits 2 naming it. The reader still needs a
+    # prior `scan`, so explain stays a prior-run verb.
+    "explain": frozenset({"--slate"}),
 }
 
 # Spec behaviors 3-5: assertions ON the derivation, not the source of truth.
@@ -113,7 +118,7 @@ EXPECTED_REQUIRED_OPTIONS: dict[str, frozenset[str]] = {
     "config": frozenset(),
     "diff": frozenset({"--old", "--new", "--dir"}),  # handler-enforced, see above
     "dispatch": frozenset({"--slate", "--goal-id", "--title"}),
-    "explain": frozenset({"--slate"}),
+    "explain": frozenset({"--slate"}),  # handler-enforced since iter 584, see above
     "policy": frozenset(),
     "providers": frozenset(),
     "resume": frozenset({"--run-dir"}),

@@ -74,8 +74,9 @@ FLAG_TOKEN = re.compile(r"--[A-Za-z][A-Za-z0-9-]*")
 FOREIGN_FLAG_TOKENS = ["--first-success", "--locked", "--no-verify"]
 
 # The 7 verb/flag pairs the spec requires on the ROW THAT OWNS THEM (behavior 9);
-# 4 of them are REQUIRED arguments, so an omission makes the documented command
-# exit 2.
+# 3 of them are REQUIRED arguments, so an omission makes the documented command
+# exit 2. (`explain --slate` was the 4th until factory iter 584 gave it the
+# <state_dir>/slate.json default; its row must now name that default instead.)
 REQUIRED_PAIRS: tuple[tuple[str, str], ...] = (
     ("dispatch", "--slate"),
     ("explain", "--slate"),
@@ -490,13 +491,18 @@ def test_behavior9_every_required_pair_is_on_its_own_verb_row() -> None:
 
 
 def test_behavior9_required_arguments_are_marked_required() -> None:
-    """The 4 required pairs must SAY so; an optional-looking required arg exits 2."""
+    """The 3 required pairs must SAY so; an optional-looking required arg exits 2."""
     rows = verb_rows(section_of(readme_text()))
-    for verb in ("dispatch", "explain", "resume", "trace"):
+    for verb in ("dispatch", "resume", "trace"):
         assert "required" in rows[verb].lower(), (
             f"the `{verb}` row documents a REQUIRED argument without saying it is "
             "required; omitting it is an exit-2 usage error"
         )
+    # `explain --slate` is optional since factory iter 584, so its row must name
+    # the default it falls back to rather than calling the flag required.
+    assert "<state_dir>/slate.json" in rows["explain"], (
+        f"the `explain` row must document the --slate default; got:\n{rows['explain']}"
+    )
 
 
 # --------------------------------------------------------------------------
