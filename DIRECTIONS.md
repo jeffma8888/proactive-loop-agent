@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-591
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- `run`'s three hand-copied `--json` result tails collapse into one local emitter
+    - Candidate A2 -- `watch`'s per-tick render branch goes through the shipped `_emit` seam
+    - Candidate A3 -- one `_slate_file_error(path) -> str | None` owns the 5 hand-copied `slate file not found` guards
+    - Candidate B1 -- one live `--collect-only` child per pytest worker, not one per guard test
+    - Candidate B2 -- test_iter253's 8 serial `pla run` children run concurrently in one fixture
+    - Candidate B3 -- todos `_scan_items` builds line text only for candidate lines (re-measured 580 A3)
+    winner: B1
+    ship: pending (not yet decided)
   iter-590
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla verify` with no `--slate` reads `<state-dir>/slate.json` (584's `explain` default, applied to the citation verifier)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one `_ranked_pairs(slate, decisions, top)` helper replaces the 5 hand-copied `pairs = list(zip(slate.ranked(), decisions)); if top is not None: pairs = pairs[:top]` blocks in the scan renderers (table :2890, markdown :2939, json :2971, csv :3036, html :3103)
     - Candidate B3 -- `scan` and `run` share one `--snapshot` output-target pre-check (`_snapshot_out_guard(args) -> tuple[Path | None, int | None]` or similar) instead of two copy-pasted 6-line guard blocks plus two near-duplicate comment paragraphs (cli.py:5791-5796 and :6082-6088)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 937a778
   iter-589
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- a malformed, empty, missing or directory `--scripted-responses` file names the path instead of a bare decoder/errno message
@@ -3029,4 +3039,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-300 scouted iterations
+301 scouted iterations

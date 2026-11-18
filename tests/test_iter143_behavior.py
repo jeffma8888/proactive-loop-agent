@@ -344,6 +344,14 @@ def test_slack_is_one_named_constant_the_verdict_derives_from(
 
 
 def test_the_live_count_is_measured_and_agrees_with_the_published_floor() -> None:
+    """The one caller that brackets a REAL collection child with ``_porcelain()``.
+
+    ``collect_live_test_count()`` memoizes its default call per process, so a warm
+    memo would serve this test from the dict and the before/after window would hold
+    no child at all -- a vacuous pass whose reality depends on xdist scheduling. The
+    memo is cleared first, so exactly one child always runs inside the bracket.
+    """
+    guard.clear_live_count_memo()
     before = _porcelain()
     live = guard.collect_live_test_count()
     after = _porcelain()

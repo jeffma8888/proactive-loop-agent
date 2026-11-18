@@ -566,6 +566,23 @@ def collect_env() -> dict[str, str]:
     return env
 
 
+# One REAL successful default collection per process and per runner object.
+# Keyed on ``id(runner)`` but the entry also holds the runner itself, so (a) an
+# unhashable fake runner still works and (b) a garbage-collected fake can never
+# hand its id -- and its count -- to a later, different runner: the stored
+# reference keeps the id alive, and the lookup re-checks identity with ``is``.
+_LIVE_COUNT_MEMO: dict[int, tuple[object, int]] = {}
+
+
+def clear_live_count_memo() -> None:
+    """Forget every memoized live count, so the next default call collects again.
+
+    Mirrors the product's ``clear_*`` memo hooks: a test that must observe a real
+    child (or a changed tree) calls this instead of reaching into the dict.
+    """
+    _LIVE_COUNT_MEMO.clear()
+
+
 def collect_live_test_count(
     cwd: Path | None = None, env: Mapping[str, str] | None = None
 ) -> int:
@@ -579,10 +596,23 @@ def collect_live_test_count(
 
     FAILS LOUDLY, with no fallback path. A non-zero exit or an unparseable total
     raises with the exit code and a tail of the output; there is deliberately no
-    default, no cached constant and no ``skip``, because every one of those would
+    default, no hardcoded count and no ``skip``, because every one of those would
     turn a broken oracle back into the fail-open guard this replaced.
+
+    The memo holds only a REAL successful collection: one per process and per
+    resolved ``subprocess.run`` object, stored after both checks pass, so a
+    failure is never cached and a replaced ``subprocess`` seam is always called
+    (and fails exactly as before). Calls passing ``cwd=`` or ``env=`` bypass it
+    entirely. The count cannot change within one session, and about a dozen
+    callers each used to pay a full collection child for the same number.
     """
-    proc = subprocess.run(
+    runner = subprocess.run
+    memoizable = cwd is None and env is None
+    if memoizable:
+        hit = _LIVE_COUNT_MEMO.get(id(runner))
+        if hit is not None and hit[0] is runner:
+            return hit[1]
+    proc = runner(
         [sys.executable, *COLLECT_ONLY_ARGS],
         cwd=str(REPO if cwd is None else cwd),
         capture_output=True,
@@ -603,7 +633,10 @@ def collect_live_test_count(
         f"'-o addopts=' -- under the inherited '-n auto' pytest prints per-file "
         f"counts and no total at all. Output tail:\n{tail}"
     )
-    return int(match.group(1))
+    count = int(match.group(1))
+    if memoizable:
+        _LIVE_COUNT_MEMO[id(runner)] = (runner, count)
+    return count
 
 
 def pytest_ini_options() -> dict[str, Any]:
