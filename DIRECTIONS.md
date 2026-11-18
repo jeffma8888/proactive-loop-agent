@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-586
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- ROADMAP #302: run the two git children concurrently, not in series
+    - Candidate A2 -- todos + test_posture: one string prefix strip per directory instead of `Path.relative_to` per file
+    - Candidate A3 -- syntax_error pyc probe: index each `__pycache__` listing once (set + stem->names map) before opening anything
+    - Candidate A1 -- SPEC §4.5 `explain` still says "`--slate` stays required", but iter 584 made it default to `<state-dir>/slate.json`
+    - Candidate A2 -- SPEC §4.5 `dispatch` entry never mentions `--dry-run` or `--json`, both shipped long ago
+    - Candidate A3 -- SPEC §4.5 `runs` entry omits the `run_dir` and `created_at` row keys, and never says what `--older-than DAYS` does
+    winner: A1
+    ship: pending (not yet decided)
   iter-585
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one `ToolRegistry._read_rooted_text(path) -> str | None` owns the ACT sandbox's file-READ root resolution, open-coded 5 times in loop/tools.py
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- syntax_error's pyc probe checks the cached `__pycache__` listing (a set plus a stem->names map) before it opens anything
     - Candidate B3 -- `text_source` computes each text's content digest once per scan, and the 3 digest-memo collectors reuse it
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED b04d03e
   iter-584
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla explain` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` and `run` just wrote by default
@@ -2979,4 +2989,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-295 scouted iterations
+296 scouted iterations

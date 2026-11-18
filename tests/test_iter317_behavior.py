@@ -279,6 +279,68 @@ def _iter584_explain_default_slate(
         assert "usage:" in verr and "--slate" in verr, (verb, verr)
 
 
+_ITER586_USAGE: Final = r"^  - `pla ([a-z-]+)((?: [^`]*)?)`"
+_ITER586_ALLOW: Final = {"dispatch": {"--goal-id", "--title"}, "diff": {"--old", "--new"}}
+
+
+def _iter586_usage_violations(spec_text: str) -> list[tuple[str, str]]:
+    """iter 586 guard: (verb, flag) pairs a SPEC usage line shows unbracketed that
+    are neither argparse-required nor allowlisted; also rejects a stale allowlist."""
+    import argparse
+    import re
+
+    parser = cli.build_parser()
+    subs = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    unbracketed: dict[str, set[str]] = {}
+    for m in re.finditer(_ITER586_USAGE, spec_text, flags=re.MULTILINE):
+        verb, rest = m.group(1), m.group(2)
+        assert verb in subs.choices, (verb, m.group(0))  # B6
+        prev = None
+        while prev != rest:
+            prev, rest = rest, re.sub(r"\[[^\[\]]*\]", "", rest)
+        unbracketed.setdefault(verb, set()).update(re.findall(r"--[a-z][a-z0-9-]*", rest))
+    assert len(unbracketed) >= 10, sorted(unbracketed)  # the regex really matched §4.5
+    bad: list[tuple[str, str]] = []
+    for verb, flags in sorted(unbracketed.items()):
+        required = {
+            s for a in subs.choices[verb]._actions if a.required for s in a.option_strings
+        }
+        bad += [(verb, f) for f in sorted(flags) if f not in required | _ITER586_ALLOW.get(verb, set())]
+    for verb, allowed in _ITER586_ALLOW.items():  # B5: the allowlist cannot rot
+        acts = {s: a for a in subs.choices[verb]._actions for s in a.option_strings}
+        for flag in sorted(allowed):
+            assert flag in unbracketed.get(verb, set()), ("stale allowlist", verb, flag)
+            assert flag in acts and not acts[flag].required, ("now required", verb, flag)
+    return bad
+
+
+def _iter586_spec_usage_required_flags() -> None:
+    """iter 586: SPEC §4.5 ``explain`` shows ``--slate`` optional, and every flag a
+    usage line shows outside ``[...]`` is really required (or allowlisted)."""
+    import re
+
+    raw = SPEC.read_bytes()
+    text = raw.decode("utf-8")
+    assert len(raw) < 94_700, len(raw)  # B3
+    lines = [ln for ln in text.splitlines() if ln.startswith("  - `pla explain ")]
+    assert lines == ["  - `pla explain [--slate FILE] [--goal-id ID]` — read-only, LLM-free auditor"], lines
+    assert "pla explain --slate slate.json" not in text  # B1
+    start = text.index("  - `pla explain ")
+    nxt = text.find("\n  - `pla ", start + 1)
+    entry = text[start : nxt if nxt != -1 else len(text)]
+    assert "stays required." not in entry, entry  # B2
+    assert entry.count("defaults to `<state-dir>/slate.json`") == 1, entry
+    assert "Missing slate" in entry, entry
+    assert _iter586_usage_violations(text) == []  # B4
+    # B8: the ledger bump ships with its row (the ROADMAP byte pin stays owned by
+    # test_iter280/308 -- test_iter172 forbids a new module bounding its size)
+    roadmap = REPO / "ROADMAP.md"
+    t264 = (REPO / "tests" / "test_iter264_behavior.py").read_text()
+    m = re.search(r"^EXPECTED_LEDGER_ROWS[^=]*=\s*(\d+)", t264, flags=re.MULTILINE)
+    assert m is not None and int(m.group(1)) == 162, m
+    assert "#373" in roadmap.read_text(encoding="utf-8")
+
+
 def test_runs_older_than_filters_by_checkpoint_age(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -296,3 +358,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     _b7_prune_yes(capsys, sd)  # destructive: last
     _iter583_filtered_note(capsys, tmp_path / "iter583")
     _iter584_explain_default_slate(capsys, monkeypatch, tmp_path / "iter584")
+    _iter586_spec_usage_required_flags()

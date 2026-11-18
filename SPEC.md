@@ -776,7 +776,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     `--json`, `--summary`, `--prune`); `--summary` swaps the listing for one aggregate of
     that selection (count, per-status histogram, summed counters; one `--json` object), refused
     with `--prune` (exit 2); `--prune` deletes the selected dirs, DRY RUN unless `--yes`.
-  - `pla explain --slate slate.json [--goal-id ID]` — read-only, LLM-free auditor
+  - `pla explain [--slate FILE] [--goal-id ID]` — read-only, LLM-free auditor
     of a saved slate. `--goal-id` is **optional**: given, it audits ONE goal;
     omitted, it audits the WHOLE slate in `ranked()` order in one pass (so a
     script/CI can ask the slate-level safety question — "did ANY sensitive goal
@@ -795,7 +795,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     same 12-key objects in `ranked()` order (`[]` when empty). The object-vs-array
     distinction is load-bearing (a `jq`/CI consumer keys on it): single-goal =
     object, whole-slate = array. Each object is built from an explicit allowlist
-    (never `model_dump`; the iter-08 schema-leak discipline), with
+    (never `model_dump`), with
     `category`/`decision` as their str-Enum `.value`, `score` echoing the computed
     field, and `sources`/`suggested_first_steps` as JSON arrays (`[]` when empty,
     not the human `(none)` marker), so it pipes cleanly into `jq`. Missing slate
@@ -803,7 +803,7 @@ GoalLoop.PLAN_TAG, GoalLoop.CHECK_TAG = "plan", "check"
     → exit 2 (single-goal only; the whole-slate path names no id, so it has no
     unknown-id case); a corrupt slate → exit 1 via the `main()` boundary (all
     before any rendering, so the exit contract is `--json`-independent). `--slate`
-    stays required. Builds no `LLMClient`.
+    defaults to `<state-dir>/slate.json`. Builds no `LLMClient`.
   - `pla verify --slate slate.json --snapshot snapshot.json [--json] [--fail-on-unresolved]` —
     read-only, LLM-free resolver of a slate's CITED sources against the snapshot document
     `scan --snapshot FILE`/`run --snapshot FILE` wrote beside it (never a fresh re-scan; both
