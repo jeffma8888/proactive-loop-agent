@@ -428,16 +428,15 @@ def test_behavior9_end_to_end_over_real_demo_run(tmp_path, capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_behavior10_missing_run_dir_is_argparse_usage_error(capsys):
-    with pytest.raises(SystemExit) as excinfo:
-        main(["trace"])
-    assert excinfo.value.code == 2, (
-        f"missing --run-dir must raise SystemExit(2) (argparse usage code), "
-        f"got {excinfo.value.code!r}"
-    )
+def test_behavior10_missing_run_dir_is_argparse_usage_error(capsys, tmp_path):
+    # Migrated (foundry iter 587): --run-dir is optional now and defaults to the
+    # newest run, so an empty state dir is a clean exit-2 error, not a usage error.
+    code = main(["trace", "--state-dir", str(tmp_path)])
+    assert code == 2, f"trace with no runs must exit 2, got {code!r}"
     err = capsys.readouterr().err
-    assert "usage:" in err, f"missing --run-dir must print usage to stderr; got:\n{err}"
-    assert _TRACEBACK not in err, f"argparse error must not traceback; got:\n{err}"
+    assert "error: no runs with a checkpoint under" in err, err
+    assert "usage:" not in err, f"no-runs trace must not print usage; got:\n{err}"
+    assert _TRACEBACK not in err, f"no-runs trace must not traceback; got:\n{err}"
 
 
 def test_behavior10_trace_help_documents_options(capsys):

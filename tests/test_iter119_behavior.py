@@ -110,6 +110,10 @@ HANDLER_ENFORCED_REQUIRED: dict[str, frozenset[str]] = {
     # does not exist and `_cmd_explain` exits 2 naming it. The reader still needs a
     # prior `scan`, so explain stays a prior-run verb.
     "explain": frozenset({"--slate"}),
+    # Since factory iter 587 `trace --run-dir` defaults to the newest run under the
+    # state dir, so argparse no longer marks it required -- but a fresh checkout has
+    # no run and `_cmd_trace` exits 2. The reader still needs a prior run.
+    "trace": frozenset({"--run-dir"}),
 }
 
 # Spec behaviors 3-5: assertions ON the derivation, not the source of truth.

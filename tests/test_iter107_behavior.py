@@ -491,9 +491,13 @@ def test_behavior9_every_required_pair_is_on_its_own_verb_row() -> None:
 
 
 def test_behavior9_required_arguments_are_marked_required() -> None:
-    """The 3 required pairs must SAY so; an optional-looking required arg exits 2."""
+    """The required pairs must SAY so; an optional-looking required arg exits 2.
+
+    `trace` left this list in factory iter 587: its `--run-dir` now defaults to
+    the newest run, so its row must NOT call it required.
+    """
     rows = verb_rows(section_of(readme_text()))
-    for verb in ("dispatch", "resume", "trace"):
+    for verb in ("dispatch", "resume"):
         assert "required" in rows[verb].lower(), (
             f"the `{verb}` row documents a REQUIRED argument without saying it is "
             "required; omitting it is an exit-2 usage error"

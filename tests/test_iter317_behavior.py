@@ -29,6 +29,7 @@ import pytest
 
 from proactive_loop import cli
 from proactive_loop.models import CandidateGoal, RunState
+from tests.test_iter324_behavior import iter587_trace_newest
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -337,7 +338,7 @@ def _iter586_spec_usage_required_flags() -> None:
     roadmap = REPO / "ROADMAP.md"
     t264 = (REPO / "tests" / "test_iter264_behavior.py").read_text()
     m = re.search(r"^EXPECTED_LEDGER_ROWS[^=]*=\s*(\d+)", t264, flags=re.MULTILINE)
-    assert m is not None and int(m.group(1)) == 162, m
+    assert m is not None and int(m.group(1)) >= 162, m  # later rows only raise it
     assert "#373" in roadmap.read_text(encoding="utf-8")
 
 
@@ -359,3 +360,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     _iter583_filtered_note(capsys, tmp_path / "iter583")
     _iter584_explain_default_slate(capsys, monkeypatch, tmp_path / "iter584")
     _iter586_spec_usage_required_flags()
+    assert iter587_trace_newest(capsys, tmp_path / "iter587") == 5  # trace newest-run default

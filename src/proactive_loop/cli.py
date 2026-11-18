@@ -1450,14 +1450,22 @@ def build_parser() -> argparse.ArgumentParser:
     # from its checkpoint. Like `runs`/`explain` it inherits the globals so
     # --provider/--scripted-responses are accepted but inert -- it builds no
     # LLMClient, so a fresh clone can inspect what a finished run did with zero
-    # provider config. --run-dir is required (mirrors `resume`); --json swaps the
-    # truncated human transcript for a full, machine-parseable array of steps.
+    # provider config. --run-dir is optional, unlike `resume`: tracing is
+    # read-only, so defaulting to the newest run cannot do harm, while resuming the
+    # wrong run would. --json swaps the truncated human transcript for a full,
+    # machine-parseable array of steps.
     p_trace = sub.add_parser(
         "trace",
         parents=[globals_],
         help="Render one run's PLAN/ACT/CHECK step transcript from its checkpoint (read-only, LLM-free).",
     )
-    p_trace.add_argument("--run-dir", required=True, help="A run-<id> directory to trace.")
+    p_trace.add_argument(
+        "--run-dir",
+        help=(
+            "A run-<id> directory to trace (default: the newest run under the state dir, "
+            "by checkpoint created_at)."
+        ),
+    )
     p_trace.add_argument(
         "--json",
         action="store_true",
@@ -3566,6 +3574,28 @@ def _state_older_than(state: RunState | None, days: float, now: datetime) -> boo
     # Float seconds, not timedelta(days=...): that raises OverflowError past
     # 999,999,999 days, a value _positive_float admits.
     return (now - created).total_seconds() > days * 86_400.0
+
+
+def _newest_run_dir(state_dir: Path) -> Path | None:
+    """Return the run dir whose checkpoint ``created_at`` is greatest; ``None`` if none.
+
+    WHY ``created_at`` and not the name: run dirs are ``run-<goal.id>``, so name
+    order is not time order. Ties go to the greater name, so the choice is
+    deterministic. A missing or corrupt checkpoint has no age and is skipped, as
+    ``runs --older-than`` skips it. A naive ``created_at`` is read as UTC, as in
+    :func:`_state_older_than`.
+    """
+    best: tuple[datetime, str, Path] | None = None
+    for d in _iter_run_dirs(state_dir):
+        state = _load_run_state(d)
+        if state is None:
+            continue
+        created = state.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if best is None or (created, d.name) > best[:2]:
+            best = (created, d.name, d)
+    return None if best is None else best[2]
 
 
 class _Unloaded:
@@ -6886,8 +6916,28 @@ def _cmd_trace(args: argparse.Namespace) -> int:
     to a single legible ``error:`` line at exit ``1`` -- no bespoke swallow, no
     traceback. Human form truncates long output for legibility; ``--json`` emits
     every step's full, untruncated output as a parseable array.
+
+    ``--run-dir`` omitted traces the newest run under the resolved state dir
+    (:func:`_newest_run_dir`), because "what did that run just do?" is the question
+    right after ``run``/``dispatch`` and the ``run-<id>`` path is one the user never
+    typed. The chosen dir is named on stderr; a state dir that is a file, or one
+    with no readable checkpoint, exits ``2`` on one ``error:`` line.
     """
-    run_dir = Path(args.run_dir)
+    if args.run_dir is None:
+        state_dir = _settings(args).state_dir
+        msg = _state_dir_guard(state_dir)
+        if msg is not None:
+            print(f"error: {msg}", file=sys.stderr)
+            return 2
+        newest = _newest_run_dir(state_dir)
+        if newest is None:
+            print(f"error: no runs with a checkpoint under {state_dir}", file=sys.stderr)
+            return 2
+        # stderr, so the --json stdout stays one parseable document.
+        print(f"tracing newest run: {newest}", file=sys.stderr)
+        run_dir = newest
+    else:
+        run_dir = Path(args.run_dir)
     state = Checkpoint(run_dir / _CHECKPOINT_NAME).load()
     if state is None:
         print(f"error: no checkpoint found in {run_dir}", file=sys.stderr)

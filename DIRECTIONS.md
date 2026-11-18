@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-587
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- SPEC §4.5 is missing 6 verb-owned flags from their own bullet blocks (dispatch `--dry-run`/`--json`, resume `--json`, scan `--json`, watch `--out-dir`, diff `--dir`); close them and turn test_iter234's 8-flag placement check into a live census of every verb
+    - Candidate A2 -- SPEC §4.5 `runs` entry omits the `run_dir` and `created_at` row keys (shipped in iters 577 and 572) and never says what `--older-than DAYS` does (shipped in 569)
+    - Candidate A3 -- README `## CLI` table rows omit 4 shipped verb flags (run `--baseline`/`--exclude-path`, signals `--collector`, watch `--json`); fix the rows and add a row-vs-parser census
+    - Candidate B1 -- `pla trace` with no `--run-dir` traces the newest run under `<state-dir>` (by checkpoint `created_at`)
+    - Candidate B2 -- `explain --decision auto_dispatch|needs_approval|blocked` narrows the whole-slate audit to one gate verdict
+    - Candidate B3 -- `runs --newer-than DAYS`: the recent-activity window that `--older-than` cannot express
+    winner: B1
+    ship: pending (not yet decided)
   iter-586
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- ROADMAP #302: run the two git children concurrently, not in series
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate A2 -- SPEC §4.5 `dispatch` entry never mentions `--dry-run` or `--json`, both shipped long ago
     - Candidate A3 -- SPEC §4.5 `runs` entry omits the `run_dir` and `created_at` row keys, and never says what `--older-than DAYS` does
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 9f2a5a3
   iter-585
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one `ToolRegistry._read_rooted_text(path) -> str | None` owns the ACT sandbox's file-READ root resolution, open-coded 5 times in loop/tools.py
@@ -2989,4 +2999,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-296 scouted iterations
+297 scouted iterations
