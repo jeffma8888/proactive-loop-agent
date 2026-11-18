@@ -323,12 +323,38 @@ class ToolRegistry:
         rejection = self._reject_unsafe(path)
         if rejection is not None:
             return rejection
-        # Prefer freshly written artifacts over the original workspace copy.
+        text = self._read_rooted_text(path)
+        if text is None:
+            return f"error: file not found under artifacts or workspace: {path!r}"
+        return text
+
+    def _read_rooted_text(self, path: str) -> str | None:
+        """Return the text of *path* under the sandbox's READ roots, or ``None``.
+
+        The ONE file-read root resolver shared by read_file, read_lines,
+        head_file/tail_file (via ``_peek_file``) and both sides of diff_files:
+        ``artifacts_dir`` FIRST, then ``workspace_root``, so freshly written
+        artifacts shadow the original workspace copy and every reader sees the
+        SAME copy. Only an existing regular file whose RESOLVED location stays
+        inside the root it was joined under is read, so a symlink escaping both
+        roots fails ``_within`` and yields ``None`` -- callers turn that into
+        their not-found observation, exactly as for a missing path or a
+        directory. The containment check is the read side's symlink guard,
+        which is why it lives here once instead of hand-copied per tool (the
+        twin of ``_resolve_dir_root`` and ``_resolve_write_target``).
+
+        ``read_text()`` (NOT ``read_bytes``) so every reader shares one decode
+        and universal-newline handling. Its exceptions are deliberately NOT
+        caught: an undecodable file must surface through ``execute()``'s
+        never-raise wrapper as ``error: tool '<name>' failed: ...``, not be
+        misreported as "not found". Callers MUST have run ``_reject_unsafe``
+        first; this half assumes *path* is non-empty and textually safe.
+        """
         for root in (self.artifacts_dir, self.workspace_root):
             candidate = root / path
             if self._within(candidate, root) and candidate.is_file():
                 return candidate.read_text()
-        return f"error: file not found under artifacts or workspace: {path!r}"
+        return None
 
     def _head_file(self, args: dict[str, Any]) -> str:
         """Return the first *max_lines* lines of *path* -- a bounded top-of-file
@@ -520,33 +546,24 @@ class ToolRegistry:
             return (
                 f"error: read_lines 'start' ({start}) must be <= 'end' ({end})"
             )
-        # Precedence: artifacts_dir FIRST, then workspace_root -- identical to
-        # read_file/head_file/tail_file, so all read the SAME copy. A symlink
-        # escaping both roots fails _within and is never read (falls through to
-        # "not found").
-        for root in (self.artifacts_dir, self.workspace_root):
-            candidate = root / path
-            if self._within(candidate, root) and candidate.is_file():
-                # read_text() (NOT read_bytes) so decoding matches read_file; an
-                # undecodable file raises here and execute()'s wrapper turns it
-                # into an "error:" observation.
-                text = candidate.read_text()
-                # splitlines(keepends=True) preserves each line's terminator and
-                # round-trips exactly ("".join(lines) == text).
-                lines = text.splitlines(keepends=True)
-                total = len(lines)
-                # start past EOF is an error (unlike the lenient end-clamp) so
-                # the caller learns the file is shorter than the window start.
-                if start > total:
-                    return (
-                        f"error: read_lines 'start' ({start}) is past end of "
-                        f"file ({total} lines): {path!r}"
-                    )
-                # 1-based inclusive [start, end] -> 0-based slice [start-1:end];
-                # end is leniently clamped by the slice (end > total yields lines
-                # start..last), matching Python slice semantics -- NO trailer.
-                return "".join(lines[start - 1 : end])
-        return f"error: file not found under artifacts or workspace: {path!r}"
+        text = self._read_rooted_text(path)
+        if text is None:
+            return f"error: file not found under artifacts or workspace: {path!r}"
+        # splitlines(keepends=True) preserves each line's terminator and
+        # round-trips exactly ("".join(lines) == text).
+        lines = text.splitlines(keepends=True)
+        total = len(lines)
+        # start past EOF is an error (unlike the lenient end-clamp) so the
+        # caller learns the file is shorter than the window start.
+        if start > total:
+            return (
+                f"error: read_lines 'start' ({start}) is past end of "
+                f"file ({total} lines): {path!r}"
+            )
+        # 1-based inclusive [start, end] -> 0-based slice [start-1:end]; end is
+        # leniently clamped by the slice (end > total yields lines start..last),
+        # matching Python slice semantics -- NO trailer.
+        return "".join(lines[start - 1 : end])
 
     def _list_files(self, args: dict[str, Any]) -> str:
         """List entries of *path* (default '.') in workspace_root or artifacts_dir."""
@@ -849,22 +866,12 @@ class ToolRegistry:
         # path_a's error wins when BOTH paths are bad (D6). Each path mirrors
         # read_file's guard shape verbatim: the shared _reject_unsafe (so an
         # empty path yields the generic "empty path is not allowed", NOT a
-        # tool-specific message), then the artifacts_dir-FIRST / workspace_root-
-        # second _within resolution (so a symlink escaping both roots fails the
-        # gate and is never read, and diff_files(x, x) reads the SAME copy
-        # read_file(x) reads).
+        # tool-specific message), then _read_rooted_text (so diff_files(x, x)
+        # reads the SAME copy read_file(x) reads).
         rejection = self._reject_unsafe(path_a)
         if rejection is not None:
             return rejection
-        content_a: str | None = None
-        for root in (self.artifacts_dir, self.workspace_root):
-            candidate = root / path_a
-            if self._within(candidate, root) and candidate.is_file():
-                # read_text() may raise on an undecodable (binary) file; the
-                # exception propagates to execute()'s never-raise wrapper, which
-                # surfaces it as an "error: tool 'diff_files' failed: ..." obs.
-                content_a = candidate.read_text()
-                break
+        content_a = self._read_rooted_text(path_a)
         if content_a is None:
             return f"error: file not found under artifacts or workspace: {path_a!r}"
 
@@ -872,12 +879,7 @@ class ToolRegistry:
         rejection = self._reject_unsafe(path_b)
         if rejection is not None:
             return rejection
-        content_b: str | None = None
-        for root in (self.artifacts_dir, self.workspace_root):
-            candidate = root / path_b
-            if self._within(candidate, root) and candidate.is_file():
-                content_b = candidate.read_text()
-                break
+        content_b = self._read_rooted_text(path_b)
         if content_b is None:
             return f"error: file not found under artifacts or workspace: {path_b!r}"
 
@@ -1086,10 +1088,9 @@ class ToolRegistry:
         what ``_resolve_write_target`` did for the write family. It owns
         everything up to and including "how many lines are there?": ``max_lines``
         coercion and its tool-blamed rejection (nothing is read on rejection),
-        the ``artifacts_dir``-FIRST / ``workspace_root``-second ``_within``
-        resolution -- so every reader sees the SAME copy -- the ``read_text()``
-        decode, the keepends split, the verbatim (untruncated) return, and the
-        not-found message.
+        the rooted read (delegated to ``_read_rooted_text``, so every reader
+        sees the SAME copy), the keepends split, the verbatim (untruncated)
+        return, and the not-found message.
 
         WHY the seam is drawn AFTER the guards, with ``_reject_unsafe`` and the
         tool-blamed empty-path error deliberately left in the CALLERS: each
@@ -1114,24 +1115,14 @@ class ToolRegistry:
         max_lines = self._coerce_positive_int(args.get("max_lines", 40))
         if max_lines is None:
             return f"error: {tool} 'max_lines' must be a positive integer"
-        # Precedence: artifacts_dir FIRST, then workspace_root -- identical to
-        # read_file, so head_file/tail_file/read_file read the SAME copy. A
-        # symlink escaping both roots fails _within and is never read (falls
-        # through to "not found").
-        for root in (self.artifacts_dir, self.workspace_root):
-            candidate = root / path
-            if self._within(candidate, root) and candidate.is_file():
-                # read_text() (NOT read_bytes) so a short file is byte-identical
-                # to read_file, sharing the same universal-newline handling; an
-                # undecodable file raises here and execute()'s wrapper turns it
-                # into an "error:" observation.
-                text = candidate.read_text()
-                # splitlines(keepends=True) preserves each line's terminator and
-                # round-trips exactly ("".join(lines) == text), so the
-                # not-truncated path returns the file verbatim.
-                lines = text.splitlines(keepends=True)
-                total = len(lines)
-                if total <= max_lines:
-                    return text
-                return render(lines, max_lines, total)
-        return f"error: file not found under artifacts or workspace: {path!r}"
+        text = self._read_rooted_text(path)
+        if text is None:
+            return f"error: file not found under artifacts or workspace: {path!r}"
+        # splitlines(keepends=True) preserves each line's terminator and
+        # round-trips exactly ("".join(lines) == text), so the not-truncated
+        # path returns the file verbatim (byte-identical to read_file).
+        lines = text.splitlines(keepends=True)
+        total = len(lines)
+        if total <= max_lines:
+            return text
+        return render(lines, max_lines, total)

@@ -183,9 +183,102 @@ def _iter578_record_artifact(base: Path) -> None:
         assert t7.artifacts() == ["b.txt", "a/c.txt"]
 
 
+READ_LOOP: Final = "for root in (self.artifacts_dir, self.workspace_root)"
+
+
+def _iter585_read_rooted_text(base: Path) -> None:
+    """Foundry iter 585 oracle (folded here: oracle budget was 0 collected items).
+
+    ``ToolRegistry._read_rooted_text(path)`` is the ONE owner of the artifacts-first /
+    workspace-second FILE-read root loop behind read_file, read_lines, head_file,
+    tail_file and diff_files (the file-side twin of ``_resolve_dir_root``). Black-box
+    per the iter-585 spec Expected Behaviors 1-8 (B2 is a spec-stated text census).
+    Every observation literal was captured from a ``git archive 3b8b1e2`` tree on
+    this same fixture and matched the worktree byte-for-byte (33/33 calls).
+    """
+    text = TOOLS_PY.read_text(encoding="utf-8")
+    # B1/B2: one helper; the artifacts-first literal survives only there + stat_file.
+    assert text.count("def _read_rooted_text(") == 1
+    assert text.count(READ_LOOP) == 2, text.count(READ_LOOP)
+    at = text.index("def _read_rooted_text(")
+    nxt = text.find("\n    def ", at + 1)
+    assert READ_LOOP in (text[at:] if nxt == -1 else text[at:nxt])
+    at = text.index("def _stat_file(") if "def _stat_file(" in text else text.index(
+        "def stat_file(")
+    nxt = text.find("\n    def ", at + 1)
+    assert READ_LOOP in (text[at:] if nxt == -1 else text[at:nxt]), "stat_file keeps its own"
+
+    ws, art, out = base / "ws", base / "art", base / "out"
+    for d in (ws / "d", art, out):
+        d.mkdir(parents=True, exist_ok=True)
+    (ws / "x.txt").write_text("ws1\nws2\nws3\n")
+    (art / "x.txt").write_text("art1\nart2\nart3\n")
+    (art / "only.txt").write_text("only\n")
+    (ws / "other.txt").write_text("o1\no2\n")
+    (out / "secret.txt").write_text("SECRET\n")
+    (ws / "esc.txt").symlink_to(out / "secret.txt")  # escapes both roots
+    (ws / "bin.dat").write_bytes(b"\xff\xfe\x00\x80\x81")
+    tools = ToolRegistry(workspace_root=ws, artifacts_dir=art)
+
+    # B1: helper contract -- artifacts win, None on miss/dir/escape, decode errors raise.
+    assert tools._read_rooted_text("x.txt") == "art1\nart2\nart3\n"
+    assert tools._read_rooted_text("only.txt") == "only\n"
+    assert tools._read_rooted_text("other.txt") == "o1\no2\n"
+    for miss in ("esc.txt", "missing.txt", "d"):
+        assert tools._read_rooted_text(miss) is None, miss
+    try:
+        tools._read_rooted_text("bin.dat")
+    except UnicodeDecodeError:
+        pass
+    else:
+        raise AssertionError("_read_rooted_text must not swallow decode errors")
+
+    def obs(path: str) -> tuple[str, ...]:
+        calls: list[tuple[str, dict[str, object]]] = [
+            ("read_file", {"path": path}),
+            ("read_lines", {"path": path, "start": 1, "end": 2}),
+            ("head_file", {"path": path, "max_lines": 2}),
+            ("tail_file", {"path": path, "max_lines": 2}),
+            ("diff_files", {"path_a": path, "path_b": "other.txt"}),
+            ("diff_files", {"path_a": "other.txt", "path_b": path}),
+        ]
+        return tuple(str(tools.execute(n, a)) for n, a in calls)
+
+    # B3: the artifacts copy shadows the workspace copy in every read tool.
+    assert obs("x.txt") == (
+        "art1\nart2\nart3\n",
+        "art1\nart2\n",
+        "art1\nart2\n... (showing first 2 of 3 lines)",
+        "... (showing last 2 of 3 lines)\nart2\nart3\n",
+        "--- x.txt\n+++ other.txt\n@@ -1,3 +1,2 @@\n-art1\n-art2\n-art3\n+o1\n+o2\n",
+        "--- other.txt\n+++ x.txt\n@@ -1,2 +1,3 @@\n-o1\n-o2\n+art1\n+art2\n+art3\n",
+    )
+    # B4/B5: escaping symlink, missing path and directory -> HEAD's not-found string.
+    for p in ("esc.txt", "missing.txt", "d"):
+        nf = f"error: file not found under artifacts or workspace: {p!r}"
+        assert obs(p) == (nf,) * 6, p
+    assert not any("SECRET" in o for o in obs("esc.txt"))
+    # B6: an undecodable file stays execute()'s wrapped tool-failure observation.
+    why = "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+    assert obs("bin.dat") == tuple(
+        f"error: tool {n!r} failed: {why}"
+        for n in ("read_file", "read_lines", "head_file", "tail_file", "diff_files",
+                  "diff_files"))
+    # B7: diff_files error order (path_a first, then path_b safety, then path_b lookup).
+    def diff(a: str, b: str) -> str:
+        return str(tools.execute("diff_files", {"path_a": a, "path_b": b}))
+
+    assert diff("missing.txt", "../x") == (
+        "error: file not found under artifacts or workspace: 'missing.txt'")
+    assert diff("x.txt", "../x") == "error: path traversal ('..') is not allowed: '../x'"
+    assert diff("x.txt", "missing.txt") == (
+        "error: file not found under artifacts or workspace: 'missing.txt'")
+
+
 def test_iter320_resolve_dir_root_contract(tmp_path: Path) -> None:
     _b1_b2_structure()
     _iter578_record_artifact(tmp_path / "iter578")
+    _iter585_read_rooted_text(tmp_path / "iter585")
     ws, art, out = _fixture(tmp_path)
     tools = ToolRegistry(workspace_root=ws, artifacts_dir=art)
     _b3_helper(tools, ws, art)

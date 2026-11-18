@@ -59,7 +59,7 @@ _WRITE_HANDLERS: frozenset[str] = frozenset(
 )
 
 #: Behavior 6 --- the write guard must not leak into the READ side, so the
-#: read-side ``_within`` call count is pinned exactly: 7
+#: read-side ``_within`` call count is pinned exactly: 3
 #: ``self._within(candidate, root)`` plus 2 ``self._within(full, base_root)``.
 #: It was 12 when this suite shipped; factory iter 296 collapsed the resolver
 #: ``head_file`` and ``tail_file`` hand-copied into ONE shared private peek
@@ -67,7 +67,10 @@ _WRITE_HANDLERS: frozenset[str] = frozenset(
 #: ``_within`` calls of their own and the helper has one. Factory iter 573 did the
 #: same for the dir-root loop list/search/find_files hand-copied: ONE
 #: ``_resolve_dir_root`` now owns it, retiring two ``self._within(candidate, root)``.
-_READ_SIDE_WITHIN_CALLS = 9
+#: Factory iter 585 did the same for the artifacts-first FILE-read loop that
+#: read_file, read_lines, diff_files (x2) and the peek helper hand-copied: ONE
+#: ``_read_rooted_text`` now owns it, retiring four more.
+_READ_SIDE_WITHIN_CALLS = 5
 
 #: Behavior 7 --- ``_move_file`` gates two paths, so five handlers make six calls.
 _EXPECTED_HELPER_CALL_SITES = 6

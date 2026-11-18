@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-585
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- one `ToolRegistry._read_rooted_text(path) -> str | None` owns the ACT sandbox's file-READ root resolution, open-coded 5 times in loop/tools.py
+    - Candidate A2 -- delete 21 byte-identical test-helper copies (11x `_run(argv, capsys)`, 10x `_clean_env(monkeypatch)`) by moving them into one `tests/_cli_helpers.py`
+    - Candidate A3 -- one `_missing_slate(path) -> int | None` guard replaces the 5 hand-copied `error: slate file not found: <path>` / `return 2` blocks in cli.py
+    - Candidate B1 -- pay ROADMAP #302: start the two git children concurrently instead of in series inside `cli._collect`
+    - Candidate B2 -- syntax_error's pyc probe checks the cached `__pycache__` listing (a set plus a stem->names map) before it opens anything
+    - Candidate B3 -- `text_source` computes each text's content digest once per scan, and the 3 digest-memo collectors reuse it
+    winner: A1
+    ship: pending (not yet decided)
   iter-584
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla explain` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` and `run` just wrote by default
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `diff`'s added/removed symmetry owned once: one `_side_row(goal)` in `_compute_diff` and one `_side_lines(rows)` in `_render_diff`
     - Candidate B3 -- one `_slate_missing(path)` owner for the 5 hand-copied `error: slate file not found: <path>` guards
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 3b8b1e2
   iter-583
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `runs` filtered down to zero rows says so on stderr, instead of only "no runs found under the state dir."
@@ -2969,4 +2979,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-294 scouted iterations
+295 scouted iterations
