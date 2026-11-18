@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-588
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- `pla dispatch` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` just wrote (584's `explain` default, applied to the approval verb)
+    - Candidate A2 -- `pla trace --kind plan|act|check` narrows the run transcript to one step kind
+    - Candidate A3 -- `pla resume` with no `--run-dir` resumes the newest run ONLY when it is the single non-terminal run, and otherwise exits 2 listing the paste-ready candidates
+    - Candidate B1 -- `trace`/`resume --run-dir <a STATE dir>` adds one paste-ready `hint:` line pointing at 587's no-flag form
+    - Candidate B2 -- `trace`/`resume --run-dir <a FILE>` says `--run-dir is not a directory: <path>`, matching the `--state-dir` guard 587 put in the same handler
+    - Candidate B3 -- a malformed `--scripted-responses` file names the flag and the path, not a bare decoder message
+    winner: B2
+    ship: pending (not yet decided)
   iter-587
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC §4.5 is missing 6 verb-owned flags from their own bullet blocks (dispatch `--dry-run`/`--json`, resume `--json`, scan `--json`, watch `--out-dir`, diff `--dir`); close them and turn test_iter234's 8-flag placement check into a live census of every verb
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `explain --decision auto_dispatch|needs_approval|blocked` narrows the whole-slate audit to one gate verdict
     - Candidate B3 -- `runs --newer-than DAYS`: the recent-activity window that `--older-than` cannot express
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED a958872
   iter-586
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- ROADMAP #302: run the two git children concurrently, not in series
@@ -2999,4 +3009,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-297 scouted iterations
+298 scouted iterations

@@ -592,7 +592,9 @@ level --- built by that one shared function, from a third call site rather than 
 copied literal, so the key set is equal to `dispatch --json`'s by construction --- with
 the human run summary on **stderr**. It adds no exit code and no key: a run dir with
 no loadable checkpoint still exits 2 with `error: no checkpoint found in <dir>` on
-stderr and leaves stdout **empty**, never a half-formed document, and a bare
+stderr and leaves stdout **empty**, never a half-formed document (a `--run-dir` that
+is a file, such as the run's own `checkpoint.json`, exits 2 the same way with
+`error: --run-dir is not a directory: <path>`, for `resume` and `trace` alike), and a bare
 `pla resume --run-dir DIR` is byte-identical to before on stdout. What `resume` cannot do is
 advance a run whose recorded bound is already **spent**, and that dead end is now
 audible rather than silent: the budget in force is the producing run's (the two

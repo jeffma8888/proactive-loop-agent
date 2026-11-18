@@ -2699,6 +2699,22 @@ def _state_dir_guard(state_dir: Path) -> str | None:
     return None
 
 
+def _run_dir_guard(run_dir: Path) -> str | None:
+    """Reject a ``--run-dir`` that exists but is not a directory (message-or-``None``).
+
+    WHY a separate message from "no checkpoint found": the common slip after a crash
+    is pasting the run's ``checkpoint.json`` FILE instead of its directory, and
+    "no checkpoint found in .../checkpoint.json" is false and points nowhere. The
+    wording mirrors :func:`_state_dir_guard` so one handler words the same mistake
+    the same way for both flags. ``exists()``/``is_dir()`` follow symlinks, so a
+    link to a run dir is accepted and a dangling link falls through to the
+    missing-path message. It runs before any checkpoint or ``meta.json`` read.
+    """
+    if run_dir.exists() and not run_dir.is_dir():
+        return f"--run-dir is not a directory: {run_dir}"
+    return None
+
+
 def _out_target_guard(out: Path, *, flag: str = "--out") -> str | None:
     """Reject a FILE output target that cannot become a writable file (message-or-``None``).
 
@@ -6369,6 +6385,10 @@ def _cmd_resume(args: argparse.Namespace) -> int:
     its budget and re-run its ACT tools.
     """
     run_dir = Path(args.run_dir)
+    msg = _run_dir_guard(run_dir)
+    if msg is not None:
+        print(f"error: {msg}", file=sys.stderr)
+        return 2
     checkpoint = Checkpoint(run_dir / _CHECKPOINT_NAME)
     state = checkpoint.load()
     if state is None:
@@ -6938,6 +6958,10 @@ def _cmd_trace(args: argparse.Namespace) -> int:
         run_dir = newest
     else:
         run_dir = Path(args.run_dir)
+        msg = _run_dir_guard(run_dir)
+        if msg is not None:
+            print(f"error: {msg}", file=sys.stderr)
+            return 2
     state = Checkpoint(run_dir / _CHECKPOINT_NAME).load()
     if state is None:
         print(f"error: no checkpoint found in {run_dir}", file=sys.stderr)
