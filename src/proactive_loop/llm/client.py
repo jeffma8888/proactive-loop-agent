@@ -101,6 +101,36 @@ class ScriptedLLMClient:
                     f"got {type(entry).__name__}"
                 )
 
+    @staticmethod
+    def _read_script(p: Path) -> Any:
+        """Read and JSON-decode *p*, re-raising every fault with the path in it.
+
+        WHY: the CLI reads several JSON inputs (slates, checkpoints, snapshots,
+        configs), so a bare ``Expecting value`` or ``[Errno 2]`` line does not
+        say which one is broken. Each message starts with "scripted responses
+        file", the same prefix the shape faults in `from_file` use. The
+        single-argument exception form keeps ``[Errno N]`` out of ``str(exc)``.
+        """
+        try:
+            text = p.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"scripted responses file not found: {p}") from None
+        except IsADirectoryError:
+            raise IsADirectoryError(f"scripted responses file is not a file: {p}") from None
+        except UnicodeDecodeError as exc:
+            # The codec's own text ("'utf-8' codec can't decode ...") repeats the
+            # encoding; the offending byte and its offset are what locate the fault.
+            raise ValueError(
+                f"scripted responses file {p} is not valid UTF-8: "
+                f"invalid byte 0x{exc.object[exc.start]:02x} at position {exc.start}"
+            ) from exc
+        except OSError as exc:
+            raise OSError(f"scripted responses file {p}: {exc.strerror or exc}") from exc
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"scripted responses file {p} is not valid JSON: {exc}") from exc
+
     @classmethod
     def from_file(cls, path: Path) -> "ScriptedLLMClient":
         """Load a scripted client from a JSON file, validating its shape eagerly.
@@ -111,9 +141,14 @@ class ScriptedLLMClient:
         `ValueError` naming the file path (and, for a bad entry, its index), so
         the `pla` boundary reports one ``error:`` line rather than dumping a
         ``KeyError``/``AttributeError`` traceback on a first-run config typo.
+
+        Read and decode faults name the file too (see `_read_script`): a missing
+        path or a non-file raises an `OSError` subclass, and bytes that are not
+        UTF-8 or text that is not JSON raise a `ValueError`. Both classes are
+        inside main()'s boundary, so the exit code stays 1.
         """
         p = Path(path)
-        data = json.loads(p.read_text(encoding="utf-8"))
+        data = cls._read_script(p)
         if isinstance(data, dict):
             # A dict MUST carry the entries under "responses". WHY not `data["responses"]`:
             # a bare subscript on a keyless dict raises `KeyError`, which is OUTSIDE

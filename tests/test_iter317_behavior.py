@@ -31,6 +31,7 @@ from proactive_loop import cli
 from proactive_loop.models import CandidateGoal, RunState
 from tests.test_iter324_behavior import iter587_trace_newest
 from tests.test_iter325_behavior import iter588_run_dir_not_a_directory
+from tests.test_iter326_behavior import iter589_scripted_file_faults
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -363,3 +364,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     _iter586_spec_usage_required_flags()
     assert iter587_trace_newest(capsys, tmp_path / "iter587") == 5  # trace newest-run default
     assert iter588_run_dir_not_a_directory(capsys, tmp_path / "iter588") == 5  # --run-dir <file>
+    assert iter589_scripted_file_faults(capsys, tmp_path / "iter589") == 3  # script file faults

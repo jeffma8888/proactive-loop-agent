@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-589
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- a malformed, empty, missing or directory `--scripted-responses` file names the path instead of a bare decoder/errno message
+    - Candidate A2 -- the slate-reading verbs say "slate file not found" for a `--slate` that EXISTS as a directory; say `--slate is not a file: <path>`
+    - Candidate A3 -- `--workspace <a plain FILE>` says "workspace not found" for a path that exists; name the real fault
+    - Candidate B1 -- grade the README's offline `watch --out-dir` -> `diff --dir` chain in `make check` + CI, not just in prose
+    - Candidate B2 -- `make demo` exercises 587's `trace` newest-run default and proves it agrees with the explicit `--run-dir` trace
+    - Candidate B3 -- the copy-paste on-ramp migrates to the shipped short form: `make demo` runs `pla explain --json`, not `--slate .pla_runs/slate.json`
+    winner: A1
+    ship: pending (not yet decided)
   iter-588
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla dispatch` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` just wrote (584's `explain` default, applied to the approval verb)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `trace`/`resume --run-dir <a FILE>` says `--run-dir is not a directory: <path>`, matching the `--state-dir` guard 587 put in the same handler
     - Candidate B3 -- a malformed `--scripted-responses` file names the flag and the path, not a bare decoder message
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 2139f4d
   iter-587
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- SPEC §4.5 is missing 6 verb-owned flags from their own bullet blocks (dispatch `--dry-run`/`--json`, resume `--json`, scan `--json`, watch `--out-dir`, diff `--dir`); close them and turn test_iter234's 8-flag placement check into a live census of every verb
@@ -3009,4 +3019,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-298 scouted iterations
+299 scouted iterations
