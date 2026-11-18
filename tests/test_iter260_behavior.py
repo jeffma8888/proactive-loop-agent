@@ -111,8 +111,10 @@ KINDS: Final[tuple[str, str]] = ("broken_link", "license")
 #: ``print(json.dumps(``, so ``EXPECTED_PRINT_JSON_DUMPS`` stays at 15.
 #: Moved 7 -> 12 when the ``runs``/``explain``/``verify``/``diff``/``trend`` tails
 #: joined the seam (foundry iter 548), so their one-document promise is structural.
+#: Moved 12 -> 16 when the whole-slate ``explain``, ``trace``, ``signals --summary``
+#: and ``signals`` listing tails joined the seam (foundry iter 327).
 EMITTER: Final[str] = "_emit"
-EXPECTED_EMIT_CALL_SITES: Final[int] = 12
+EXPECTED_EMIT_CALL_SITES: Final[int] = 16
 
 #: Behavior 5.  The five renderers whose open-coded dispatch tail must be GONE.
 #: (``_render_explain`` is deliberately absent: HEAD had TWO explain tails -- the
@@ -134,9 +136,11 @@ SURVIVING_RENDERERS: Final[frozenset[str]] = frozenset({"_render_prune"})
 #: ``HEAD_BLOB_SHA``; exactly six become ``_emit`` calls, so 15 remain; +1 for
 #: ``watch --json`` (foundry iter 327); -5 when ``runs``/``explain``/``verify``/
 #: ``diff``/``trend`` moved onto ``_emit`` (foundry iter 548); -1 when ``dispatch`` and
-#: ``resume`` shared one ``_report_dispatched`` ending (foundry iter 567).  A ratchet: a
-#: later iteration that consolidates more must move this number deliberately.
-EXPECTED_PRINT_JSON_DUMPS: Final[int] = 10
+#: ``resume`` shared one ``_report_dispatched`` ending (foundry iter 567); -4 when the
+#: whole-slate ``explain``, ``trace``, ``signals --summary`` and ``signals`` listing tails
+#: moved onto ``_emit`` (foundry iter 327).  A ratchet: a later iteration that
+#: consolidates more must move this number deliberately.
+EXPECTED_PRINT_JSON_DUMPS: Final[int] = 6
 
 #: Behavior 6.  The three ``_cmd_run`` sites that write to ``result_stream``
 #: instead of stdout are NOT in correspondence and must be untouched, verbatim.

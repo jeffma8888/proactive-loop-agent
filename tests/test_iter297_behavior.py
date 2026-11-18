@@ -242,8 +242,10 @@ def test_iter297_five_tails_route_through_emit(
 
     # ---- EB6 structural census over the shipped cli.py ----
     tree = ast.parse(CLI_SRC.read_text(encoding="utf-8"))
-    assert _emit_calls(tree) == 12, f"_emit call sites: {_emit_calls(tree)} != 12"
-    assert CLI_SRC.read_text(encoding="utf-8").count("print(json.dumps(") == 10, "print(json.dumps( text count != 10"
+    # 12 -> 16 and 10 -> 6 when the whole-slate explain, trace, signals --summary and
+    # signals listing tails joined the seam (foundry iter 327).
+    assert _emit_calls(tree) == 16, f"_emit call sites: {_emit_calls(tree)} != 16"
+    assert CLI_SRC.read_text(encoding="utf-8").count("print(json.dumps(") == 6, "print(json.dumps( text count != 6"
     census = _dispatch_tail_census(tree)
     funcs = {
         n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in FIVE_CMDS
@@ -253,11 +255,12 @@ def test_iter297_five_tails_route_through_emit(
         # ``_cmd_explain`` held TWO sites at HEAD; only the ``--goal-id`` one-object tail
         # (EB2) is in scope, so the whole-slate array site survives -- that is what
         # kept the file-wide count at 16 - 5 = 11 (10 since dispatch + resume shared
-        # one `_report_dispatched` ending, foundry iter 567).
-        allowed = 1 if name == "_cmd_explain" else 0
+        # one `_report_dispatched` ending, foundry iter 567). The whole-slate site joined
+        # the seam too (foundry iter 327), so _cmd_explain now holds none and two _emit calls.
+        allowed = 0
         assert _count_json_dumps_prints(fn) == allowed, f"{name}: open-coded print(json.dumps( sites != {allowed}"
         # ``_cmd_runs`` already owned one ``_emit`` for ``--summary`` (iter 314); the list tail adds one.
-        want = 2 if name == "_cmd_runs" else 1
+        want = 2 if name in ("_cmd_runs", "_cmd_explain") else 1
         assert _emit_calls(fn) == want, f"{name}: expected exactly {want} _emit( call(s), got {_emit_calls(fn)}"
         span = range(fn.lineno, (fn.end_lineno or fn.lineno) + 1)
         inside = [hit for hit in census if hit[0] in span]

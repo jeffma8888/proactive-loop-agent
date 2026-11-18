@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-590
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `pla verify` with no `--slate` reads `<state-dir>/slate.json` (584's `explain` default, applied to the citation verifier)
+    - Candidate A2 -- `pla diff --old FILE` with no `--new` compares against `<state-dir>/slate.json`, the newest scan
+    - Candidate A3 -- a `dispatch --json` refusal (exit 3 BLOCKED / exit 4 NEEDS_APPROVAL) writes one JSON object to stdout instead of 0 bytes
+    - Candidate B1 -- route the 4 remaining hand-rolled `if args.json: print(json.dumps(...)) else: print(render)` tails through the shipped `_emit` seam: explain whole-slate (cli.py:6625), trace (:6975-6986), signals --summary (:7171-7175), signals listing (:7176-7181)
+    - Candidate B2 -- one `_ranked_pairs(slate, decisions, top)` helper replaces the 5 hand-copied `pairs = list(zip(slate.ranked(), decisions)); if top is not None: pairs = pairs[:top]` blocks in the scan renderers (table :2890, markdown :2939, json :2971, csv :3036, html :3103)
+    - Candidate B3 -- `scan` and `run` share one `--snapshot` output-target pre-check (`_snapshot_out_guard(args) -> tuple[Path | None, int | None]` or similar) instead of two copy-pasted 6-line guard blocks plus two near-duplicate comment paragraphs (cli.py:5791-5796 and :6082-6088)
+    winner: B1
+    ship: pending (not yet decided)
   iter-589
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- a malformed, empty, missing or directory `--scripted-responses` file names the path instead of a bare decoder/errno message
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `make demo` exercises 587's `trace` newest-run default and proves it agrees with the explicit `--run-dir` trace
     - Candidate B3 -- the copy-paste on-ramp migrates to the shipped short form: `make demo` runs `pla explain --json`, not `--slate .pla_runs/slate.json`
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 003b82e
   iter-588
     lenses: new-capability, hardening/DX
     - Candidate A1 -- `pla dispatch` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` just wrote (584's `explain` default, applied to the approval verb)
@@ -3019,4 +3029,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-299 scouted iterations
+300 scouted iterations

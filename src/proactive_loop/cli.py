@@ -3976,6 +3976,27 @@ def _render_trace(state: RunState, run_dir: Path) -> str:
     return "\n".join([*header, *(_trace_step_line(step) for step in state.steps)])
 
 
+def _trace_json_payload(state: RunState) -> list[dict[str, object]]:
+    """Build ``trace --json``'s document: one dict per persisted step (empty -> ``[]``).
+
+    WHY each dict is spelled out rather than ``step.model_dump()``: the published key
+    set is exactly these five, and ``kind`` must serialize as a plain string (its
+    str-Enum ``.value``) -- mirroring ``_run_row``'s explicit-dict convention, so a new
+    ``LoopStep`` field can never leak into the contract unreviewed. A pure, disk-free
+    sibling of ``_render_trace`` so ``_emit`` can call exactly one of the two.
+    """
+    return [
+        {
+            "index": step.index,
+            "kind": step.kind.value,
+            "output": step.output,
+            "done": step.done,
+            "artifacts": list(step.artifacts),
+        }
+        for step in state.steps
+    ]
+
+
 # The ``:LINE`` tail a TODO-style signal appends to its path (``README.md:48``).
 # ASCII ``[0-9]`` (not ``\d``, which also matches non-ASCII digits) and ``\Z`` (not
 # ``$``, which would also match before a trailing newline) keep the strip exact.
@@ -6622,12 +6643,17 @@ def _cmd_explain(args: argparse.Namespace) -> int:
         # line (an empty slate prints the explicit "(no goals in slate)" sentinel).
         settings = _settings(args)
         ranked = slate.ranked()
-        if args.json:
-            payload = [_explain_json_payload(g, gate(g, settings), settings) for g in ranked]
-            print(json.dumps(payload, indent=2))
-        else:
-            blocks = [_render_explain(g, gate(g, settings), settings) for g in ranked]
-            print("\n\n".join(blocks) if blocks else "(no goals in slate)")
+        _emit(
+            as_json=args.json,
+            payload=lambda: [
+                _explain_json_payload(g, gate(g, settings), settings) for g in ranked
+            ],
+            human=lambda: (
+                "\n\n".join(_render_explain(g, gate(g, settings), settings) for g in ranked)
+                if ranked
+                else "(no goals in slate)"
+            ),
+        )
         return 0
 
     goal = slate.get(args.goal_id)
@@ -6966,24 +6992,12 @@ def _cmd_trace(args: argparse.Namespace) -> int:
     if state is None:
         print(f"error: no checkpoint found in {run_dir}", file=sys.stderr)
         return 2
-    if args.json:
-        # The ENTIRE stdout must parse as one JSON array (empty -> []); no prose.
-        # Each dict is built explicitly so `kind` serializes as a plain string
-        # (its str-Enum .value) and the key set is exactly the contract's five --
-        # mirroring _run_row's explicit-dict convention.
-        rows = [
-            {
-                "index": step.index,
-                "kind": step.kind.value,
-                "output": step.output,
-                "done": step.done,
-                "artifacts": list(step.artifacts),
-            }
-            for step in state.steps
-        ]
-        print(json.dumps(rows, indent=2))
-    else:
-        print(_render_trace(state, run_dir))
+    # --json selects a rendering only: both guards above already decided the exit code.
+    _emit(
+        as_json=args.json,
+        payload=lambda: _trace_json_payload(state),
+        human=lambda: _render_trace(state, run_dir),
+    )
     return 0
 
 
@@ -7168,17 +7182,24 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         # NOT the per-signal listing. --json emits the {workspace_root, summary,
         # total} object; otherwise the human count table (kinds ascending, total
         # last). Selection (kind/min_weight/collector) is unchanged.
-        if args.json:
-            payload = _signals_summary_payload(snapshot, kind, min_weight, exclude_paths, baseline)
-            print(json.dumps(payload, indent=2))
-        else:
-            print(_render_signals_summary(snapshot, kind, min_weight, exclude_paths, baseline))
-    elif args.json:
-        # The ENTIRE stdout must parse as one JSON object; no human trailer.
-        payload = _signals_json_payload(snapshot, kind, min_weight, exclude_paths, baseline)
-        print(json.dumps(payload, indent=2))
+        _emit(
+            as_json=args.json,
+            payload=lambda: _signals_summary_payload(
+                snapshot, kind, min_weight, exclude_paths, baseline
+            ),
+            human=lambda: _render_signals_summary(
+                snapshot, kind, min_weight, exclude_paths, baseline
+            ),
+        )
     else:
-        print(_render_signals(snapshot, kind, min_weight, exclude_paths, baseline))
+        # The per-signal listing; _emit keeps its --json stdout ONE JSON object.
+        _emit(
+            as_json=args.json,
+            payload=lambda: _signals_json_payload(
+                snapshot, kind, min_weight, exclude_paths, baseline
+            ),
+            human=lambda: _render_signals(snapshot, kind, min_weight, exclude_paths, baseline),
+        )
     if timings is not None:
         # A stderr TRAILER, printed after the stdout view so the primary output
         # leads when both streams share a terminal. Nothing above this line

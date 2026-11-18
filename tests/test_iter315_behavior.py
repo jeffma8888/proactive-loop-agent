@@ -168,7 +168,8 @@ def _b5_structure() -> None:
         assert _calls(fn, "_render_run_summary") == 0, verb
         assert "print(json.dumps(" not in (ast.get_source_segment(src, fn) or "?"), verb
     assert _calls(top["_cmd_dispatch"], "_execute_goal") == 1  # (d)
-    assert src.count("print(json.dumps(") == 10  # (e)
+    # 10 -> 6: four read-only tails moved onto _emit (foundry iter 327).
+    assert src.count("print(json.dumps(") == 6  # (e)
 
 
 def test_iter315_dispatch_and_resume_share_one_run_report_ending(tmp_path: Path) -> None:
