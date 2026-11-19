@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-592
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- an unconfigured scripted provider refuses BEFORE the collect, not after it
+    - Candidate A2 -- `watch` reuses the previous slate when a tick's snapshot is unchanged (opt-in), saving one paid synthesis call per idle tick
+    - Candidate A3 -- syntax_error's pyc probe stops linear-scanning `__pycache__` per file: 113,556 `str.startswith` calls per warm tick
+    - Candidate B1 -- README `## CLI` table rows omit 4 shipped verb flags; add the fix plus a live row-vs-argparse census
+    - Candidate B2 -- "Global flags" is false as written: `pla --provider scripted runs` and `pla --state-dir X runs` exit 2
+    - Candidate B3 -- the README `### Exit codes` table does not cover iter 588's and 589's new fault paths
+    winner: B1
+    ship: pending (not yet decided)
   iter-591
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- `run`'s three hand-copied `--json` result tails collapse into one local emitter
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- test_iter253's 8 serial `pla run` children run concurrently in one fixture
     - Candidate B3 -- todos `_scan_items` builds line text only for candidate lines (re-measured 580 A3)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED af0b7e3
   iter-590
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla verify` with no `--slate` reads `<state-dir>/slate.json` (584's `explain` default, applied to the citation verifier)
@@ -3039,4 +3049,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-301 scouted iterations
+302 scouted iterations

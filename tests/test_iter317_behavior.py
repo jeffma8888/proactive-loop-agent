@@ -34,6 +34,7 @@ from tests.test_iter325_behavior import iter588_run_dir_not_a_directory
 from tests.test_iter326_behavior import iter589_scripted_file_faults
 from tests.test_iter327_behavior import iter590_emit_tails
 from tests.test_iter328_behavior import iter591_live_count_memo
+from tests.test_iter329_behavior import iter592_readme_cli_census
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -369,3 +370,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     assert iter589_scripted_file_faults(capsys, tmp_path / "iter589") == 3  # script file faults
     assert iter590_emit_tails(capsys, monkeypatch, tmp_path / "iter590") == 5  # --json tails on _emit
     assert iter591_live_count_memo(monkeypatch, tmp_path / "iter591") == 9  # live-count memo
+    assert iter592_readme_cli_census() == 7  # README CLI rows x build_parser census
