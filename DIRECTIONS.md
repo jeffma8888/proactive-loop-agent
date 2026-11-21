@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-596
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- `pla resume` with no `--run-dir` resumes the single non-terminal run under `<state-dir>`, and otherwise exits 2 listing paste-ready candidates
+    - Candidate A2 -- a `dispatch`/`run` that ends `budget_exhausted` or `failed` prints one paste-ready `next: ... pla resume --run-dir <dir> ...` line on stderr
+    - Candidate A3 -- `pla diff --old FILE` with no `--new` compares against `<state-dir>/slate.json` (re-proposal of 595 B1 / 590 A2)
+    - Candidate B1 -- one `_ranked_pairs(slate, decisions, top)` helper replaces the 5 hand-copied pair-and-truncate blocks in the scan renderers
+    - Candidate B2 -- `scan` and `run` share one `--snapshot` output pre-check instead of two copy-pasted guard blocks and two near-duplicate comment paragraphs
+    - Candidate B3 -- one `_resolve_slate_arg(args) -> Path | None` owns slate-path resolution plus the "slate file not found" refusal for dispatch and explain (and verify's explicit form)
+    winner: B1
+    ship: pending (not yet decided)
   iter-595
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `--workspace ""` exits 2 ("--workspace must not be empty") at the one `_checked_workspace` seam instead of scanning the cwd
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `scan`'s human table ends with one paste-ready `next: pla dispatch --title '<top goal>'` line on STDERR
     - Candidate B3 -- CI publishes the replayed demo slate as a GitHub job summary (`--format markdown >> "$GITHUB_STEP_SUMMARY"`)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 33e1261
   iter-594
     lenses: new-capability, hardening/DX
     - Candidate A1 -- re-land `pla dispatch` with no `--slate` reading `<state-dir>/slate.json`, fixing the roster-census revert
@@ -3079,4 +3089,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-305 scouted iterations
+306 scouted iterations

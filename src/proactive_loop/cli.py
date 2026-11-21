@@ -2885,6 +2885,14 @@ def _stream_dir_producer_hint(stream_dir: Path) -> str:
     )
 
 
+def _ranked_pairs(
+    slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
+) -> list[tuple[CandidateGoal, DispatchDecision]]:
+    """First ``top`` ranked (goal, decision) pairs: ONE seam so every scan format agrees."""
+    pairs = list(zip(slate.ranked(), decisions))
+    return pairs if top is None else pairs[:top]
+
+
 def _render_table(
     slate: GoalSlate, decisions: list[DispatchDecision], top: int | None = None
 ) -> str:
@@ -2903,9 +2911,7 @@ def _render_table(
     """
     header = f"{'#':>2}  {'DECISION':<14} {'SCORE':>7}  {'CATEGORY':<13} TITLE"
     lines = [header, "-" * max(len(header), 60)]
-    pairs = list(zip(slate.ranked(), decisions))
-    if top is not None:
-        pairs = pairs[:top]
+    pairs = _ranked_pairs(slate, decisions, top)
     for rank, (goal, decision) in enumerate(pairs, start=1):
         lines.append(
             f"{rank:>2}  {decision.decision.value:<14} {goal.score:>7.2f}  "
@@ -2952,9 +2958,7 @@ def _render_markdown(
         "| # | decision | score | category | title |",
         "| --- | --- | --- | --- | --- |",
     ]
-    pairs = list(zip(slate.ranked(), decisions))
-    if top is not None:
-        pairs = pairs[:top]
+    pairs = _ranked_pairs(slate, decisions, top)
     for rank, (goal, decision) in enumerate(pairs, start=1):
         lines.append(
             f"| {rank} | {_md_cell(decision.decision.value)} | {goal.score:.2f} "
@@ -2984,9 +2988,7 @@ def _scan_json_payload(
     ``goals`` -- ``top`` only SHORTENS the array; it never adds a count field.
     ``None`` yields the full array (byte-identical to the pre-flag payload).
     """
-    pairs = list(zip(slate.ranked(), decisions))
-    if top is not None:
-        pairs = pairs[:top]
+    pairs = _ranked_pairs(slate, decisions, top)
     return {
         "workspace_root": slate.workspace_root,
         "goals": [
@@ -3049,9 +3051,7 @@ def _render_csv(
     buffer = io.StringIO()
     writer = csv.writer(buffer)  # default = RFC-4180, QUOTE_MINIMAL
     writer.writerow(["rank", "decision", "score", "category", "title"])
-    pairs = list(zip(slate.ranked(), decisions))
-    if top is not None:
-        pairs = pairs[:top]
+    pairs = _ranked_pairs(slate, decisions, top)
     for rank, (goal, decision) in enumerate(pairs, start=1):
         writer.writerow(
             [
@@ -3116,9 +3116,7 @@ def _render_html(
     job, not this pure renderer's). Returns the document with NO trailing newline; the
     caller ``print``s it, so stdout ends with exactly one ``\n`` after ``</html>``.
     """
-    pairs = list(zip(slate.ranked(), decisions))
-    if top is not None:
-        pairs = pairs[:top]
+    pairs = _ranked_pairs(slate, decisions, top)
     body_rows = [
         "    <tr>"
         f"<td>{rank}</td>"
