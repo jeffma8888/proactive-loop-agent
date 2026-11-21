@@ -1,6 +1,26 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-594
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- re-land `pla dispatch` with no `--slate` reading `<state-dir>/slate.json`, fixing the roster-census revert
+    - Candidate A2 -- `pla trace --kind {plan,act,check}` narrows a run transcript to one step kind
+    - Candidate A3 -- per-category auto-dispatch thresholds (`PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0`), ROADMAP #191
+    - Candidate B1 -- an empty path flag (`--workspace ""`, `--slate ""`, `--state-dir ""`, ...) exits 2 with "must not be empty" and does not silently become the cwd
+    - Candidate B2 -- the test-corpus censuses also see UNTRACKED new test modules, so the 593-class revert is caught in-loop instead of at preship
+    - Candidate B3 -- `pla --provider scripted runs` (a global flag before the verb) exits 2 with a paste-ready "goes after the verb" hint, not `invalid choice: 'scripted'`
+    winner: A1
+    ship: pending (not yet decided)
+  iter-593
+    lenses: narrative-and-docs, new-capability
+    - Candidate A1 -- README "Global flags" paragraph is false as written: `--provider`/`--scripted-responses`/`--state-dir`/`-v` are per-verb flags, so `pla --provider scripted runs` exits 2
+    - Candidate A2 -- README `### Exit codes` table lags the shipped `_EXIT_CODES` source of truth (589's "malformed" scripted script, 588's `--run-dir` not-a-directory)
+    - Candidate A3 -- README never says that `--workspace <a FILE>` reports "workspace not found" (exit 2): document today's message, so the exit-code row stops implying the path is absent
+    - Candidate B1 -- `pla dispatch` with no `--slate` reads `<state-dir>/slate.json`, the file `scan` just wrote
+    - Candidate B2 -- `explain --decision auto_dispatch|needs_approval|blocked` narrows the whole-slate audit to one gate verdict
+    - Candidate B3 -- `trace --kind plan|act|check` narrows a run transcript to one step kind
+    winner: B1
+    ship: REVERTED
   iter-592
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- an unconfigured scripted provider refuses BEFORE the collect, not after it
@@ -10,7 +30,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- "Global flags" is false as written: `pla --provider scripted runs` and `pla --state-dir X runs` exit 2
     - Candidate B3 -- the README `### Exit codes` table does not cover iter 588's and 589's new fault paths
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED c26c147
   iter-591
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- `run`'s three hand-copied `--json` result tails collapse into one local emitter
@@ -3049,4 +3069,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-302 scouted iterations
+304 scouted iterations

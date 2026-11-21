@@ -179,7 +179,8 @@ def _b4_b5_b7_selector_refusals_gate_unchanged_and_documented(
     rows = [line for line in below.splitlines() if line.startswith("| `dispatch`")]
     assert len(rows) == 1, rows
     assert "--title TITLE" in rows[0] and "exactly one of" in rows[0]
-    assert "`pla dispatch --slate slate.json --goal-id ID|--title T [--yes]`" in SPEC.read_text(encoding="utf-8")
+    # foundry iter 593: dispatch --slate became optional, so the SPEC usage line brackets it
+    assert "`pla dispatch [--slate FILE] --goal-id ID|--title T [--yes]`" in SPEC.read_text(encoding="utf-8")
 
 
 def test_iter311_dispatch_by_title_b1_to_b7(

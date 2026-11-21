@@ -104,7 +104,10 @@ PRIOR_RUN_ARTIFACT = frozenset(
 # behavior 3b proves the merge is load-bearing rather than decorative.
 HANDLER_ENFORCED_REQUIRED: dict[str, frozenset[str]] = {
     "diff": frozenset({"--old", "--new", "--dir"}),
-    "dispatch": frozenset({"--goal-id", "--title"}),
+    # Since foundry iter 593 `dispatch --slate` defaults to <state_dir>/slate.json,
+    # exactly like `explain` below: absent on a fresh checkout, so `_cmd_dispatch`
+    # exits 2 naming it and dispatch stays a prior-run verb.
+    "dispatch": frozenset({"--slate", "--goal-id", "--title"}),
     # Since factory iter 584 `explain --slate` defaults to <state_dir>/slate.json,
     # so argparse no longer marks it required -- but on a fresh checkout that file
     # does not exist and `_cmd_explain` exits 2 naming it. The reader still needs a

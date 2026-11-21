@@ -936,7 +936,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_dispatch = sub.add_parser(
         "dispatch", parents=[globals_], help="Dispatch one goal from a saved slate."
     )
-    p_dispatch.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
+    # `--slate` is OPTIONAL, mirroring `explain`: omitted, it resolves to the
+    # `<state_dir>/slate.json` that `scan`/`run` just wrote, so the approve-then-act arc
+    # needs no pasted path. The goal SELECTOR stays required -- defaulting the file is
+    # safe, guessing the goal would not be. `verify --slate` stays required.
+    p_dispatch.add_argument(
+        "--slate",
+        default=None,
+        help=(
+            "Path to a slate JSON from `scan` (default <state_dir>/slate.json, the "
+            "file `scan`/`run` write; the resolved default is echoed on stderr)."
+        ),
+    )
     p_dispatch.add_argument(
         "--goal-id",
         default=None,
@@ -5957,6 +5968,14 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     is EXACT after :func:`_normalize_title` and never fuzzy: this is the approval path, so
     approving by name must never become approving by guess. Exactly one selector is
     enforced here, not by an argparse group, for the same reason as ``--dry-run``/``--json``.
+
+    ``--slate`` is optional and defaults to ``<state_dir>/slate.json`` through the same
+    ``_settings`` fold ``explain`` uses, because the approval a human types is the one
+    step of scan -> approve -> act that still made them paste a path. It resolves only
+    AFTER the two argv-shape checks, so a malformed invocation is never reported as a
+    missing file. A defaulted path is echoed on stderr (``dispatching from slate:``) once
+    it is known to exist, so the human sees which slate the act came from; an explicit
+    ``--slate`` is echoed by nobody, since the operator just typed it.
     """
     # Exactly one output mode. Refused FIRST -- before the slate is even looked for --
     # because this is a fault in the ARGV SHAPE rather than in the request: it is
@@ -5972,10 +5991,14 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         print("error: dispatch needs exactly one of --goal-id or --title", file=sys.stderr)
         return 2
 
-    slate_path = Path(args.slate)
+    slate_path = (
+        Path(args.slate) if args.slate else _settings(args).state_dir / _SLATE_NAME
+    )
     if not slate_path.is_file():
         print(f"error: slate file not found: {slate_path}", file=sys.stderr)
         return 2
+    if not args.slate:
+        print(f"dispatching from slate: {slate_path}", file=sys.stderr)
 
     slate = _load_slate(slate_path)
     workspace_root = Path(slate.workspace_root) if slate.workspace_root else Path(".")

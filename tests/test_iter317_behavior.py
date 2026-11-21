@@ -35,6 +35,7 @@ from tests.test_iter326_behavior import iter589_scripted_file_faults
 from tests.test_iter327_behavior import iter590_emit_tails
 from tests.test_iter328_behavior import iter591_live_count_memo
 from tests.test_iter329_behavior import iter592_readme_cli_census
+from tests.test_iter330_behavior import iter593_dispatch_default_slate
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -275,8 +276,9 @@ def _iter584_explain_default_slate(
     assert "[--slate" in usage, usage
     flat = " ".join(helptext.split())
     assert "slate.json" in flat and "state_dir" in flat.replace("state-dir", "state_dir"), flat
-    # B7: dispatch / verify still require --slate (argparse usage error)
-    for verb in ("dispatch", "verify"):
+    # B7: verify still requires --slate (argparse usage error); dispatch's --slate
+    # became optional, defaulting to <state_dir>/slate.json (foundry iter 593)
+    for verb in ("verify",):
         capsys.readouterr()
         with pytest.raises(SystemExit) as ex:
             cli.main([verb, "--state-dir", str(d)])
@@ -371,3 +373,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     assert iter590_emit_tails(capsys, monkeypatch, tmp_path / "iter590") == 5  # --json tails on _emit
     assert iter591_live_count_memo(monkeypatch, tmp_path / "iter591") == 9  # live-count memo
     assert iter592_readme_cli_census() == 7  # README CLI rows x build_parser census
+    assert iter593_dispatch_default_slate(capsys, monkeypatch, tmp_path / "iter593") == 8  # dispatch default slate
