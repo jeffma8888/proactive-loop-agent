@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-595
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- `--workspace ""` exits 2 ("--workspace must not be empty") at the one `_checked_workspace` seam instead of scanning the cwd
+    - Candidate A2 -- `watch` with an unconfigured scripted provider exits 1 before tick 1 instead of N x "scan n failed" then rc 0
+    - Candidate A3 -- `runs --state-dir ""` / `explain|dispatch --slate ""` refuse the empty value (rc 2) instead of listing the cwd or silently using the default
+    - Candidate B1 -- `pla diff --old FILE` with no `--new` compares against `<state-dir>/slate.json` (the newest scan)
+    - Candidate B2 -- `scan`'s human table ends with one paste-ready `next: pla dispatch --title '<top goal>'` line on STDERR
+    - Candidate B3 -- CI publishes the replayed demo slate as a GitHub job summary (`--format markdown >> "$GITHUB_STEP_SUMMARY"`)
+    winner: A1
+    ship: pending (not yet decided)
   iter-594
     lenses: new-capability, hardening/DX
     - Candidate A1 -- re-land `pla dispatch` with no `--slate` reading `<state-dir>/slate.json`, fixing the roster-census revert
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- the test-corpus censuses also see UNTRACKED new test modules, so the 593-class revert is caught in-loop instead of at preship
     - Candidate B3 -- `pla --provider scripted runs` (a global flag before the verb) exits 2 with a paste-ready "goes after the verb" hint, not `invalid choice: 'scripted'`
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 48e06fa
   iter-593
     lenses: narrative-and-docs, new-capability
     - Candidate A1 -- README "Global flags" paragraph is false as written: `--provider`/`--scripted-responses`/`--state-dir`/`-v` are per-verb flags, so `pla --provider scripted runs` exits 2
@@ -3069,4 +3079,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-304 scouted iterations
+305 scouted iterations

@@ -36,6 +36,7 @@ from tests.test_iter327_behavior import iter590_emit_tails
 from tests.test_iter328_behavior import iter591_live_count_memo
 from tests.test_iter329_behavior import iter592_readme_cli_census
 from tests.test_iter330_behavior import iter593_dispatch_default_slate
+from tests.test_iter331_behavior import iter595_empty_workspace
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -374,3 +375,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     assert iter591_live_count_memo(monkeypatch, tmp_path / "iter591") == 9  # live-count memo
     assert iter592_readme_cli_census() == 7  # README CLI rows x build_parser census
     assert iter593_dispatch_default_slate(capsys, monkeypatch, tmp_path / "iter593") == 8  # dispatch default slate
+    assert iter595_empty_workspace(capsys, monkeypatch, tmp_path / "iter595") == 4  # empty --workspace

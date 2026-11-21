@@ -2681,8 +2681,13 @@ def _checked_workspace(raw: str) -> Path | None:
     back a message like the ``*_guard`` helpers below) to keep every call site two lines and
     this rejection FIRST: ahead of ``_settings``, the output-target guards, ``create_client``
     and every collector. ``is_dir()`` never ``exists()``: a file where the root belongs is as
-    unusable as an absent one.
+    unusable as an absent one. An EMPTY value is rejected before ``Path`` sees it, because
+    ``Path("")`` is ``.``: an unset shell variable (``--workspace "$WS"``) would otherwise
+    scan the current directory at exit 0 -- the same silent wrong-tree fault, just hidden.
     """
+    if raw == "":
+        print("error: workspace not found: '' (empty --workspace)", file=sys.stderr)
+        return None
     workspace = Path(raw)
     if not workspace.is_dir():
         print(f"error: workspace not found: {workspace}", file=sys.stderr)
