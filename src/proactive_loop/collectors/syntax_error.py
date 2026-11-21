@@ -145,10 +145,16 @@ _DIGEST_SIZE: int = 16
 _PARSE_MEMO: dict[bytes, _Verdict] = {}
 _PARSE_MEMO_COUNTS: dict[str, int] = {"hits": 0, "misses": 0}
 
-# Per-__pycache__ directory listing cache: avoids re-listing the same directory
-# for every sibling .py file whose CPython pyc misses and falls through to the
-# pytest assertion-rewritten pyc probe. Cleared by ``clear_parse_memo``.
-_ITERDIR_CACHE: dict[Path, list[str]] = {}
+# Per-__pycache__ listing cache: ``(every entry name, valid pytest-rewritten pyc
+# names grouped by source stem)``, built by ONE ``iterdir`` per directory. WHY:
+# opening a pyc the listing proves absent is a doomed syscall (an interpreter
+# pyc under tests/ is usually missing, a pytest one present), and grouping by
+# stem replaces a prefix scan of the whole listing per sibling file with a dict
+# lookup. An unlistable or missing dir caches as empty, so its siblings never
+# retry. Cleared by ``clear_parse_memo`` and at the start of every collect pass,
+# so a pyc written between two ``watch`` ticks is seen on the next one.
+_PycListing = tuple[frozenset[str], dict[str, list[str]]]
+_ITERDIR_CACHE: dict[Path, _PycListing] = {}
 
 
 def clear_parse_memo() -> None:
@@ -224,42 +230,59 @@ def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
     (missing or unreadable pyc, short header, wrong magic, hash-based flags,
     mtime or size drift) is a plain ``False``: the caller falls through to
     today's read + parse, so this can only ever REMOVE work, never change a
-    verdict.
+    verdict. Only pyc names the cached ``__pycache__`` listing shows are opened:
+    a name it proves absent would fail its open anyway, so skipping it is free.
     """
-    if _pyc_header_matches(
-        importlib.util.cache_from_source(str(full)),
-        source_mtime,
-        source_size,
-    ):
-        return True
-    # Pytest assertion-rewrites produce pyc files named
-    # <stem>.<cache_tag>-pytest-<VER>.pyc in the same __pycache__ dir,
-    # where VER is a pytest version string like 9.1.1.
-    # Trust them with the same 16-byte timestamp-header check.
     cache_dir = full.parent / "__pycache__"
-    tag = sys.implementation.cache_tag
-    stem = full.stem
-    prefix = f"{stem}.{tag}-pytest-"
+    names, pytest_pycs = _pycache_listing(cache_dir)
+    interpreter_pyc = Path(importlib.util.cache_from_source(str(full)))
+    # A ``sys.pycache_prefix`` relocates the interpreter pyc outside the listed
+    # dir, where the listing proves nothing, so only then is it probed blind.
+    if (
+        interpreter_pyc.name in names or interpreter_pyc.parent != cache_dir
+    ) and _pyc_header_matches(str(interpreter_pyc), source_mtime, source_size):
+        return True
+    return any(
+        _pyc_header_matches(str(cache_dir / name), source_mtime, source_size)
+        for name in pytest_pycs.get(full.stem, ())
+    )
+
+
+def _pycache_listing(cache_dir: Path) -> _PycListing:
+    """Return *cache_dir*'s cached listing, listing it at most once per pass.
+
+    Pytest assertion-rewrites produce ``<stem>.<cache_tag>-pytest-<VER>.pyc``,
+    VER a pytest version string like ``9.1.1`` (digits and single interior
+    dots). VER can never contain the ``.<tag>-pytest-`` marker, so the stem is
+    everything before its LAST occurrence -- the same split a per-stem
+    ``startswith`` prefix test makes. Names keep listing order, so the probe
+    order is exactly what the old linear scan used.
+    """
+    listing = _ITERDIR_CACHE.get(cache_dir)
+    if listing is not None:
+        return listing
     try:
-        names = _ITERDIR_CACHE.get(cache_dir)
-        if names is None:
-            names = [entry.name for entry in cache_dir.iterdir()]
-            _ITERDIR_CACHE[cache_dir] = names
-        for name in names:
-            if (
-                name.startswith(prefix)
-                and name.endswith(".pyc")
-                and ((_ver := name[len(prefix) : -4]) != "")
-                and _ver[0].isdigit()
-                and not _ver.endswith(".")
-                and ".." not in _ver
-                and all(c.isdigit() or c == "." for c in _ver)
-            ):
-                if _pyc_header_matches(str(cache_dir / name), source_mtime, source_size):
-                    return True
+        entries = [entry.name for entry in cache_dir.iterdir()]
     except OSError:
-        pass
-    return False
+        entries = []
+    marker = f".{sys.implementation.cache_tag}-pytest-"
+    pytest_pycs: dict[str, list[str]] = {}
+    for name in entries:
+        stem, found, rest = name.rpartition(marker)
+        if not found or not name.endswith(".pyc"):
+            continue
+        ver = rest[:-4]
+        if (
+            ver
+            and ver[0].isdigit()
+            and not ver.endswith(".")
+            and ".." not in ver
+            and all(c.isdigit() or c == "." for c in ver)
+        ):
+            pytest_pycs.setdefault(stem, []).append(name)
+    listing = (frozenset(entries), pytest_pycs)
+    _ITERDIR_CACHE[cache_dir] = listing
+    return listing
 
 
 def _pyc_header_matches(
@@ -382,6 +405,8 @@ class SyntaxErrorCollector(BaseCollector):
         """Walk *root* and return one signal per un-parseable ``*.py`` file."""
         if not root.is_dir():
             return []
+        # A fresh pass must see pyc files written since the last one (``watch``).
+        _ITERDIR_CACHE.clear()
 
         # Collect (relpath, signal) pairs so we can order deterministically
         # regardless of the order the shared traversal serves entries in.

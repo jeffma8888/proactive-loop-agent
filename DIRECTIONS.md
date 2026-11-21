@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-597
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- one `_resolve_slate_arg` owns the default slate path and the "slate file not found" refusal for dispatch, explain, verify and diff
+    - Candidate A2 -- scan and run share one `--snapshot` output pre-check
+    - Candidate A3 -- one shared FIFO `_remember(memo, key, value, cap)` replaces the 4 hand-copied bounded-memo eviction functions in the collectors
+    - Candidate B1 -- syntax_error's pyc probe consults the cached `__pycache__` listing BEFORE opening anything: 284 of 695 pyc opens per warm scan are doomed ENOENTs
+    - Candidate B2 -- `watch` stops paying one synthesis call per idle tick: reuse the previous slate when the snapshot's signals are unchanged (opt-in)
+    - Candidate B3 -- todos + test_posture strip the root prefix as a string once per directory instead of calling `Path.relative_to` per file (802 calls per scan)
+    winner: B1
+    ship: pending (not yet decided)
   iter-596
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla resume` with no `--run-dir` resumes the single non-terminal run under `<state-dir>`, and otherwise exits 2 listing paste-ready candidates
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `scan` and `run` share one `--snapshot` output pre-check instead of two copy-pasted guard blocks and two near-duplicate comment paragraphs
     - Candidate B3 -- one `_resolve_slate_arg(args) -> Path | None` owns slate-path resolution plus the "slate file not found" refusal for dispatch and explain (and verify's explicit form)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 6381b1e
   iter-595
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- `--workspace ""` exits 2 ("--workspace must not be empty") at the one `_checked_workspace` seam instead of scanning the cwd
@@ -3089,4 +3099,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-306 scouted iterations
+307 scouted iterations
