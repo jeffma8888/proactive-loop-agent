@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-598
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- syntax_error checks its parse-verdict memo BEFORE the pyc probe when the text is already in the scan cache: 412 pyc opens per warm tick drop to ~0
+    - Candidate A2 -- todos and test_posture strip the root prefix as a string instead of calling `Path.relative_to` per file (re-measured 597 B3)
+    - Candidate A3 -- ROADMAP #302: start the two git children concurrently, re-measured at today's tree
+    - Candidate B1 -- `pla --help`'s `exit codes:` block (the declared machine-readable source of truth) omits the most common exit-2 producer, `--workspace`, and every `diff` selector fault; the README table names them
+    - Candidate B2 -- README "Global flags" paragraph (line 461) is false: `pla --provider scripted runs` exits 2 with `invalid choice: 'scripted'`
+    - Candidate B3 -- `scan`/`run` workspace paragraph (README 474) and exit row 2 should state the 595 empty-value case and the FILE case in the message users actually see
+    winner: B2
+    ship: pending (not yet decided)
   iter-597
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one `_resolve_slate_arg` owns the default slate path and the "slate file not found" refusal for dispatch, explain, verify and diff
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `watch` stops paying one synthesis call per idle tick: reuse the previous slate when the snapshot's signals are unchanged (opt-in)
     - Candidate B3 -- todos + test_posture strip the root prefix as a string once per directory instead of calling `Path.relative_to` per file (802 calls per scan)
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED ddabd21
   iter-596
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- `pla resume` with no `--run-dir` resumes the single non-terminal run under `<state-dir>`, and otherwise exits 2 listing paste-ready candidates
@@ -3099,4 +3109,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-307 scouted iterations
+308 scouted iterations

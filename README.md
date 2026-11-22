@@ -458,9 +458,12 @@ The second tick is deliberately not a replay of the first: one goal is re-scored
 
 Two of those perceivers are **relational** — they report a contradiction *between* two artifacts rather than a fact about one. `lockfile_drift` pairs a dependency manifest with its sibling lockfile (missing, or older than the manifest). `broken_link` pairs a relative Markdown link with the filesystem that disproves it: for every `*.md` file under the workspace it emits one `kind="broken_link"` signal per inline `[text](target)` link or `![alt](target)` image whose target does not exist, resolved relative to the *containing file's* directory the way a renderer resolves it, with the line number in the summary and the containing file in `path`. It stays deliberately quiet where a finding would be noise: a fragment/query is stripped before the existence test (`real.md#heading` tests `real.md`), links inside a fenced block or a backtick inline-code span are code samples and are skipped, and any target that is not a workspace path — a URL scheme, a protocol-relative `//host`, a site-root `/path`, or a bare `#anchor` — is ignored rather than fetched, so the runtime stays offline-first. Reference-style links and raw HTML `<a href>` tags are out of scope.
 
-Global flags: `--provider`, `--scripted-responses`, `--state-dir` (also settable
-via `PLA_*` environment variables). Run `pla --version` to print the installed
-version (sourced from `proactive_loop.__version__`).
+Shared flags: `--provider`, `--scripted-responses`, `--state-dir` are accepted by
+every verb and go AFTER it (`pla runs --provider scripted --state-dir .pla_runs`);
+placed before the verb, argparse rejects them (`pla --provider scripted runs` exits
+2 with `invalid choice: 'scripted'`). Each is also settable via `PLA_*` environment
+variables. The only top-level flag is `--version`: run `pla --version` to print the
+installed version (sourced from `proactive_loop.__version__`).
 
 Add `-v` (or `-vv`) after any subcommand to raise runtime log verbosity on
 stderr: `-v` sets the INFO level and `-vv` the DEBUG level (no DEBUG emit sites

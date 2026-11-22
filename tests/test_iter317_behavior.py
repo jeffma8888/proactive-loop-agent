@@ -39,6 +39,7 @@ from tests.test_iter330_behavior import iter593_dispatch_default_slate
 from tests.test_iter331_behavior import iter595_empty_workspace
 from tests.test_iter332_behavior import iter596_ranked_pairs
 from tests.test_iter333_behavior import iter597_pyc_listing
+from tests.test_iter334_behavior import iter598_shared_flags_census
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -380,3 +381,4 @@ def test_runs_older_than_filters_by_checkpoint_age(
     assert iter595_empty_workspace(capsys, monkeypatch, tmp_path / "iter595") == 4  # empty --workspace
     assert iter596_ranked_pairs() == 5  # one _ranked_pairs seam for 5 scan renderers
     assert iter597_pyc_listing(monkeypatch, tmp_path / "iter597") == 6  # pyc probe uses __pycache__ listing
+    assert iter598_shared_flags_census(capsys, monkeypatch, tmp_path / "iter598") == 7  # README shared flags x build_parser
