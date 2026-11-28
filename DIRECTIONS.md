@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-604
+    lenses: performance-and-throughput, narrative-and-docs
+    - Candidate A1 -- under `watch`, text_source keeps a bounded stat-keyed text cache ACROSS ticks, so an idle tick stops re-reading 412 unchanged files
+    - Candidate A2 -- ROADMAP #302: the two git children start concurrently through a `prefetch(root)` hook, instead of waiting in series in `cli._collect`
+    - Candidate A3 -- test_iter132/138/155 drive `pla signals` in-process through `cli.main` instead of 207 console-script children
+    - Candidate B1 -- README "caches live for exactly one scan" is now false: 5 process-lifetime collector memos (incl. 603's pyc vouch memo) are documented nowhere
+    - Candidate B2 -- exit-code-2 causes disagree in BOTH directions between `_EXIT_CODES` (the declared contract) and the README table; add a probe-driven cause census
+    - Candidate B3 -- README "`make demo` runs the following" shows 1 of the recipe's 8 graded steps; 3 of its 5 consumers are never said to run in the demo
+    winner: B1
+    ship: pending (not yet decided)
   iter-603
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one empty-path rule: the 4 `--workspace` args take 600's parse-time `type=_nonempty_path`, deleting 595's hand-rolled empty branch in `_checked_workspace`
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- test_iter132/138/155 drive `pla signals` in-process through `cli.main`, not 207 console-script children
     - Candidate B3 -- under `watch`, text_source keeps a bounded stat-keyed `(path, st_mtime_ns, st_size, st_ino)` text cache across ticks, so an idle tick stops re-reading ~411 unchanged files
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 2fe1d61
   iter-602
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- OPERATOR PIN 11-27: give the 13 zero-item harnesses (iter 583-601) their own collected tests, re-measure past 6,100, then flip the README floor to 6,100+ in one commit
@@ -3149,4 +3159,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-312 scouted iterations
+313 scouted iterations
