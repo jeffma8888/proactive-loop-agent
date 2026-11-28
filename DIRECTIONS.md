@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-603
+    lenses: simplification-and-deletion, performance-and-throughput
+    - Candidate A1 -- one empty-path rule: the 4 `--workspace` args take 600's parse-time `type=_nonempty_path`, deleting 595's hand-rolled empty branch in `_checked_workspace`
+    - Candidate A2 -- one shared FIFO `remember(memo, key, value, cap)` replaces the 4 hand-copied bounded-memo eviction bodies in the collectors
+    - Candidate A3 -- `_state_dir_guard` + `_run_dir_guard` become one `_not_a_directory_guard(path, *, flag)`, mirroring `_out_target_guard(out, *, flag=...)`
+    - Candidate B1 -- syntax_error remembers "pyc vouched for (path, st_mtime, st_size)" across scans, so a warm `watch` tick stops opening ~400 pyc files
+    - Candidate B2 -- test_iter132/138/155 drive `pla signals` in-process through `cli.main`, not 207 console-script children
+    - Candidate B3 -- under `watch`, text_source keeps a bounded stat-keyed `(path, st_mtime_ns, st_size, st_ino)` text cache across ticks, so an idle tick stops re-reading ~411 unchanged files
+    winner: B1
+    ship: pending (not yet decided)
   iter-602
     lenses: integration-and-adoption, simplification-and-deletion
     - Candidate A1 -- OPERATOR PIN 11-27: give the 13 zero-item harnesses (iter 583-601) their own collected tests, re-measure past 6,100, then flip the README floor to 6,100+ in one commit
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- one empty-path rule: `--workspace` uses 600's parse-time `_nonempty_path` and deletes 595's hand-rolled empty branch in `_checked_workspace`
     - Candidate B3 -- one shared FIFO `remember(memo, key, value, cap)` replaces the 4 hand-copied bounded-memo eviction bodies in the collectors (re-measured 597 A3)
     winner: A1
-    ship: pending (not yet decided)
+    ship: PUSHED 0155db5
   iter-601
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- the output/stream path flags that 600 did not cover refuse an EMPTY value with exit 2 instead of failing open
@@ -3139,4 +3149,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-311 scouted iterations
+312 scouted iterations

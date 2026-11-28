@@ -66,6 +66,19 @@ user), this typically covers the majority of ``*.py`` files in the test tree,
 dropping the collector from ~310 ms to ~4 ms. Neither pyc flavour is trusted
 when hash-based (flags != 0).
 
+REMEMBER A VOUCH ACROSS SCANS. ``pla watch`` re-collects every tick over a
+tree that mostly did not change, so each tick re-opened the same pyc files to
+re-prove facts that held on the previous one (measured at commit ``0155db5``:
+401 probes, about 25% of a warm self-scan). So every source ``stat`` a pyc has
+vouched for is remembered, keyed ``(path, st_mtime_ns, st_size, st_ino)``, and
+a later collect over that unchanged stat skips the probe. This is the same
+trust class as the pyc header, and finer: the header compares whole seconds
+and 32-bit sizes, the key nanoseconds, full sizes and the inode. The one
+widening: a pyc deleted after it vouched is still honoured while the source
+stat is unchanged -- the vouch was a fact about that SOURCE, not the pyc. Only
+True verdicts are stored, so an untrusted file is re-probed every tick and a
+pyc written between ticks is seen on the next one.
+
 THE ONE EXCEPTION TO "CAN'T EVEN RUN": trusting that header inherits the
 interpreter's stale-pyc blind spot. A source edited into a ``SyntaxError``
 within the SAME mtime second AND to the SAME byte size as the compile the pyc
@@ -156,6 +169,22 @@ _PARSE_MEMO_COUNTS: dict[str, int] = {"hits": 0, "misses": 0}
 _PycListing = tuple[frozenset[str], dict[str, list[str]]]
 _ITERDIR_CACHE: dict[Path, _PycListing] = {}
 
+# Hard cap on remembered pyc vouches (see the module docstring). Each entry is a
+# path string plus three ints, so 4096 entries stay well under 1 MB, and 4096
+# ``*.py`` files covers a typical service repo outright. The bound is absolute,
+# never a ratio against any checkout's file count. Past the cap the oldest entry
+# is evicted (FIFO, like ``_remember_verdict``), which costs a re-probe and
+# NEVER correctness. A cap ``<= 0`` stores nothing. Read at call time, so a test
+# may lower it.
+PYC_VOUCH_MEMO_MAX_ENTRIES: int = 4096
+
+# ``(str(path), st_mtime_ns, st_size, st_ino)`` of every source stat a pyc has
+# vouched for. Deliberately NOT cleared per collect (unlike ``_ITERDIR_CACHE``):
+# surviving between ``watch`` ticks is its whole point.
+_VouchKey = tuple[str, int, int, int]
+_PYC_VOUCH_MEMO: dict[_VouchKey, None] = {}
+_PYC_VOUCH_COUNTS: dict[str, int] = {"hits": 0}
+
 
 def clear_parse_memo() -> None:
     """Empty the parse memo and zero its counters.
@@ -171,6 +200,8 @@ def clear_parse_memo() -> None:
     _PARSE_MEMO_COUNTS["misses"] = 0
     _PYC_TRUST_COUNTS["trusted"] = 0
     _ITERDIR_CACHE.clear()
+    _PYC_VOUCH_MEMO.clear()
+    _PYC_VOUCH_COUNTS["hits"] = 0
 
 
 def parse_memo_stats() -> dict[str, int]:
@@ -215,6 +246,33 @@ def pyc_trusted_count() -> int:
     only place its work-not-done is visible.
     """
     return _PYC_TRUST_COUNTS["trusted"]
+
+
+def pyc_vouch_memo_stats() -> dict[str, int]:
+    """Return a fresh snapshot: ``{"hits", "entries"}`` of the pyc vouch memo.
+
+    ``hits`` = files skipped on a remembered vouch, without any pyc probe;
+    ``entries`` = vouches currently retained, never above
+    ``PYC_VOUCH_MEMO_MAX_ENTRIES``. Its own function rather than new
+    ``parse_memo_stats`` keys because that dict's three-key shape is a published
+    contract. A COPY, with ``entries`` DERIVED from the map so it cannot drift.
+    """
+    return {"hits": _PYC_VOUCH_COUNTS["hits"], "entries": len(_PYC_VOUCH_MEMO)}
+
+
+def _remember_vouch(key: _VouchKey) -> None:
+    """Retain one pyc vouch under the cap, evicting the OLDEST entries first.
+
+    FIFO for the same determinism reason as ``_remember_verdict``; a cap of
+    ``<= 0`` disables retention so "entries never exceeds the cap" holds for
+    every cap value.
+    """
+    cap = PYC_VOUCH_MEMO_MAX_ENTRIES
+    if cap <= 0:
+        return
+    while len(_PYC_VOUCH_MEMO) >= cap:
+        del _PYC_VOUCH_MEMO[next(iter(_PYC_VOUCH_MEMO))]
+    _PYC_VOUCH_MEMO[key] = None
 
 
 def _pyc_says_ok(full: Path, source_mtime: float, source_size: int) -> bool:
@@ -467,7 +525,17 @@ class SyntaxErrorCollector(BaseCollector):
             # file this collector would skip anyway) and BEFORE the read, and
             # never touches the memo: see the module docstring for the one
             # stale-pyc exception this inherits from ``import``.
+            #
+            # A vouch remembered from an earlier collect over this EXACT stat
+            # skips even the probe. The memo sits here, not inside
+            # ``_pyc_says_ok``, so a direct probe still always reads the pyc.
+            key = (str(full), st.st_mtime_ns, st.st_size, st.st_ino)
+            if key in _PYC_VOUCH_MEMO:
+                _PYC_VOUCH_COUNTS["hits"] += 1
+                _PYC_TRUST_COUNTS["trusted"] += 1
+                return None
             if _pyc_says_ok(full, st.st_mtime, st.st_size):
+                _remember_vouch(key)
                 _PYC_TRUST_COUNTS["trusted"] += 1
                 return None
             # Shared per-scan decode (see text_source), with this collector's
