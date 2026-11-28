@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-600
+    lenses: new-capability, hardening/DX
+    - Candidate A1 -- per-category auto-dispatch thresholds: `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0` (ROADMAP #191, QUEUED since iter-155)
+    - Candidate A2 -- `pla dispatch|run --allow-tool NAME` (repeatable): narrow the ACT sandbox for one dispatch (ROADMAP #212, QUEUED since iter-174)
+    - Candidate A3 -- `pla trace --kind plan|act|check` narrows a run transcript to one step kind
+    - Candidate B1 -- the remaining path flags refuse an EMPTY value with exit 2 (`--state-dir`, `--slate`, `--run-dir`, `--old/--new`), as 595 shipped for `--workspace`
+    - Candidate B2 -- `watch` exits 1 BEFORE tick 1 on a deterministic config fault (unconfigured scripted provider), instead of N x `scan n failed` then exit 0
+    - Candidate B3 -- `pla --provider scripted runs` (a shared flag placed before the verb) exits 2 with a paste-ready "flags go after the verb: pla runs --provider scripted" hint instead of `invalid choice: 'scripted'`
+    winner: B1
+    ship: pending (not yet decided)
   iter-598
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- syntax_error checks its parse-verdict memo BEFORE the pyc probe when the text is already in the scan cache: 412 pyc opens per warm tick drop to ~0
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- README "Global flags" paragraph (line 461) is false: `pla --provider scripted runs` exits 2 with `invalid choice: 'scripted'`
     - Candidate B3 -- `scan`/`run` workspace paragraph (README 474) and exit row 2 should state the 595 empty-value case and the FILE case in the message users actually see
     winner: B2
-    ship: pending (not yet decided)
+    ship: PUSHED 380c3b1
   iter-597
     lenses: simplification-and-deletion, performance-and-throughput
     - Candidate A1 -- one `_resolve_slate_arg` owns the default slate path and the "slate file not found" refusal for dispatch, explain, verify and diff
@@ -3109,4 +3119,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-308 scouted iterations
+309 scouted iterations

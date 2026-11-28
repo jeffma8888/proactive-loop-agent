@@ -438,6 +438,24 @@ def _nonempty_glob(raw: str) -> str:
     return raw
 
 
+def _nonempty_path(raw: str) -> str:
+    """argparse ``type=`` validator: a path flag whose value is not the empty string.
+
+    WHY: ``Path("")`` is ``.``, so an unset shell variable (``--slate "$SLATE"`` in a
+    cron line) would otherwise silently retarget the verb -- ``runs`` lists the cwd,
+    ``trace``/``resume`` look for a checkpoint in ``.``, and ``dispatch``/``explain``
+    fall back to the default slate, a file the user never named. Rejecting at PARSE
+    time makes it a ``SystemExit(2)`` usage error naming the flag, before any side
+    effect. Only ``""`` is refused: a whitespace-only value is a legal filename, and
+    ``raw`` is returned UNCHANGED so every downstream path and message is identical.
+    """
+    if raw == "":
+        raise argparse.ArgumentTypeError(
+            "must not be empty (an empty path would silently mean '.')"
+        )
+    return raw
+
+
 def _at_most_once_error(option_string: str) -> str:
     """The ONE wording a repeated single-valued filter is rejected with.
 
@@ -741,6 +759,7 @@ def build_parser() -> argparse.ArgumentParser:
     globals_.add_argument(
         "--state-dir",
         default=None,
+        type=_nonempty_path,
         help="Directory for slates, checkpoints, and run artifacts (default .pla_runs).",
     )
     # Repeatable verbosity dial, on the SHARED globals parent so it is accepted
@@ -943,6 +962,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_dispatch.add_argument(
         "--slate",
         default=None,
+        type=_nonempty_path,
         help=(
             "Path to a slate JSON from `scan` (default <state_dir>/slate.json, the "
             "file `scan`/`run` write; the resolved default is echoed on stderr)."
@@ -1269,7 +1289,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_resume = sub.add_parser(
         "resume", parents=[globals_], help="Resume a checkpointed run from its run dir."
     )
-    p_resume.add_argument("--run-dir", required=True, help="A run-<id> directory to resume.")
+    p_resume.add_argument(
+        "--run-dir",
+        required=True,
+        type=_nonempty_path,
+        help="A run-<id> directory to resume.",
+    )
     p_resume.add_argument(
         "--json",
         action="store_true",
@@ -1398,6 +1423,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_explain.add_argument(
         "--slate",
         default=None,
+        type=_nonempty_path,
         help="Path to a slate JSON from `scan` (default <state_dir>/slate.json).",
     )
     p_explain.add_argument(
@@ -1434,7 +1460,12 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[globals_],
         help="Resolve each goal's cited sources against a saved scan snapshot and report the unresolved ones (read-only, LLM-free).",
     )
-    p_verify.add_argument("--slate", required=True, help="Path to a slate JSON from `scan`.")
+    p_verify.add_argument(
+        "--slate",
+        required=True,
+        type=_nonempty_path,
+        help="Path to a slate JSON from `scan`.",
+    )
     p_verify.add_argument(
         "--snapshot",
         required=True,
@@ -1472,6 +1503,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_trace.add_argument(
         "--run-dir",
+        type=_nonempty_path,
         help=(
             "A run-<id> directory to trace (default: the newest run under the state dir, "
             "by checkpoint created_at)."
@@ -1886,11 +1918,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_diff.add_argument(
         "--old",
         default=None,
+        type=_nonempty_path,
         help="Path to the OLDER slate JSON from `scan`. Required unless --dir is given.",
     )
     p_diff.add_argument(
         "--new",
         default=None,
+        type=_nonempty_path,
         help="Path to the NEWER slate JSON from `scan`. Required unless --dir is given.",
     )
     p_diff.add_argument(

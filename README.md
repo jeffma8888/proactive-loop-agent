@@ -478,6 +478,11 @@ attaches no handler and prints only WARNING-level degradation lines to stderr.
 fast with `error: workspace not found: <path>` on stderr and exit code 2, rather
 than silently producing an empty slate. A mistyped path is reported as the
 problem instead of hiding behind an empty result.
+An EMPTY value for `--state-dir` (every verb),
+`--slate` (`dispatch`/`explain`/`verify`), `--run-dir` (`resume`/`trace`) or
+`diff --old`/`--new` is a usage error (exit 2, `error: argument <FLAG>: must
+not be empty`) at parse time, because `Path("")` is `.`: an unset `"$SLATE"` in
+a cron line would otherwise silently fall back to the cwd or the default slate.
 
 `scan --format` picks the stdout rendering without changing the slate file it
 writes (so `dispatch`/`explain`/`trace` behave identically no matter which format
