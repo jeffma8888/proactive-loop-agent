@@ -29,19 +29,6 @@ import pytest
 
 from proactive_loop import cli
 from proactive_loop.models import CandidateGoal, RunState
-from tests.test_iter324_behavior import iter587_trace_newest
-from tests.test_iter325_behavior import iter588_run_dir_not_a_directory
-from tests.test_iter326_behavior import iter589_scripted_file_faults
-from tests.test_iter327_behavior import iter590_emit_tails
-from tests.test_iter328_behavior import iter591_live_count_memo
-from tests.test_iter329_behavior import iter592_readme_cli_census
-from tests.test_iter330_behavior import iter593_dispatch_default_slate
-from tests.test_iter331_behavior import iter595_empty_workspace
-from tests.test_iter332_behavior import iter596_ranked_pairs
-from tests.test_iter333_behavior import iter597_pyc_listing
-from tests.test_iter334_behavior import iter598_shared_flags_census
-from tests.test_iter335_behavior import iter600_empty_path_flags
-from tests.test_iter336_behavior import iter601_demo_default_slate
 
 REPO: Final = Path(__file__).resolve().parents[1]
 README: Final = REPO / "README.md"
@@ -373,16 +360,3 @@ def test_runs_older_than_filters_by_checkpoint_age(
     _iter583_filtered_note(capsys, tmp_path / "iter583")
     _iter584_explain_default_slate(capsys, monkeypatch, tmp_path / "iter584")
     _iter586_spec_usage_required_flags()
-    assert iter587_trace_newest(capsys, tmp_path / "iter587") == 5  # trace newest-run default
-    assert iter588_run_dir_not_a_directory(capsys, tmp_path / "iter588") == 5  # --run-dir <file>
-    assert iter589_scripted_file_faults(capsys, tmp_path / "iter589") == 3  # script file faults
-    assert iter590_emit_tails(capsys, monkeypatch, tmp_path / "iter590") == 5  # --json tails on _emit
-    assert iter591_live_count_memo(monkeypatch, tmp_path / "iter591") == 9  # live-count memo
-    assert iter592_readme_cli_census() == 7  # README CLI rows x build_parser census
-    assert iter593_dispatch_default_slate(capsys, monkeypatch, tmp_path / "iter593") == 8  # dispatch default slate
-    assert iter595_empty_workspace(capsys, monkeypatch, tmp_path / "iter595") == 4  # empty --workspace
-    assert iter596_ranked_pairs() == 5  # one _ranked_pairs seam for 5 scan renderers
-    assert iter597_pyc_listing(monkeypatch, tmp_path / "iter597") == 6  # pyc probe uses __pycache__ listing
-    assert iter598_shared_flags_census(capsys, monkeypatch, tmp_path / "iter598") == 7  # README shared flags x build_parser
-    assert iter600_empty_path_flags(capsys, monkeypatch, tmp_path / "iter600") == 8  # empty path flags exit 2
-    assert iter601_demo_default_slate(capsys, monkeypatch, tmp_path / "iter601") == 6  # demo uses default slate

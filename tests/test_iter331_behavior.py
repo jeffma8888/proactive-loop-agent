@@ -12,16 +12,16 @@ ISOLATION CONTRACT (honored): written from the iteration spec (``pm.md``),
 guard would find a real signal and the tests would go red. No ambient mtimes, no real
 cwd, no implementation source, engineer/reviewer note or git diff was read.
 
-The module collects ZERO items on purpose (the suite-size binding wall in
-test_iter263 b6 / test_iter270 b7 demands >= 6 items of binding headroom, which four
-new items broke): ``iter595_empty_workspace`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned behaviour-group count.
+The module collects ONE item, ``test_empty_workspace_exits_2``, which clears every
+``PLA_*`` env var and asserts ``iter595_empty_workspace``'s returned check count (until
+factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item binding
+wall).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -182,3 +182,14 @@ def iter595_empty_workspace(
     _b5_first_check(root, capsys)
     _b6_b7_unchanged(root, capsys)
     return 4
+
+
+def test_empty_workspace_exits_2(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter595_empty_workspace(capsys, monkeypatch, tmp_path / "h") == 4

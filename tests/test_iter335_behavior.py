@@ -13,11 +13,10 @@ provider), from a scratch cwd created in ``tmp_path`` (``monkeypatch.chdir``) --
 ambient mtimes, no real cwd. No implementation source, engineer/reviewer note or git
 diff was read.
 
-The module collects ZERO items on purpose (the suite-size binding wall in
-test_iter263 b6 / test_iter270 b7 demands >= 6 items of binding headroom):
-``iter600_empty_path_flags`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned behaviour-group count (8).
+The module collects ONE item, ``test_empty_path_flags_exit_2``, which clears every
+``PLA_*`` env var and asserts ``iter600_empty_path_flags``'s returned check count (until
+factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item binding
+wall).
 
 Spec ambiguity noted: behaviour 3 names a goal titled ``x``; a real scan does not
 propose that title, so the auto-dispatch goal's REAL title from a scripted scan is used
@@ -237,3 +236,14 @@ def iter600_empty_path_flags(
     _b6_whitespace_and_env(capsys, monkeypatch, cwd)
     _b8_readme()
     return 8
+
+
+def test_empty_path_flags_exit_2(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter600_empty_path_flags(capsys, monkeypatch, tmp_path / "h") == 8

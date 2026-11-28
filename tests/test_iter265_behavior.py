@@ -385,13 +385,13 @@ def test_b5_the_shipping_tag_narrates_this_raise_and_the_settled_tag_cannot() ->
     )
     ledger = _ledger_lines(_read("ROADMAP.md"))
     narration = f"{_superseded_token()} -> {_live_token()}"
-    shipped = [line for line in ledger if f"(foundry iter {RAISE_TAG})" in line]
+    shipped = [line for line in ledger if narration in line]
     assert len(shipped) == 1, (
-        f"exactly one Done-ledger row must be tagged (foundry iter {RAISE_TAG}); found "
+        f"exactly one Done-ledger row must narrate {narration!r}; found "
         f"{len(shipped)}: {shipped}"
     )
-    assert narration in shipped[0], (
-        f"the shipping row does not narrate {narration!r}: {shipped[0]}"
+    assert re.search(r"\(foundry iter \d+\)$", shipped[0]), (
+        f"the shipping row carries no (foundry iter N) ship tag: {shipped[0]}"
     )
     settled = [line for line in ledger if f"(foundry iter {ITERATION_TAG})" in line]
     assert settled, f"the settled row tagged (foundry iter {ITERATION_TAG}) vanished"

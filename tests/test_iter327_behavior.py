@@ -15,10 +15,10 @@ gave identical rc + md5(stdout) + md5(stderr, floats masked). The literals below
 (empty-slate forms, guard lines, gate line) are copied from that HEAD run. No
 sha, line number or wall-clock bound is pinned (ship hazards H1/H2).
 
-The module collects ZERO items: the suite-size census (test_iter263/270) holds a
-6-item binding wall that is exactly met at HEAD, so any new collected item reds
-the build. ``test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``
-(which clears every ``PLA_*`` env var) calls ``iter590_emit_tails``.
+The module collects ONE item, ``test_json_tails_go_through_emit``, which clears every
+``PLA_*`` env var and asserts ``iter590_emit_tails``'s returned check count (until
+factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item binding
+wall).
 """
 
 from __future__ import annotations
@@ -262,8 +262,7 @@ def iter590_emit_tails(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, root: Path
 ) -> int:
     """Drive spec behaviours 1-6 on a fresh tmp state; returns how many behaviour
-    groups ran. Deliberately NOT collected (no ``test_`` prefix) -- see the module
-    docstring for the binding-wall reason and the host test."""
+    groups ran; called by ``test_json_tails_go_through_emit``."""
     root.mkdir(parents=True, exist_ok=True)
     _b1_counts()
     env = _Env(root, capsys)
@@ -276,3 +275,14 @@ def iter590_emit_tails(
     for check in checks:
         check()
     return 1 + len(checks)
+
+
+def test_json_tails_go_through_emit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter590_emit_tails(capsys, monkeypatch, tmp_path / "h") == 5

@@ -7,20 +7,23 @@ ISOLATION CONTRACT (honored): written only from the iteration spec (pm.md), the
 README, the existing ``tests/`` tree and real ``pla <verb> --help`` runs. No
 ``src/`` implementation, no engineer/reviewer notes, no ``git diff``.
 
-The module collects ZERO items: the suite-size census (test_iter263/270) holds a
-6-item binding wall, so any new collected item reds the build.
-``test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``
-calls ``iter592_readme_cli_census`` and asserts how many checks ran. Behaviour 8
-(no src / SPEC / intro change) is a property of the diff, verified out-of-suite
-by the tester; the ledger row count is owned by test_iter264.
+The module collects ONE item, ``test_readme_cli_rows_name_every_verb_flag``, which
+clears every ``PLA_*`` env var and asserts ``iter592_readme_cli_census``'s returned
+check count (until factory iter 602 it was hosted, uncollected, in test_iter317 under
+the 6-item binding wall). Behaviour 8 (no src / SPEC / intro change) is a property of
+the diff, verified out-of-suite by the tester; the ledger row count is owned by
+test_iter264.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import os
 import re
 from pathlib import Path
+
+import pytest
 
 from proactive_loop import cli
 
@@ -131,7 +134,7 @@ def _b5_b6_b7_live_census() -> None:
     assert synthetic == [("watch", "--json")], synthetic
 
 
-def _zero_items() -> None:
+def _one_collected_test() -> None:
     tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
     names = [
         n.name
@@ -139,7 +142,8 @@ def _zero_items() -> None:
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
     ]
     assert names, "module parsed to nothing"
-    assert not [n for n in names if n.startswith(("test", "Test"))], names
+    collected = [n for n in names if n.startswith(("test", "Test"))]
+    assert collected == ["test_readme_cli_rows_name_every_verb_flag"], names
 
 
 def _ledger_row() -> None:
@@ -155,6 +159,15 @@ def iter592_readme_cli_census() -> int:
     _b3_signals_collector()
     _b4_scan_and_watch_json()
     _b5_b6_b7_live_census()
-    _zero_items()
+    _one_collected_test()
     _ledger_row()
     return 7
+
+
+def test_readme_cli_rows_name_every_verb_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter592_readme_cli_census() == 7

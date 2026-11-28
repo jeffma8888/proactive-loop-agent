@@ -2,14 +2,17 @@
 with ``--run-dir`` pointing at an existing regular FILE exit 2 with the single line
 ``error: --run-dir is not a directory: <path>``.
 
-The module collects ZERO items; see ``iter588_run_dir_not_a_directory`` for why and
-for the host test that calls it. Every case runs ``main()`` in-process on tmp paths
-(offline, no mtime dependence).
+The module collects ONE item, ``test_run_dir_that_is_a_file_is_rejected``, which clears
+every ``PLA_*`` env var and asserts ``iter588_run_dir_not_a_directory``'s returned check
+count (until factory iter 602 it was hosted, uncollected, in test_iter317 under the
+6-item binding wall). Every case runs ``main()`` in-process on tmp paths (offline, no
+mtime dependence).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -170,11 +173,7 @@ def iter588_run_dir_not_a_directory(capsys: pytest.CaptureFixture[str], root: Pa
     """Drive spec behaviors 1-7 (plus the README clause), each on its own sub-dir
     of ``root``; returns how many behavior groups ran.
 
-    Deliberately NOT collected (no ``test_`` prefix): the suite-size census
-    (test_iter263/270) holds a permanent 6-item binding wall that is exactly met
-    at HEAD, so ANY new collected item reds the build. The host test
-    ``test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``
-    (which already clears every ``PLA_*`` env var) calls this oracle.
+    Called by ``test_run_dir_that_is_a_file_is_rejected``, this module's one collected test.
     """
     checks = (
         _b1_to_b4_file_is_not_a_directory,
@@ -188,3 +187,14 @@ def iter588_run_dir_not_a_directory(capsys: pytest.CaptureFixture[str], root: Pa
         sub.mkdir(parents=True)
         check(sub, capsys)
     return len(checks)
+
+
+def test_run_dir_that_is_a_file_is_rejected(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter588_run_dir_not_a_directory(capsys, tmp_path / "h") == 5

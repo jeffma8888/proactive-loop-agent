@@ -345,7 +345,9 @@ def test_b4_no_tracked_file_still_claims_the_superseded_floor() -> None:
             continue
         allowed = SUPERSEDED_ALLOWANCES.get(path, ())
         for number, line in enumerate(text.splitlines(), start=1):
-            if not any(spelling in line for spelling in spellings):
+            if not any(
+                re.search(rf"(?<![\d,_.]){re.escape(s)}(?![\d,_])", line) for s in spellings
+            ):
                 continue
             if any(marker in line for marker in guard.FLOOR_HISTORY_MARKERS):
                 continue

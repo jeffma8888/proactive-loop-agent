@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-602
+    lenses: integration-and-adoption, simplification-and-deletion
+    - Candidate A1 -- OPERATOR PIN 11-27: give the 13 zero-item harnesses (iter 583-601) their own collected tests, re-measure past 6,100, then flip the README floor to 6,100+ in one commit
+    - Candidate A2 -- `dispatch` / `resume` gain an opt-in `--fail-unless-done` gate: exit 5 with one stderr line when the run ends `budget_exhausted` or `failed`
+    - Candidate A3 -- `pla runs --fail-if-any`: exit 5 when the selected listing is non-empty, so a monitor can poll the state dir without parsing
+    - Candidate B1 -- OPERATOR PIN 11-27: give the 13 zero-item harnesses (iter 583-601) their own collected tests, re-measure past 6,100, flip README to 6,100+ in one commit
+    - Candidate B2 -- one empty-path rule: `--workspace` uses 600's parse-time `_nonempty_path` and deletes 595's hand-rolled empty branch in `_checked_workspace`
+    - Candidate B3 -- one shared FIFO `remember(memo, key, value, cap)` replaces the 4 hand-copied bounded-memo eviction bodies in the collectors (re-measured 597 A3)
+    winner: A1
+    ship: pending (not yet decided)
   iter-601
     lenses: hardening/DX, integration-and-adoption
     - Candidate A1 -- the output/stream path flags that 600 did not cover refuse an EMPTY value with exit 2 instead of failing open
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `pla verify` with no `--slate` reads `<state-dir>/slate.json`, so the citation gate matches explain and dispatch
     - Candidate B3 -- give the `watch --out-dir` -> `trend --dir` stream its first executable consumer in `make demo`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 620741a
   iter-600
     lenses: new-capability, hardening/DX
     - Candidate A1 -- per-category auto-dispatch thresholds: `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0` (ROADMAP #191, QUEUED since iter-155)
@@ -3129,4 +3139,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-310 scouted iterations
+311 scouted iterations

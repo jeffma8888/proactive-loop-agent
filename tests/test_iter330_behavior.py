@@ -14,15 +14,16 @@ PRIVATE ``tmp_path`` state dirs and a workspace created fresh in ``tmp_path`` (n
 dependence on fixture mtimes). No implementation source, engineer/reviewer note or
 git diff was read.
 
-The module collects ZERO items on purpose (the suite-size wall sits at binding
-headroom): ``iter593_dispatch_default_slate`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned check count.
+The module collects ONE item, ``test_dispatch_defaults_to_state_dir_slate``, which
+clears every ``PLA_*`` env var and asserts ``iter593_dispatch_default_slate``'s returned
+check count (until factory iter 602 it was hosted, uncollected, in test_iter317 under
+the 6-item binding wall).
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -263,3 +264,14 @@ def iter593_dispatch_default_slate(
     _b7_help_and_verify(capsys, state)
     _b8_docs()
     return 8
+
+
+def test_dispatch_defaults_to_state_dir_slate(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter593_dispatch_default_slate(capsys, monkeypatch, tmp_path / "h") == 8

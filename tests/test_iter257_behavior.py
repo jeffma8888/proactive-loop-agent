@@ -153,15 +153,14 @@ def test_t01_the_ledger_narrates_the_raise_the_readme_actually_publishes() -> No
     ledger_row = [
         line
         for line in _read("ROADMAP.md").splitlines()
-        if line.startswith("- #") and f"(foundry iter {RAISE_TAG})" in line
+        if line.startswith("- #") and f"{previous} -> {token}" in line
     ]
     assert len(ledger_row) == 1, (
-        f"expected exactly one Done-ledger row tagged (foundry iter {RAISE_TAG}); "
-        f"found {len(ledger_row)}"
+        f"expected exactly one Done-ledger row narrating the raise {previous} -> {token} "
+        f"the README publishes; found {len(ledger_row)}"
     )
-    assert f"{previous} -> {token}" in ledger_row[0], (
-        f"the iteration-{RAISE_TAG} ledger row does not narrate the raise "
-        f"{previous} -> {token} the README publishes: {ledger_row[0]!r}"
+    assert re.search(r"\(foundry iter \d+\)$", ledger_row[0]), (
+        f"the raise row carries no (foundry iter N) ship tag: {ledger_row[0]!r}"
     )
 
 

@@ -12,11 +12,10 @@ network). The ONLY source text it reads is the structural census the spec itself
 mandates (behaviour 3: ``inspect.getsource`` on each renderer and a text count over
 ``cli.py``); no engineer/reviewer note or git diff was read.
 
-The module collects ZERO items on purpose (the suite-size binding wall in
-test_iter263 b6 / test_iter270 b7 leaves no headroom for new items):
-``iter596_ranked_pairs`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned check-group count.
+The module collects ONE item, ``test_scan_renderers_share_ranked_pairs``, which clears
+every ``PLA_*`` env var and asserts ``iter596_ranked_pairs``'s returned check count
+(until factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item
+binding wall).
 """
 
 from __future__ import annotations
@@ -24,10 +23,13 @@ from __future__ import annotations
 import csv
 import inspect
 import io
+import os
 import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from proactive_loop import cli
 from proactive_loop.config import Settings
@@ -224,3 +226,12 @@ def iter596_ranked_pairs() -> int:
         group()
         ran += 1
     return ran
+
+
+def test_scan_renderers_share_ranked_pairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter596_ranked_pairs() == 5

@@ -9,11 +9,10 @@ header probes by wrapping the module-level ``_pyc_header_matches`` seam the spec
 and drives the public ``SyntaxErrorCollector().collect`` for the trusted-count checks.
 No wall-clock bound, no sha pin, no network.
 
-The module collects ZERO items on purpose (the suite-size binding wall in
-test_iter263 b6 / test_iter270 b7 leaves no headroom for new items):
-``iter597_pyc_listing`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned check-group count.
+The module collects ONE item, ``test_pyc_probe_opens_only_listed_pycs``, which clears
+every ``PLA_*`` env var and asserts ``iter597_pyc_listing``'s returned check count
+(until factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item
+binding wall).
 
 Spec ambiguity noted: behaviour 2 says ``pyc_trusted_count()`` rises when
 ``_pyc_says_ok`` is called; the count is asserted here through a collect pass (the
@@ -23,6 +22,7 @@ caller-visible effect), and the probe count on the direct call.
 from __future__ import annotations
 
 import importlib.util
+import os
 import struct
 import sys
 from pathlib import Path
@@ -168,3 +168,12 @@ def iter597_pyc_listing(monkeypatch: pytest.MonkeyPatch, root: Path) -> int:
 
     clear_parse_memo()
     return groups
+
+
+def test_pyc_probe_opens_only_listed_pycs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter597_pyc_listing(monkeypatch, tmp_path / "h") == 6

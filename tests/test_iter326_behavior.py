@@ -2,14 +2,17 @@
 file that is missing, a directory, not UTF-8, empty or not valid JSON is reported as
 ONE ``error:`` line that names the file (exit 1), for both ``scan`` and ``run``.
 
-The module collects ZERO items; see ``iter589_scripted_file_faults`` for why and for
-the host test that calls it. Every case runs ``main()`` in-process on tmp paths
-(offline, no mtime dependence).
+The module collects ONE item, ``test_bad_scripted_responses_file_is_named``, which
+clears every ``PLA_*`` env var and asserts ``iter589_scripted_file_faults``'s returned
+check count (until factory iter 602 it was hosted, uncollected, in test_iter317 under
+the 6-item binding wall). Every case runs ``main()`` in-process on tmp paths (offline,
+no mtime dependence).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -152,11 +155,7 @@ def iter589_scripted_file_faults(capsys: pytest.CaptureFixture[str], root: Path)
     """Drive spec behaviors 1-9, each group on its own sub-dir of ``root``; returns
     how many behavior groups ran.
 
-    Deliberately NOT collected (no ``test_`` prefix): the suite-size census
-    (test_iter263/270) holds a permanent 6-item binding wall that is exactly met
-    at HEAD, so ANY new collected item reds the build. The host test
-    ``test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``
-    (which already clears every ``PLA_*`` env var) calls this oracle.
+    Called by ``test_bad_scripted_responses_file_is_named``, this module's one collected test.
     """
     checks = (_b1_to_b7_faults_name_the_file, _b8_controls_unchanged, _b9_direct_api)
     for i, check in enumerate(checks):
@@ -164,3 +163,14 @@ def iter589_scripted_file_faults(capsys: pytest.CaptureFixture[str], root: Path)
         sub.mkdir(parents=True)
         check(sub, capsys)
     return len(checks)
+
+
+def test_bad_scripted_responses_file_is_named(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter589_scripted_file_faults(capsys, tmp_path / "h") == 3

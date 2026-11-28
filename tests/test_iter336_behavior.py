@@ -10,11 +10,10 @@ mtimes are pinned by ``os.utime`` (no ambient mtimes, no real ``.pla_runs``). No
 implementation source, engineer/reviewer note or git diff was read; ``make demo`` is
 never shelled out to.
 
-The module collects ZERO items on purpose (the suite-size binding wall in
-test_iter263 b6 / test_iter270 b7 demands >= 6 items of binding headroom):
-``iter601_demo_default_slate`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned behaviour-group count (6).
+The module collects ONE item, ``test_make_demo_uses_default_slate``, which clears every
+``PLA_*`` env var and asserts ``iter601_demo_default_slate``'s returned check count
+(until factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item
+binding wall).
 """
 
 from __future__ import annotations
@@ -215,3 +214,14 @@ def iter601_demo_default_slate(
     _b4_b5_equivalence(capsys, cwd)  # EB4, EB5
     _b6_negative_control(capsys, root)  # EB6
     return 6
+
+
+def test_make_demo_uses_default_slate(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter601_demo_default_slate(capsys, monkeypatch, tmp_path / "h") == 6

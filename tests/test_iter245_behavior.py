@@ -52,10 +52,10 @@ ARCHIVE = REPO / "ROADMAP_ARCHIVE.md"
 
 #: The floor this iteration raises the published claim TO, as a bare int. Bare on
 #: purpose -- see the module docstring on why no comma-grouped token appears here.
-EXPECTED_FLOOR = 6_000
+EXPECTED_FLOOR = 6_100
 
 #: The floor it is raised FROM.
-SUPERSEDED_FLOOR = 5_900
+SUPERSEDED_FLOOR = 6_000
 
 #: The widest live count that still rounds to ``EXPECTED_FLOOR`` under BOTH
 #: invariants ``test_iter238`` pins (``live // 100 * 100`` and ``(live + 1) // 100
@@ -251,7 +251,7 @@ def test_b3b_a_second_edit_to_the_intro_would_be_caught() -> None:
 
 def test_b4_published_floor_derives_the_new_floor_without_editing_the_derivation() -> None:
     assert guard.published_floor() == EXPECTED_FLOOR
-    assert guard.floor_token(EXPECTED_FLOOR) == "6," + "000"
+    assert guard.floor_token(EXPECTED_FLOOR) == "6," + "100"
 
 
 # --------------------------------------------------------------------------- b5
@@ -497,7 +497,7 @@ def test_b12_the_roadmap_stays_inside_its_budget_as_its_owners_measure_it() -> N
     is precisely what ``tests/test_iter172_behavior.py`` exists to stop: it censuses
     every tracked module that applies ``len`` to the budgeted document inside an
     assert and reds on any bound that is not the owner's. An early draft of this test
-    asserted ``<= 36_000`` directly and reddened that census at line 365 -- a real
+    asserted ``<= 36_100`` directly and reddened that census at line 365 -- a real
     catch, not a nuisance, since a re-typed ceiling is a number that can rot apart
     from the one enforced. So the char count comes from the owner's verdict object and
     the working ceiling is DERIVED from the constants that define it.

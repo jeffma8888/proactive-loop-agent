@@ -8,11 +8,10 @@ and the conventions under ``tests/`` (the README x parser census shape mirrors
 test_iter329). The paragraph is located by its ``Shared flags:`` content anchor, never by
 line number; no sha pin, no wall-clock bound, no network.
 
-The module collects ZERO items on purpose (the suite-size binding wall in
-test_iter263 b6 / test_iter270 b7 leaves no headroom for new items):
-``iter598_shared_flags_census`` is called from
-``tests/test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``,
-which asserts its returned check-group count.
+The module collects ONE item, ``test_readme_shared_flags_go_after_the_verb``, which
+clears every ``PLA_*`` env var and asserts ``iter598_shared_flags_census``'s returned
+check count (until factory iter 602 it was hosted, uncollected, in test_iter317 under
+the 6-item binding wall).
 
 Spec ambiguity noted: behaviour 2 asks the paragraph to say the flags are settable via
 ``PLA_*`` environment variables; that is asserted as prose (the ``PLA_*`` token), not by
@@ -22,6 +21,7 @@ driving each env var, because the env mapping is not part of this docs-only chan
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from pathlib import Path
 
@@ -164,3 +164,14 @@ def iter598_shared_flags_census(
     checks += 1
 
     return checks
+
+
+def test_readme_shared_flags_go_after_the_verb(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter598_shared_flags_census(capsys, monkeypatch, tmp_path / "h") == 7

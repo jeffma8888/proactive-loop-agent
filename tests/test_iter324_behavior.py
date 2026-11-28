@@ -13,13 +13,16 @@ consulted. Every state dir is a fresh ``tmp_path`` (never the ambient
 ``.pla_runs``); every checkpoint is a hand-written ``RunState`` with an explicit
 ``created_at`` (never mtime), so the tests are clone-safe. ROADMAP/SPEC size
 pins are owned by test_iter280/308 and are deliberately not re-asserted here.
-The module collects ZERO items; see ``iter587_trace_newest`` for why and
-where it is hosted.
+The module collects ONE item, ``test_trace_defaults_to_newest_run``, which clears every
+``PLA_*`` env var and asserts ``iter587_trace_newest``'s returned check count (until
+factory iter 602 it was hosted, uncollected, in test_iter317 under the 6-item binding
+wall).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -174,11 +177,7 @@ def iter587_trace_newest(capsys: pytest.CaptureFixture[str], root: Path) -> int:
     """Drive all eight spec behaviors, each on its own sub-dir of ``root``;
     returns how many behavior groups ran.
 
-    Deliberately NOT collected (no ``test_`` prefix): the suite-size census
-    (test_iter263/270) holds a permanent 6-item binding wall that was exactly
-    met at HEAD, so ANY new collected item reds the build. The host test
-    ``test_iter317_behavior.py::test_runs_older_than_filters_by_checkpoint_age``
-    (which already clears every ``PLA_*`` env var) calls this oracle.
+    Called by ``test_trace_defaults_to_newest_run``, this module's one collected test.
     """
     checks = (
         _b1_b2_newest_by_created_at_then_by_name,
@@ -192,3 +191,14 @@ def iter587_trace_newest(capsys: pytest.CaptureFixture[str], root: Path) -> int:
         sub.mkdir(parents=True)
         check(sub, capsys)
     return len(checks)
+
+
+def test_trace_defaults_to_newest_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Own collected item (no longer hosted in test_iter317), so a regression is reported
+    under THIS behavior's name and cannot hide the other harnesses."""
+    for key in list(os.environ):
+        if key.startswith("PLA_"):
+            monkeypatch.delenv(key, raising=False)
+    assert iter587_trace_newest(capsys, tmp_path / "h") == 5
