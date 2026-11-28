@@ -72,9 +72,9 @@ STATE_DIR_NAME: Final = ".pla_runs"
 AUDIT_NAME: Final = "explain.json"
 EXPECTED_DEMO_STEPS: Final = 12  # +1 fixture mtime stamp (foundry iter 547)
 
-# Spec behavior 1 fixes this step verbatim.
+# Spec behavior 1 fixes this step verbatim; the default slate replaced --slate (foundry iter 601).
 PUBLISH_STEP: Final = (
-    f"uv run pla explain --slate {STATE_DIR_NAME}/slate.json --json"
+    f"uv run pla explain --state-dir {STATE_DIR_NAME} --json"
     f" > {STATE_DIR_NAME}/{AUDIT_NAME}"
 )
 # Spec behavior 10 fixes the LAST step verbatim; it must not move.

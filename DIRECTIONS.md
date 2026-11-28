@@ -1,6 +1,16 @@
 # Foundry directions
 
 foundry directions -- proactive-loop-agent
+  iter-601
+    lenses: hardening/DX, integration-and-adoption
+    - Candidate A1 -- the output/stream path flags that 600 did not cover refuse an EMPTY value with exit 2 instead of failing open
+    - Candidate A2 -- a slate or checkpoint that is not JSON says "not valid JSON at line L column C", not a bare "1 validation error"
+    - Candidate A3 -- `watch` fails before tick 1 on a deterministic provider-config fault, as it already does for a bad `--out-dir`
+    - Candidate B1 -- `make demo` (CI's own on-ramp) migrates to the shipped short forms: `dispatch --dry-run --title` with the default slate, `explain`/`trace` with no path flags
+    - Candidate B2 -- `pla verify` with no `--slate` reads `<state-dir>/slate.json`, so the citation gate matches explain and dispatch
+    - Candidate B3 -- give the `watch --out-dir` -> `trend --dir` stream its first executable consumer in `make demo`
+    winner: B1
+    ship: pending (not yet decided)
   iter-600
     lenses: new-capability, hardening/DX
     - Candidate A1 -- per-category auto-dispatch thresholds: `PLA_CATEGORY_MIN_SCORE=career:4.5,project:3.0` (ROADMAP #191, QUEUED since iter-155)
@@ -10,7 +20,7 @@ foundry directions -- proactive-loop-agent
     - Candidate B2 -- `watch` exits 1 BEFORE tick 1 on a deterministic config fault (unconfigured scripted provider), instead of N x `scan n failed` then exit 0
     - Candidate B3 -- `pla --provider scripted runs` (a shared flag placed before the verb) exits 2 with a paste-ready "flags go after the verb: pla runs --provider scripted" hint instead of `invalid choice: 'scripted'`
     winner: B1
-    ship: pending (not yet decided)
+    ship: PUSHED 1cf52dc
   iter-598
     lenses: performance-and-throughput, narrative-and-docs
     - Candidate A1 -- syntax_error checks its parse-verdict memo BEFORE the pyc probe when the text is already in the scan cache: 412 pyc opens per warm tick drop to ~0
@@ -3119,4 +3129,4 @@ foundry directions -- proactive-loop-agent
     - Candidate B3 — `make check`: one command that runs the full public gate locally
     winner: A2
     ship: PUSHED 1328d37
-309 scouted iterations
+310 scouted iterations

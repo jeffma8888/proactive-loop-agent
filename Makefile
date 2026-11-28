@@ -170,6 +170,8 @@ readme-headroom:
 # WHY `trace` reads `dispatched.run_dir` from run.json and not a `run-*` glob:
 # each re-run adds a run dir, so the glob grows to 2 args and `make demo` exits 2.
 #
+# WHY `explain`/`dispatch` pass `--state-dir` and no `--slate`: CI grades the default slate.
+#
 # WHY `uv run python` and not bare `python`: the consumer imports
 # `proactive_loop`, so it needs the project virtualenv.
 #
@@ -190,13 +192,13 @@ demo:
 		--state-dir .pla_runs \
 		--snapshot .pla_runs/snapshot.json \
 		--json > .pla_runs/run.json
-	uv run pla explain --slate .pla_runs/slate.json --json > .pla_runs/explain.json
+	uv run pla explain --state-dir .pla_runs --json > .pla_runs/explain.json
 	uv run python examples/check_autonomy.py < .pla_runs/explain.json
 	uv run pla trace --run-dir "$$(uv run python -c "import json; print(json.load(open('.pla_runs/run.json'))['dispatched']['run_dir'])")" --json > .pla_runs/trace.json
 	uv run python examples/check_trace.py < .pla_runs/trace.json
 	uv run pla runs --summary --json --state-dir .pla_runs > .pla_runs/summary.json
 	uv run python examples/check_runs_summary.py < .pla_runs/summary.json
-	uv run pla dispatch --dry-run --slate .pla_runs/slate.json --goal-id "$$(uv run python -c "import json; print(json.load(open('.pla_runs/run.json'))['dispatched']['goal_id'])")" > .pla_runs/dispatch_preview.txt
+	uv run pla dispatch --dry-run --state-dir .pla_runs --goal-id "$$(uv run python -c "import json; print(json.load(open('.pla_runs/run.json'))['dispatched']['goal_id'])")" > .pla_runs/dispatch_preview.txt
 	uv run python examples/check_dispatch.py < .pla_runs/dispatch_preview.txt
 	uv run python examples/check_run.py < .pla_runs/run.json
 
